@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {SKATE_RAIL_GAPS,SKATE_PARK_RAILS,railLiftAt,insideSkatePark,
- insideCanyonFlow} from "../lib/world/skatepark";
+ insideCanyonFlow,insideMeadowConnector} from "../lib/world/skatepark";
 import {groundHeight} from "../lib/world/activities";
 import {isWater} from "../lib/world/model";
 import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample} from
@@ -11,8 +11,8 @@ import {idleSkateTrick,scoreSkateRailGap} from "../lib/world/skateTricks";
 const distance=(a:{x:number;z:number},b:{x:number;z:number})=>
  Math.hypot(a.x-b.x,a.z-b.z);
 
-test("three distinct real gaps connect dry, independent north-California lines",()=>{
- assert.equal(SKATE_RAIL_GAPS.length,3);
+test("four distinct real gaps connect dry, independent north-California lines",()=>{
+ assert.equal(SKATE_RAIL_GAPS.length,4);
  for(const gap of SKATE_RAIL_GAPS){
   const source=SKATE_PARK_RAILS.find(r=>r.id===gap.from);
   const target=SKATE_PARK_RAILS.find(r=>r.id===gap.to);
@@ -20,7 +20,7 @@ test("three distinct real gaps connect dry, independent north-California lines",
   assert.notEqual(source!.chainId,target!.chainId);
   assert.ok(source!.chainId&&target!.chainId);
   for(const p of [source!.a,source!.b,target!.a,target!.b]){
-   assert.ok(insideSkatePark(p)||insideCanyonFlow(p),gap.id);
+   assert.ok(insideSkatePark(p)||insideCanyonFlow(p)||insideMeadowConnector(p),gap.id);
    assert.equal(isWater(p),false,gap.id);
   }
   assert.ok(distance(source!.b,target!.a)>2,

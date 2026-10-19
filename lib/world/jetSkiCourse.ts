@@ -11,7 +11,7 @@ export const JET_SKI_ARCHES:readonly JetSkiArch[]=[
  // Route bends westward through the northern cape at gate 5.
  // This 21m offshore relocation clears the skimboard sightline without
  // removing physical arch legs or decoupling the actual race checkpoint.
- {id:"natural-bridges",kind:"sandstone",center:{x:0,z:109},
+ {id:"natural-bridges",kind:"sandstone",center:{x:0,z:117},
   span:19,height:13,heading:Math.PI/2,gateIndex:4},
  // The southern ocean passage is a darker, more fractured lava coastline.
  {id:"lava-window",kind:"basalt",center:{x:17,z:-127},
@@ -19,8 +19,8 @@ export const JET_SKI_ARCHES:readonly JetSkiArch[]=[
 ];
 export const JET_SKI_ROCKS:readonly JetSkiRock[]=[
  // Both arch legs are true physical obstacles. The openings stay clear.
- {id:"natural-bridge-north",kind:"sandstone",point:{x:0,z:118.5},radius:2.6,height:13},
- {id:"natural-bridge-south",kind:"sandstone",point:{x:0,z:99.5},radius:2.6,height:13},
+ {id:"natural-bridge-north",kind:"sandstone",point:{x:0,z:126.5},radius:2.6,height:13},
+ {id:"natural-bridge-south",kind:"sandstone",point:{x:0,z:107.5},radius:2.6,height:13},
  {id:"lava-window-north",kind:"basalt",point:{x:17,z:-118},radius:2.7,height:12},
  {id:"lava-window-south",kind:"basalt",point:{x:17,z:-136},radius:2.7,height:12},
  // Mendocino-like eroded sentinels straddling (not blocking) the western line.

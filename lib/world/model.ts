@@ -29,7 +29,7 @@ export const REGIONS: {
   { id: "north-shore", name: "North shore", meaning: "Skimboarding · Shore break", point: { x: 0, z: northShoreZ(0) - 8 }, href: "/photography" },
 ];
 
-export const WORLD_BOUNDS = { minX: -92, maxX: 94, minZ: -96, maxZ: 94 } as const;
+export const WORLD_BOUNDS = { minX: -92, maxX: 94, minZ: -96, maxZ: 104 } as const;
 export const SEA_SURFACE = -1.4;
 
 export const ARCADE_CAVE = {
@@ -503,5 +503,5 @@ export type WorldCommand = {
   region: RegionId;
   serial: number;
   activity?: import("./activities").Activity;
-  skateDestination?: "canyon-flow" | "loop-rollin";
+  skateDestination?: "canyon-flow" | "loop-rollin" | "loop-reverse" | "hollow-log";
 };

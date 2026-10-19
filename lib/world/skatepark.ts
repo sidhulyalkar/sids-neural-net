@@ -48,12 +48,10 @@ export const STUMP_PADS=[
  {id:"north-stump",center:{x:-5,z:33.5},radius:1.3,lift:.15},
  {id:"south-stump",center:{x:-5,z:46.5},radius:1.3,lift:.15},
 ] as const;
-/** Reference-inspired woodland features. Open split log and solid-backed bridge
- * deliberately use a single heightfield: no invisible tunnel/overpass collider. */
-export const GROVE_LOG={center:{x:-11,z:30.7},halfLength:5.35,halfWidth:2.12} as const;
-/** Ride-through giant sequoia: the existing open log remains the ONLY wheel
- * support. Its shell is hollow, with open ends and no invisible roof collider.
- * The inner crown clears the standing avatar while bark stays outside the lane. */
+/** The relocated sequoia links the spiral exit to the woodland return route. */
+export const GROVE_LOG={center:{x:0,z:59.1},halfLength:5.35,halfWidth:2.12} as const;
+/** Shared dimensions for rendered wood and the full inner-surface skating solver.
+ * The bore has open mouths; ordinary ground travel joins its bottom surface. */
 export const GROVE_TUNNEL={
  center:GROVE_LOG.center,halfLength:GROVE_LOG.halfLength,
  // A broad elliptical bore, gently tapered like a true fallen tree.
@@ -122,10 +120,11 @@ export function skateParkZone(p:Point):SkateParkZone{
   p.z>SKATE_LOOP.center.z-SKATE_LOOP.width*.55-.18&&
   p.z<SKATE_LOOP.center.z+SKATE_LOOP.laneOffset+SKATE_LOOP.width*.55+.18)
   return "timber-loop";
- if(insideMeadowConnector(p)&&!insideSkatePark(p))return "canyon-flow";
+
  if(Math.abs(p.x-GROVE_TUNNEL.center.x)<GROVE_TUNNEL.halfLength+.15&&
   Math.abs(p.z-GROVE_TUNNEL.center.z)<GROVE_LOG.halfWidth*.92)
   return "sequoia-tunnel";
+ if(insideMeadowConnector(p)&&!insideSkatePark(p))return "canyon-flow";
  if(Math.hypot(p.x-REDWOOD_BOWL.center.x,p.z-REDWOOD_BOWL.center.z)<REDWOOD_BOWL.rimRadius+.85)
   return "redwood-bowl";
  if(STUMP_PADS.some(pad=>Math.hypot(p.x-pad.center.x,p.z-pad.center.z)<pad.radius+.12))
@@ -144,11 +143,11 @@ export const CANYON_FLOW={
  hip:{x:22.4,z:40.2,width:1.6,impulse:2.45},
 } as const;
 /** The meadow bridge turns toward a downhill westbound roll-in. */
-export const MEADOW_CONNECTOR={minX:7.4,maxX:35,minZ:34.9,maxZ:60,
+export const MEADOW_CONNECTOR={minX:-11,maxX:35,minZ:34.9,maxZ:64,
  bridge:{x:31,z:46},rollIn:{x:29,z:51}} as const;
 export function insideMeadowConnector(p:Point,margin=0){
  return p.x>=MEADOW_CONNECTOR.minX-margin&&p.x<=MEADOW_CONNECTOR.maxX+margin&&
-  p.z>=MEADOW_CONNECTOR.minZ-margin&&p.z<=MEADOW_CONNECTOR.maxZ+margin&&!isWater(p);
+  p.z>=MEADOW_CONNECTOR.minZ-margin&&p.z<=(p.x<=12+margin?MEADOW_CONNECTOR.maxZ:60)+margin&&!isWater(p);
 }
 export function meadowConnectorRise(p:Point){
  if(!insideMeadowConnector(p))return 0;
@@ -245,6 +244,10 @@ type RailChain={
  * The connected grind system can roll through the elbows without a fresh
  * Space press, and each wooden segment is drawn at its own physical Y. */
 export const CANYON_RAIL_CHAINS:readonly RailChain[]=[
+ {id:"sequoia-return",points:[{x:-6.8,z:60},{x:-8.5,z:58.5},{x:-10,z:56.2},{x:-10,z:54}],
+  heights:[.35,.45,.52,.48],radius:.085,wood:true},
+ {id:"grove-home",points:[{x:-10,z:51.9},{x:-9.6,z:49.8},{x:-8.7,z:48}],
+  heights:[.44,.45,.32],radius:.08,wood:true},
  {id:"meadow-bridge-line",points:[{x:24.8,z:38},{x:27,z:39.5},
   {x:29,z:42},{x:31,z:45},{x:31,z:47.5},{x:30.5,z:49.5}],
   heights:[.47,.52,.58,.58,.52,.36],radius:.085,wood:true},
@@ -287,6 +290,7 @@ export const SKATE_PARK_RAILS:readonly SkateRail[]=[
  * Transfer physics and the visual sandstone/cedar lip both use these IDs.
  * No arbitrary nearby grind may magnetically acquire a midair rider. */
 export const SKATE_RAIL_GAPS=[
+ {id:"sequoia-home-hop",from:"sequoia-return-2",to:"grove-home-0",minSpeed:4.5},
  {id:"granite-tongue-gap",from:"granite-tongue-1",to:"down-flat-down-0",minSpeed:5.0},
  {id:"switchback-fern-hop",from:"timber-switchback-2",to:"canyon-snake-0",minSpeed:5.1},
  {id:"snake-root-transfer",from:"canyon-snake-3",to:"canyon-root-curved-0",minSpeed:5.4},

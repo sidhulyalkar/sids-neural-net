@@ -1,10 +1,10 @@
 import * as THREE from "three/src/Three.Core.js";
 import {
-  SKATE_PARK, SKATE_PARK_RAILS, REDWOOD_BOWL, STUMP_PADS,
+  insideSkatePark,SKATE_PARK, SKATE_PARK_RAILS, REDWOOD_BOWL, STUMP_PADS,
   skateParkSurface, skateParkZone, GROVE_LOG, GROVE_BRIDGE,
   GROVE_TUNNEL, SKATE_LOOP,
   groveBridgeRise, groveStoneRise, CANYON_FLOW, CANYON_MANUAL_PADS,
-  MEADOW_CONNECTOR,meadowConnectorRise,canyonFlowRise,railLiftAt,insideCanyonFlow,SKATE_RAIL_GAPS,
+  MEADOW_CONNECTOR,insideMeadowConnector,meadowConnectorRise,canyonFlowRise,railLiftAt,insideCanyonFlow,SKATE_RAIL_GAPS,
 } from "@/lib/world/skatepark";
 import {terrainHeight,type Point} from "@/lib/world/model";
 import {sequoiaTubePoint,TUBE_TAU} from "@/lib/world/skateTunnel";
@@ -177,7 +177,8 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  }
  for(let iz=0;iz<flowStepsZ;iz++)for(let ix=0;ix<flowStepsX;ix++){
   const a=iz*(flowStepsX+1)+ix,b=a+1,d=a+flowStepsX+1;
-  flowFaces.push(a,d,b,b,d,d+1);
+  const midpoint={x:(flowVertices[a*3]+flowVertices[(d+1)*3])*.5,z:(flowVertices[a*3+2]+flowVertices[(d+1)*3+2])*.5};
+  if(insideMeadowConnector(midpoint)&&!insideSkatePark(midpoint))flowFaces.push(a,d,b,b,d,d+1);
  }
  const flowGeo=geometry(new THREE.BufferGeometry());
  flowGeo.setAttribute("position",new THREE.Float32BufferAttribute(flowVertices,3));

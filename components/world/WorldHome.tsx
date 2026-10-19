@@ -583,6 +583,15 @@ export function WorldHome({ content }: { content: WorldContent }) {
                     requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
                   }}>Loop · downhill roll-in</button>
               )}
+              {activity==="skate" && !worldGameActive && ([
+                ["loop-reverse","Loop · reverse runway"],["hollow-log","Hollow log · carve & return"],
+              ] as const).map(([skateDestination,label])=>(
+                <button key={skateDestination} className={styles.trialLaunch} disabled={!ready||quiet}
+                  onClick={()=>{
+                    setCommand(previous=>({region:"grove",serial:(previous?.serial??0)+1,activity:"skate",skateDestination}));
+                    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
+                  }}>{label}</button>
+              ))}
               {activity==="ski" && bigAir.phase!=="armed" && bigAir.phase!=="flying" &&
                 trial.phase!=="armed"&&trial.phase!=="running" && (
                 <button className={styles.trialLaunch} disabled={!ready||quiet}

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   GROVE_LOG,GROVE_TUNNEL,SKATE_LOOP,SKATE_PARK_RAILS,REDWOOD_BOWL,
-  insideMeadowConnector,insideSkatePark,skateParkZone,skateParkSurface,
+  insideMeadowConnector,skateParkZone,skateParkSurface,
 } from "../lib/world/skatepark";
 import {groundHeight,stepTravel,type Travel} from "../lib/world/activities";
 import {
@@ -26,7 +26,7 @@ test("sequoia bore follows the existing open, fully traversable log trough",()=>
   for(let x=GROVE_LOG.center.x-GROVE_LOG.halfLength;
       x<=GROVE_LOG.center.x+GROVE_LOG.halfLength+.0001;x+=.12){
     const point={x,z:GROVE_LOG.center.z};
-    assert.ok(insideSkatePark(point));
+    assert.ok(insideMeadowConnector(point));
     assert.equal(skateParkSurface(point)!<=groundHeight(point)+1e-6,true);
     assert.ok(Number.isFinite(groundHeight(point)));
     const ahead={x:x+.08,z:point.z};
@@ -136,4 +136,22 @@ test("loop success is scored as an ordinary skate trick, not a new minigame",()=
   assert.ok(landed.points>=420);
   assert.equal(landed.lastLandedAt,3.1);
   assert.equal(scoreSkateLoop(baseline,Number.NaN,8.9),baseline);
+});
+
+test('reverse entrance and full loop work across frame rates',()=>{
+ const start=beginSkateLoop(10,2,C.z,2,-1),p=skateLoopSample(start);
+ const before={x:p.point.x-p.heading.x*.2,z:p.point.z-p.heading.z*.2};
+ const after={x:p.point.x+p.heading.x*.2,z:p.point.z+p.heading.z*.2};
+ assert.ok(skateLoopEntryCrossing(before,after,p.heading,10));
+ assert.equal(skateLoopEntryCrossing(after,before,p.heading,10),false);
+ for(const fps of [10,30,60]){
+  let ride=start,done=false;
+  for(let i=0;i<15*fps&&!done;i++){const n=advanceSkateLoop(ride,1/fps);ride=n.ride;done=n.completed;}
+  assert.ok(done);assert.equal(ride.angle,0);assert.ok(skateLoopSample(ride).heading.x>.95);
+ }
+});
+test('slow reverse entry rolls back to its own mouth',()=>{
+ let ride=beginSkateLoop(1,2,C.z,2,-1),returned=false;
+ for(let i=0;i<600&&!returned;i++){const n=advanceSkateLoop(ride,1/60);ride=n.ride;returned=n.returned;assert.ok(!n.completed);}
+ assert.ok(returned);assert.equal(ride.angle,2*Math.PI);
 });

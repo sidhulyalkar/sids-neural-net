@@ -193,6 +193,10 @@ export const FALLEN_LOGS = [
 ] as const;
 
 export const RIDE_RAMPS = [
+  {id:"sequoia-return-kicker",point:{x:-7.1,z:57},radius:1.25,
+   heading:{x:0,z:-1},lift:2.2,modes:["skate","bike"] as Activity[]},
+  {id:"grove-home-kicker",point:{x:-6.8,z:53.3},radius:1.1,
+   heading:{x:.1,z:-1},lift:2,modes:["skate","bike"] as Activity[]},
   {
     id: "skate-ramp",
     point: { x: -3, z: 13 },
