@@ -985,7 +985,6 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 height={photo.height}
                 sizes="(max-width: 900px) 92vw, 1000px"
               />
-              <p className={styles.photoCaption}>{caption?.detail ?? photo.alt}</p>
               <p className={styles.photoCaption}>
                 <a href={photo.mapUrl} target="_blank" rel="noopener noreferrer"
                    aria-label={`Open ${photo.location} on Google Maps`}>
