@@ -250,7 +250,8 @@ try {
   // Complete same-session integration: coast to forest to skateboard park and
   // back to the beach without reloading or leaking a concurrent minigame.
   await page.getByRole("button",{name:"Skateboarding",exact:true}).click();
-  await page.getByRole("button",{name:"Skatepark · south meadow",exact:true}).click();
+  await page.getByRole("button",{name:"Show sport shortcuts",exact:true}).click();
+   await page.getByRole("button",{name:"Skatepark",exact:true}).click();
   await page.waitForFunction(()=>{
     const d=document.querySelector('canvas[role="application"]')?.dataset;
     return d?.skatePark==="true"&&d?.skimPhase==="off"&&d?.activity==="skate";
