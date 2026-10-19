@@ -9,7 +9,7 @@ const metadata=readFileSync(new URL("../app/page.tsx",import.meta.url),"utf8");
 
 test("Sid's iLand has one minimal, accessible homepage heading and one name-only wordmark",()=>{
   assert.match(home,/<h1 id="world-title">Welcome to <em>Sid’s iLand<\/em><\/h1>/);
-  assert.match(home,/>Sid Hulyalkar\s*<\/Link>/);
+  assert.match(home,/>\s*Sid Hulyalkar\s*<\/Link>/);
   assert.doesNotMatch(home,/CALIFORNIA, IN MIND|Brains, machines,|usually outside|Neuroscience & engineering/);
   assert.match(metadata,/title: "Sid’s iLand \| Sid Hulyalkar"/);
   assert.match(home,/Explore world/,"exploration launch remains discoverable");
