@@ -1,0 +1,80 @@
+name: World Compact Sports Hub QA
+
+on:
+  push:
+    branches: ['feat/world-compact-sports-hub']
+    paths:
+      - 'components/world/WorldHome.tsx'
+      - 'components/world/world.module.css'
+      - 'components/world/worldRenderer.ts'
+      - 'lib/world/model.ts'
+      - 'scripts/playtest-sport-hub.mjs'
+      - 'tests/world-sport-hub.test.ts'
+      - '.github/workflows/world-sport-hub-browser.yml'
+  pull_request:
+    paths:
+      - 'components/world/WorldHome.tsx'
+      - 'components/world/world.module.css'
+      - 'components/world/worldRenderer.ts'
+      - 'lib/world/model.ts'
+      - 'scripts/playtest-sport-hub.mjs'
+      - 'tests/world-sport-hub.test.ts'
+      - '.github/workflows/world-sport-hub-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: world-sport-hub-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sport-hub:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked website dependencies
+        run: npm ci
+      - name: Validate TypeScript, lint and sport session contracts
+        run: |
+          npm run typecheck
+          npx eslint components/world/WorldHome.tsx components/world/worldRenderer.ts tests/world-sport-hub.test.ts --max-warnings=0
+          node --import tsx --test tests/world-sport-hub.test.ts tests/world-game-mode.test.ts
+      - name: Install isolated Playwright
+        run: |
+          mkdir -p /tmp/world-sport-hub-playwright
+          npm install --prefix /tmp/world-sport-hub-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/world-sport-hub-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start World browser preview
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/world-sport-hub-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 120 /tmp/world-sport-hub-next.log
+          exit 1
+      - name: Exercise collapsed, expanded, mobile and sport transitions
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/sport-hub
+          PLAYWRIGHT_MODULE_ROOT: /tmp/world-sport-hub-playwright/node_modules/playwright
+        run: node scripts/playtest-sport-hub.mjs
+      - name: Preserve browser screenshots and transition report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-sport-hub-${{ github.sha }}
+          path: |
+            artifacts/world/sport-hub/
+            /tmp/world-sport-hub-next.log
+          if-no-files-found: warn
+      - name: Report browser errors
+        if: failure()
+        run: tail -n 120 /tmp/world-sport-hub-next.log || true
