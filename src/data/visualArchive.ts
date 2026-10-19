@@ -174,7 +174,7 @@ const photoImages: Omit<VisualArchiveEntry, 'location' | 'place'>[] = [
     id: 'photo-016',
     src: '/visual-archive/web/photo-016.webp',
     thumbSrc: '/visual-archive/thumbs/photo-016-thumb.webp',
-    alt: 'Sloth clinging to the trunk of a rainforest tree, extending one long forelimb.'
+    alt: 'Sloth clinging to the trunk of a rainforest tree, extending one long forelimb.',
     tags: ['sloth', 'rainforest', 'wildlife'],
     aspectRatio: '1800 / 2400',
     width: 1800,
@@ -245,7 +245,7 @@ const photoImages: Omit<VisualArchiveEntry, 'location' | 'place'>[] = [
     id: 'photo-023',
     src: '/visual-archive/web/photo-023.webp',
     thumbSrc: '/visual-archive/thumbs/photo-023-thumb.webp',
-    alt: 'Path through the green grass and palms of Kualoa Regional Park beneath the Koʻolau Mountains.'
+    alt: 'Path through the green grass and palms of Kualoa Regional Park beneath the Koʻolau Mountains.',
     tags: ['road', 'tropical'],
     aspectRatio: '1800 / 2400',
     width: 1800,
@@ -275,7 +275,7 @@ const photoImages: Omit<VisualArchiveEntry, 'location' | 'place'>[] = [
     id: 'photo-026',
     src: '/visual-archive/web/photo-026.webp',
     thumbSrc: '/visual-archive/thumbs/photo-026-thumb.webp',
-    alt: 'Orange-and-white cat relaxing among shoreline rocks in golden sunlight.'
+    alt: 'Orange-and-white cat relaxing among shoreline rocks in golden sunlight.',
     tags: ['cat', 'coast', 'sunset'],
     aspectRatio: '1800 / 2400',
     width: 1800,
@@ -295,7 +295,7 @@ const photoImages: Omit<VisualArchiveEntry, 'location' | 'place'>[] = [
     id: 'photo-028',
     src: '/visual-archive/web/photo-028.webp',
     thumbSrc: '/visual-archive/thumbs/photo-028-thumb.webp',
-    alt: 'Reflective sand and breaking waves at a hidden beach near Kualoa on Oʻahu at sunset.'
+    alt: 'Reflective sand and breaking waves at a hidden beach near Kualoa on Oʻahu at sunset.',
     tags: ['beach', 'sunset'],
     aspectRatio: '1800 / 1350',
     width: 1800,
@@ -325,7 +325,7 @@ const photoImages: Omit<VisualArchiveEntry, 'location' | 'place'>[] = [
     id: 'photo-031',
     src: '/visual-archive/web/photo-031.webp',
     thumbSrc: '/visual-archive/thumbs/photo-031-thumb.webp',
-    alt: 'Sunset over the clear shallow lagoon at Moʻorea, with boats offshore.'
+    alt: 'Sunset over the clear shallow lagoon at Moʻorea, with boats offshore.',
     tags: ['ocean', 'sunset'],
     aspectRatio: '1800 / 1350',
     width: 1800,
@@ -345,7 +345,7 @@ const photoImages: Omit<VisualArchiveEntry, 'location' | 'place'>[] = [
     id: 'photo-033',
     src: '/visual-archive/web/photo-033.webp',
     thumbSrc: '/visual-archive/thumbs/photo-033-thumb.webp',
-    alt: 'Shasta standing on snow-dusted granite boulders among pine trees in California.'
+    alt: 'Shasta standing on snow-dusted granite boulders among pine trees in California.',
     tags: ['dog', 'snow', 'granite'],
     aspectRatio: '1800 / 2400',
     width: 1800,
@@ -365,7 +365,7 @@ const photoImages: Omit<VisualArchiveEntry, 'location' | 'place'>[] = [
     id: 'photo-035',
     src: '/visual-archive/web/photo-035.webp',
     thumbSrc: '/visual-archive/thumbs/photo-035-thumb.webp',
-    alt: 'Pink coastal ice plant flower overlooking breaking waves at a California cove.'
+    alt: 'Pink coastal ice plant flower overlooking breaking waves at a California cove.',
     tags: ['flower', 'coast'],
     aspectRatio: '1800 / 2400',
     width: 1800,
@@ -415,7 +415,7 @@ const photoImages: Omit<VisualArchiveEntry, 'location' | 'place'>[] = [
     id: 'photo-040',
     src: '/visual-archive/web/photo-040.webp',
     thumbSrc: '/visual-archive/thumbs/photo-040-thumb.webp',
-    alt: 'Shasta looking down toward a graffiti-covered concrete spillway in California.'
+    alt: 'Shasta looking down toward a graffiti-covered concrete spillway in California.',
     tags: ['dog', 'water'],
     aspectRatio: '1800 / 2400',
     width: 1800,
