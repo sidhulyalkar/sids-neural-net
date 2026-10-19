@@ -13,7 +13,7 @@ test("each of the original 49 photos has one short map-linked location",()=>{
     assert.equal(photo.location,photo.place.label,photo.id);
     assert.ok(photo.location.length>=4 && photo.location.length<=42,photo.id);
     assert.deepEqual(Object.keys(photo.place).sort(),["label","mapSearch"],photo.id);
-    assert.doesNotMatch(photo.location,/\\b(likely|possibly|unconfirmed|approximate)\\b/i,photo.id);
+    assert.doesNotMatch(photo.location,/\b(likely|possibly|unconfirmed|approximate)\b/i,photo.id);
     const map=new URL(photoMapUrl(photo.place));
     assert.equal(map.origin,"https://www.google.com");
     assert.equal(map.pathname,"/maps/search/");
@@ -53,11 +53,11 @@ test("gallery and world use the same simple photo map links without metadata bad
   const gallery=readFileSync(new URL("../components/visual-archive/VisualArchiveGallery.tsx",import.meta.url),"utf8");
   const world=readFileSync(new URL("../components/world/WorldHome.tsx",import.meta.url),"utf8");
   const content=readFileSync(new URL("../lib/world/content.ts",import.meta.url),"utf8");
-  assert.match(gallery,/photoMapUrl\\(entry.place\\)/);
-  assert.match(gallery,/photoMapUrl\\(activeEntry.place\\)/);
+  assert.match(gallery,/photoMapUrl\(entry.place\)/);
+  assert.match(gallery,/photoMapUrl\(activeEntry.place\)/);
   assert.match(gallery,/rel="noopener noreferrer"/);
   assert.doesNotMatch(gallery,/Approximate location|awaiting confirmation|entry.place.verification/);
-  assert.match(world,/href=\\{photo.mapUrl\\}/);
+  assert.match(world,/href=\{photo.mapUrl\}/);
   assert.doesNotMatch(world,/locationApproximate| · approximate/);
-  assert.match(content,/mapUrl: photoMapUrl\\(p.place\\)/);
+  assert.match(content,/mapUrl: photoMapUrl\(p.place\)/);
 });
