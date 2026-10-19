@@ -37,6 +37,10 @@ import {
 import styles from "./world.module.css";
 
 const WorldScene = dynamic(() => import("./WorldScene"), { ssr: false });
+// Publicly available crop of the Erik Jepsen lightning photograph.
+// Click through to the source post showing the full image.
+const GEISEL_PHOTO = "https://standardsmichigan.com/wp-content/uploads/2019/08/Lightning-strikes-last-night-over-Geisel-Library.-Photo-by-Erik-Jepsen-UC-San-Diego-california-facebook-timeline-1922-721-700x300.jpg";
+const GEISEL_SOURCE = "https://www.reddit.com/r/UCSD/comments/plr8rs";
 class SceneBoundary extends Component<
   { children: ReactNode; onError: () => void },
   { failed: boolean }
@@ -523,7 +527,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       )}
       <header className={styles.header}>
         <Link href="/" className={styles.wordmark} prefetch={false}>
-          SID HULYALKAR<span> Neuroscience & engineering</span>
+          Sid Hulyalkar
         </Link>
         <button
           className={styles.menuButton}
@@ -537,9 +541,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       </header>
       {!entered || failed ? (
         <section className={styles.welcome} aria-labelledby="world-title">
-          <p className={styles.eyebrow}>CALIFORNIA, IN MIND</p>
-          <h1 id="world-title">Brains, machines,<br /><em>open trails.</em></h1>
-          <p className={styles.introduction}>I’m Sid. Engineer, neuroscience researcher, usually outside.</p>
+          <h1 id="world-title">Welcome to <em>Sid’s iLand</em></h1>
           <div className={styles.actions}>
             <Link href="/atlas" prefetch={false} className={styles.primary}>
               View site <span aria-hidden="true">↗</span>
@@ -771,7 +773,6 @@ export function WorldHome({ content }: { content: WorldContent }) {
       )}
       {!entered && (
         <footer className={styles.homeFooter}>
-          <span>Sid Hulyalkar · Portfolio</span>
           <Link href="/about" prefetch={false}>
             Get to know me
           </Link>
@@ -779,7 +780,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       )}
       <dialog
         ref={dialog}
-        className={`${styles.dialog} ${photo ? styles.photoDialog : ""}`}
+        className={`${styles.dialog} ${photo || panel === "trident-lagoon" ? styles.photoDialog : ""}`}
         onCancel={(event) => {
           event.preventDefault();
           close();
@@ -1005,16 +1006,29 @@ export function WorldHome({ content }: { content: WorldContent }) {
           )}
           {trident && (
             <>
-              <h2 id="world-panel-title">{trident.title}.</h2>
-              <p className={styles.panelIntro}>
-                A carved navy-and-gold trident inspired by UC San Diego,
-                celebrating Bioengineering and scientific exploration.
-                This sculpture is not an official university emblem.
-              </p>
-              <div className={styles.panelLinks}>
-                <Link href={trident.href} prefetch={false}>Explore this connection</Link>
-                <button onClick={close}>Continue diving</button>
-              </div>
+              <h2 id="world-panel-title">{trident.title}</h2>
+              {trident.id === "trident-lagoon" ? (
+                <>
+                  <a className={styles.geiselPhoto} href={GEISEL_SOURCE}
+                     target="_blank" rel="noopener noreferrer"
+                     aria-label="View Geisel Library lightning photograph">
+                    <Image src={GEISEL_PHOTO} width={700} height={300}
+                       unoptimized priority={false}
+                       sizes="(max-width: 900px) 92vw, 1000px"
+                       alt="Geisel Library at UC San Diego under a sky of lightning at night." />
+                    <span>View photo ↗</span>
+                  </a>
+                  <p className={styles.geiselCredit}>
+                    Geisel Library · Photo: <a href={GEISEL_SOURCE} target="_blank"
+                      rel="noopener noreferrer">Erik Jepsen / UC San Diego</a>
+                  </p>
+                </>
+              ) : (
+                <div className={styles.panelLinks}>
+                  <Link href={trident.href} prefetch={false}>Explore</Link>
+                </div>
+              )}
+              <button className={styles.geiselReturn} onClick={close}>Continue diving</button>
             </>
           )}
           {panel === "paper-archive" && <><h2 id="world-panel-title">Paper Archive.</h2><div className={styles.projectList}>{content.publications.map(p=><Link key={p.id} href={p.href} prefetch={false}><h3>{p.title}</h3>{p.year && <span>{p.year}</span>}</Link>)}</div><Link prefetch={false} href="/publications">Explore publications</Link></>}
