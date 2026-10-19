@@ -44,7 +44,6 @@ export function getWorldContent(): WorldContent {
               height: p.height,
               location: p.location,
               mapUrl: photoMapUrl(p.place),
-              locationApproximate: p.place.verification === 'approximate',
             },
           ]
         : [];
