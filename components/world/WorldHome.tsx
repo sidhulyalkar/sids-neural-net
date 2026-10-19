@@ -1,5 +1,6 @@
 "use client";
 import {worldGameSession} from "@/lib/world/gameMode";
+import {Bike, ChevronDown, Disc3, MountainSnow, Waves, Trees} from "lucide-react";
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -90,12 +91,15 @@ const ROUTE_LABELS: Record<string, string> = Object.fromEntries(
   LINKS.map(([label, href]) => [href, label]),
 );
 
+type SportShortcut = "disc" | "race" | "jet" | "jump" | "park";
+
 export function WorldHome({ content }: { content: WorldContent }) {
   const [enabled, setEnabled] = useState(false);
   const [entered, setEntered] = useState(false);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [activity, setActivity] = useState<Activity>("run");
+  const [sportsOpen, setSportsOpen] = useState(false);
   const [skim, setSkim] = useState<SkimHeat>(idleSkimHeat);
   const [skimNearby, setSkimNearby] = useState<number|null>(null);
   const [skimCommand, setSkimCommand] = useState<"pickup"|"drop"|"pop"|"shuvit"|"big-spin"|"three-sixty"|"wrap"|"exit"|"restart">("pickup");
@@ -374,6 +378,38 @@ export function WorldHome({ content }: { content: WorldContent }) {
       setCommand(previous => ({ region: "mountain", serial: (previous?.serial ?? 0) + 1, activity: next }));
     }
   }
+  function launchSport(sport: SportShortcut) {
+    // Game sessions retain movement ownership until a safe free-roam state.
+    if (!ready || quiet || aquatic !== "land" || !session.canChangeMovement) return;
+    setSportsOpen(false);
+    if (sport === "disc") {
+      const next = nextUnplayedDiscGolfHole(discGolfRound);
+      startDiscHole(next ?? 0);
+      if (next === null) setDiscGolfScorecardOpen(true);
+    } else if (sport === "race") {
+      setActivity("bike");
+      setChallengeSerial(n => n + 1);
+    } else if (sport === "jump") {
+      setActivity("ski");
+      setBigAirSerial(n => n + 1);
+    } else if (sport === "jet") {
+      // Boarding remains controlled by the pier's existing craft chooser.
+      setActivity("run");
+      setCommand(previous => ({
+        region: "lagoon", serial: (previous?.serial ?? 0) + 1,
+        sportDestination: "jet-pier",
+      }));
+      return; // Let the craft chooser receive keyboard focus.
+    } else {
+      setActivity("skate");
+      setCommand(previous => ({
+        region: "grove", serial: (previous?.serial ?? 0) + 1,
+        activity: "skate",
+      }));
+    }
+    requestAnimationFrame(() =>
+      worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
+  }
   function waterControl(next: "dive" | "deeper" | "shallower" | "surface") {
     setWaterAction(next);
     setWaterActionSerial(n => n + 1);
@@ -531,85 +567,55 @@ export function WorldHome({ content }: { content: WorldContent }) {
             </button>
           )}
           {aquatic === "land" && (
-            <div className={styles.activityDock} style={{display:worldGameActive||skim.phase!=="off"?"none":undefined}}>
-              <div className={styles.activityButtons} role="group" aria-label="Movement activity">
-                {ACTIVITIES.map(item => (
-                  <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
-                    disabled={bigAir.phase==="armed"||bigAir.phase==="flying"||
-                      trial.phase==="armed"||trial.phase==="running"}
-                    onClick={() => chooseActivity(item.id)}>{item.label}</button>
-                ))}
-                <button className={styles.actionButton} disabled={!ready || quiet} onClick={() => setActionSerial(n => n + 1)}>
-                  {activityConfig(activity).action}
-                </button>
-              </div>
-              <p aria-live="polite">{activityConfig(activity).hint}</p>
-              <button className={styles.trialLaunch} disabled={!ready||quiet||
-                bigAir.phase==="armed"||bigAir.phase==="flying"||
-                trial.phase==="armed"||trial.phase==="running"}
-                onClick={()=>{
-                    const next=nextUnplayedDiscGolfHole(discGolfRound);
-                    startDiscHole(next??0);
-                    if(next===null)setDiscGolfScorecardOpen(true);
-                  }}>Disc golf · {discGolfRoundSummary(discGolfRound).complete?"scorecard":
-                   discGolfRoundSummary(discGolfRound).holesPlayed>0?"resume":"play"}</button>
-              {activity==="skate" && !worldGameActive && (
-                <button className={styles.trialLaunch} disabled={!ready||quiet}
-                  onClick={()=>{
-                    setCommand(previous=>({region:"grove",
-                      serial:(previous?.serial??0)+1,activity:"skate"}));
-                    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
-                  }}>
-                  Skatepark · south meadow
-                </button>
-              )}
-              {activity==="skate" && !worldGameActive && (
-                <button className={styles.trialLaunch} disabled={!ready||quiet}
-                  onClick={()=>{
-                    setCommand(previous=>({region:"canyon",
-                      serial:(previous?.serial??0)+1,activity:"skate",
-                      skateDestination:"canyon-flow"}));
-                    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
-                  }}>
-                  Meadow trail · rails & bridge
-                </button>
-              )}
-              {activity==="skate" && !worldGameActive && (
-                <button className={styles.trialLaunch} disabled={!ready||quiet}
-                  onClick={()=>{
-                    setCommand(previous=>({region:"grove",
-                      serial:(previous?.serial??0)+1,activity:"skate",
-                      skateDestination:"loop-rollin"}));
-                    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
-                  }}>Loop · downhill roll-in</button>
-              )}
-              {activity==="skate" && !worldGameActive && ([
-                ["loop-reverse","Loop · reverse runway"],["hollow-log","Hollow log · carve & return"],
-              ] as const).map(([skateDestination,label])=>(
-                <button key={skateDestination} className={styles.trialLaunch} disabled={!ready||quiet}
-                  onClick={()=>{
-                    setCommand(previous=>({region:"grove",serial:(previous?.serial??0)+1,activity:"skate",skateDestination}));
-                    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
-                  }}>{label}</button>
-              ))}
-              {activity==="ski" && bigAir.phase!=="armed" && bigAir.phase!=="flying" &&
-                trial.phase!=="armed"&&trial.phase!=="running" && (
-                <button className={styles.trialLaunch} disabled={!ready||quiet}
-                  onClick={()=>setBigAirSerial(n=>n+1)}>
-                  Mountain ski jump · summit start
-                </button>
-              )}
-              {activity==="bike" && bigAir.phase!=="armed"&&bigAir.phase!=="flying"&&
-                trial.phase!=="armed" &&
-                trial.phase!=="running" && (
-                <button className={styles.trialLaunch} disabled={!ready||quiet}
-                  onClick={()=>setChallengeSerial(n=>n+1)}>
-                  Joshua circuit · race Lucas & Ness
-                </button>
-              )}
-            </div>
-          )}
-          {skim.phase==="off" && skimNearby!==null && aquatic==="land" &&
+             <nav className={styles.activityDock} aria-label="World movement and sports"
+               style={{display:worldGameActive||skim.phase!=="off"?"none":undefined}}>
+               <div className={styles.activityButtons} role="group" aria-label="Movement activity">
+                 {ACTIVITIES.map(item => (
+                   <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
+                     title={item.name} disabled={!ready||quiet||!session.canChangeMovement}
+                     onClick={() => chooseActivity(item.id)}>{item.label}</button>
+                 ))}
+                 <button className={styles.actionButton} disabled={!ready || quiet}
+                   aria-label={`${activityConfig(activity).action} · Space`}
+                   title={`${activityConfig(activity).hint} · Space`}
+                   onClick={() => setActionSerial(n => n + 1)}>
+                   {activityConfig(activity).action}
+                 </button>
+               </div>
+               <button type="button" className={styles.sportsToggle}
+                 aria-controls="world-sport-shortcuts" aria-expanded={sportsOpen}
+                 aria-label={sportsOpen ? "Hide sport shortcuts" : "Show sport shortcuts"}
+                 onClick={() => setSportsOpen(open => !open)}>
+                 <span>SPORTS</span>
+                 <ChevronDown size={15} strokeWidth={2.2} aria-hidden="true"
+                   className={sportsOpen ? styles.sportsChevronOpen : styles.sportsChevron} />
+               </button>
+               <div id="world-sport-shortcuts" className={styles.sportsDrawer} hidden={!sportsOpen}
+                 role="group" aria-label="Sport shortcuts">
+                 <button title="Play disc golf" onClick={() => launchSport("disc")}
+                   disabled={!ready||quiet||!session.canChangeMovement}>
+                   <Disc3 aria-hidden="true"/><span>Disc golf</span>
+                 </button>
+                 <button title="Start the Joshua bike race" onClick={() => launchSport("race")}
+                   disabled={!ready||quiet||!session.canChangeMovement}>
+                   <Bike aria-hidden="true"/><span>Bike race</span>
+                 </button>
+                 <button title="Choose a jet ski at the pier" onClick={() => launchSport("jet")}
+                   disabled={!ready||quiet||!session.canChangeMovement}>
+                   <Waves aria-hidden="true"/><span>Jet ski</span>
+                 </button>
+                 <button title="Start the mountain ski jump" onClick={() => launchSport("jump")}
+                   disabled={!ready||quiet||!session.canChangeMovement}>
+                   <MountainSnow aria-hidden="true"/><span>Ski jump</span>
+                 </button>
+                 <button title="Explore the entire redwood skatepark" onClick={() => launchSport("park")}
+                   disabled={!ready||quiet||!session.canChangeMovement}>
+                   <Trees aria-hidden="true"/><span>Skatepark</span>
+                 </button>
+               </div>
+             </nav>
+           )}
+           {skim.phase==="off" && skimNearby!==null && aquatic==="land" &&
             discGolf.phase==="off" && bigAir.phase!=="armed" && bigAir.phase!=="flying" &&
             trial.phase!=="armed" && trial.phase!=="running" && (
              <button className={styles.skimPickup} onClick={()=>issueSkim("pickup",skimNearby)}>
