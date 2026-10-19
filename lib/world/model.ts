@@ -504,4 +504,5 @@ export type WorldCommand = {
   serial: number;
   activity?: import("./activities").Activity;
   skateDestination?: "canyon-flow" | "loop-rollin" | "loop-reverse" | "hollow-log";
+  sportDestination?: "jet-pier";
 };
