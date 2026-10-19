@@ -484,6 +484,8 @@ export type WorldPhoto = {
   alt: string;
   width: number;
   height: number;
+  location: string;
+  mapUrl: string;
 };
 export type WorldVideo = {
   id: string;

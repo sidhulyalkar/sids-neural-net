@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin, X } from 'lucide-react';
+import { photoMapUrl } from '@/src/data/photoPlaces';
 import type { VisualArchiveEntry } from '@/src/data/visualArchive';
 
 type VisualArchiveGalleryProps = {
@@ -106,7 +107,7 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
       if (event.key !== 'Tab') return;
 
       const focusable = Array.from(
-        document.querySelectorAll<HTMLElement>('[data-visual-archive-modal] button')
+        document.querySelectorAll<HTMLElement>('[data-visual-archive-modal] button, [data-visual-archive-modal] a[href]')
       );
       if (!focusable.length) return;
       const first = focusable[0];
@@ -147,30 +148,41 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
           {columns.map((column, columnIndex) => (
             <div className="visual-archive-column" key={`visual-archive-column-${columnIndex}`}>
               {column.map(({ entry, index }) => (
-                <button
-                  key={entry.id}
-                  type="button"
-                  className="visual-archive-card group"
-                  style={cardStyle(index)}
-                  onClick={() => setActiveIndex(index)}
-                  aria-label={`Open image ${index + 1} of ${entries.length}`}
-                >
-                  <span
-                    className="relative block overflow-hidden border border-white/10 bg-black/40"
-                    style={{ aspectRatio: entry.aspectRatio }}
+                <div key={entry.id} className="min-w-0">
+                  <button
+                    type="button"
+                    className="visual-archive-card group"
+                    style={cardStyle(index)}
+                    onClick={() => setActiveIndex(index)}
+                    aria-label={`Open image ${index + 1} of ${entries.length}`}
                   >
-                    <Image
-                      src={entry.thumbSrc}
-                      alt={entry.alt}
-                      fill
-                      sizes="(min-width: 1536px) 18vw, (min-width: 1280px) 22vw, (min-width: 1024px) 30vw, (min-width: 640px) 46vw, 92vw"
-                      loading="lazy"
-                      decoding="async"
-                      className="object-cover transition duration-500 group-hover:scale-[1.035] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
-                    />
-                  </span>
-                  {entry.title && <span className="sr-only">{entry.title}</span>}
-                </button>
+                    <span
+                      className="relative block overflow-hidden border border-white/10 bg-black/40"
+                      style={{ aspectRatio: entry.aspectRatio }}
+                    >
+                      <Image
+                        src={entry.thumbSrc}
+                        alt={entry.alt}
+                        fill
+                        sizes="(min-width: 1536px) 18vw, (min-width: 1280px) 22vw, (min-width: 1024px) 30vw, (min-width: 640px) 46vw, 92vw"
+                        loading="lazy"
+                        decoding="async"
+                        className="object-cover transition duration-500 group-hover:scale-[1.035] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                      />
+                    </span>
+                    {entry.title && <span className="sr-only">{entry.title}</span>}
+                  </button>
+                  <a
+                    href={photoMapUrl(entry.place)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`View ${entry.location} on Google Maps`}
+                    className="mt-2 flex min-h-8 items-center gap-1.5 px-1 text-[10px] leading-4 text-white/55 transition-colors hover:text-cyan focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan"
+                  >
+                    <MapPin size={13} className="shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 truncate">{entry.location}</span>
+                  </a>
+                </div>
               ))}
             </div>
           ))}
@@ -209,7 +221,7 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
             </button>
 
             <figure className="flex max-h-full w-full flex-col items-center justify-center gap-4 px-12">
-              <div className="relative max-h-[82vh] w-full">
+              <div className="relative max-h-[70vh] w-full">
                 <Image
                   key={activeEntry.id}
                   src={activeEntry.src}
@@ -219,11 +231,24 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
                   sizes="96vw"
                   priority
                   decoding="async"
-                  className="mx-auto max-h-[82vh] w-auto max-w-full border border-white/12 object-contain shadow-[0_0_70px_rgba(102,227,255,0.12)]"
+                  className="mx-auto max-h-[70vh] w-auto max-w-full border border-white/12 object-contain shadow-[0_0_70px_rgba(102,227,255,0.12)]"
                 />
               </div>
-              <figcaption className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-white/45">
-                {String(activeDisplayIndex).padStart(2, '0')} / {String(entries.length).padStart(2, '0')}
+              <figcaption className="flex max-w-full flex-col items-center gap-2 text-center font-mono">
+                <a
+                  href={photoMapUrl(activeEntry.place)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex max-w-full items-center gap-2 rounded-sm px-3 py-2 text-xs text-cyan/85 underline-offset-4 transition hover:text-cyan hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan"
+                  aria-label={`Open ${activeEntry.location} on Google Maps`}
+                >
+                  <MapPin size={15} className="shrink-0" aria-hidden="true" />
+                  <span className="truncate">{activeEntry.location}</span>
+                  <span aria-hidden="true">↗</span>
+                </a>
+                <span className="text-[0.68rem] uppercase tracking-[0.18em] text-white/45">
+                  {String(activeDisplayIndex).padStart(2, '0')} / {String(entries.length).padStart(2, '0')}
+                </span>
               </figcaption>
             </figure>
 
