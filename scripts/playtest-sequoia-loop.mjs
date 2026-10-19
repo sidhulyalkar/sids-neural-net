@@ -19,12 +19,11 @@ try{
  page.on("pageerror",error=>errors.push(error.message));
  const canvas=page.locator("canvas");
  try{
-  await page.goto(base);
+  await page.goto(`${base}${base.includes("?") ? "&" : "?"}skate-start=loop-rollin`);
   await page.getByRole("button",{name:"Explore world",exact:true}).click();
   await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
    null,{timeout:45000});
-  await page.getByRole("button",{name:"Skateboarding",exact:true}).click();
-  await page.getByRole("button",{name:"Loop · downhill roll-in",exact:true}).click();
+  // Shared loop-start link keeps the same genuine riding physics without a HUD teleport.
   await page.waitForFunction(()=>Math.abs(Number(document.querySelector("canvas")?.dataset.player?.split(",")[0])-29)<.1,
    null,{timeout:15000});
   await canvas.focus();
