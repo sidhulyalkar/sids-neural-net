@@ -29,6 +29,11 @@ try {
   await page.goto(base);
   assert.equal(await page.getByRole('link', { name: 'View site', exact: true }).getAttribute('href'), '/atlas');
   assert.equal(await page.getByRole('link', { name: 'Get to know me', exact: true }).getAttribute('href'), '/about');
+  assert.equal(await page.getByRole('heading', { name: 'Welcome to Sid’s iLand', exact: true }).count(), 1);
+  assert.equal(await page.getByRole('link', { name: 'Sid Hulyalkar', exact: true }).getAttribute('href'), '/');
+  assert.equal(await page.getByText('CALIFORNIA, IN MIND').count(), 0);
+  assert.equal(await page.getByText('Brains, machines,').count(), 0);
+  assert.equal(await page.getByText('Neuroscience & engineering').count(), 0);
   await waitForScene(page);
   assert.equal(await page.locator('canvas').getAttribute('data-carved-games'), '3');
   assert.equal(await page.locator('canvas').getAttribute('data-reef-species'), '8');
