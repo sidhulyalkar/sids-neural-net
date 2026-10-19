@@ -101,3 +101,14 @@ export function advanceSkateTunnelRide(start:SkateTunnelRide,delta:number,
  }
  return {ride:r,completed};
 }
+
+/** Predict the short ballistic window so assisted flips catch before the wall. */
+export function skateTunnelJumpDuration(start:SkateTunnelRide,floor:(p:Point)=>number){
+ let ride=jumpSkateTunnel(start,floor),seconds=0;
+ while(ride.air&&seconds<2){
+  const next=advanceSkateTunnelRide(ride,.008,undefined,floor);
+  ride=next.ride;seconds+=.008;
+  if(next.completed)return .44;
+ }
+ return Math.max(.08,seconds*.85);
+}

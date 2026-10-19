@@ -43,3 +43,17 @@ test('both mouths allow straight passage and steering changes the surface path',
  const r=advanceSkateTunnelRide(start(),.5,{steer:.25,push:false,brake:false},floor).ride;
  assert.ok(r.angle>.02);
 });
+
+test('tube flips catch within the physical airtime at multiple frame rates',async()=>{
+ const {skateTunnelJumpDuration}=await import('../lib/world/skateTunnel');
+ const {idleSkateTrick,startSkateTrick,finishSkateTrick,skateTrickPose}=await import('../lib/world/skateTricks');
+ for(const fps of [10,30,60]){
+  const surface={...start(),vx:0,vt:10,speed:10};
+  let ride=jumpSkateTunnel(surface,floor),seconds=0;
+  const trick={...startSkateTrick(idleSkateTrick(),'Kickflip',0,10,true),durationSeconds:skateTunnelJumpDuration(surface,floor)};
+  while(ride.air&&seconds<2){ride=advanceSkateTunnelRide(ride,1/fps,undefined,floor).ride;seconds+=1/fps;}
+  assert.ok(!ride.air);assert.equal(skateTrickPose(trick,seconds).progress,1);
+  const landed=finishSkateTrick(trick,seconds,ride.speed);
+  assert.equal(landed.bails,0);assert.ok(landed.points>0);assert.equal(landed.durationSeconds,undefined);
+ }
+});

@@ -6,7 +6,7 @@ import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_J
 import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_PARK_RAILS,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideMeadowConnector,CANYON_FLOW,type SkateRail} from "@/lib/world/skatepark";
 import {beginSkateLoop,skateLoopCamera,skateLoopEntryDirection,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
 import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample,type SkateRailGapRide} from "@/lib/world/skateRailGaps";
-import {jumpSkateTunnel,beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
+import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
@@ -3780,6 +3780,7 @@ export function createWorld(
     if(grind)grind=null; // pop off a rail instead of locking the player on it
     const next=startSkateTrick(skateTrick,name,elapsed,travel.speed,assisted);
     if(next===skateTrick)return;
+    if(skateTunnelRide)next.durationSeconds=skateTunnelJumpDuration(skateTunnelRide,groundHeight);
     commitSkateTrick(next);skateHasBeenAirborne=false;
     if(skateTunnelRide){
       skateTunnelRide=jumpSkateTunnel(skateTunnelRide,groundHeight);
@@ -4244,6 +4245,9 @@ export function createWorld(
           else travel={...travel,heading:{x:-pose.heading.x,z:-pose.heading.z}};
         }
       } else if(skateTunnelRide){
+        // Tube physics uses bounded real time; trick animation must share its clock.
+        if(skateTrick.phase==="air")skateTrick={...skateTrick,
+          startedAt:skateTrick.startedAt-Math.max(0,Math.min(rawDelta,.5)-dt)};
         const advanced=advanceSkateTunnelRide(skateTunnelRide,rawDelta,{
           steer:Number(keys.has("a"))-Number(keys.has("d")),
           push:keys.has("w"),brake:keys.has("s"),
@@ -5340,7 +5344,7 @@ export function createWorld(
         const pose=skateLoopCamera(skateLoopRide);
         targetCamera.set(pose.position.x,pose.position.y,pose.position.z);
       } else if(sequoiaCamera){
-        const side=travel.heading.x<=0?1:-1;
+        const side=(skateTunnelRide?.direction??travel.heading.x)<=0?1:-1;
         const mouthX=GROVE_TUNNEL.center.x+
           side*(GROVE_TUNNEL.halfLength+2.9);
         const floor=groundHeight({x:mouthX,z:GROVE_TUNNEL.center.z});

@@ -39,6 +39,10 @@ try{
     }else{
      if(stage==='approach'&&d.skateTunnelPhase==='wall-ride'){stage='carve';key('a',true);}
      if(stage==='carve'&&(Math.abs(s.vx)<.8||s.vx>0)){key('a',false);stage='orbit';}
+     if(stage==='orbit'||stage==='jump'){
+      // Correct longitudinal drift using real steering, including coarse GPU frames.
+      const error=s.vx+p[0]*1.2;key('a',error<-.8);key('d',error>.8);
+     }
      if(stage!=='approach'&&d.skateTunnelPhase==='free'){finish('Premature tube exit');return;}
      if(!inverted&&Math.abs(angle)>2.65){inverted=true;window.auditImage('tube-inverted',el.toDataURL());}
      if(stage==='orbit'&&Math.abs(angle)>6.3&&!jumped){jumped=true;jumpSerial=Number(d.skateResultSerial);key(' ',true);stage='jump';}
