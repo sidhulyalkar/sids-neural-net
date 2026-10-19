@@ -1,6 +1,7 @@
 import { arcadeGames } from "@/src/data/arcadeGames";
 import graphData from "@/data/generated/neural-graph.json";
 import { visualArchive } from "@/src/data/visualArchive";
+import {photoMapUrl} from "@/src/data/photoPlaces";
 import { MEMORY_POINTS, SNORKEL_VIDEO_POINTS, type RegionId, type WorldContent } from "./model";
 
 // Select existing records; never maintain a second set of project descriptions.
@@ -41,6 +42,9 @@ export function getWorldContent(): WorldContent {
               alt: p.alt,
               width: p.width,
               height: p.height,
+              location: p.location,
+              mapUrl: photoMapUrl(p.place),
+              locationApproximate: p.place.verification === 'approximate',
             },
           ]
         : [];
