@@ -419,6 +419,18 @@ export function WorldHome({ content }: { content: WorldContent }) {
     setEnabled(true);
     setEntered(true);
     setFailed(false);
+    // Optional shareable ride starts preserve real-loop browser QA without
+    // exposing separate teleport buttons in the player-facing sports drawer.
+    const ride = new URLSearchParams(window.location.search).get("skate-start");
+    if (ride === "loop-rollin" || ride === "loop-reverse" ||
+        ride === "hollow-log" || ride === "canyon-flow") {
+      setActivity("skate");
+      setCommand(previous => ({
+        region: ride === "canyon-flow" ? "canyon" : "grove",
+        serial: (previous?.serial ?? 0) + 1,
+        activity: "skate", skateDestination: ride,
+      }));
+    }
   }
   function jump(id: RegionId) {
     setEnabled(true);
