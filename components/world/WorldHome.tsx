@@ -584,7 +584,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                   }}>Loop · downhill roll-in</button>
               )}
               {activity==="skate" && !worldGameActive && ([
-                ["loop-reverse","Loop · reverse runway"],["hollow-log","Hollow log · carve & return"],
+                ["loop-reverse","Loop · reverse runway"],["hollow-log","Hollow log · carve & return"],["log-top","Hollow log · bark ride"],
               ] as const).map(([skateDestination,label])=>(
                 <button key={skateDestination} className={styles.trialLaunch} disabled={!ready||quiet}
                   onClick={()=>{

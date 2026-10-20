@@ -6,7 +6,7 @@ import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_J
 import {skateParkSurface,insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_PARK_RAILS,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideMeadowConnector,CANYON_FLOW,type SkateRail} from "@/lib/world/skatepark";
 import {enterSkateLoop,beginSkateLoop,skateLoopCamera,skateLoopEntryDirection,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
 import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample,type SkateRailGapRide} from "@/lib/world/skateRailGaps";
-import {skateTunnelJumpDuration,jumpSkateTunnel,enterSkateTunnel,skateTunnelCameraPoint,advanceSkateTunnelRide,skateTunnelSample,
+import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateLogTopRide,resolveSkateLogMotion,enterSkateTunnel,skateTunnelCameraPoint,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
@@ -3990,6 +3990,7 @@ export function createWorld(
           dz = 0;
         }
       }
+      let skateLogBlocked=false;
       const previousPoint = { ...player };
       const previousY = playerY;
       if(jetSki){
@@ -4475,12 +4476,6 @@ export function createWorld(
           destination=null;lastRampAt=elapsed;skateLoopEntries++;
           }
         }
-        if(state.activity==="skate"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&
-          !grind&&elapsed-lastSkateLoopEnd>.08){
-          const next=enterSkateTunnel(previousPoint,player,airHeight>.001?previousY+verticalSpeed*dt:groundHeight(player),
-            [travel.heading.x*travel.speed,verticalSpeed,travel.heading.z*travel.speed],groundHeight);
-          if(next){skateTunnelRide=next;skateTunnelEntries++;destination=null;}
-        }
         if(skimHeat.phase==="ready"&&isWater(player)){
           // Carry the board across wet sand, but never switch to swimming
           // before dropping it. This also blocks a stranded ready state.
@@ -4490,9 +4485,6 @@ export function createWorld(
           // Starting at the seam retains 3D track support this same frame.
           playerY=skateLoopSample(skateLoopRide).y;
           airHeight=verticalSpeed=0;
-        } else if(skateTunnelRide){
-          const pose=skateTunnelSample(skateTunnelRide,groundHeight);
-          playerY=pose.y;airHeight=skateTunnelRide.air?.15:0;
         } else if (isWater(player)&&jetSkiPierHeight(player)===null) {
           const steppedIn = !isWater(previousPoint) && airHeight < 0.12;
           if (steppedIn) {
@@ -4558,6 +4550,28 @@ export function createWorld(
             }
           }
         }
+        // Resolve the complete 3D movement AFTER free-flight integration. No
+        // cooldown can disable solid wood: a quick exit/re-entry still collides.
+        if(state.activity==="skate"&&caveLayer==="surface"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!grind){
+          const velocity:[number,number,number]=[travel.heading.x*travel.speed,verticalSpeed,travel.heading.z*travel.speed];
+          const motion=resolveSkateLogMotion([previousPoint.x,previousY,previousPoint.z],
+            [player.x,playerY,player.z],velocity,groundHeight);
+          skateLogBlocked=motion.blocked;
+          if(motion.blocked){
+            player={x:motion.position[0],z:motion.position[2]};playerY=motion.position[1];
+            const speed=Math.hypot(motion.velocity[0],motion.velocity[2]);
+            travel={point:player,speed,heading:speed>.001?{x:motion.velocity[0]/speed,z:motion.velocity[2]/speed}:travel.heading};
+            verticalSpeed=motion.velocity[1];airHeight=Math.max(0,playerY-groundHeight(player));
+          }
+          const next=motion.ride??enterSkateTunnel(previousPoint,player,playerY,motion.velocity,groundHeight);
+          if(next){
+            skateTunnelRide=next;skateTunnelEntries++;destination=null;
+            const pose=skateTunnelSample(next,groundHeight);
+            player=pose.point;playerY=pose.y;
+            travel={point:player,speed:next.speed,heading:pose.heading};
+            airHeight=next.air?.15:0;verticalSpeed=next.air?.velocity[1]??0;
+          }
+        }
       }
 
       if(skimHeat.phase!=="off"&&skimHeat.phase!=="riding"&&skimHeat.phase!=="finished"){
@@ -4609,7 +4623,7 @@ export function createWorld(
       if(isRideMode(watchedRideMode)&&caveLayer==="surface"&&
          aquatic==="land"&&!jetSki&&!jetChoosing&&
          discGolf.phase==="off"&&skimHeat.phase==="off"){
-        const controlled=!!grind||!!climb||!!skateLoopRide||
+        const controlled=skateLogBlocked||!!grind||!!climb||!!skateLoopRide||
           !!skateTunnelRide||!!skateRailGapRide||
           bigAir.phase==="armed"||bigAir.phase==="flying";
         const grounded=airHeight<=.03&&Math.abs(verticalSpeed)<.15;
@@ -4974,7 +4988,7 @@ export function createWorld(
         skateLoopRide?
         "360° TIMBER LOOP · "+Math.round(skateLoopRide.angle/Math.PI*180)+"° · HOLD YOUR LINE":
         skateTunnelRide?
-        "SEQUOIA INNER WALL · "+Math.round(skateTunnelRide.progress*360)+"° · RIDE THE WOOD":
+        (skateTunnelRide.surface==="outer"?"SEQUOIA BARK":skateTunnelRide.surface==="rim"?"SEQUOIA RIM":"SEQUOIA INNER WALL")+" · "+Math.round(skateTunnelRide.progress*360)+"° · RIDE THE WOOD":
         skateArea==="HOLLOW SEQUOIA"?
         "HOLLOW SEQUOIA · A / D: CARVE · W: PUSH · SPACE: TRICK":
         skateTrick.phase==="air"?
@@ -4999,6 +5013,7 @@ export function createWorld(
       canvas.dataset.skateLoopCompletions=String(skateLoopCompletions);
       canvas.dataset.skateLoopSpeed=(skateLoopRide?.speed??0).toFixed(2);
       canvas.dataset.skateTunnelPhase=skateTunnelRide?"wall-ride":"free";
+      canvas.dataset.skateTunnelSurface=skateTunnelRide?.surface??(skateTunnelRide?"inner":"");
       canvas.dataset.skateTunnelAngle=(skateTunnelRide?.angle??0).toFixed(4);
       canvas.dataset.skateTunnelAir=String(!!skateTunnelRide?.air);
       canvas.dataset.skateTunnelAlongSpeed=(skateTunnelRide?.vx??0).toFixed(3);
@@ -5238,10 +5253,10 @@ export function createWorld(
       canvas.dataset.rainforestOverlook=String(rainforestFraming);
       // Look THROUGH the open log mouth instead of flying the camera through
       // the bark roof. This leaves the silhouette visible while riding inside.
-      if(skateTunnelRide&&!tubeCameraActive){
+      if(skateTunnelRide&&(!skateTunnelRide.surface||skateTunnelRide.surface==="inner")&&!tubeCameraActive){
         tubeCameraSide=camera.position.x>=GROVE_TUNNEL.center.x?1:-1;tubeCameraActive=true;
       }
-      if(!skateVisible||(!skateTunnelRide&&(
+      if(!skateVisible||(skateTunnelRide?.surface&&skateTunnelRide.surface!=="inner")||(!skateTunnelRide&&(
         Math.abs(player.x-GROVE_TUNNEL.center.x)>GROVE_TUNNEL.halfLength+3||
         Math.abs(player.z-GROVE_TUNNEL.center.z)>GROVE_TUNNEL.outerHalfWidth+1.5)))tubeCameraActive=false;
       const sequoiaCamera=skateVisible&&tubeCameraActive;
@@ -7052,6 +7067,7 @@ export function createWorld(
         const loopStart=next.command.skateDestination==="loop-rollin"&&next.command.activity==="skate";
         tubeCameraActive=false;
         const reverseStart=next.command.skateDestination==="loop-reverse"&&next.command.activity==="skate";
+        const barkStart=next.command.skateDestination==="log-top"&&next.command.activity==="skate";
         const tubeStart=next.command.skateDestination==="hollow-log"&&next.command.activity==="skate";
         const reversePose=skateLoopSample(beginSkateLoop(0,0,SKATE_LOOP.center.z,0,-1));
         player=reverseStart?{x:reversePose.point.x-reversePose.heading.x*7,z:reversePose.point.z-reversePose.heading.z*7}:
@@ -7069,6 +7085,11 @@ export function createWorld(
         setAquaticMode("land");
         caveLayer = "surface";
         playerY = groundHeight(player);
+        if(barkStart){
+          skateTunnelRide=beginSkateLogTopRide();
+          const pose=skateTunnelSample(skateTunnelRide,groundHeight);
+          player=pose.point;playerY=pose.y;travel={point:player,speed:0,heading:pose.heading};
+        }
         rideRecovery=initialRideRecovery(player);
         rideFlightContinuity=false;lastFlightExitAt=-Infinity;
         dog = { x: player.x + 2, z: player.z - 2 };

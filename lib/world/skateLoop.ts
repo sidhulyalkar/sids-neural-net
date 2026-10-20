@@ -1,6 +1,6 @@
 import type {Point} from "./model";
 import {SKATE_LOOP} from "./skatepark";
-export type SkateLoopRide={angle:number;speed:number;baseY:number;exitY:number;laneZ:number;direction?:1|-1};
+export type SkateLoopRide={angle:number;speed:number;baseY:number;exitY:number;laneZ:number;direction?:1|-1;entryLateralSpeed?:number};
 export const LOOP_TAU=2*Math.PI;
 const clamp=(n:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,n));
 export function skateLoopEntryCrossing(previous:Point,current:Point,heading:Point,speed:number):boolean{
@@ -15,7 +15,7 @@ export function skateLoopEntryDirection(previous:Point,current:Point,heading:Poi
  for(const direction of [1,-1] as const){
   const r=beginSkateLoop(speed,0,SKATE_LOOP.center.z,0,direction);
   const pose=skateLoopSample(r),h=pose.heading;
-  if((heading.x*h.x+heading.z*h.z)/len<.8)continue;
+  if((heading.x*h.x+heading.z*h.z)/len<.42)continue;
   const before=(previous.x-pose.point.x)*h.x+(previous.z-pose.point.z)*h.z;
   const after=(current.x-pose.point.x)*h.x+(current.z-pose.point.z)*h.z;
   if(before>=0||after<0)continue;
@@ -46,18 +46,26 @@ export function skateLoopSample(ride:SkateLoopRide){
  let tilt=Math.atan2(dy,-dx);
  if(tilt<a-Math.PI)tilt+=LOOP_TAU;
  else if(tilt>a+Math.PI)tilt-=LOOP_TAU;
- const horizontal=Math.hypot(dx,dz);
+
  const lateral=ride.laneZ-center.z;
  const curvature=(radius*Math.sin(a)*up[0]+(radiusY*Math.cos(a)+
   (ride.exitY-ride.baseY)*6*(1-2*t)/(LOOP_TAU*LOOP_TAU))*up[1])/(ds*ds);
  const wheelLift=Math.max(0,curvature*.63*.63*.5);
  const direction=ride.direction??1;
  if(direction===-1){for(let i=0;i<3;i++){forward[i]*=-1;right[i]*=-1;}}
- return {point:{x:center.x-radius*Math.sin(a)-exitOffset*t+right[0]*lateral*direction,
-  z:center.z+laneOffset*t*t*(2-t)+right[2]*lateral*direction},
-  y:ride.baseY+radiusY*(1-Math.cos(a))+(ride.exitY-ride.baseY)*blend+right[1]*lateral*direction,
+ const positionRight=[...right];
+ const lateralSpeed=(ride.entryLateralSpeed??0)*direction;
+ if(Math.abs(lateralSpeed)>.001){
+  const along=Math.abs(ride.speed),length=Math.hypot(along,lateralSpeed);
+  for(let i=0;i<3;i++)forward[i]=(forward[i]*along+right[i]*lateralSpeed)/length;
+  const adjusted=[up[1]*forward[2]-up[2]*forward[1],up[2]*forward[0]-up[0]*forward[2],up[0]*forward[1]-up[1]*forward[0]];
+  for(let i=0;i<3;i++)right[i]=adjusted[i];
+ }
+ return {point:{x:center.x-radius*Math.sin(a)-exitOffset*t+positionRight[0]*lateral*direction,
+  z:center.z+laneOffset*t*t*(2-t)+positionRight[2]*lateral*direction},
+  y:ride.baseY+radiusY*(1-Math.cos(a))+(ride.exitY-ride.baseY)*blend+positionRight[1]*lateral*direction,
   pitch:-tilt,wheelLift,horizontalTangent:dx,ds,dy,forward,right,up,
-  heading:{x:direction*dx/horizontal,z:direction*dz/horizontal}};
+  heading:{x:forward[0]/(Math.hypot(forward[0],forward[2])||1),z:forward[2]/(Math.hypot(forward[0],forward[2])||1)}};
 }
 /** Tangential gravity and rolling drag; no motor or minimum-speed floor.
  * Insufficient momentum rolls back down the entry. Small substeps preserve
@@ -73,7 +81,11 @@ export function advanceSkateLoop(start:SkateLoopRide,delta:number):{
   const acceleration=-3*p.dy/p.ds-.08*Math.sign(ride.speed);
   const speed=ride.speed+acceleration*step;
   const angle=ride.angle+(ride.speed+speed)*.5*step/p.ds;
-  ride={...ride,speed,angle:clamp(angle,0,LOOP_TAU)};
+  const lateral=ride.entryLateralSpeed??0,decay=Math.exp(-step*8);
+  const maxLane=SKATE_LOOP.width*.5-.22;
+  const laneZ=clamp(ride.laneZ+lateral*(1-decay)/8,SKATE_LOOP.center.z-maxLane,SKATE_LOOP.center.z+maxLane);
+  const edge=Math.abs(laneZ-SKATE_LOOP.center.z)>=maxLane-1e-8;
+  ride={...ride,speed,angle:clamp(angle,0,LOOP_TAU),laneZ,entryLateralSpeed:edge?0:lateral*decay};
   if(angle<=0&&speed<0){completed=direction===-1;returned=!completed;break;}
   if(angle>=LOOP_TAU&&speed>0){completed=direction===1;returned=!completed;break;}
  }
@@ -100,6 +112,10 @@ export function enterSkateLoop(previous:Point,current:Point,heading:Point,speed:
  const dx=current.x-mouth.point.x,dz=current.z-mouth.point.z;
  const lane=(dx*mouth.right[0]+dz*mouth.right[2])*direction;
  const progress=Math.max(0,dx*mouth.forward[0]+dz*mouth.forward[2]);
- return {...initial,laneZ:SKATE_LOOP.center.z+lane,
+ if(Math.abs(lane)>SKATE_LOOP.width*.5-.22)return null;
+ const len=Math.hypot(heading.x,heading.z);
+ const along=speed*(heading.x*mouth.forward[0]+heading.z*mouth.forward[2])/len;
+ const lateral=speed*(heading.x*mouth.right[0]+heading.z*mouth.right[2])/len*direction;
+ return {...initial,speed:direction*along,entryLateralSpeed:lateral,laneZ:SKATE_LOOP.center.z+lane,
   angle:clamp(initial.angle+direction*progress/mouth.ds,0,LOOP_TAU)};
 }

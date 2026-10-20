@@ -225,15 +225,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  const treePoint=(x:number,a:number,outer:boolean)=>{
   const base=ride({x,z:GROVE_TUNNEL.center.z});
   const point=sequoiaTubePoint(x,a,base,outer);
-  if(outer){
-   // Furrows belong on the exterior only. The inner ride wall is analytically
-   // smooth and matches skateTunnelSample exactly, down to the vertex.
-   const across=(x-GROVE_TUNNEL.center.x)/GROVE_TUNNEL.halfLength;
-   const rough=1+.022*Math.sin(a*27+across*6)+.009*Math.cos(a*43-across*9);
-   const midY=base+GROVE_TUNNEL.innerRadius*(1-GROVE_TUNNEL.taper*across);
-   point.y=midY+(point.y-midY)*rough;
-   point.z=GROVE_TUNNEL.center.z+(point.z-GROVE_TUNNEL.center.z)*rough;
-  }
+  // Bark detail is shaded; both physical skins share exact contact geometry.
   return new THREE.Vector3(point.x,point.y,point.z);
  };
  const makeSequoiaSkin=(outer:boolean)=>{

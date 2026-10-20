@@ -58,5 +58,32 @@ try{
    };requestAnimationFrame(tick);
   }),mode);
  }
+ await page.getByRole('button',{name:'Hollow log · bark ride',exact:true}).click();
+ await page.locator('canvas').focus();
+ results.bark=await page.evaluate(()=>new Promise((resolve,reject)=>{
+  const el=document.querySelector('canvas'),trace=[],start=performance.now();
+  let stage='settle',frames=0,baseline=0,peak=0,initialY=0;
+  const key=(k,on)=>el.dispatchEvent(new KeyboardEvent(on?'keydown':'keyup',{key:k,code:k===' '?'Space':'Key'+k.toUpperCase(),bubbles:true,cancelable:true}));
+  const done=error=>{key('w',false);key(' ',false);if(error)reject(Error(error+JSON.stringify(trace)));else resolve({trace,peak,initialY});};
+  const tick=()=>{
+   const d=el.dataset,s={stage,surface:d.skateTunnelSurface,air:d.skateTunnelAir,y:Number(d.height),p:d.player,serial:Number(d.skateResultSerial),camera:d.skateTunnelCamera};
+   trace.push(s);frames++;peak=Math.max(peak,s.y);
+   if(performance.now()-start>180000){done('Bark timeout');return;}
+   if(stage==='settle'&&frames>=4){
+    if(s.surface!=='outer'||s.camera==='true'){done('Exterior contact/camera missing');return;}
+    window.auditImage('bark-standing',el.toDataURL());initialY=s.y;baseline=s.serial;stage='jump';key(' ',true);
+   }else if(stage==='jump'){
+    key(' ',false);
+    if(s.serial>baseline&&s.air==='false'){
+     if(s.surface!=='outer'||peak<initialY+.5){done('Jump did not land on bark');return;}
+     window.auditImage('bark-landed',el.toDataURL());stage='exit';key('w',true);
+    }
+   }else if(stage==='exit'&&s.surface===''){
+    if(s.y<initialY-1||d.airborne!=='true'){done('Bark exit snapped down');return;}
+    window.auditImage('bark-runoff',el.toDataURL());done();return;
+   }
+   requestAnimationFrame(tick);
+  };requestAnimationFrame(tick);
+ }));
  assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(results,null,2));console.log('PASS',JSON.stringify(results));
 }finally{await browser.close();}

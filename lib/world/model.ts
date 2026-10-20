@@ -503,5 +503,5 @@ export type WorldCommand = {
   region: RegionId;
   serial: number;
   activity?: import("./activities").Activity;
-  skateDestination?: "canyon-flow" | "loop-rollin" | "loop-reverse" | "hollow-log";
+  skateDestination?: "canyon-flow" | "loop-rollin" | "loop-reverse" | "hollow-log" | "log-top";
 };
