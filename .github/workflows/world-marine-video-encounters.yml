@@ -7,6 +7,7 @@ on:
       - 'src/data/visualMotion.ts'
       - 'lib/world/model.ts'
       - 'lib/world/marineVideoEncounters.ts'
+      - 'lib/world/marineVideoCatalog.ts'
       - 'lib/world/content.ts'
       - 'components/world/worldRenderer.ts'
       - 'scripts/prepare-visual-motion.py'
@@ -17,6 +18,7 @@ on:
       - 'src/data/visualMotion.ts'
       - 'lib/world/model.ts'
       - 'lib/world/marineVideoEncounters.ts'
+      - 'lib/world/marineVideoCatalog.ts'
       - 'lib/world/content.ts'
       - 'components/world/worldRenderer.ts'
       - 'scripts/prepare-visual-motion.py'
@@ -49,7 +51,7 @@ jobs:
       - name: Validate source and footage-preparation syntax
         run: |
           npm run typecheck
-          npx eslint src/data/visualMotion.ts lib/world/model.ts lib/world/marineVideoEncounters.ts components/world/worldRenderer.ts tests/world-marine-video-encounters.test.ts --max-warnings=0
+          npx eslint src/data/visualMotion.ts lib/world/model.ts lib/world/marineVideoEncounters.ts lib/world/marineVideoCatalog.ts components/world/worldRenderer.ts tests/world-marine-video-encounters.test.ts --max-warnings=0
           python -m py_compile scripts/prepare-visual-motion.py
       - name: Validate fauna/clip discovery contracts
         run: node --import tsx --test tests/world-marine-video-encounters.test.ts
