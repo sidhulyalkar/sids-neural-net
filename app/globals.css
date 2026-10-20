@@ -925,3 +925,67 @@ body::before {
 .immersive-atlas-mode::after {
   display: none !important;
 }
+
+
+/* Fractal responsive envelope V16.
+   Kept in the global stylesheet instead of a React-owned <style> element so
+   browser accessibility/theme extensions cannot rewrite that node before
+   hydration and cause a client/server mismatch. */
+[data-responsive-envelope="v16"] {
+  left: var(--fractal-v16-left) !important;
+  top: var(--fractal-v16-top) !important;
+  transition-property: color, background-color, border-color, opacity, box-shadow, transform !important;
+}
+
+[data-responsive-core-authority="v16"] {
+  left: var(--fractal-v16-core-left) !important;
+  top: var(--fractal-v16-core-top) !important;
+  width: var(--fractal-v16-core-size) !important;
+  height: var(--fractal-v16-core-size) !important;
+}
+
+[data-fractal-navigation-density="compact-v16"] [data-dendrite-destination] > span:first-child {
+  display: none !important;
+}
+
+[data-fractal-navigation-density="compact-v16"] [data-dendrite-destination] > span:last-child {
+  display: inline !important;
+}
+
+[data-fractal-navigation-density="compact-v16"] [data-dendrite-destination] {
+  padding: 0.32rem 0.5rem !important;
+  font-size: 8.5px !important;
+  letter-spacing: 0.1em !important;
+}
+
+@media (max-width: 359px) {
+  [data-fractal-navigation-density="compact-v16"] [data-dendrite-destination] {
+    padding: 0.28rem 0.42rem !important;
+    font-size: 7.75px !important;
+    letter-spacing: 0.085em !important;
+  }
+}
+
+[data-fractal-short-viewport="true"] [data-home-identity-responsive="v16"] h1 {
+  font-size: clamp(0.95rem, 3vw, 1.3rem) !important;
+}
+
+[data-fractal-short-viewport="true"] [data-home-identity-responsive="v16"] p {
+  margin-top: 0.3rem !important;
+  font-size: 7px !important;
+}
+
+@media (max-height: 500px) {
+  [data-home-identity-responsive="v16"] {
+    bottom: 0.5rem !important;
+  }
+
+  [data-home-identity-responsive="v16"] h1 {
+    font-size: clamp(0.82rem, 2.6vw, 1.05rem) !important;
+    letter-spacing: 0.12em !important;
+  }
+
+  [data-home-identity-responsive="v16"] p {
+    display: none !important;
+  }
+}
