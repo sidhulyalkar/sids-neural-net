@@ -1,5 +1,5 @@
 import * as THREE from "three/src/Three.Core.js";
-import {MYSTIC_GROVE,mysticCircuitIntensity,mysticCircuitPhase}
+import {MYSTIC_GROVE,mysticCircuitIntensity,mysticCircuitPhase,mysticReceiverIntensity}
  from "@/lib/world/mysticGrove";
 
 /**
@@ -36,6 +36,41 @@ export function createMysticElectricity(
  lines.name="mystic-grove-interbranch-electrical-arcs";
  lines.frustumCulled=false;
  scene.add(lines);
+ // One small non-colliding octahedral halo per incoming tree connection.
+ // All six tips share one draw call and reuse dynamic RGB attribute storage.
+ const faces=[
+  [0,2,4],[0,4,3],[0,3,5],[0,5,2],
+  [1,4,2],[1,3,4],[1,5,3],[1,2,5],
+ ] as const;
+ const haloPositions=new Float32Array(links.length*24*3);
+ const haloColors=new Float32Array(haloPositions.length);
+ let cursorHalo=0;
+ for(const [,receiver] of links){
+  const x=receiver.x,y=receiver.y,z=receiver.z;
+  const shape=[
+   [x,y+.26,z],[x,y-.22,z],[x+.19,y,z],
+   [x-.19,y,z],[x,y,z+.19],[x,y,z-.19],
+  ] as const;
+  for(const face of faces)for(const corner of face)
+   for(const coord of shape[corner])haloPositions[cursorHalo++]=coord;
+ }
+ const haloGeometry=new THREE.BufferGeometry();
+ haloGeometry.setAttribute("position",new THREE.BufferAttribute(haloPositions,3));
+ const haloColorAttribute=new THREE.BufferAttribute(haloColors,3);
+ haloColorAttribute.setUsage(THREE.DynamicDrawUsage);
+ haloGeometry.setAttribute("color",haloColorAttribute);
+ const haloMaterial=new THREE.MeshBasicMaterial({
+  color:"#ffffff",vertexColors:true,transparent:true,opacity:.75,
+  depthWrite:false,blending:THREE.AdditiveBlending,
+  side:THREE.DoubleSide,toneMapped:false,
+ });
+ const halos=new THREE.Mesh(haloGeometry,haloMaterial);
+ halos.name="mystic-grove-receiving-synapse-halos";
+ halos.castShadow=false;halos.frustumCulled=false;
+ scene.add(halos);
+ const haloDim=new THREE.Color("#153c4a");
+ const haloCharged=new THREE.Color("#afffe5");
+ const haloTint=new THREE.Color();
  let lastBucket=-1,lastActiveLink=-1,lastProgress=0;
  const redraw=(t:number,reducedMotion=false)=>{
   let cursor=0;
@@ -64,17 +99,29 @@ export function createMysticElectricity(
     pointAt((i+1)/subdivisions,cursor+3);
     cursor+=6;
    }
+   haloTint.copy(haloDim).lerp(haloCharged,
+    mysticReceiverIntensity(t,k,links.length,reducedMotion));
+   for(let vertex=0;vertex<24;vertex++){
+    const off=(k*24+vertex)*3;
+    haloColors[off]=haloTint.r;
+    haloColors[off+1]=haloTint.g;
+    haloColors[off+2]=haloTint.b;
+   }
   }
   position.needsUpdate=true;
   color.needsUpdate=true;
+  haloColorAttribute.needsUpdate=true;
  };
  redraw(0);
  return {
   count:links.length,
+  receiverCount:links.length,
+  drawCalls:2,
   get activeLink(){return lastActiveLink;},
   get progress(){return lastProgress;},
   update(elapsed:number,near:boolean,reducedMotion:boolean){
    lines.visible=near&&links.length>0;
+   halos.visible=lines.visible;
    if(!lines.visible){
     lastActiveLink=-1;return;
    }
@@ -88,7 +135,9 @@ export function createMysticElectricity(
    redraw(bucket/MYSTIC_GROVE.arcsPerSecond);
   },
   dispose(){
-   scene.remove(lines);geometry.dispose();material.dispose();
+   scene.remove(lines);scene.remove(halos);
+   geometry.dispose();material.dispose();
+   haloGeometry.dispose();haloMaterial.dispose();
   },
  };
 }
