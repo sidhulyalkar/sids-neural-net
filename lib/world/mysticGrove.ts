@@ -50,3 +50,19 @@ export function mysticCircuitIntensity(
  const echo=link===previous ? .10*(1-state.progress)*u : 0;
  return Math.min(1,.085+travel+echo);
 }
+
+/** A receiving tree charges only as its incoming electrical packet arrives,
+ * then cools as the next segment starts. This is sampled from time rather
+ * than accumulated per rendered frame, so slow WebGL never stores a stale glow. */
+export function mysticReceiverIntensity(
+ elapsed:number,link:number,total:number,reducedMotion=false,
+){
+ if(reducedMotion)return .22;
+ const state=mysticCircuitPhase(elapsed,total);
+ if(state.link<0||link<0||link>=total)return .08;
+ const arriving=link===state.link?
+  .85*Math.pow(Math.max(0,(state.progress-.56)/.44),2):0;
+ const cooling=link===(state.link+total-1)%total?
+  .54*Math.pow(1-state.progress,2):0;
+ return Math.min(1,.075+arriving+cooling);
+}
