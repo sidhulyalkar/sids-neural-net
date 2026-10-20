@@ -53,6 +53,8 @@ try{
  const mystic=await canvas.evaluate(c=>({
   trees:Number(c.dataset.mysticGroveTrees),
   arcs:Number(c.dataset.mysticGroveArcs),
+  receivingTips:Number(c.dataset.mysticReceiverTips),
+  circuitDrawCalls:Number(c.dataset.mysticCircuitDrawCalls),
   position:c.dataset.mysticGrovePosition,
   active:c.dataset.mysticElectricActive,
   player:c.dataset.player,
@@ -72,6 +74,8 @@ try{
   "forest-floor flora and quartz must exist in actual browser geometry");
  assert.equal(mystic.trees,6);
  assert.equal(mystic.arcs,6);
+ assert.equal(mystic.receivingTips,6,"all six electrical receivers must exist");
+ assert.equal(mystic.circuitDrawCalls,2,"arcs and all receiver gems use two draws");
  assert.ok(mystic.pulseLink>=0&&mystic.pulseLink<mystic.arcs,
   "a charged link is selected from the physical six-link circuit");
  assert.equal(mystic.active,"true");
