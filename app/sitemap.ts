@@ -12,6 +12,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '',
     '/frontier',
     '/neural-net',
+    '/atlas',
     '/projects',
     '/code',
     '/resume',
