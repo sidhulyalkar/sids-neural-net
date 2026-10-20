@@ -38,6 +38,8 @@ try {
   assert.equal(await page.locator('canvas').getAttribute('data-carved-games'), '3');
   assert.equal(await page.locator('canvas').getAttribute('data-reef-species'), '8');
   assert.equal(await page.locator('canvas').getAttribute('data-lagoon-species'), '8');
+  assert.equal(await page.locator('canvas').getAttribute('data-tropical-turtles'), '1');
+  assert.ok(Number(await page.locator('canvas').getAttribute('data-marine-video-encounters')) >= 0);
   assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife'), '14');
   assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife-style'), 'anatomical-v4');
   assert.equal(await page.locator('canvas').getAttribute('data-marine-wildlife-style'), 'anatomical-v3');
