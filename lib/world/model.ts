@@ -4,6 +4,7 @@ import { bigAirTerrainOffset } from "./bigAir";
 import { beachBlend, northShoreZ } from "./skimboarding";
 import {MYSTIC_GROVE} from "./mysticGrove";
 import { visualMotion, type WildlifeSubject } from "@/src/data/visualMotion";
+import {buildSnorkelVideoPoints} from "./marineVideoCatalog";
 /** Small, deterministic geography shared by the renderer, navigation and tests. */
 export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern" | "desert" | "rainforest" | "north-shore";
 export type Point = { x: number; z: number };
@@ -131,22 +132,7 @@ export type WorldVideoPoint = {
  * The species and reef must be deliberately authored in the Visual Cortex motion
  * manifest. Until Sid supplies clips, this list stays empty by construction.
  */
-export const SNORKEL_VIDEO_POINTS: WorldVideoPoint[] = visualMotion.flatMap((clip) => {
-  if (clip.encounter?.activity !== "snorkeling") return [];
-  const mp4 = clip.sources.find(source => source.type === "video/mp4" &&
-    (source.height ?? 1080) <= 1080) ??
-    clip.sources.find(source => source.type === "video/mp4");
-  if (!mp4?.src || !clip.posterSrc) return [];
-  return [{
-    id: `snorkel-video:${clip.id}`,
-    title: clip.title,
-    detail: clip.description ?? "",
-    animal: clip.encounter.animal,
-    reef: clip.encounter.reef,
-    src: mp4.src,
-    posterSrc: clip.posterSrc,
-  }];
-});
+export const SNORKEL_VIDEO_POINTS: WorldVideoPoint[] = buildSnorkelVideoPoints(visualMotion);
 
 /** Quiet wildlife observation, photo upload attaches only after a real asset is committed. */
 export const WILDLIFE_DISCOVERIES = [
