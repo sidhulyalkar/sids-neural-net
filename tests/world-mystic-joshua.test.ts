@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three/src/Three.Core.js";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance,
- mysticCircuitPhase,mysticCircuitIntensity,MYSTIC_CIRCUIT}
+ mysticCircuitPhase,mysticCircuitIntensity,mysticReceiverIntensity,MYSTIC_CIRCUIT}
  from "../lib/world/mysticGrove";
 import {joshuaTreeSites} from "../lib/world/joshuaTrees";
 import {REGIONS,isWater,terrainHeight,waterZone} from "../lib/world/model";
@@ -45,8 +45,23 @@ test("electrical arcs remain tip-connected, bounded and dispose correctly",()=>{
  ];
  const effect=createMysticElectricity(scene,links);
  assert.equal(effect.count,2);
- assert.equal(scene.children.length,1);
+ assert.equal(effect.receiverCount,2);
+ assert.equal(effect.drawCalls,2);
+ assert.equal(scene.children.length,2);
  const mesh=scene.children[0] as THREE.LineSegments;
+ const halos=scene.children[1] as THREE.Mesh;
+ assert.equal(halos.name,"mystic-grove-receiving-synapse-halos");
+ const haloGeo=halos.geometry;
+ const tips=haloGeo.getAttribute("position");
+ const tipRGB=haloGeo.getAttribute("color");
+ assert.equal(tips.count,2*8*3,"six diamond faces should be pooled by receiver");
+ assert.equal(tipRGB.count,tips.count);
+ for(let k=0;k<links.length;k++){
+  const receiver=links[k][1];
+  for(let j=0;j<24;j++)
+   assert.ok(new THREE.Vector3().fromBufferAttribute(tips,k*24+j)
+    .distanceTo(receiver)<.31,"small halo must stay attached to tree tip");
+ }
  const geo=mesh.geometry,attribute=geo.getAttribute("position");
  assert.equal(attribute.count,2*12*2);
  const attributeColors=geo.getAttribute("color");
@@ -78,18 +93,32 @@ test("electrical arcs remain tip-connected, bounded and dispose correctly",()=>{
   assert.ok(new THREE.Vector3().fromBufferAttribute(attribute,base+23)
    .distanceTo(links[i][1])<1e-6);
  }
+ effect.update(MYSTIC_CIRCUIT.secondsPerLink*.95,true,false);
+ const sumTip=(k:number)=>{
+  const v=k*24;
+  return tipRGB.getX(v)+tipRGB.getY(v)+tipRGB.getZ(v);
+ };
+ assert.ok(sumTip(0)>sumTip(1)*1.25,
+  "first receiver must light up only when its packet approaches");
+ effect.update(MYSTIC_CIRCUIT.secondsPerLink*1.95,true,false);
+ assert.ok(sumTip(1)>sumTip(0)*1.25,
+  "glow must propagate to the next receiver");
  effect.update(4,false,false);
  assert.equal(mesh.visible,false,"do not run offscreen lightning");
+ assert.equal(halos.visible,false,"gemstone halos must cull with lightning");
  assert.equal(effect.activeLink,-1);
  effect.update(3,true,true);
  assert.equal(effect.activeLink,-2,"reduced motion shows a steady low glow");
  const reduced=Array.from(attribute.array);
  const staticColors=Array.from(attributeColors.array);
+ const staticHaloColors=Array.from(tipRGB.array);
  effect.update(4,true,true);
  assert.deepEqual(Array.from(attribute.array),reduced,
   "reduced motion must not animate vertices");
  assert.deepEqual(Array.from(attributeColors.array),staticColors,
   "reduced motion must not change pulse color");
+ assert.deepEqual(Array.from(tipRGB.array),staticHaloColors,
+  "reduced motion must freeze receiving-tip lights");
  effect.dispose();
  assert.equal(scene.children.length,0);
 });
@@ -179,4 +208,20 @@ test("Mystic pulse sweeps a closed six-tree circuit without frame-dependent stat
  assert.equal(mysticCircuitPhase(NaN,total).link,-1);
  assert.equal(mysticCircuitPhase(2,0).link,-1);
  assert.equal(mysticCircuitIntensity(3,2,.5,total,true),.32);
+});
+
+test("arriving voltage lights up only its receiving tree and then cools",()=>{
+ const dt=MYSTIC_CIRCUIT.secondsPerLink,total=MYSTIC_TREES.length;
+ for(let k=0;k<total;k++){
+  const arrival=(k+.97)*dt;
+  const illuminated=mysticReceiverIntensity(arrival,k,total);
+  const adjacent=mysticReceiverIntensity(arrival,(k+1)%total,total);
+  assert.ok(illuminated>.72);
+  assert.ok(adjacent<.16);
+  const cooling=mysticReceiverIntensity((k+1.5)*dt,k,total);
+  assert.ok(cooling<illuminated,"received charge should cool by the next tree");
+ }
+ assert.equal(mysticReceiverIntensity(0,0,total,true),.22);
+ assert.equal(mysticReceiverIntensity(NaN,1,total),.08);
+ assert.equal(mysticReceiverIntensity(1,9,total),.08);
 });
