@@ -1170,6 +1170,8 @@ export function createWorld(
     MYSTIC_GROVE.center.x+","+MYSTIC_GROVE.center.z;
   canvas.dataset.mysticGroveTrees=String(MYSTIC_TREES.length);
   canvas.dataset.mysticGroveArcs=String(mysticElectricity.count);
+  canvas.dataset.mysticReceiverTips=String(mysticElectricity.receiverCount);
+  canvas.dataset.mysticCircuitDrawCalls=String(mysticElectricity.drawCalls);
   canvas.dataset.mysticGroveDetailDrawCalls=String(mysticForest.diagnostics.drawCalls);
   canvas.dataset.mysticGroveDetailTriangles=String(mysticForest.diagnostics.triangles);
   canvas.dataset.mysticGroveFronds=String(mysticForest.diagnostics.fronds);
