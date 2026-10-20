@@ -67,18 +67,34 @@ jobs:
           done
           tail -n 120 /tmp/joshua-world-next.log
           exit 1
-      - name: Qualify moving-target aiming and actual ghost challenge
-        env:
-          WORLD_BASE_URL: http://127.0.0.1:3000
-          WORLD_AUDIT_DIR: artifacts/world/ride-ghost-browser
-          PLAYWRIGHT_MODULE_ROOT: /tmp/joshua-playwright/node_modules/playwright
-        run: node scripts/playtest-ride-ghost.mjs
+      # Run independent activities even if the other has a regression.
+      # Both outcomes still gate CI below, without suppressing either failure.
       - name: Validate Mystic shoreline lightning and Joshua living trees
+        id: mystic
+        continue-on-error: true
         env:
           WORLD_BASE_URL: http://127.0.0.1:3000
           WORLD_AUDIT_DIR: artifacts/world/mystic-joshua-browser
           PLAYWRIGHT_MODULE_ROOT: /tmp/joshua-playwright/node_modules/playwright
         run: node scripts/playtest-mystic-joshua.mjs
+      - name: Qualify moving-target aiming and actual ghost challenge
+        id: ghost
+        continue-on-error: true
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/ride-ghost-browser
+          PLAYWRIGHT_MODULE_ROOT: /tmp/joshua-playwright/node_modules/playwright
+        run: node scripts/playtest-ride-ghost.mjs
+      - name: Enforce both independent browser contracts
+        if: always()
+        env:
+          MYSTIC_OUTCOME: ${{ steps.mystic.outcome }}
+          GHOST_OUTCOME: ${{ steps.ghost.outcome }}
+        run: |
+          echo "Mystic/Joshua rendering: $MYSTIC_OUTCOME"
+          echo "Joshua ghost challenge: $GHOST_OUTCOME"
+          test "$MYSTIC_OUTCOME" = success
+          test "$GHOST_OUTCOME" = success
       - name: Preserve screenshots and aim-trace even after failure
         if: always()
         uses: actions/upload-artifact@v4
