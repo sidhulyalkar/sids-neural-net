@@ -143,7 +143,7 @@ export const CANYON_FLOW={
  hip:{x:22.4,z:40.2,width:1.6,impulse:2.45},
 } as const;
 /** The meadow bridge turns toward a downhill westbound roll-in. */
-export const MEADOW_CONNECTOR={minX:-11,maxX:35,minZ:34.9,maxZ:64,
+export const MEADOW_CONNECTOR={minX:-21,maxX:35,minZ:34.9,maxZ:64,
  bridge:{x:31,z:46},rollIn:{x:29,z:51}} as const;
 export function insideMeadowConnector(p:Point,margin=0){
  return p.x>=MEADOW_CONNECTOR.minX-margin&&p.x<=MEADOW_CONNECTOR.maxX+margin&&
@@ -244,9 +244,9 @@ type RailChain={
  * The connected grind system can roll through the elbows without a fresh
  * Space press, and each wooden segment is drawn at its own physical Y. */
 export const CANYON_RAIL_CHAINS:readonly RailChain[]=[
- {id:"sequoia-return",points:[{x:-6.8,z:60},{x:-8.5,z:58.5},{x:-10,z:56.2},{x:-10,z:54}],
+ {id:"sequoia-return",points:[{x:-10.5,z:62},{x:-13.8,z:61.5},{x:-17,z:59.5},{x:-19,z:56.5}],
   heights:[.35,.45,.52,.48],radius:.085,wood:true},
- {id:"grove-home",points:[{x:-10,z:51.9},{x:-9.6,z:49.8},{x:-8.7,z:48}],
+ {id:"grove-home",points:[{x:-19.4,z:54.5},{x:-19,z:52.3},{x:-18.6,z:49.5}],
   heights:[.44,.45,.32],radius:.08,wood:true},
  {id:"meadow-bridge-line",points:[{x:24.8,z:38},{x:27,z:39.5},
   {x:29,z:42},{x:31,z:45},{x:31,z:47.5},{x:30.5,z:49.5}],

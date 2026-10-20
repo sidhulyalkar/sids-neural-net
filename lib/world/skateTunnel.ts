@@ -37,10 +37,11 @@ export function skateTunnelSample(r:SkateTunnelRide,floorAt:(p:Point)=>number){
  const tangent:V=[0,dy/ds,dz/ds];
  const slope=(floorAt({x:r.x+.02,z:g.center.z})-floorAt({x:r.x-.02,z:g.center.z}))/.04;
  const taperSlope=-g.taper/g.halfLength;
- const axis:V=unit([1,slope+g.innerRadius*taperSlope*(1-Math.cos(r.angle)),g.innerHalfWidth*taperSlope*Math.sin(r.angle)]);
+ const rawAxis:V=unit([1,slope+g.innerRadius*taperSlope*(1-Math.cos(r.angle)),g.innerHalfWidth*taperSlope*Math.sin(r.angle)]);
+ const axis=unit(rawAxis.map((v,i)=>v-dot(rawAxis,tangent)*tangent[i]) as V);
  const up=unit(cross(tangent,axis));
  const forward=unit(axis.map((n,i)=>n*r.vx+tangent[i]*r.vt) as V);
- if(Math.hypot(r.vx,r.vt)<.01){forward[0]=r.direction;forward[1]=forward[2]=0;}
+ if(Math.hypot(r.vx,r.vt)<.01){for(let i=0;i<3;i++)forward[i]=axis[i]*r.direction;}
  const right=unit(cross(up,forward));
  const curvature=ry*rz/(ds*ds*ds);
  const wheelLift=.5*curvature*(.63*.63*r.vt*r.vt+.33*.33*r.vx*r.vx)/Math.max(.01,r.speed*r.speed);
@@ -69,6 +70,7 @@ export function advanceSkateTunnelRide(start:SkateTunnelRide,delta:number,
    r.air.velocity[1]-=3.8*dt;
    for(let k=0;k<3;k++)r.air.position[k]+=r.air.velocity[k]*dt;
    r.x=r.air.position[0];
+   if(Math.abs(r.x-GROVE_TUNNEL.center.x)>=GROVE_TUNNEL.halfLength){completed=true;break;}
    const taper=1-GROVE_TUNNEL.taper*(r.x-GROVE_TUNNEL.center.x)/GROVE_TUNNEL.halfLength;
    const ry=GROVE_TUNNEL.innerRadius*taper,rz=GROVE_TUNNEL.innerHalfWidth*taper;
    const y=(r.air.position[1]-floor({x:r.x,z:GROVE_TUNNEL.center.z})-ry)/ry;
@@ -111,4 +113,31 @@ export function skateTunnelJumpDuration(start:SkateTunnelRide,floor:(p:Point)=>n
   if(next.completed)return .44;
  }
  return Math.max(.08,seconds*.85);
+}
+
+/** Cross an open mouth in 3D. Never acquire through bark or snap a flying board down. */
+export function enterSkateTunnel(previous:Point,point:Point,y:number,velocity:V,
+ floor:(p:Point)=>number):SkateTunnelRide|null{
+ const g=GROVE_TUNNEL;
+ if(![previous.x,previous.z,point.x,point.z,y,...velocity].every(Number.isFinite))return null;
+ if(Math.abs(point.x-g.center.x)>=g.halfLength)return null;
+ const side=previous.x>=g.center.x?1:-1,mouth=g.center.x+side*g.halfLength;
+ if(side*(previous.x-mouth)<0||side*velocity[0]>=-.05)return null;
+ const t=(mouth-previous.x)/(point.x-previous.x),z=previous.z+(point.z-previous.z)*t;
+ const taper=1-g.taper*(point.x-g.center.x)/g.halfLength;
+ const ry=g.innerRadius*taper,rz=g.innerHalfWidth*taper,floorY=floor({x:point.x,z:g.center.z});
+ const qy=(y-floorY-ry)/ry,qz=(point.z-g.center.z)/rz;
+ if(Math.abs(z-g.center.z)>rz||qy*qy+qz*qz>1.055||y<floorY-.08)return null;
+ const angle=Math.atan2(qz,-qy),direction=velocity[0]>=0?1:-1;
+ let ride:SkateTunnelRide={x:point.x,angle,vx:0,vt:0,speed:Math.hypot(...velocity),
+  direction,progress:0,startAngle:angle,spin:1,startX:point.x,endX:g.center.x+direction*g.halfLength};
+ const pose=skateTunnelSample(ride,floor),distance=Math.hypot(point.z-pose.point.z,y-pose.y);
+ ride={...ride,vx:dot(velocity,pose.axis),vt:dot(velocity,pose.tangent)};
+ ride.speed=Math.hypot(ride.vx,ride.vt);
+ if(distance>.075)ride.air={position:[point.x,y,point.z],velocity:[...velocity]};
+ return ride;
+}
+export function skateTunnelCameraPoint(side:1|-1,floor:(p:Point)=>number){
+ const x=GROVE_TUNNEL.center.x+side*(GROVE_TUNNEL.halfLength+3.8);
+ return {x,y:floor({x,z:GROVE_TUNNEL.center.z})+GROVE_TUNNEL.innerRadius,z:GROVE_TUNNEL.center.z};
 }

@@ -155,3 +155,16 @@ test('slow reverse entry rolls back to its own mouth',()=>{
  for(let i=0;i<600&&!returned;i++){const n=advanceSkateLoop(ride,1/60);ride=n.ride;returned=n.returned;assert.ok(!n.completed);}
  assert.ok(returned);assert.equal(ride.angle,2*Math.PI);
 });
+
+test('swept loop acquisition preserves lane and travel instead of snapping to the seam',async()=>{
+ const {enterSkateLoop}=await import('../lib/world/skateLoop');
+ for(const direction of [1,-1] as const)for(const lateral of [-.9,0,.9]){
+  const r=beginSkateLoop(9,2,C.z+lateral,2,direction),p=skateLoopSample(r);
+  const before={x:p.point.x-p.heading.x*.2,z:p.point.z-p.heading.z*.2};
+  const current={x:p.point.x+p.heading.x*.2,z:p.point.z+p.heading.z*.2};
+  const entered=enterSkateLoop(before,current,p.heading,9,p.y,2,2);
+  assert.ok(entered);const pose=skateLoopSample(entered);
+  assert.ok(Math.hypot(pose.point.x-current.x,pose.point.z-current.z)<.04);
+  assert.equal(enterSkateLoop(before,current,p.heading,9,p.y+3,2,2),null);
+ }
+});

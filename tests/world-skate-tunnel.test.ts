@@ -57,3 +57,28 @@ test('tube flips catch within the physical airtime at multiple frame rates',asyn
   assert.equal(landed.bails,0);assert.ok(landed.points>0);assert.equal(landed.durationSeconds,undefined);
  }
 });
+
+test('mouth entry preserves flying contact and rejects side or above-roof acquisition',async()=>{
+ const {enterSkateTunnel}=await import('../lib/world/skateTunnel');
+ for(const side of [-1,1]){
+  const before={x:side*(g.halfLength+.1),z:g.center.z},p={x:side*(g.halfLength-.1),z:g.center.z};
+  const r=enterSkateTunnel(before,p,2,[-side*6,0,0],floor);
+  assert.ok(r&&!r.air);assert.ok(Math.abs(skateTunnelSample(r,floor).y-2)<1e-8);
+  const flying=enterSkateTunnel(before,p,3,[-side*6,-1,0],floor);
+  assert.ok(flying?.air);assert.deepEqual(flying.air.position,[p.x,3,p.z]);
+  assert.equal(enterSkateTunnel(before,p,10,[-side*6,0,0],floor),null);
+  assert.equal(enterSkateTunnel({...p,z:p.z+.3},p,2,[0,0,-6],floor),null);
+ }
+});
+test('stationary and reversing tube frames remain perpendicular on sloped terrain',()=>{
+ for(const angle of [0,.5,1.5,3,5])for(const vx of [0,-.001,.001,-3,3]){
+  const p=skateTunnelSample({...start(),angle,vx,vt:0,speed:Math.abs(vx)},p=>2+p.x*.3);
+  assert.ok(Math.abs(p.up.reduce((s,v,i)=>s+v*p.forward[i],0))<1e-8);
+  assert.ok(Math.abs(p.axis.reduce((s,v,i)=>s+v*p.tangent[i],0))<1e-8);
+ }
+});
+test('airborne mouth exits keep their world trajectory',()=>{
+ const r={...start(),x:g.halfLength-.01,air:{position:[g.halfLength-.01,3,g.center.z] as [number,number,number],velocity:[8,1,0] as [number,number,number]}};
+ const n=advanceSkateTunnelRide(r,.05,undefined,floor);
+ assert.ok(n.completed&&n.ride.air);assert.ok(skateTunnelSample(n.ride,floor).y>3);
+});

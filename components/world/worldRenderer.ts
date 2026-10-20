@@ -3,10 +3,10 @@ import {bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
 import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcadeTrailFooting,arcadeEntranceCameraPose} from "@/lib/world/arcadeWayfinding";
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
-import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_PARK_RAILS,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideMeadowConnector,CANYON_FLOW,type SkateRail} from "@/lib/world/skatepark";
-import {beginSkateLoop,skateLoopCamera,skateLoopEntryDirection,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
+import {skateParkSurface,insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_PARK_RAILS,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideMeadowConnector,CANYON_FLOW,type SkateRail} from "@/lib/world/skatepark";
+import {enterSkateLoop,beginSkateLoop,skateLoopCamera,skateLoopEntryDirection,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
 import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample,type SkateRailGapRide} from "@/lib/world/skateRailGaps";
-import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
+import {skateTunnelJumpDuration,jumpSkateTunnel,enterSkateTunnel,skateTunnelCameraPoint,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
@@ -3220,6 +3220,7 @@ export function createWorld(
   let skateLoopEntries=0,skateLoopCompletions=0,lastSkateLoopEnd=-Infinity;
   let skateTunnelRide:SkateTunnelRide|null=null;
   let skateTunnelEntries=0,skateTunnelCompletions=0;
+  let tubeCameraActive=false,tubeCameraSide:1|-1=1;
   let skateRailGapRide:SkateRailGapRide|null=null;
   let skateRailGapEntries=0,skateRailGapLandings=0;
   function commitSkateTrick(next:SkateTrickState){
@@ -4461,10 +4462,9 @@ export function createWorld(
           skateLoopEntryDirection(previousPoint,player,travel.heading,travel.speed)!==0){
           const exitPoint={x:SKATE_LOOP.center.x-SKATE_LOOP.exitOffset,
             z:SKATE_LOOP.center.z+SKATE_LOOP.laneOffset};
-          const direction=skateLoopEntryDirection(previousPoint,player,travel.heading,travel.speed) as 1|-1;
-          const lane=SKATE_LOOP.center.z+(player.z-(direction===1?SKATE_LOOP.center.z:exitPoint.z));
-          skateLoopRide=beginSkateLoop(travel.speed,
-            groundHeight(SKATE_LOOP.center),lane,groundHeight(exitPoint),direction);
+          skateLoopRide=enterSkateLoop(previousPoint,player,travel.heading,travel.speed,
+            previousY,groundHeight(SKATE_LOOP.center),groundHeight(exitPoint));
+          if(skateLoopRide){
           const loopLens=skateLoopCamera(skateLoopRide);
           camera.position.set(loopLens.position.x,loopLens.position.y,loopLens.position.z);
           look.set(loopLens.look.x,loopLens.look.y,loopLens.look.z);
@@ -4473,10 +4473,12 @@ export function createWorld(
           player=loopStart.point;playerY=loopStart.y;
           travel={point:player,speed:Math.abs(skateLoopRide.speed),heading:loopStart.heading};
           destination=null;lastRampAt=elapsed;skateLoopEntries++;
+          }
         }
         if(state.activity==="skate"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&
-          !grind&&airHeight<=.001&&elapsed-lastSkateLoopEnd>.3){
-          const next=beginSkateTunnelRide(player,travel.heading,travel.speed);
+          !grind&&elapsed-lastSkateLoopEnd>.08){
+          const next=enterSkateTunnel(previousPoint,player,airHeight>.001?previousY+verticalSpeed*dt:groundHeight(player),
+            [travel.heading.x*travel.speed,verticalSpeed,travel.heading.z*travel.speed],groundHeight);
           if(next){skateTunnelRide=next;skateTunnelEntries++;destination=null;}
         }
         if(skimHeat.phase==="ready"&&isWater(player)){
@@ -4488,6 +4490,9 @@ export function createWorld(
           // Starting at the seam retains 3D track support this same frame.
           playerY=skateLoopSample(skateLoopRide).y;
           airHeight=verticalSpeed=0;
+        } else if(skateTunnelRide){
+          const pose=skateTunnelSample(skateTunnelRide,groundHeight);
+          playerY=pose.y;airHeight=skateTunnelRide.air?.15:0;
         } else if (isWater(player)&&jetSkiPierHeight(player)===null) {
           const steppedIn = !isWater(previousPoint) && airHeight < 0.12;
           if (steppedIn) {
@@ -4514,7 +4519,7 @@ export function createWorld(
           // Otherwise frame N lands correctly and frame N+1 snaps upward.
           const groundY=caveLayer==="surface"?
             airborneSupportHeight(previousY,supportY,
-              terrainHeight(player.x,player.z)):supportY;
+              skateParkSurface(player)??terrainHeight(player.x,player.z)):supportY;
           // Integrate in world space: crossing a ramp lip must not subtract its
           // deck height from an airborne rider's trajectory.
           if (airHeight > 0 || verticalSpeed > 0) {
@@ -4828,7 +4833,7 @@ export function createWorld(
         // visually lift the avatar even when the collision solver stayed below.
         const rigSupport=(p:Point)=>caveLayer==="surface"?
           airborneSupportHeight(playerY,supportHeight(p),
-            terrainHeight(p.x,p.z)):supportHeight(p);
+            skateParkSurface(p)??terrainHeight(p.x,p.z)):supportHeight(p);
         const bikeContact = mode==="bike"&&airHeight<=.001&&!climb&&!grind
           ? bikeTerrainPose(player,travel.heading,rigSupport):null;
         const footprint = mode === "bike"
@@ -5233,9 +5238,13 @@ export function createWorld(
       canvas.dataset.rainforestOverlook=String(rainforestFraming);
       // Look THROUGH the open log mouth instead of flying the camera through
       // the bark roof. This leaves the silhouette visible while riding inside.
-      const sequoiaCamera=skateVisible&&(!!skateTunnelRide||
-        (Math.abs(player.x-GROVE_TUNNEL.center.x)<GROVE_TUNNEL.halfLength+.1&&
-        Math.abs(player.z-GROVE_TUNNEL.center.z)<1.30));
+      if(skateTunnelRide&&!tubeCameraActive){
+        tubeCameraSide=camera.position.x>=GROVE_TUNNEL.center.x?1:-1;tubeCameraActive=true;
+      }
+      if(!skateVisible||(!skateTunnelRide&&(
+        Math.abs(player.x-GROVE_TUNNEL.center.x)>GROVE_TUNNEL.halfLength+3||
+        Math.abs(player.z-GROVE_TUNNEL.center.z)>GROVE_TUNNEL.outerHalfWidth+1.5)))tubeCameraActive=false;
+      const sequoiaCamera=skateVisible&&tubeCameraActive;
       canvas.dataset.skateTunnelCamera=String(sequoiaCamera);
       if(discGolf.phase!=="off"){
         const basket=discGolfNextTarget(discGolf);
@@ -5346,14 +5355,8 @@ export function createWorld(
         const pose=skateLoopCamera(skateLoopRide);
         targetCamera.set(pose.position.x,pose.position.y,pose.position.z);
       } else if(sequoiaCamera){
-        const side=(skateTunnelRide?.direction??travel.heading.x)<=0?1:-1;
-        const mouthX=GROVE_TUNNEL.center.x+
-          side*(GROVE_TUNNEL.halfLength+2.9);
-        const floor=groundHeight({x:mouthX,z:GROVE_TUNNEL.center.z});
-        targetCamera.set(mouthX,skateTunnelRide?
-          floor+GROVE_TUNNEL.innerRadius*.95:
-          Math.max(targetLook.y+.8,floor+1.85),
-          GROVE_TUNNEL.center.z);
+        const pose=skateTunnelCameraPoint(tubeCameraSide,groundHeight);
+        targetCamera.set(pose.x,pose.y,pose.z);
       } else if (cavernFraming) {
         // Keep the third-person boom centered inside the authored tunnel.
         const caveCameraZ = Math.max(arcade.z + 0.9, player.z - 4.2);
@@ -6336,6 +6339,12 @@ export function createWorld(
       camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
       look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
     }
+    if(tubeCameraActive){
+      const limit=GROVE_TUNNEL.center.x+tubeCameraSide*(GROVE_TUNNEL.halfLength+.65);
+      if(tubeCameraSide*(camera.position.x-limit)<0)camera.position.x=limit;
+    }
+    canvas.dataset.skateTunnelCameraSide=String(tubeCameraActive?tubeCameraSide:0);
+    canvas.dataset.skateTunnelCameraX=camera.position.x.toFixed(3);
     // The *interpolated* lens can cross foliage even if both ends of
     // the blend are clear. Reject that intermediate pose and snap onto the
     // validated shot so a second throw is never framed from inside a leaf.
@@ -7041,6 +7050,7 @@ export function createWorld(
         callbacks.onJetSkiMode(false);
         if(jetChoosing){jetChoosing=false;jetChooser.hidden=true;}
         const loopStart=next.command.skateDestination==="loop-rollin"&&next.command.activity==="skate";
+        tubeCameraActive=false;
         const reverseStart=next.command.skateDestination==="loop-reverse"&&next.command.activity==="skate";
         const tubeStart=next.command.skateDestination==="hollow-log"&&next.command.activity==="skate";
         const reversePose=skateLoopSample(beginSkateLoop(0,0,SKATE_LOOP.center.z,0,-1));

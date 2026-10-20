@@ -435,7 +435,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
     z:REDWOOD_BOWL.center.z+r*Math.sin(a)};
    const flare=.028*Math.sin(a*27+f*4)+.022*Math.cos(a*43-f*8);
    // Near the open eastern roll-in, recess the bark skin completely.
-   const rise=split<.43?0:.025+.028*Math.max(0,flare);
+   const rise=split<.43?0:.085+.028*Math.max(0,flare);
    barkVertices.push(p.x,ride(p)+rise,p.z);
    const grain=.47+.26*Math.sin(a*37+f*1.5)+.12*Math.cos(a*59-f*5);
    barkMix.copy(barkDark).lerp(barkLight,THREE.MathUtils.clamp(grain,0,1));

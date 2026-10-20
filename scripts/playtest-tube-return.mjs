@@ -21,7 +21,7 @@ try{
   await page.getByRole('button',{name:mode==='reverse'?'Loop · reverse runway':'Hollow log · carve & return',exact:true}).click();
   await page.locator('canvas').focus();console.log('Approach',mode);
   results[mode]=await page.evaluate(mode=>new Promise((resolve,reject)=>{
-   const el=document.querySelector('canvas'),pressed=new Set(),trace=[];let frames=0,stage='approach',inverted=false,jumped=false,sawAir=false,jumpSerial=0;
+   const el=document.querySelector('canvas'),pressed=new Set(),trace=[];let frames=0,stage='approach',inverted=false,jumped=false,sawAir=false,jumpSerial=0,cameraSide=0;
    const start=performance.now(),baseline=Number(el.dataset.skateLoopCompletions);
    const key=(k,on)=>{if(on)pressed.add(k);else pressed.delete(k);el.dispatchEvent(new KeyboardEvent(on?'keydown':'keyup',{key:k,code:k===' '?'Space':'Key'+k.toUpperCase(),bubbles:true,cancelable:true}));};
    const release=()=>{for(const k of [...pressed])key(k,false);};
@@ -38,6 +38,12 @@ try{
      if(Number(d.skateLoopCompletions)>baseline){finish(inverted?null:'No inversion');return;}
     }else{
      if(stage==='approach'&&d.skateTunnelPhase==='wall-ride'){stage='carve';key('a',true);}
+     if(d.skateTunnelPhase==='wall-ride'){
+      const side=Number(d.skateTunnelCameraSide);
+      if(cameraSide&&side!==cameraSide){finish('Camera switched mouths');return;}
+      if(side)cameraSide=side;
+      if(side*Number(d.skateTunnelCameraX)<5.99){finish('Camera entered wood');return;}
+     }
      if(stage==='carve'&&(Math.abs(s.vx)<.8||s.vx>0)){key('a',false);stage='orbit';}
      if(stage==='orbit'||stage==='jump'){
       // Correct longitudinal drift using real steering, including coarse GPU frames.

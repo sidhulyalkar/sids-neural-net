@@ -88,3 +88,18 @@ export function skateLoopCamera(ride:SkateLoopRide){
   look:{x,y:ride.baseY+SKATE_LOOP.radiusY-.2,
    z:SKATE_LOOP.center.z+SKATE_LOOP.laneOffset*.5}};
 }
+
+/** Preserve the swept lane and sub-frame progress at either mouth. */
+export function enterSkateLoop(previous:Point,current:Point,heading:Point,speed:number,
+ wheelY:number,groundY:number,exitGroundY:number):SkateLoopRide|null{
+ const direction=skateLoopEntryDirection(previous,current,heading,speed);
+ if(!direction||!Number.isFinite(wheelY))return null;
+ const initial=beginSkateLoop(speed,groundY,SKATE_LOOP.center.z,exitGroundY,direction);
+ const mouth=skateLoopSample(initial);
+ if(Math.abs(wheelY-mouth.y)>.25)return null;
+ const dx=current.x-mouth.point.x,dz=current.z-mouth.point.z;
+ const lane=(dx*mouth.right[0]+dz*mouth.right[2])*direction;
+ const progress=Math.max(0,dx*mouth.forward[0]+dz*mouth.forward[2]);
+ return {...initial,laneZ:SKATE_LOOP.center.z+lane,
+  angle:clamp(initial.angle+direction*progress/mouth.ds,0,LOOP_TAU)};
+}
