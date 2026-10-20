@@ -3072,6 +3072,8 @@ export function createWorld(
     tropicalReefRoot.add(turtle);
     tropicalTurtles.push(turtle);
   }
+  canvas.dataset.tropicalTurtles = String(tropicalTurtles.length);
+  canvas.dataset.marineVideoEncounters = String(SNORKEL_VIDEO_POINTS.length);
 
   const tropicalMotePositions = new Float32Array(120 * 3);
   for (let i = 0; i < 120; i++) {
