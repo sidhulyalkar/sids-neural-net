@@ -79,7 +79,7 @@ export function skateLogShellDistance(p:V,floor:Floor){
  const inner=(Math.hypot(y/(g.innerRadius*taper),z/(g.innerHalfWidth*taper))-1)*g.innerHalfWidth*taper;
  const outer=(Math.hypot(y/(g.outerRadius*taper),z/(g.outerHalfWidth*taper))-1)*g.outerHalfWidth*taper;
  const end=Math.abs(p[0]-g.center.x)-g.halfLength;
- return {distance:Math.max(end,outer,-inner),surface:(end>=outer&&end>=-inner?"rim":outer>=-inner?"outer":"inner") as LogSurface};
+ return {distance:Math.max(end,outer,-inner),surface:(-inner>=end-.00002&&-inner>=outer?"inner":outer>=end-.00002&&outer>=-inner?"outer":"rim") as LogSurface};
 }
 export type LogHit={point:V;t:number;surface:LogSurface};
 /** Conservative advancement checks the entire segment, including thin end rims.

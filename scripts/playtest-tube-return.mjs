@@ -33,6 +33,7 @@ try{
     trace.push(s);if(++frames%20===0)window.auditTrace(s);
     if(performance.now()-start>240000){finish('Timeout');return;}
     if(mode==='reverse'){
+     if(stage==='approach'&&p[0]>25){finish('Missed reverse entrance');return;}
      if(d.skateLoopPhase==='inverting')stage='loop';
      if(stage==='loop'&&!inverted&&angle>2.45&&angle<4.05){inverted=true;window.auditImage('reverse-inverted',el.toDataURL());}
      if(Number(d.skateLoopCompletions)>baseline){finish(inverted?null:'No inversion');return;}

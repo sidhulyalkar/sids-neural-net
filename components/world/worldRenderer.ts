@@ -4459,7 +4459,7 @@ export function createWorld(
         if(state.activity==="skate"&&caveLayer==="surface"&&
           aquatic==="land"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!grind&&airHeight<=.001&&
           skateTrick.phase==="ground"&&skateTrick.manual==="none"&&
-          elapsed-lastSkateLoopEnd>1.4&&
+          elapsed-lastSkateLoopEnd>.15&&
           skateLoopEntryDirection(previousPoint,player,travel.heading,travel.speed)!==0){
           const exitPoint={x:SKATE_LOOP.center.x-SKATE_LOOP.exitOffset,
             z:SKATE_LOOP.center.z+SKATE_LOOP.laneOffset};

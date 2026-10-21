@@ -105,3 +105,12 @@ test('loop accepts approaches through sixty degrees at either mouth, preserving 
   assert.ok(Math.abs(r.entryLateralSpeed??0)<.17);
  }
 });
+
+test('ground-level mouth seams retain inward momentum instead of catching the cut rim',()=>{
+ for(const side of [-1,1]){
+  const m=resolveSkateLogMotion([side*(g.halfLength+.35),2,g.center.z],
+   [side*(g.halfLength-.15),2,g.center.z],[-side*8,0,0],floor);
+  assert.ok(m.ride);assert.equal(m.ride.surface,'inner');
+  assert.ok(Math.abs(m.ride.vx+side*8)<.001);assert.ok(m.ride.speed>7.99);
+ }
+});
