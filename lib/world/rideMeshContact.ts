@@ -11,11 +11,14 @@ export function terrainMeshHeight(
  if(!Number.isFinite(point.x)||!Number.isFinite(point.z)||
   values.length!==(segmentsX+1)*(segmentsZ+1)||segmentsX<1||segmentsZ<1)
   return NaN;
- const sx=Math.max(0,Math.min(segmentsX-1e-7,
+ const sx=Math.max(0,Math.min(segmentsX,
   (point.x-bounds.minX)*segmentsX/(bounds.maxX-bounds.minX)));
- const sz=Math.max(0,Math.min(segmentsZ-1e-7,
+ const sz=Math.max(0,Math.min(segmentsZ,
   (point.z-bounds.minZ)*segmentsZ/(bounds.maxZ-bounds.minZ)));
- const ix=Math.floor(sx),iz=Math.floor(sz),u=sx-ix,v=sz-iz,stride=segmentsX+1;
+ // Preserve exact boundary vertices, selecting the final cell at u/v=1.
+ const ix=Math.min(segmentsX-1,Math.floor(sx));
+ const iz=Math.min(segmentsZ-1,Math.floor(sz));
+ const u=sx-ix,v=sz-iz,stride=segmentsX+1;
  const a=iz*stride+ix,d=a+1,b=a+stride,c=b+1;
  if(u+v<=1)return values[a]*(1-u-v)+values[d]*u+values[b]*v;
  return values[b]*(1-u)+values[d]*(1-v)+values[c]*(u+v-1);
