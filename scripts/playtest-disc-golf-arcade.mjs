@@ -101,9 +101,32 @@ try {
  // The footage-derived gait contract applies during Shasta's automatic
  // fetch, not just while following the player. Sample actual animation
  // frames; fixed scene screenshots cannot prove anti-hop behavior.
- await page.waitForFunction(()=>
-  (document.querySelector("canvas")?.__chaseFrames?.length??0)>=6,
-  null,{timeout:35000});
+ try{
+  await page.waitForFunction(()=>
+   (document.querySelector("canvas")?.__chaseFrames?.length??0)>=6,
+   null,{timeout:35000});
+ }catch(error){
+  const detail=await canvas.evaluate(c=>({
+   dogFetchStage:c.dataset.dogFetchStage,
+   fetchStages:c.__chaseStages,
+   samples:c.__chaseFrames,
+   flightPhases:c.__flightPhases,
+   currentPhase:c.dataset.discGolfPhase,
+   handoffPending:c.dataset.discGolfHandoffPending,
+   handoff:c.dataset.discGolfHandoff,
+   handoffReason:c.dataset.discGolfHandoffReason,
+   dogSpeed:c.dataset.dogSpeed,
+   dogDistanceTraveled:c.dataset.dogDistanceTraveled,
+   dogGait:c.dataset.dogGait,
+   follow:c.dataset.shastaFollowMode,
+   player:c.dataset.player,
+  }));
+  fs.writeFileSync(path.join(out,"fetch-timeout.json"),
+   JSON.stringify({detail,errors},null,2)+"\\n");
+  await page.screenshot({path:path.join(out,"fetch-timeout.png")});
+  throw new Error("Shasta did not deliver six distinct rendered chase samples: "+
+   JSON.stringify(detail),{cause:error});
+ }
  const fetchGait=await page.evaluate(()=>
   [...document.querySelector("canvas").__chaseFrames]);
  assert.ok(fetchGait.length>=6,

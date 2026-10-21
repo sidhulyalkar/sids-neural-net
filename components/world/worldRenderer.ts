@@ -8,7 +8,7 @@ import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcade
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
 import {skateParkSurface,insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_PARK_RAILS,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideMeadowConnector,CANYON_FLOW,type SkateRail} from "@/lib/world/skatepark";
-import {contactSkateLoop,enterSkateLoop,beginSkateLoop,skateLoopCamera,skateLoopEntryDirection,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
+import {jumpSkateLoop,contactSkateLoop,enterSkateLoop,beginSkateLoop,skateLoopCamera,skateLoopEntryDirection,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
 import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample,type SkateRailGapRide} from "@/lib/world/skateRailGaps";
 import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateLogTopRide,resolveSkateLogMotion,enterSkateTunnel,skateTunnelCameraPoint,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
@@ -56,6 +56,7 @@ import {
   advanceBigAir,mountainJumpCameraPose,armBigAir,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
+import {nearbyMarineVideo, type MarineCreaturePose} from "@/lib/world/marineVideoEncounters";
 import { createWorldTridents } from "./worldTridents";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
@@ -102,6 +103,7 @@ import {
   distance,
   MEMORY_POINTS,
   WILDLIFE_DISCOVERIES,
+  SNORKEL_VIDEO_POINTS,
   SEA_SURFACE,
   coastlineX,
   eastCoastlineX,
@@ -3059,6 +3061,33 @@ export function createWorld(
     tropicalSharks.push(shark);
   }
 
+  // A real sea-turtle silhouette gives filmed turtle encounters a living
+  // counterpart. Like other tropical fauna it is culled outside this reef.
+  const tropicalTurtles: THREE.Group[] = [];
+  {
+    const turtle = new THREE.Group();
+    const shell = mat("#617c68", { roughness: 0.88, flatShading: false });
+    const skin = mat("#9bad84", { roughness: 0.9, flatShading: false });
+    mesh(shastaBodyGeo, skin, [0, -0.08, 0], [0.9, 0.22, 0.61], turtle);
+    mesh(shastaBodyGeo, shell, [0, 0.11, -0.06], [0.99, 0.38, 0.77], turtle);
+    mesh(shastaBodyGeo, skin, [0, -0.04, 0.88], [0.31, 0.24, 0.37], turtle);
+    for (const side of [-1, 1]) {
+      const fore = mesh(shastaBodyGeo, skin,
+        [side * 0.93, -0.18, 0.3], [0.68, 0.11, 0.25], turtle);
+      fore.rotation.y = side * 0.38;
+      fore.userData.flipper = side;
+      const rear = mesh(shastaBodyGeo, skin,
+        [side * 0.73, -0.13, -0.61], [0.43, 0.1, 0.18], turtle);
+      rear.rotation.y = -side * 0.35;
+      mesh(shastaBodyGeo, mat("#273a31"), [side * 0.22, 0, 1.14],
+        [0.047, 0.049, 0.04], turtle);
+    }
+    tropicalReefRoot.add(turtle);
+    tropicalTurtles.push(turtle);
+  }
+  canvas.dataset.tropicalTurtles = String(tropicalTurtles.length);
+  canvas.dataset.marineVideoEncounters = String(SNORKEL_VIDEO_POINTS.length);
+
   const tropicalMotePositions = new Float32Array(120 * 3);
   for (let i = 0; i < 120; i++) {
     const z = -20 + random() * 58;
@@ -3810,25 +3839,22 @@ export function createWorld(
     if(state.activity!=="skate"||!state.entered||state.paused||document.hidden||
       aquatic!=="land"||jetSki||jetChoosing||discGolf.phase!=="off"||
       trial.phase==="armed"||trial.phase==="running"||
-      bigAir.phase==="flying"||bigAir.phase==="armed"||climb||(skateLoopRide&&!skateLoopRide.ramp)||skateRailGapRide||
+      bigAir.phase==="flying"||bigAir.phase==="armed"||climb||skateRailGapRide||
       (airHeight>.08&&verticalSpeed<=0)||skateTrick.phase==="air")return;
     const naturalFlight=airHeight>.025&&verticalSpeed>0;
     if(grind)grind=null; // pop off a rail instead of locking the player on it
     const next=startSkateTrick(skateTrick,name,elapsed,travel.speed,assisted);
     if(next===skateTrick)return;
+    if(skateLoopRide)next.durationSeconds=.5;
     if(skateTunnelRide)next.durationSeconds=skateTunnelJumpDuration(skateTunnelRide,groundHeight);
     commitSkateTrick(next);skateHasBeenAirborne=false;
     if(skateTunnelRide){
       skateTunnelRide=jumpSkateTunnel(skateTunnelRide,groundHeight);
       airHeight=.15;skateHasBeenAirborne=true;destination=null;return;
     }
-    if(skateLoopRide?.ramp){
-      const pose=skateLoopSample(skateLoopRide),v=pose.velocity.map((n,i)=>n+pose.up[i]*3.5);
-      const speed=Math.hypot(v[0],v[2]);
-      travel={point:player,speed,heading:speed>.001?{x:v[0]/speed,z:v[2]/speed}:travel.heading};
-      verticalSpeed=v[1];airHeight=Math.max(.04,playerY-groundHeight(player));
-      playerY+=pose.up[1]*.01;player={x:player.x+pose.up[0]*.01,z:player.z+pose.up[2]*.01};
-      skateLoopRide=null;lastSkateLoopEnd=elapsed;skateHasBeenAirborne=true;destination=null;return;
+    if(skateLoopRide){
+      skateLoopRide=jumpSkateLoop(skateLoopRide);
+      airHeight=.15;skateHasBeenAirborne=true;destination=null;return;
     }
     if(!naturalFlight){
       // Easy tricks stay compact in the woodland park: enough time for
@@ -3854,8 +3880,8 @@ export function createWorld(
   }
   function performAction() {
     if(rideWipeout.phase!=="riding"&&isRideMode(state.activity))return;
-    if(skateLoopRide?.ramp){launchAssistedSkateTrick();return;}
-    if(skateLoopRide||skateRailGapRide)return;
+    if(skateLoopRide){launchAssistedSkateTrick();return;}
+    if(skateRailGapRide)return;
     if(skateTunnelRide){launchAssistedSkateTrick();return;}
     if(skimHeat.phase==="riding"){doSkimAction("pop");return;}
     if(skimHeat.phase==="ready"){doSkimAction("drop");return;}
@@ -4293,12 +4319,14 @@ export function createWorld(
       } else if (skateLoopRide) {
         // Dedicated 3D wheel contact; normal groundHeight has no upside-down
         // layer. Bounded real-time slices preserve the stunt on slow devices.
+        if(skateTrick.phase==="air")skateTrick={...skateTrick,
+          startedAt:skateTrick.startedAt-Math.max(0,Math.min(rawDelta,.5)-dt)};
         const advanced=advanceSkateLoop(skateLoopRide,rawDelta);
         skateLoopRide=advanced.ride;
         const pose=skateLoopSample(advanced.ride);
         player=pose.point;playerY=pose.y;
         travel={point:player,speed:Math.abs(advanced.ride.speed),heading:pose.heading};
-        airHeight=verticalSpeed=0;
+        airHeight=advanced.ride.jump?.15:0;verticalSpeed=0;
         if(advanced.completed||advanced.returned||advanced.released){
           const velocity=pose.velocity,planar=Math.hypot(velocity[0],velocity[2]);
           travel={point:player,speed:planar,heading:planar>.001?{x:velocity[0]/planar,z:velocity[2]/planar}:travel.heading};
@@ -5373,7 +5401,38 @@ export function createWorld(
       const layeredNearby =
         nearby === "paper-archive" && caveLayer !== "paper" ? null : nearby;
       const trident=nearbyUnderwaterTrident(player,playerY,aquatic);
-      discovery = aquatic === "land" ? (gazeGame ?? layeredNearby) : trident?.id ?? null;
+      // Follow the animals' ACTUAL animated positions. No video link or
+      // proximity UI is shown until matching real footage is published.
+      let marineEncounter: string | null = null;
+      if (aquatic !== "land" && SNORKEL_VIDEO_POINTS.length) {
+        const reef = waterZone(player);
+        const animals: MarineCreaturePose[] = [];
+        if (reef === "lagoon") {
+          if (tropicalTurtles[0]) animals.push({
+            animal:"turtle",reef:"lagoon",point:tropicalTurtles[0].position,
+          });
+          if (tropicalSharks[0]) animals.push({
+            animal:"shark",reef:"lagoon",point:tropicalSharks[0].position,
+          });
+          const manta=tropicalRays.find(rayState=>rayState.kind==="manta");
+          if (manta) animals.push({
+            animal:"manta",reef:"lagoon",point:manta.object.position,
+          });
+          const sting=tropicalRays.find(rayState=>rayState.kind==="sting");
+          if (sting) animals.push({
+            animal:"ray",reef:"lagoon",point:sting.object.position,
+          });
+        } else if (reef === "kelp" && sharks[0]) {
+          animals.push({animal:"shark",reef:"kelp",point:sharks[0].position});
+        }
+        marineEncounter=nearbyMarineVideo(
+          {x:player.x,y:playerY,z:player.z},
+          aquatic,reef==="kelp"||reef==="lagoon"?reef:null,
+          animals,SNORKEL_VIDEO_POINTS,
+        );
+      }
+      discovery = aquatic === "land" ? (gazeGame ?? layeredNearby) :
+        marineEncounter ?? trident?.id ?? null;
       const nextKey = `${r}:${discovery}`;
       if (nextKey !== locationKey) {
         locationKey = nextKey;
@@ -6799,6 +6858,21 @@ export function createWorld(
         );
         shark.rotation.y = -a + Math.PI / 2;
         shark.rotation.z = Math.sin(a * 2) * 0.035;
+      });
+      tropicalTurtles.forEach((turtle, i) => {
+        const a = elapsed * 0.12 + i * 1.7;
+        const z = 16 + Math.sin(a) * 7;
+        turtle.position.set(
+          eastCoastlineX(z) + 12 + Math.cos(a) * 4.5,
+          -2.8 + Math.sin(a * 1.3) * 0.32,
+          z,
+        );
+        turtle.rotation.y = -a + Math.PI / 2;
+        turtle.rotation.z = Math.sin(a * 2) * 0.055;
+        for (const child of turtle.children) {
+          if (typeof child.userData.flipper === "number")
+            child.rotation.z = child.userData.flipper * Math.sin(elapsed * 2.4) * 0.22;
+        }
       });
       tropicalMotes.rotation.y = Math.sin(elapsed * 0.07) * 0.015;
       tropicalMotes.position.y = Math.sin(elapsed * 0.2) * 0.045;

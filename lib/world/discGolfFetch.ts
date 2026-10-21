@@ -2,13 +2,15 @@ import type {Point} from "./model";
 import type {DiscGolfState} from "./discGolf";
 
 export const DISC_FETCH_LANDING_HOLD=0.28;
-export const DISC_FETCH_POV_DELAY=0.32; // minimum visible run on short putts
+export const DISC_FETCH_POV_DELAY=0.32; // minimum wall-clock run on short putts
+export const DISC_FETCH_MIN_CHASE_FRAMES=8; // distinct rendered frames, not a timer
 export const DISC_FETCH_FOUND_HOLD=0.52;
 export const DISC_FETCH_CHASE_TIMEOUT=12;
 
 export type DiscGolfFetch={
  phase:"idle"|"flight"|"landed"|"chase"|"found";
  startedAt:number;landedAt:number;foundAt:number;
+ chaseFrames?:number;
  target:Point|null;
 };
 export const idleDiscGolfFetch=():DiscGolfFetch=>({
@@ -43,15 +45,21 @@ export function stepDiscGolfFetch(
   return {...state,phase:"landed",landedAt:now,target};
  if(state.phase==="landed")
   return now-state.landedAt>=DISC_FETCH_LANDING_HOLD?
-   {...state,phase:"chase",target}:{...state,target};
+   {...state,phase:"chase",chaseFrames:0,target}:{...state,target};
  if(now-state.landedAt>DISC_FETCH_CHASE_TIMEOUT)
   return idleDiscGolfFetch();
  // The dog may already be next to a short putt. Preserve the visible
- // chase/POV beat before the "found" phase even in that edge case.
- if(now-state.landedAt-DISC_FETCH_LANDING_HOLD>=DISC_FETCH_POV_DELAY &&
+ // chase beat in ACTUAL rendered samples, not just elapsed wall time.
+ // On slow GPU/SwiftShader the old 320ms gate collapsed a full 18m pursuit
+ // into three camera frames. Never finish until several distinct frames of
+ // movement have been rendered; the 12s timeout still unlocks any stuck fetch.
+ const chaseFrames=Math.min(DISC_FETCH_MIN_CHASE_FRAMES,
+  (state.chaseFrames??0)+1);
+ if(chaseFrames>=DISC_FETCH_MIN_CHASE_FRAMES &&
+    now-state.landedAt-DISC_FETCH_LANDING_HOLD>=DISC_FETCH_POV_DELAY &&
     Math.hypot(dog.x-target.x,dog.z-target.z)<1.85)
-  return {...state,phase:"found",foundAt:now,target};
- return {...state,target};
+  return {...state,phase:"found",foundAt:now,target,chaseFrames};
+ return {...state,target,chaseFrames};
 }
 /** The first camera follows the landing, then watches Shasta start moving
  * without repeatedly switching between first/third-person shots. */

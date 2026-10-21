@@ -3,6 +3,8 @@ import { rockGardenHeightOffset } from "./technicalFeatures";
 import { bigAirTerrainOffset } from "./bigAir";
 import { beachBlend, northShoreZ } from "./skimboarding";
 import {MYSTIC_GROVE} from "./mysticGrove";
+import { visualMotion, type WildlifeSubject } from "@/src/data/visualMotion";
+import {buildSnorkelVideoPoints} from "./marineVideoCatalog";
 /** Small, deterministic geography shared by the renderer, navigation and tests. */
 export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern" | "desert" | "rainforest" | "north-shore";
 export type Point = { x: number; z: number };
@@ -119,18 +121,18 @@ export type WorldVideoPoint = {
   id: string;
   title: string;
   detail: string;
-  point: Point;
+  animal: WildlifeSubject;
+  reef: "kelp" | "lagoon";
   src: string;
   posterSrc?: string;
-  reef: "kelp" | "lagoon";
 };
 
 /**
- * Snorkeling video discoveries intentionally stay empty until Sid's real clips are
- * added to the repo/media pipeline. Adding an entry here makes it discoverable in
- * place without changing renderer or dialog code.
+ * Only curated, genuinely published MP4 footage becomes an animal encounter.
+ * The species and reef must be deliberately authored in the Visual Cortex motion
+ * manifest. Until Sid supplies clips, this list stays empty by construction.
  */
-export const SNORKEL_VIDEO_POINTS: WorldVideoPoint[] = [];
+export const SNORKEL_VIDEO_POINTS: WorldVideoPoint[] = buildSnorkelVideoPoints(visualMotion);
 
 /** Quiet wildlife observation, photo upload attaches only after a real asset is committed. */
 export const WILDLIFE_DISCOVERIES = [
@@ -397,8 +399,6 @@ export function nearestRegion(point: Point): RegionId {
 export function nearbyDiscovery(point: Point): string | null {
   if (paperCaveInside(point)) return "paper-archive";
   if (distance(point, SECRET) < 3.5) return "secret";
-  const video = SNORKEL_VIDEO_POINTS.find((m) => distance(point, m.point) < 3.2);
-  if (video) return video.id;
   const wildlife=WILDLIFE_DISCOVERIES.find(m=>distance(point,m.point)<3.1);
   if(wildlife)return wildlife.id;
   const memory = MEMORY_POINTS.find((m) => distance(point, m.point) < 3.2);

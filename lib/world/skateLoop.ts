@@ -1,6 +1,11 @@
 import type {Point} from "./model";
 import {SKATE_LOOP} from "./skatepark";
-export type SkateLoopRide={angle:number;speed:number;baseY:number;exitY:number;laneZ:number;direction?:1|-1;entryLateralSpeed?:number;ramp?:boolean};
+export type SkateLoopRide={angle:number;speed:number;baseY:number;exitY:number;laneZ:number;direction?:1|-1;entryLateralSpeed?:number;ramp?:boolean;jump?:{elapsed:number;duration:number;lane:number}};
+export function jumpSkateLoop(ride:SkateLoopRide):SkateLoopRide{
+ const remaining=ride.speed>=0?LOOP_TAU-ride.angle:ride.angle;
+ const duration=Math.max(.02,Math.min(.6,remaining*skateLoopSample(ride).ds/(Math.abs(ride.speed)+3)*.7));
+ return ride.jump?ride:{...ride,jump:{elapsed:0,duration,lane:ride.laneZ},entryLateralSpeed:0};
+}
 export const LOOP_SEGMENTS=144;
 export const LOOP_TAU=2*Math.PI;
 const clamp=(n:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,n));
@@ -48,6 +53,7 @@ export function skateLoopSample(ride:SkateLoopRide){
  if(tilt<a-Math.PI)tilt+=LOOP_TAU;
  else if(tilt>a+Math.PI)tilt-=LOOP_TAU;
 
+ const hop=ride.jump?.65*Math.sin(Math.PI*ride.jump.elapsed/ride.jump.duration):0;
  const lateral=ride.laneZ-center.z;
  const curvature=(radius*Math.sin(a)*up[0]+(radiusY*Math.cos(a)+
   (ride.exitY-ride.baseY)*6*(1-2*t)/(LOOP_TAU*LOOP_TAU))*up[1])/(ds*ds);
@@ -64,9 +70,9 @@ export function skateLoopSample(ride:SkateLoopRide){
   const adjusted=[up[1]*forward[2]-up[2]*forward[1],up[2]*forward[0]-up[0]*forward[2],up[0]*forward[1]-up[1]*forward[0]];
   for(let i=0;i<3;i++)right[i]=adjusted[i];
  }
- return {point:{x:center.x-radius*Math.sin(a)-exitOffset*t+positionRight[0]*lateral*direction,
-  z:center.z+laneOffset*t*t*(2-t)+positionRight[2]*lateral*direction},
-  y:ride.baseY+radiusY*(1-Math.cos(a))+(ride.exitY-ride.baseY)*blend+positionRight[1]*lateral*direction,
+ return {point:{x:center.x-radius*Math.sin(a)-exitOffset*t+positionRight[0]*lateral*direction+up[0]*hop,
+  z:center.z+laneOffset*t*t*(2-t)+positionRight[2]*lateral*direction+up[2]*hop},
+  y:ride.baseY+radiusY*(1-Math.cos(a))+(ride.exitY-ride.baseY)*blend+positionRight[1]*lateral*direction+up[1]*hop,
   pitch:-tilt,wheelLift,curvature,trackForward,trackRight,velocity,horizontalTangent:dx,ds,dy,forward,right,up,
   heading:{x:forward[0]/(Math.hypot(forward[0],forward[2])||1),z:forward[2]/(Math.hypot(forward[0],forward[2])||1)}};
 }
@@ -81,7 +87,7 @@ export function advanceSkateLoop(start:SkateLoopRide,delta:number):{
  const total=clamp(delta,0,.5),slices=Math.ceil(total/.008),step=total/slices;
  for(let i=0;i<slices;i++){
   const p=skateLoopSample(ride);
-  if(ride.ramp&&ride.speed*ride.speed*p.curvature+3*p.up[1]<-.01){released=true;break;}
+  if(ride.ramp&&!ride.jump&&ride.speed*ride.speed*p.curvature+3*p.up[1]<-.01){released=true;break;}
   const acceleration=-3*p.dy/p.ds-.08*Math.sign(ride.speed);
   const speed=ride.speed+acceleration*step;
   const angle=ride.angle+(ride.speed+speed)*.5*step/p.ds;
@@ -91,7 +97,12 @@ export function advanceSkateLoop(start:SkateLoopRide,delta:number):{
   const laneZ=ride.ramp?nextLane:clamp(nextLane,SKATE_LOOP.center.z-maxLane,SKATE_LOOP.center.z+maxLane);
   const edge=Math.abs(laneZ-SKATE_LOOP.center.z)>=maxLane-1e-8;
   ride={...ride,speed,angle:clamp(angle,0,LOOP_TAU),laneZ,entryLateralSpeed:edge&&!ride.ramp?0:lateral*decay};
-  if(ride.ramp&&Math.abs(laneZ-SKATE_LOOP.center.z)>SKATE_LOOP.width*.5){released=true;break;}
+  if(ride.jump){
+   const jump={...ride.jump,elapsed:Math.min(ride.jump.duration,ride.jump.elapsed+step)};
+   const t=jump.elapsed/jump.duration,b=t*t*(3-2*t);
+   ride={...ride,laneZ:jump.lane+(SKATE_LOOP.center.z-jump.lane)*b,entryLateralSpeed:0,jump:t>=1?undefined:jump};
+  }
+  if(ride.ramp&&!ride.jump&&Math.abs(laneZ-SKATE_LOOP.center.z)>SKATE_LOOP.width*.5){released=true;break;}
   if(angle<=0&&speed<0){completed=direction===-1;returned=!completed;break;}
   if(angle>=LOOP_TAU&&speed>0){completed=direction===1;returned=!completed;break;}
  }

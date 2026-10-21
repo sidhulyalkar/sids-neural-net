@@ -4,7 +4,7 @@ import {
  idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,
  discGolfHandoffTarget,
  DISC_FETCH_LANDING_HOLD,DISC_FETCH_POV_DELAY,DISC_FETCH_FOUND_HOLD,
- DISC_FETCH_CHASE_TIMEOUT,
+ DISC_FETCH_CHASE_TIMEOUT,DISC_FETCH_MIN_CHASE_FRAMES,
 } from "../lib/world/discGolfFetch";
 import {
  DISC_GOLF_HOLES,discGolfOpeningClearance,startDiscGolf,
@@ -16,6 +16,20 @@ import {emptyDiscGolfRound,recordDiscGolfHole} from "../lib/world/discGolfRound"
 import {terrainHeight,isWater} from "../lib/world/model";
 
 const ground=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
+const reachFound=(
+ start:Parameters<typeof stepDiscGolfFetch>[0],
+ game:Parameters<typeof stepDiscGolfFetch>[1],
+ dog:Parameters<typeof stepDiscGolfFetch>[2],
+ at:number,
+)=>{
+ let current=start;
+ for(let frame=0;frame<DISC_FETCH_MIN_CHASE_FRAMES+1&&
+   current.phase==="chase";frame++){
+  current=stepDiscGolfFetch(current,game,dog,at+frame*.015);
+ }
+ assert.equal(current.phase,"found","a real multi-frame chase must resolve");
+ return current;
+};
 test("the entire disc flight belongs to the shot camera; Shasta waits for landing",()=>{
  const game=startDiscGolf(0,ground);
  let fetch=startDiscGolfFetch(0);
@@ -41,14 +55,17 @@ test("the entire disc flight belongs to the shot camera; Shasta waits for landin
  assert.equal(discGolfFetchCameraPhase(fetch,
   2+DISC_FETCH_LANDING_HOLD+DISC_FETCH_POV_DELAY+.05),"chase",
   "one fixed, wider follow shot without first-person cut");
- fetch=stepDiscGolfFetch(fetch,landed,{x:17.3,z:26.3},4);
+ const firstFrame=stepDiscGolfFetch(fetch,landed,{x:17.3,z:26.3},4);
+ assert.equal(firstFrame.phase,"chase",
+  "even a dog already at the disc must have visible chase frames");
+ fetch=reachFound(firstFrame,landed,{x:17.3,z:26.3},4.015);
  assert.equal(fetch.phase,"found");
  assert.equal(discGolfFetchCameraPhase(fetch,4),"chase");
  assert.equal(stepDiscGolfFetch(fetch,landed,{x:17,z:26},
-  4+DISC_FETCH_FOUND_HOLD*.7).phase,"found",
+  fetch.foundAt+DISC_FETCH_FOUND_HOLD*.7).phase,"found",
   "Shasta holds the find pose before its configured brief release");
  assert.deepEqual(stepDiscGolfFetch(fetch,landed,{x:17,z:26},
-  4+DISC_FETCH_FOUND_HOLD+.01),idleDiscGolfFetch());
+  fetch.foundAt+DISC_FETCH_FOUND_HOLD+.01),idleDiscGolfFetch());
 });
 test("Shasta finds a caught disc at the basket, not the previous lie",()=>{
  const game=startDiscGolf(0,ground);
@@ -97,13 +114,13 @@ test("the avatar stays at the previous tee until Shasta finishes finding the dis
  assert.equal(discGolfHandoffTarget(previous,next,result),null);
  previous=next;
  const chaseTime=1+DISC_FETCH_LANDING_HOLD+DISC_FETCH_POV_DELAY+.05;
- next=stepDiscGolfFetch(previous,result,result.lie,chaseTime);
+ next=reachFound(previous,result,result.lie,chaseTime);
  assert.equal(next.phase,"found");
  assert.equal(discGolfHandoffTarget(previous,next,result),null,
   "the avatar stays at the tee while Shasta sniffs");
  previous=next;
  next=stepDiscGolfFetch(previous,result,result.lie,
-  chaseTime+DISC_FETCH_FOUND_HOLD+.01);
+  previous.foundAt+DISC_FETCH_FOUND_HOLD+.01);
  assert.equal(next.phase,"idle");
  assert.deepEqual(discGolfHandoffTarget(previous,next,result),result.lie);
  assert.deepEqual(playerAtTee,start.lie,
@@ -131,7 +148,7 @@ test("short shots still show a minimum visible Shasta run before handoff",()=>{
  const tooEarly=stepDiscGolfFetch(chase,short,short.lie,1+DISC_FETCH_LANDING_HOLD+.1);
  assert.equal(tooEarly.phase,"chase");
  assert.equal(discGolfHandoffTarget(chase,tooEarly,short),null);
- const found=stepDiscGolfFetch(tooEarly,short,short.lie,
+ const found=reachFound(tooEarly,short,short.lie,
   1+DISC_FETCH_LANDING_HOLD+DISC_FETCH_POV_DELAY+.02);
  assert.equal(found.phase,"found");
  assert.equal(discGolfHandoffTarget(tooEarly,found,short),null);

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -115,9 +116,21 @@ def main() -> None:
     parser.add_argument("--slug", required=True)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--title", default=None)
+    parser.add_argument("--location", default=None)
+    parser.add_argument("--captured-with", default=None)
+    parser.add_argument("--activity", choices=["snorkeling", "ski", "dirt-bike"])
+    parser.add_argument("--animal", choices=["turtle", "shark", "manta", "ray", "reef-fish"])
+    parser.add_argument("--reef", choices=["lagoon", "kelp"])
+    parser.add_argument("--public-url-base", help="URL directory that hosts the media; inferred only for output inside public/.")
     parser.add_argument("--poster-time", type=float, default=None, help="Poster timestamp in seconds. Defaults to 12%% of clip duration.")
     args = parser.parse_args()
 
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", args.slug):
+        parser.error("--slug must use lowercase letters/numbers separated by hyphens")
+    if args.activity == "snorkeling" and (not args.animal or not args.reef):
+        parser.error("Snorkeling encounters need both --animal and --reef")
+    if args.activity != "snorkeling" and (args.animal or args.reef):
+        parser.error("--animal and --reef are only valid with --activity snorkeling")
     source = args.input.expanduser().resolve()
     if not source.is_file():
         raise SystemExit(f"Input does not exist: {source}")
@@ -126,6 +139,15 @@ def main() -> None:
     ffprobe = require_binary("ffprobe")
     info = probe(ffprobe, source)
     output = args.output.resolve()
+    public = (Path(__file__).resolve().parents[1] / "public").resolve()
+    if args.public_url_base:
+        url_base = args.public_url_base.rstrip("/")
+        if not (url_base.startswith("/") or url_base.startswith("https://")):
+            parser.error("--public-url-base must be a root-relative or HTTPS path")
+    elif output.is_relative_to(public):
+        url_base = "/" + output.relative_to(public).as_posix()
+    else:
+        parser.error("Output is outside public/; specify --public-url-base to host the resulting media")
     output.mkdir(parents=True, exist_ok=True)
 
     poster_time = args.poster_time if args.poster_time is not None else min(max(info["duration"] * 0.12, 0.25), max(info["duration"] - 0.1, 0.25))
@@ -159,7 +181,7 @@ def main() -> None:
         encode_variant(ffmpeg, source, target, height, bitrate)
         sources.append(
             {
-                "src": target.name,
+                "src": f"{url_base}/{target.name}",
                 "type": "video/mp4",
                 "label": label,
                 "height": height,
@@ -170,15 +192,20 @@ def main() -> None:
         height = info["height"]
         target = output / f"{args.slug}-{height}p.mp4"
         encode_variant(ffmpeg, source, target, height, "8M")
-        sources.append({"src": target.name, "type": "video/mp4", "label": f"{height}p", "height": height})
+        sources.append({"src": f"{url_base}/{target.name}", "type": "video/mp4", "label": f"{height}p", "height": height})
 
     fragment = {
         "id": args.slug,
         "title": args.title or args.slug.replace("-", " ").title(),
-        "posterSrc": poster.name,
+        "posterSrc": f"{url_base}/{poster.name}",
         "durationSeconds": round(info["duration"], 3),
         "aspectRatio": f'{info["width"]} / {info["height"]}',
-        "capturedWith": "DJI Osmo Action 4",
+        **({"capturedWith": args.captured_with} if args.captured_with else {}),
+        **({"location": args.location} if args.location else {}),
+        **({"encounter": (
+            {"activity": "snorkeling", "animal": args.animal, "reef": args.reef}
+            if args.activity == "snorkeling" else {"activity": args.activity}
+        )} if args.activity else {}),
         "sources": sources,
         "sourceProbe": info,
     }

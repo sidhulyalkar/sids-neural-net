@@ -1,5 +1,6 @@
 import type {Point} from "./model";
 import {GROVE_TUNNEL} from "./skatepark";
+export const LOG_RIM_MIN_HEIGHT=.85;
 export const TUBE_TAU=2*Math.PI;
 const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
 export type V=[number,number,number];
@@ -18,6 +19,7 @@ export type SkateTunnelRide={
  surface?:LogSurface;rimSide?:1|-1;rimT?:number;
  progress:number;startAngle:number;spin:1|-1;startX:number;endX:number;
  air?:{position:V;velocity:V};
+ centerJump?:{elapsed:number;duration:number;from:V;to:V;normal:V;angle:number;speed:number};
 };
 /** Normal travel-menu arrival on the bark, also useful for practicing jumps. */
 export function beginSkateLogTopRide():SkateTunnelRide{
@@ -58,9 +60,15 @@ export function skateTunnelSample(r:SkateTunnelRide,floorAt:Floor){
  const skew=dot(derivative,tangent);
  const axis=unit(derivative.map((v,i)=>v-skew*tangent[i]) as V);
  const metric=dot(derivative,axis);
- const up:V=rim?[r.rimSide??1,0,0]:cross(tangent,axis).map(v=>v*(outer?-1:1)) as V;
+ let up:V=rim?[r.rimSide??1,0,0]:cross(tangent,axis).map(v=>v*(outer?-1:1)) as V;
  const forward=unit(axis.map((n,i)=>n*r.vx+tangent[i]*r.vt) as V);
  if(Math.hypot(r.vx,r.vt)<.01){for(let i=0;i<3;i++)forward[i]=axis[i]*r.direction;}
+ if(r.centerJump){
+  const t=clamp(r.centerJump.elapsed/r.centerJump.duration,0,1),blend=t*t*(3-2*t);
+  const a=r.centerJump.angle*(1-blend);
+  up=[0,Math.cos(a),-Math.sin(a)];
+  forward[0]=r.direction;forward[1]=forward[2]=0;
+ }
  const right=unit(cross(up,forward));
  const curvature=rim?0:(outer?-1:1)*ry*rz/(ds*ds*ds);
  const wheelLift=.5*curvature*(.63*.63*r.vt*r.vt+.33*.33*r.vx*r.vx)/Math.max(.01,r.speed*r.speed);
@@ -133,7 +141,10 @@ function rideAtLogHit(hit:LogHit,velocity:V,floor:Floor):SkateTunnelRide{
 }
 export function contactSkateLog(from:V,to:V,velocity:V,floor:Floor){
  const hit=sweepSkateLog(from,to,floor);
- return hit?rideAtLogHit(hit,velocity,floor):null;
+ return hit&&canRideLogContact(hit,floor)?rideAtLogHit(hit,velocity,floor):null;
+}
+export function canRideLogContact(hit:LogHit,floor:Floor){
+ return hit.surface==="inner"||hit.point[1]-floor({x:hit.point[0],z:hit.point[2]})>=LOG_RIM_MIN_HEIGHT;
 }
 /** Wheel contact plus a short capsule for the rider. Body-only impacts slide
  * outside the wood rather than attaching the board through the wall. */
@@ -147,7 +158,8 @@ export function resolveSkateLogMotion(from:V,to:V,velocity:V,floor:Floor,up:V=[0
    const hit=sweepSkateLog(a,b,floor,.19);
    if(hit&&(!body||hit.t<body.t))body=hit;
   }
-  if(wheel&&(!body||wheel.t<=body.t+.00001))return {ride:rideAtLogHit(wheel,v,floor),position:wheel.point,velocity:v,blocked};
+  if(wheel&&!canRideLogContact(wheel,floor)&&(!body||wheel.t<body.t))body=wheel;
+  if(wheel&&canRideLogContact(wheel,floor)&&(!body||wheel.t<=body.t+.00001))return {ride:rideAtLogHit(wheel,v,floor),position:wheel.point,velocity:v,blocked};
   if(!body)return {ride:null,position:target,velocity:v,blocked};
   blocked=true;
   let normal=skateTunnelSample(rideAtLogHit(body,v,floor),floor).up;
@@ -165,6 +177,14 @@ export function resolveSkateLogMotion(from:V,to:V,velocity:V,floor:Floor,up:V=[0
 export function jumpSkateTunnel(r:SkateTunnelRide,floor:(p:Point)=>number):SkateTunnelRide{
  if(r.air)return r;
  const p=skateTunnelSample(r,floor);
+ if(!r.surface||r.surface==="inner"){
+  const height=Math.max(0,p.y-floor(p.point)),duration=clamp(.45+Math.sqrt(height/8),.45,1.4);
+  const x=clamp(r.x+r.direction*Math.max(2,r.speed)*duration*.5,GROVE_TUNNEL.center.x-GROVE_TUNNEL.halfLength+.25,GROVE_TUNNEL.center.x+GROVE_TUNNEL.halfLength-.25);
+  const from:V=[p.point.x,p.y,p.point.z],to:V=[x,floor({x,z:GROVE_TUNNEL.center.z}),GROVE_TUNNEL.center.z];
+  const angle=Math.atan2(Math.sin(r.angle),Math.cos(r.angle));
+  return {...r,centerJump:{elapsed:0,duration,from,to,normal:p.up,angle,speed:Math.max(2,r.speed)},
+    air:{position:[...from],velocity:[r.vx,0,0]}};
+ }
  return {...r,air:{position:[p.point.x+p.up[0]*.04,p.y+p.up[1]*.04,p.point.z+p.up[2]*.04],
   velocity:p.forward.map((v,i)=>v*r.speed+p.up[i]*3.5) as V}};
 }
@@ -178,6 +198,22 @@ export function advanceSkateTunnelRide(start:SkateTunnelRide,delta:number,
  let completed=false;
  for(let i=0;i<steps;i++){
   const p=skateTunnelSample(r,floor);
+  if(r.centerJump){
+   const jump={...r.centerJump,elapsed:Math.min(r.centerJump.duration,r.centerJump.elapsed+dt)};
+   const t=jump.elapsed/jump.duration,b=t*t*(3-2*t),lift=.6*Math.sin(Math.PI*t);
+   const position=jump.from.map((v,k)=>v+(jump.to[k]-v)*b+jump.normal[k]*lift) as V;
+   // Taper and terrain change the bore along its axis. Keep the assisted
+   // flight inside that local ellipse rather than cutting through its skin.
+   const taper=1-GROVE_TUNNEL.taper*(position[0]-GROVE_TUNNEL.center.x)/GROVE_TUNNEL.halfLength;
+   const ry=GROVE_TUNNEL.innerRadius*taper,rz=GROVE_TUNNEL.innerHalfWidth*taper;
+   const cy=floor({x:position[0],z:GROVE_TUNNEL.center.z})+ry;
+   const y=position[1]-cy,z=position[2]-GROVE_TUNNEL.center.z,radius=Math.hypot(y/ry,z/rz);
+   if(radius>.999){position[1]=cy+y*.999/radius;position[2]=GROVE_TUNNEL.center.z+z*.999/radius;}
+   const before=r.air!.position,velocity=position.map((v,k)=>(v-before[k])/dt) as V;
+   r={...r,x:position[0],centerJump:jump,air:{position,velocity}};
+   if(t>=1)r={...r,x:jump.to[0],angle:0,surface:"inner",vx:r.direction*jump.speed,vt:0,speed:jump.speed,air:undefined,centerJump:undefined};
+   continue;
+  }
   if(r.air){
    const before=[...r.air.position] as V;
    r.air.velocity[1]-=3.8*dt;
@@ -215,6 +251,10 @@ export function advanceSkateTunnelRide(start:SkateTunnelRide,delta:number,
    if(r.surface!=="rim"&&Math.abs(r.x-GROVE_TUNNEL.center.x)>=GROVE_TUNNEL.halfLength){completed=true;break;}
    // Signed curvature: the outer crown releases at speed instead of gluing
    // the rider to the underside. Low-speed top contact remains stable.
+   if(r.surface==="rim"&&next.y-floor(next.point)<LOG_RIM_MIN_HEIGHT){
+    r.air={position:[next.point.x+next.up[0]*.01,next.y,next.point.z],velocity:next.forward.map(v=>v*r.speed) as V};
+    completed=true;break;
+   }
    if(r.vt*r.vt*next.curvature+3.8*next.up[1]<-.001){
     r.air={position:[next.point.x+next.up[0]*.002,next.y+next.up[1]*.002,next.point.z+next.up[2]*.002],
      velocity:next.forward.map(v=>v*r.speed) as V};
@@ -230,6 +270,7 @@ export function advanceSkateTunnelRide(start:SkateTunnelRide,delta:number,
 /** Predict the short ballistic window so assisted flips catch before the wall. */
 export function skateTunnelJumpDuration(start:SkateTunnelRide,floor:(p:Point)=>number){
  let ride=jumpSkateTunnel(start,floor),seconds=0;
+ if(ride.centerJump)return ride.centerJump.duration*.85;
  while(ride.air&&seconds<2){
   const next=advanceSkateTunnelRide(ride,.008,undefined,floor);
   ride=next.ride;seconds+=.008;

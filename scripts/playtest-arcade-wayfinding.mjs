@@ -21,8 +21,23 @@ try{
   const canvas=page.locator("canvas");
   await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
    null,{timeout:45000});
-  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.arcadeWayfinding==="split-basalt-amber-v1",
-   null,{timeout:10000});
+  // A software-rendered first scene can take longer than the regular
+  // hardware WebGL path to populate the authored landmark diagnostics.
+  // Wait for the real marker; never infer passage visibility from drawCalls.
+  try{
+   await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.arcadeWayfinding==="split-basalt-amber-v1",
+    null,{timeout:45000});
+  }catch(err){
+   const debug=await canvas.evaluate(el=>({
+    drawCalls:el.dataset.drawCalls,wayfinding:el.dataset.arcadeWayfinding,
+    stage:el.dataset.arcadeTrailStage,player:el.dataset.player,
+    portal:el.dataset.arcadePortalVisual,
+    markers:el.dataset.arcadeTrailMarkers,layer:el.dataset.caveLayer,
+   }));
+   trace.startup=debug;
+   throw new Error("Cavern wayfinding never initialized: "+JSON.stringify(debug),
+    {cause:err});
+  }
   assert.equal(await canvas.getAttribute("data-arcade-trail-markers"),"4");
   assert.equal(await canvas.getAttribute("data-arcade-wayfinding-sign"),"ARCADE");
   assert.equal(await canvas.getAttribute("data-arcade-portal-visual"),"open-dark-arch");
