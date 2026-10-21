@@ -79,6 +79,9 @@ try{
     }
     if(stage==="loop-approach"&&s.entries>=1){
      entered=s;stage="inverting";
+    }else if(stage==="loop-approach"&&p[0]<17.5){
+     fail("Physically crossed timber seam without acquiring loop contact");
+     return;
     }
     // This must sample every rendered frame, not a stale host-side poll after
     // the vehicle has already passed the top of the loop.
