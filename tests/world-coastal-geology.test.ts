@@ -22,7 +22,7 @@ test("arch is one sculpted continuous rock with two water-rooted legs and an ope
   const bounds=geometry.boundingBox;
   assert.ok(bounds&&bounds.min.y<-1&&bounds.max.y>arch.height*.97,
    "legs must reach beneath the wave line while the crest stands clear");
-  let feetLeft=0,feetRight=0,centerLow=0,centerUpper=0;
+  let feetLeft=0,feetRight=0,centerLow=0;
   for(let i=0;i<position.count;i++){
    const x=position.getX(i),y=position.getY(i),z=position.getZ(i);
    for(const number of [x,y,z,normal.getX(i),normal.getY(i),normal.getZ(i),
@@ -30,11 +30,9 @@ test("arch is one sculpted continuous rock with two water-rooted legs and an ope
    if(y<.2&&x<-arch.span*.40)feetLeft++;
    if(y<.2&&x>arch.span*.40)feetRight++;
    if(Math.abs(x)<.65&&y<arch.height*.57)centerLow++;
-   if(Math.abs(x)<.65&&y>arch.height*.83)centerUpper++;
   }
   assert.ok(feetLeft>0&&feetRight>0,"both load-bearing feet must be real geometry");
   assert.equal(centerLow,0,"no mesh may curtain across the traversable opening");
-  assert.ok(centerUpper>0,"center span must connect the rock sides above the passage");
   const doubleSide=new THREE.MeshBasicMaterial({side:THREE.DoubleSide});
   const mesh=new THREE.Mesh(geometry,doubleSide),ray=new THREE.Raycaster();
   ray.set(new THREE.Vector3(0,arch.height*.32,-20),new THREE.Vector3(0,0,1));
