@@ -407,7 +407,9 @@ export function stepTravel(
     // cannot become invisible elevators for bikes or skateboards.
     const ride=mode==="bike"||mode==="skate"||mode==="ski";
     if(!ride||!isContinuousRideRise(current.point,point,contactSupport,rideBase))
-      return { ...current, speed: 0 };
+      // A blocked climb still permits the rider to pivot toward clear ground.
+      // Preserving the stale heading here can make the board feel unsteerable.
+      return {...current,heading,speed:0};
   }
   return {
     point,

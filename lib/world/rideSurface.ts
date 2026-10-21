@@ -30,3 +30,19 @@ export function rideTerrainAttitude(pitch:number,roll:number,mode:"skate"|"bike"
  return {pitch:clamp(Number.isFinite(pitch)?pitch:0,-1.04,1.04),
   roll:clamp(Number.isFinite(roll)?roll:0,-bank,bank)};
 }
+
+/** Heading is gameplay authority: smooth only the suspension axes. An
+ * in-place quaternion slerp can alias source/target and freeze yaw entirely.
+ * Returning target.yaw untouched prevents steering/control divergence. */
+export function followRideSurfacePose(
+ previous:{pitch:number;roll:number;yaw:number},
+ target:{pitch:number;roll:number;yaw:number},dt:number,
+){
+ const step=Number.isFinite(dt)?clamp(dt,0,.15):0;
+ const blend=1-Math.exp(-step*16);
+ const pitch=Number.isFinite(previous.pitch)?previous.pitch:0;
+ const roll=Number.isFinite(previous.roll)?previous.roll:0;
+ return {pitch:pitch+(target.pitch-pitch)*blend,
+  roll:roll+(target.roll-roll)*blend,
+  yaw:target.yaw};
+}

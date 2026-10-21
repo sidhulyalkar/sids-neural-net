@@ -1,6 +1,6 @@
 import {MOSS_CANYON} from "@/lib/world/model";
 import {bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
-import {rideWheelProbe,rideTerrainAttitude} from "@/lib/world/rideSurface";
+import {rideWheelProbe,rideTerrainAttitude,followRideSurfacePose} from "@/lib/world/rideSurface";
 import {RIDE_TERRAIN_GRID,terrainMeshHeight} from "@/lib/world/rideMeshContact";
 import {idleRideWipeout,beginRideWipeout,stepRideWipeout,rideWipeoutPose} from "@/lib/world/rideWipeout";
 import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcadeTrailFooting,arcadeEntranceCameraPose} from "@/lib/world/arcadeWayfinding";
@@ -3254,6 +3254,7 @@ export function createWorld(
   let rideRecovery=initialRideRecovery(player);
   let lastRideRecoveryAt=-Infinity;
   let rideWipeout=idleRideWipeout();
+  let visualRidePose={pitch:0,roll:0,yaw:0};
   let rideFlightContinuity=false,lastFlightExitAt=-Infinity;
   // Single source of truth for mutually exclusive minigame entrances.
   const occupiedByOtherMode=(requested:WorldGameMode)=>
@@ -3303,6 +3304,7 @@ export function createWorld(
     }
     rideRecovery={...rideRecovery,blockedFor:0};
     rideWipeout=idleRideWipeout();
+    visualRidePose={pitch:0,roll:0,yaw:0};
     canvas.focus({preventScroll:true});
   }
   function stopJetSki(){
@@ -4846,7 +4848,7 @@ export function createWorld(
       if(discGolfHeading)travel={...travel,speed:0,heading:discGolfHeading};
       const headingYaw = discGolfHeading
         ? Math.atan2(discGolfHeading.x,discGolfHeading.z)
-        : travel.speed > 0.05 || mode==="skate" || surfing
+        : travel.speed > 0.05 || isRideMode(mode) || surfing
           ? Math.atan2(travel.heading.x,travel.heading.z)
           : explorer.rotation.y;
 
@@ -4960,19 +4962,27 @@ export function createWorld(
         const loopPitch=skateLoopRide?skateLoopSample(skateLoopRide).pitch:0;
         const tubeRoll=skateTunnelRide?
           skateTunnelSample(skateTunnelRide,groundHeight).roll:0;
-        const orientationBefore=explorer.quaternion.clone();
+        const targetYaw=headingYaw+avatarTurn+(mode==="skate"?trickPose.bodyYaw:0);
+        const ordinaryRide=gearMode&&!skateLoopRide&&!skateTunnelRide&&
+          !grind&&!skateRailGapRide;
+        if(ordinaryRide){
+          // Steering is authoritative and immediate: ONLY slope pitch/bank are
+          // interpolated. Never quaternion-slerp heading or the trick yaw.
+          visualRidePose=followRideSurfacePose(visualRidePose,{
+            pitch:airHeight>.08?0:pitchAngle,
+            roll:airHeight>.08?0:rollAngle,yaw:targetYaw,
+          },rawDelta);
+        }else visualRidePose={pitch:0,roll:0,yaw:targetYaw};
         explorer.rotation.set(skateLoopRide?loopPitch:
-          skateTunnelRide?0:surfing?skimPosePitch:pitchAngle,
-          headingYaw+avatarTurn+(mode==="skate"?trickPose.bodyYaw:0),
+          skateTunnelRide?0:surfing?skimPosePitch:
+          ordinaryRide?visualRidePose.pitch:pitchAngle,
+          targetYaw,
           skateLoopRide?0:skateTunnelRide?tubeRoll:
-            surfing?skimPoseRoll:rollAngle,
+            surfing?skimPoseRoll:ordinaryRide?visualRidePose.roll:rollAngle,
           "YXZ");
-        if(gearMode&&!skateLoopRide&&!skateTunnelRide&&!grind&&!skateRailGapRide){
-          // Terrain tilt is damped; authored 3D loops/tubes and grinds use
-          // their exact contact basis without interpolation.
-          explorer.quaternion.slerpQuaternions(orientationBefore,explorer.quaternion,
-            1-Math.exp(-Math.max(0,Math.min(rawDelta,.15))*15));
-        }
+        canvas.dataset.rideVisualYawError=ordinaryRide?
+          Math.atan2(Math.sin(explorer.rotation.y-targetYaw),
+            Math.cos(explorer.rotation.y-targetYaw)).toFixed(5):"0.00000";
         if(skateLoopRide){
           const pose=skateLoopSample(skateLoopRide);
           explorer.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(
@@ -6932,6 +6942,7 @@ export function createWorld(
         verticalSpeed=preserveFlight?velocityBefore:0;
         rideRecovery={...rideRecovery,blockedFor:0};
         rideWipeout=idleRideWipeout();
+        visualRidePose={pitch:0,roll:0,yaw:0};
         if(state.activity==="skate"||next.activity==="skate"){
           // Equipment changes start a fresh, independent trick line. The
           // player's best persists, while old landing cards never leak.
