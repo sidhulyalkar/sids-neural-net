@@ -3681,9 +3681,17 @@ export function createWorld(
     // Canvas focus can move to a touch/accessible control while riding.
     // Keep steering active inside the world, but never grab keys from the
     // surrounding site or a text field.
-    if(e.target !== canvas && !(jetSki&&
-      (e.target===document.body||host.contains(e.target as Node))))return;
     const key = e.key.toLowerCase();
+    // Movement must keep working after clicking a transport/sport control,
+    // even if browser focus lands on that button after canvas.focus().
+    // Never consume typing in form fields or editable content.
+    const steeringKey=key==="w"||key==="a"||key==="s"||key==="d";
+    const target=e.target;
+    const editable=target instanceof Element&&!!target.closest(
+      "input,textarea,select,[contenteditable='true']");
+    if(target!==canvas&&!(jetSki&&
+      (target===document.body||host.contains(target as Node)))&&
+      !(steeringKey&&!editable))return;
     if(skimHeat.phase!=="off"){
       if(!e.repeat&&key==="enter"&&skimHeat.phase==="finished"){
         e.preventDefault();doSkimAction("restart");return;
@@ -4015,6 +4023,8 @@ export function createWorld(
           }else skatePadPushHeld=false;
         }else skatePadPushHeld=false;
       }
+      canvas.dataset.rideHeldKeys=[...keys].filter(key=>
+        key==="w"||key==="a"||key==="s"||key==="d").sort().join("");
       if (destination) {
         dx = destination.x - player.x;
         dz = destination.z - player.z;
@@ -4025,6 +4035,7 @@ export function createWorld(
           dz = 0;
         }
       }
+      canvas.dataset.rideInputVector=dx.toFixed(3)+","+dz.toFixed(3);
       let skateLogBlocked=false;
       if(rideWipeout.phase!=="riding"&&isRideMode(state.activity)){
         // Momentum settles during the fall, then ordinary controls resume.

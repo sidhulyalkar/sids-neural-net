@@ -14,6 +14,7 @@ const read=async canvas=>canvas.evaluate(el=>({
  mode:el.dataset.activity,player:el.dataset.player,heading:el.dataset.skateHeading,
  speed:Number(el.dataset.speed),yawError:Number(el.dataset.rideVisualYawError),
  contact:Number(el.dataset.rideContactGap),recovery:el.dataset.rideRecovery,
+ held:el.dataset.rideHeldKeys,input:el.dataset.rideInputVector,
  wipeout:el.dataset.rideWipeoutPhase,
 }));
 const heading=point=>(point.heading??"").split(",").map(Number);
@@ -39,15 +40,22 @@ try{
   // Real WASD input. Compare two opposite turns; checking position alone
   // cannot catch frozen mesh yaw with otherwise correct underlying travel.
   async function turn(direction){
+   // Replicate the real case: the activity/menu button owns focus.
+   // Gameplay movement must not depend on manually clicking the canvas.
+   await page.getByRole("button",{name,exact:true}).focus();
    await page.keyboard.down("w");
    await page.keyboard.down(direction);
-   try{await page.waitForTimeout(activity==="skate"?5400:2000);}
-   finally{await page.keyboard.up(direction);await page.keyboard.up("w");}
-   const result=await read(canvas);
+   let result;
+   try{
+     await page.waitForTimeout(activity==="skate"?5400:2000);
+     result=await read(canvas);
+   }finally{await page.keyboard.up(direction);await page.keyboard.up("w");}
    assert.ok(result.heading.split(",").length===2,"heading must be exposed");
    assert.ok(Number.isFinite(result.yawError)&&Math.abs(result.yawError)<.005,
      activity+" rider mesh is not facing the actual steering vector: "+JSON.stringify(result));
    assert.ok(Number.isFinite(result.contact),"wheel contact must stay finite");
+   assert.ok(result.held?.includes(direction)&&result.held?.includes("w"),
+     activity+" WASD input was lost on an activity control: "+JSON.stringify(result));
    return result;
   }
   const right=await turn("d");
