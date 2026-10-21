@@ -360,8 +360,7 @@ export function stepTravel(
   // to a dead stop even though their trunk collision was correctly skipped.
   const contactSupport=(p:Point)=>{
     const y=supportHeight(p);
-    return aboveShortProp?airborneSupportHeight(riderY,y,
-      skateParkSurface(p)??terrainHeight(p.x,p.z)):y;
+    return aboveShortProp?airborneSupportHeight(riderY,y,rideBase(p)):y;
   };
   const slope =
     contactSupport({ x: current.point.x + heading.x, z: current.point.z + heading.z }) -

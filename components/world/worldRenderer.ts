@@ -4555,7 +4555,8 @@ export function createWorld(
           // Otherwise frame N lands correctly and frame N+1 snaps upward.
           const groundY=caveLayer==="surface"?
             airborneSupportHeight(previousY,supportY,
-              skateParkSurface(player)??terrainHeight(player.x,player.z)):supportY;
+              isRideMode(state.activity)?rideBase(player):
+                skateParkSurface(player)??terrainHeight(player.x,player.z)):supportY;
           // Integrate in world space: crossing a ramp lip must not subtract its
           // deck height from an airborne rider's trajectory.
           if (airHeight > 0 || verticalSpeed > 0) {
@@ -4686,7 +4687,7 @@ export function createWorld(
         const grounded=airHeight<=.03&&Math.abs(verticalSpeed)<.15;
         const moving=Math.hypot(dx,dz)>.16;
         const clear=grounded&&moving&&
-          isSafeRideContact(player,groundedObstacles,groundHeight);
+          isSafeRideContact(player,groundedObstacles,supportHeight,rideBase);
         const result=advanceRideRecovery(rideRecovery,{
           point:player,previous:previousPoint,mode:watchedRideMode,
           dt:Math.min(rawDelta,.2),moving,grounded,
@@ -4695,9 +4696,9 @@ export function createWorld(
         rideRecovery=result.state;
         if(result.recover&&elapsed-lastRideRecoveryAt>2){
           const safe=findRideRecoveryPoint(player,travel.heading,
-            rideRecovery.anchor,groundedObstacles,groundHeight);
+            rideRecovery.anchor,groundedObstacles,supportHeight,rideBase);
           if(safe){
-            player=safe;playerY=groundHeight(player);
+            player=safe;playerY=supportHeight(player);
             travel={...travel,point:player,speed:0};
             airHeight=verticalSpeed=0;destination=null;
             lastRampAt=elapsed;lastRideRecoveryAt=elapsed;
