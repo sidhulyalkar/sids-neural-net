@@ -1,5 +1,7 @@
 import {MOSS_CANYON} from "@/lib/world/model";
 import {bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
+import {rideWheelProbe,rideTerrainAttitude} from "@/lib/world/rideSurface";
+import {idleRideWipeout,beginRideWipeout,stepRideWipeout,rideWipeoutPose} from "@/lib/world/rideWipeout";
 import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcadeTrailFooting,arcadeEntranceCameraPose} from "@/lib/world/arcadeWayfinding";
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
@@ -3244,6 +3246,7 @@ export function createWorld(
   let playerY = groundHeight(player);
   let rideRecovery=initialRideRecovery(player);
   let lastRideRecoveryAt=-Infinity;
+  let rideWipeout=idleRideWipeout();
   let rideFlightContinuity=false,lastFlightExitAt=-Infinity;
   // Single source of truth for mutually exclusive minigame entrances.
   const occupiedByOtherMode=(requested:WorldGameMode)=>
@@ -3292,6 +3295,7 @@ export function createWorld(
       if(!exitingFlight)playerY=supportHeight(player);
     }
     rideRecovery={...rideRecovery,blockedFor:0};
+    rideWipeout=idleRideWipeout();
     canvas.focus({preventScroll:true});
   }
   function stopJetSki(){
@@ -3775,6 +3779,7 @@ export function createWorld(
     }
   }
   function launchSkateTrick(name:SkateTrickName,assisted=false){
+    if(rideWipeout.phase!=="riding")return;
     if(state.activity!=="skate"||!state.entered||state.paused||document.hidden||
       aquatic!=="land"||jetSki||jetChoosing||discGolf.phase!=="off"||
       trial.phase==="armed"||trial.phase==="running"||
@@ -3821,6 +3826,7 @@ export function createWorld(
     }
   }
   function performAction() {
+    if(rideWipeout.phase!=="riding"&&isRideMode(state.activity))return;
     if(skateLoopRide?.ramp){launchAssistedSkateTrick();return;}
     if(skateLoopRide||skateRailGapRide)return;
     if(skateTunnelRide){launchAssistedSkateTrick();return;}
@@ -3954,6 +3960,8 @@ export function createWorld(
       dt = Math.min(rawDelta, 0.05);
     last = now;
     elapsed += dt;
+    rideWipeout=stepRideWipeout(rideWipeout,rawDelta);
+    canvas.dataset.rideWipeoutPhase=rideWipeout.phase;
     surfClock+=Math.max(0,Math.min(rawDelta,.5));
     let dx = 0,
       dz = 0;
@@ -4001,6 +4009,11 @@ export function createWorld(
         }
       }
       let skateLogBlocked=false;
+      if(rideWipeout.phase!=="riding"&&isRideMode(state.activity)){
+        // Momentum settles during the fall, then ordinary controls resume.
+        dx=dz=0;destination=null;
+        travel={...travel,speed:Math.max(0,travel.speed-dt*25)};
+      }
       const previousPoint = { ...player };
       const previousY = playerY;
       const previousVerticalSpeed=verticalSpeed;
@@ -4723,11 +4736,23 @@ export function createWorld(
         const next=stepSkateManual(skateTrick,dt,travel.speed,elapsed);
         commitSkateTrick(next);
       }
+      // Genuine high-impact landings may knock a rider off without a trick.
+      // Dedicated tunnel/loop/grind controllers remain authoritative.
+      if((mode==="skate"||mode==="bike")&&rideWipeout.phase==="riding"&&
+        !skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!grind&&
+        previousVerticalSpeed < -12.5 && airHeight<=.001 &&
+        previousY>playerY+.18){
+        rideWipeout=beginRideWipeout();
+        travel={...travel,speed:Math.min(travel.speed,1.3)};
+      }
       if(mode==="skate"&&skateTrick.phase==="air"){
         if(airHeight>.12)skateHasBeenAirborne=true;
         if(skateHasBeenAirborne&&airHeight<=.001&&!grind){
           const landing=finishSkateTrick(skateTrick,elapsed,travel.speed);
-          if(landing.bails>skateTrick.bails)travel={...travel,speed:travel.speed*.32};
+          if(landing.bails>skateTrick.bails){
+            if(rideWipeout.phase==="riding")rideWipeout=beginRideWipeout();
+            travel={...travel,speed:Math.min(travel.speed,1.3)};
+          }
           commitSkateTrick(landing);skateHasBeenAirborne=false;
         }
       }
@@ -4835,11 +4860,13 @@ export function createWorld(
         );
       } else {
         const bikePose = mode === "bike";
+        const fallPose=rideWipeoutPose(rideWipeout);
         bodyRoot.position.set(
           0,
-          bikePose
+          (bikePose
             ? bikeSeatLocal.y - riderHipLocal.y * Math.cos(bikeBodyLean)
-            : surfing ? .048 : mode==="skate" ? .15+board.position.y-trickPose.crouch*.25 : 0,
+            : surfing ? .048 : mode==="skate" ? .15+board.position.y-trickPose.crouch*.25 : 0)
+            -(isRideMode(mode)?fallPose.drop:0),
           bikePose
             ? bikeSeatLocal.z -
               (riderHipLocal.y * Math.sin(bikeBodyLean) +
@@ -4848,7 +4875,7 @@ export function createWorld(
         );
         // Board +Z follows travel; human +Z faces across it. Root owns spins
         // and fakie once, so the body offset never rotates steering or gear.
-        bodyRoot.rotation.set(bikePose ? bikeBodyLean : 0, mode==="skate"||surfing?Math.PI/2:0, 0);
+        bodyRoot.rotation.set((bikePose ? bikeBodyLean : 0)+(isRideMode(mode)?fallPose.tilt:0), mode==="skate"||surfing?Math.PI/2:0, 0);
 
         legs[0].rotation.x = surfing ? 0 : running ? walking * 0.6 : bikePose ? 0.58 + walking * 0.28 :
           mode==="skate" ? 0 : .2;
@@ -4874,8 +4901,15 @@ export function createWorld(
         const rigSupport=(p:Point)=>caveLayer==="surface"?
           airborneSupportHeight(playerY,supportHeight(p),
             skateParkSurface(p)??terrainHeight(p.x,p.z)):supportHeight(p);
+        // The center selects the contact layer; a wheel must not climb a
+        // boulder cap before the rider actually reaches its supporting rim.
+        const rideBase=(p:Point)=>skateParkSurface(p)??terrainHeight(p.x,p.z);
+        const wheelSupport=(p:Point)=>caveLayer==="surface"?
+          rideWheelProbe(player,p,rigSupport,rideBase):rigSupport(p);
+        const bankContact=terrainContact(player,travel.heading,1.05,.55,wheelSupport);
+        const bikeBank=rideTerrainAttitude(bankContact.pitch,bankContact.roll,"bike");
         const bikeContact = mode==="bike"&&airHeight<=.001&&!climb&&!grind
-          ? bikeTerrainPose(player,travel.heading,rigSupport):null;
+          ? bikeTerrainPose(player,travel.heading,wheelSupport,bikeBank.roll):null;
         const footprint = mode === "bike"
           ? { length: 1.05, width: 0.55 }
           : mode === "skate"
@@ -4883,10 +4917,10 @@ export function createWorld(
             : mode === "ski"
               ? { length: 1.35, width: 0.46 }
               : { length: 0.25, width: 0.2 };
-        const contact = terrainContact(player, travel.heading, footprint.length, footprint.width, rigSupport);
+        const contact = terrainContact(player, travel.heading, footprint.length, footprint.width, wheelSupport);
         const skateContact=mode==="skate"&&airHeight<=.001&&!climb&&!grind&&
           !skateLoopRide&&!skateTunnelRide&&!skateRailGapRide
-          ? wheelTerrainPose(player,travel.heading,rigSupport,
+          ? wheelTerrainPose(player,travel.heading,wheelSupport,
             {radius:.1111,axleY:-.02,halfWheelbase:.63,halfTrack:.33,
              roll:contact.roll+skateCarveLean}):null;
         const gearMode = mode === "bike" || mode === "skate" || mode === "ski";
@@ -4894,19 +4928,32 @@ export function createWorld(
           gearMode && airHeight <= 0.001 && !climb && !grind && !skateLoopRide && !skateTunnelRide
             ? Math.max(0, contact.support - rigSupport(player))
             : 0;
-        const pitchAngle = skateContact?.pitch ?? bikeContact?.pitch ?? (running || climb || skateRailGapRide ? 0 : contact.pitch);
-        const rollAngle =
-          (gearMode&&!skateRailGapRide&&!bikeContact ? contact.roll : 0) +
+        const rawPitch = skateContact?.pitch ?? bikeContact?.pitch ?? (running || climb || skateRailGapRide ? 0 : contact.pitch);
+        const rawRoll = (gearMode&&!skateRailGapRide ? contact.roll : 0) +
           (mode === "skate" ? skateCarveLean : 0);
+        const attitude=rideTerrainAttitude(rawPitch,rawRoll,
+          mode==="bike"?"bike":mode==="skate"?"skate":"ski");
+        const pitchAngle=gearMode?attitude.pitch:rawPitch;
+        const rollAngle=gearMode?attitude.roll:rawRoll;
+        canvas.dataset.rideSurfacePitch=pitchAngle.toFixed(3);
+        canvas.dataset.rideSurfaceRoll=rollAngle.toFixed(3);
+        canvas.dataset.rideContactGap=((skateContact?.y??bikeContact?.y??playerY)-playerY).toFixed(3);
         const loopPitch=skateLoopRide?skateLoopSample(skateLoopRide).pitch:0;
         const tubeRoll=skateTunnelRide?
           skateTunnelSample(skateTunnelRide,groundHeight).roll:0;
+        const orientationBefore=explorer.quaternion.clone();
         explorer.rotation.set(skateLoopRide?loopPitch:
           skateTunnelRide?0:surfing?skimPosePitch:pitchAngle,
           headingYaw+avatarTurn+(mode==="skate"?trickPose.bodyYaw:0),
           skateLoopRide?0:skateTunnelRide?tubeRoll:
             surfing?skimPoseRoll:rollAngle,
           "YXZ");
+        if(gearMode&&!skateLoopRide&&!skateTunnelRide&&!grind&&!skateRailGapRide){
+          // Terrain tilt is damped; authored 3D loops/tubes and grinds use
+          // their exact contact basis without interpolation.
+          explorer.quaternion.slerpQuaternions(orientationBefore,explorer.quaternion,
+            1-Math.exp(-Math.max(0,Math.min(rawDelta,.15))*15));
+        }
         if(skateLoopRide){
           const pose=skateLoopSample(skateLoopRide);
           explorer.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(
@@ -6865,6 +6912,7 @@ export function createWorld(
         airHeight=preserveFlight?airBefore:0;
         verticalSpeed=preserveFlight?velocityBefore:0;
         rideRecovery={...rideRecovery,blockedFor:0};
+        rideWipeout=idleRideWipeout();
         if(state.activity==="skate"||next.activity==="skate"){
           // Equipment changes start a fresh, independent trick line. The
           // player's best persists, while old landing cards never leak.
@@ -7008,6 +7056,7 @@ export function createWorld(
           playerY=groundHeight(player);
           airHeight=verticalSpeed=swimDepth=targetDepth=0;
           rideRecovery=initialRideRecovery(player);
+          rideWipeout=idleRideWipeout();
           rideFlightContinuity=false;lastFlightExitAt=-Infinity;
           climb=grind=null;
           caveLayer="surface";
@@ -7122,6 +7171,7 @@ export function createWorld(
           player=pose.point;playerY=pose.y;travel={point:player,speed:0,heading:pose.heading};
         }
         rideRecovery=initialRideRecovery(player);
+        rideWipeout=idleRideWipeout();
         rideFlightContinuity=false;lastFlightExitAt=-Infinity;
         dog = { x: player.x + 2, z: player.z - 2 };
         dogVelocity = { x: 0, z: 0 };
