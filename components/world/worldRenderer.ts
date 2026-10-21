@@ -3217,6 +3217,7 @@ export function createWorld(
   let skateBowlFlightActive=false,skateBowlLandings=0,skateBowlFailedLandings=0;
   let skateBowlLastLanding="",skateBowlLastLandingSpeed=0;
   let skateLoopRide:SkateLoopRide|null=null;
+  let loopCameraWasActive=false;
   let skateLoopEntries=0,skateLoopCompletions=0,lastSkateLoopEnd=-Infinity;
   let skateTunnelRide:SkateTunnelRide|null=null;
   let skateTunnelEntries=0,skateTunnelCompletions=0;
@@ -6364,7 +6365,9 @@ export function createWorld(
       }
       snowPuffs.instanceMatrix.needsUpdate=true;
     }
-    if(showingDiscGolfIntro || snapDiscCamera){
+    const loopCameraChanged=loopCameraWasActive!==!!skateLoopRide;
+    loopCameraWasActive=!!skateLoopRide;
+    if(showingDiscGolfIntro || snapDiscCamera || loopCameraChanged){
       // A direct time-derived pose starts on the basket instead of slowly
       // drifting there from a camera that previously followed the player.
       camera.position.copy(targetCamera);
@@ -6376,8 +6379,9 @@ export function createWorld(
       const cinematicRate=skateLoopRide||skateTunnelRide||skateRailGapRide?7.8:
         discGolf.phase!=="off"&&discFetch.phase==="flight"?8:
         discGolf.phase!=="off"&&discFetch.phase!=="idle"?5.2:3.6;
-      camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
-      look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
+      const cameraDelta=skateLoopRide||skateTunnelRide||skateRailGapRide?Math.min(rawDelta,.15):dt;
+      camera.position.lerp(targetCamera, 1 - Math.exp(-cameraDelta * cinematicRate));
+      look.lerp(targetLook, 1 - Math.exp(-cameraDelta * (cinematicRate+.4)));
     }
     if(tubeCameraActive){
       const limit=GROVE_TUNNEL.center.x+tubeCameraSide*(GROVE_TUNNEL.halfLength+.65);
@@ -7084,6 +7088,7 @@ export function createWorld(
         skateBowlLastLanding="";skateBowlLastLandingSpeed=0;
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
+        const jetPierStart=next.command.sportDestination==="jet-pier";
         const flowStart=next.command.skateDestination==="canyon-flow"&&
           next.command.activity==="skate";
         jetSki=null;jetRivals=[];jetHud.style.display="none";
@@ -7095,7 +7100,8 @@ export function createWorld(
         const barkStart=next.command.skateDestination==="log-top"&&next.command.activity==="skate";
         const tubeStart=next.command.skateDestination==="hollow-log"&&next.command.activity==="skate";
         const reversePose=skateLoopSample(beginSkateLoop(0,0,SKATE_LOOP.center.z,0,-1));
-        player=reverseStart?{x:reversePose.point.x-reversePose.heading.x*7,z:reversePose.point.z-reversePose.heading.z*7}:
+        player=jetPierStart?{x:JET_SKI_PIER.rampEndX+1.3,z:JET_SKI_PIER.centerZ}:
+          reverseStart?{x:reversePose.point.x-reversePose.heading.x*7,z:reversePose.point.z-reversePose.heading.z*7}:
           tubeStart?{x:GROVE_TUNNEL.center.x+GROVE_TUNNEL.halfLength+3,z:GROVE_TUNNEL.center.z}:loopStart?{x:SKATE_LOOP.center.x+SKATE_LOOP.leadLength,z:SKATE_LOOP.center.z}:flowStart?{...CANYON_FLOW.start}:
           (next.command.activity && activityLanding(next.command.activity)) ||
           regionLanding(r.id);
@@ -7109,7 +7115,7 @@ export function createWorld(
         grind = null;
         setAquaticMode("land");
         caveLayer = "surface";
-        playerY = groundHeight(player);
+        playerY = jetPierStart ? (jetSkiPierHeight(player) ?? groundHeight(player)) : groundHeight(player);
         if(barkStart){
           skateTunnelRide=beginSkateLogTopRide();
           const pose=skateTunnelSample(skateTunnelRide,groundHeight);
@@ -7187,10 +7193,14 @@ export function createWorld(
           yaw=Math.atan2(-heading.x,-heading.z);
           pitch=.42;zoom=21;
         }
-        // Menu-driven semantic travel closes a dialog whose focus-restoration
-        // target is the menu trigger. Exploration should immediately regain
-        // keyboard authority after the jump.
-        if (next.entered && !next.paused) canvas.focus({ preventScroll: true });
+        // This shortcut opens the established pier chooser, not an automatic
+        // race. Its dialog must keep focus instead of being stolen by canvas.
+        if (jetPierStart) {
+          yaw=-Math.PI / 2; pitch=.3; zoom=11;
+          openJetChooser();
+        } else if (next.entered && !next.paused) {
+          canvas.focus({preventScroll:true});
+        }
       }
       if (state.paused) {
         clearInput();

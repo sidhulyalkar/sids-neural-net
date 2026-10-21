@@ -1,5 +1,6 @@
 "use client";
 import {worldGameSession} from "@/lib/world/gameMode";
+import {Bike, ChevronDown, Disc3, MountainSnow, Waves, Trees} from "lucide-react";
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -36,6 +37,10 @@ import {
 import styles from "./world.module.css";
 
 const WorldScene = dynamic(() => import("./WorldScene"), { ssr: false });
+// Publicly available crop of the Erik Jepsen lightning photograph.
+// Click through to the source post showing the full image.
+const GEISEL_PHOTO = "https://standardsmichigan.com/wp-content/uploads/2019/08/Lightning-strikes-last-night-over-Geisel-Library.-Photo-by-Erik-Jepsen-UC-San-Diego-california-facebook-timeline-1922-721-700x300.jpg";
+const GEISEL_SOURCE = "https://www.reddit.com/r/UCSD/comments/plr8rs";
 class SceneBoundary extends Component<
   { children: ReactNode; onError: () => void },
   { failed: boolean }
@@ -90,12 +95,15 @@ const ROUTE_LABELS: Record<string, string> = Object.fromEntries(
   LINKS.map(([label, href]) => [href, label]),
 );
 
+type SportShortcut = "disc" | "race" | "jet" | "jump" | "park";
+
 export function WorldHome({ content }: { content: WorldContent }) {
   const [enabled, setEnabled] = useState(false);
   const [entered, setEntered] = useState(false);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [activity, setActivity] = useState<Activity>("run");
+  const [sportsOpen, setSportsOpen] = useState(false);
   const [skim, setSkim] = useState<SkimHeat>(idleSkimHeat);
   const [skimNearby, setSkimNearby] = useState<number|null>(null);
   const [skimCommand, setSkimCommand] = useState<"pickup"|"drop"|"pop"|"shuvit"|"big-spin"|"three-sixty"|"wrap"|"exit"|"restart">("pickup");
@@ -265,7 +273,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
           JSON.stringify({version:JOSHUA_TRIAL.version,elapsedMs:next.elapsedMs}));
       } catch { /* A best remains visible during this session. */ }
     }
-  },[setTrial,setPersonalBest]);
+  },[]);
   const onBigAir=useCallback((next:BigAirState)=>{
     setBigAir(next);
     if(next.phase==="armed")lastSpokenFlightMarker.current=0;
@@ -295,7 +303,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
           JSON.stringify({version:BIG_AIR.version,distance:next.radialDistance??next.distance}));
       }catch{/* Session results still work when storage is unavailable. */}
     }
-  },[setBigAir,setBestFlight]);
+  },[]);
   const onLocation = useCallback((r: RegionId, discovery: string | null) => {
     setRegion(r);
     setNearby(discovery);
@@ -374,6 +382,38 @@ export function WorldHome({ content }: { content: WorldContent }) {
       setCommand(previous => ({ region: "mountain", serial: (previous?.serial ?? 0) + 1, activity: next }));
     }
   }
+  function launchSport(sport: SportShortcut) {
+    // Game sessions retain movement ownership until a safe free-roam state.
+    if (!ready || quiet || aquatic !== "land" || !session.canChangeMovement) return;
+    setSportsOpen(false);
+    if (sport === "disc") {
+      const next = nextUnplayedDiscGolfHole(discGolfRound);
+      startDiscHole(next ?? 0);
+      if (next === null) setDiscGolfScorecardOpen(true);
+    } else if (sport === "race") {
+      setActivity("bike");
+      setChallengeSerial(n => n + 1);
+    } else if (sport === "jump") {
+      setActivity("ski");
+      setBigAirSerial(n => n + 1);
+    } else if (sport === "jet") {
+      // Boarding remains controlled by the pier's existing craft chooser.
+      setActivity("run");
+      setCommand(previous => ({
+        region: "lagoon", serial: (previous?.serial ?? 0) + 1,
+        sportDestination: "jet-pier",
+      }));
+      return; // Let the craft chooser receive keyboard focus.
+    } else {
+      setActivity("skate");
+      setCommand(previous => ({
+        region: "grove", serial: (previous?.serial ?? 0) + 1,
+        activity: "skate",
+      }));
+    }
+    requestAnimationFrame(() =>
+      worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
+  }
   function waterControl(next: "dive" | "deeper" | "shallower" | "surface") {
     setWaterAction(next);
     setWaterActionSerial(n => n + 1);
@@ -383,6 +423,18 @@ export function WorldHome({ content }: { content: WorldContent }) {
     setEnabled(true);
     setEntered(true);
     setFailed(false);
+    // Optional shareable ride starts preserve real-loop browser QA without
+    // exposing separate teleport buttons in the player-facing sports drawer.
+    const ride = new URLSearchParams(window.location.search).get("skate-start");
+    if (ride === "loop-rollin" || ride === "loop-reverse" ||
+        ride === "hollow-log" || ride === "log-top" || ride === "canyon-flow") {
+      setActivity("skate");
+      setCommand(previous => ({
+        region: ride === "canyon-flow" ? "canyon" : "grove",
+        serial: (previous?.serial ?? 0) + 1,
+        activity: "skate", skateDestination: ride,
+      }));
+    }
   }
   function jump(id: RegionId) {
     setEnabled(true);
@@ -475,7 +527,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       )}
       <header className={styles.header}>
         <Link href="/" className={styles.wordmark} prefetch={false}>
-          SID HULYALKAR<span> Neuroscience & engineering</span>
+          Sid Hulyalkar
         </Link>
         <button
           className={styles.menuButton}
@@ -489,9 +541,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       </header>
       {!entered || failed ? (
         <section className={styles.welcome} aria-labelledby="world-title">
-          <p className={styles.eyebrow}>CALIFORNIA, IN MIND</p>
-          <h1 id="world-title">Brains, machines,<br /><em>open trails.</em></h1>
-          <p className={styles.introduction}>I’m Sid. Engineer, neuroscience researcher, usually outside.</p>
+          <h1 id="world-title">Welcome to <em>Sid’s iLand</em></h1>
           <div className={styles.actions}>
             <Link href="/atlas" prefetch={false} className={styles.primary}>
               View site <span aria-hidden="true">↗</span>
@@ -531,85 +581,55 @@ export function WorldHome({ content }: { content: WorldContent }) {
             </button>
           )}
           {aquatic === "land" && (
-            <div className={styles.activityDock} style={{display:worldGameActive||skim.phase!=="off"?"none":undefined}}>
-              <div className={styles.activityButtons} role="group" aria-label="Movement activity">
-                {ACTIVITIES.map(item => (
-                  <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
-                    disabled={bigAir.phase==="armed"||bigAir.phase==="flying"||
-                      trial.phase==="armed"||trial.phase==="running"}
-                    onClick={() => chooseActivity(item.id)}>{item.label}</button>
-                ))}
-                <button className={styles.actionButton} disabled={!ready || quiet} onClick={() => setActionSerial(n => n + 1)}>
-                  {activityConfig(activity).action}
-                </button>
-              </div>
-              <p aria-live="polite">{activityConfig(activity).hint}</p>
-              <button className={styles.trialLaunch} disabled={!ready||quiet||
-                bigAir.phase==="armed"||bigAir.phase==="flying"||
-                trial.phase==="armed"||trial.phase==="running"}
-                onClick={()=>{
-                    const next=nextUnplayedDiscGolfHole(discGolfRound);
-                    startDiscHole(next??0);
-                    if(next===null)setDiscGolfScorecardOpen(true);
-                  }}>Disc golf · {discGolfRoundSummary(discGolfRound).complete?"scorecard":
-                   discGolfRoundSummary(discGolfRound).holesPlayed>0?"resume":"play"}</button>
-              {activity==="skate" && !worldGameActive && (
-                <button className={styles.trialLaunch} disabled={!ready||quiet}
-                  onClick={()=>{
-                    setCommand(previous=>({region:"grove",
-                      serial:(previous?.serial??0)+1,activity:"skate"}));
-                    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
-                  }}>
-                  Skatepark · south meadow
-                </button>
-              )}
-              {activity==="skate" && !worldGameActive && (
-                <button className={styles.trialLaunch} disabled={!ready||quiet}
-                  onClick={()=>{
-                    setCommand(previous=>({region:"canyon",
-                      serial:(previous?.serial??0)+1,activity:"skate",
-                      skateDestination:"canyon-flow"}));
-                    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
-                  }}>
-                  Meadow trail · rails & bridge
-                </button>
-              )}
-              {activity==="skate" && !worldGameActive && (
-                <button className={styles.trialLaunch} disabled={!ready||quiet}
-                  onClick={()=>{
-                    setCommand(previous=>({region:"grove",
-                      serial:(previous?.serial??0)+1,activity:"skate",
-                      skateDestination:"loop-rollin"}));
-                    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
-                  }}>Loop · downhill roll-in</button>
-              )}
-              {activity==="skate" && !worldGameActive && ([
-                ["loop-reverse","Loop · reverse runway"],["hollow-log","Hollow log · carve & return"],["log-top","Hollow log · bark ride"],
-              ] as const).map(([skateDestination,label])=>(
-                <button key={skateDestination} className={styles.trialLaunch} disabled={!ready||quiet}
-                  onClick={()=>{
-                    setCommand(previous=>({region:"grove",serial:(previous?.serial??0)+1,activity:"skate",skateDestination}));
-                    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
-                  }}>{label}</button>
-              ))}
-              {activity==="ski" && bigAir.phase!=="armed" && bigAir.phase!=="flying" &&
-                trial.phase!=="armed"&&trial.phase!=="running" && (
-                <button className={styles.trialLaunch} disabled={!ready||quiet}
-                  onClick={()=>setBigAirSerial(n=>n+1)}>
-                  Mountain ski jump · summit start
-                </button>
-              )}
-              {activity==="bike" && bigAir.phase!=="armed"&&bigAir.phase!=="flying"&&
-                trial.phase!=="armed" &&
-                trial.phase!=="running" && (
-                <button className={styles.trialLaunch} disabled={!ready||quiet}
-                  onClick={()=>setChallengeSerial(n=>n+1)}>
-                  Joshua circuit · race Lucas & Ness
-                </button>
-              )}
-            </div>
-          )}
-          {skim.phase==="off" && skimNearby!==null && aquatic==="land" &&
+             <nav className={styles.activityDock} aria-label="World movement and sports"
+               style={{display:worldGameActive||skim.phase!=="off"?"none":undefined}}>
+               <div className={styles.activityButtons} role="group" aria-label="Movement activity">
+                 {ACTIVITIES.map(item => (
+                   <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
+                     title={item.name} disabled={!ready||quiet||!session.canChangeMovement}
+                     onClick={() => chooseActivity(item.id)}>{item.label}</button>
+                 ))}
+                 <button className={styles.actionButton} disabled={!ready || quiet}
+                   aria-label={`${activityConfig(activity).action} · Space`}
+                   title={`${activityConfig(activity).hint} · Space`}
+                   onClick={() => setActionSerial(n => n + 1)}>
+                   {activityConfig(activity).action}
+                 </button>
+               </div>
+               <button type="button" className={styles.sportsToggle}
+                 aria-controls="world-sport-shortcuts" aria-expanded={sportsOpen}
+                 aria-label={sportsOpen ? "Hide sport shortcuts" : "Show sport shortcuts"}
+                 onClick={() => setSportsOpen(open => !open)}>
+                 <span>SPORTS</span>
+                 <ChevronDown size={15} strokeWidth={2.2} aria-hidden="true"
+                   className={sportsOpen ? styles.sportsChevronOpen : styles.sportsChevron} />
+               </button>
+               <div id="world-sport-shortcuts" className={styles.sportsDrawer} hidden={!sportsOpen}
+                 role="group" aria-label="Sport shortcuts">
+                 <button title="Play disc golf" onClick={() => launchSport("disc")}
+                   disabled={!ready||quiet||!session.canChangeMovement}>
+                   <Disc3 aria-hidden="true"/><span>Disc golf</span>
+                 </button>
+                 <button title="Start the Joshua bike race" onClick={() => launchSport("race")}
+                   disabled={!ready||quiet||!session.canChangeMovement}>
+                   <Bike aria-hidden="true"/><span>Bike race</span>
+                 </button>
+                 <button title="Choose a jet ski at the pier" onClick={() => launchSport("jet")}
+                   disabled={!ready||quiet||!session.canChangeMovement}>
+                   <Waves aria-hidden="true"/><span>Jet ski</span>
+                 </button>
+                 <button title="Start the mountain ski jump" onClick={() => launchSport("jump")}
+                   disabled={!ready||quiet||!session.canChangeMovement}>
+                   <MountainSnow aria-hidden="true"/><span>Ski jump</span>
+                 </button>
+                 <button title="Explore the entire redwood skatepark" onClick={() => launchSport("park")}
+                   disabled={!ready||quiet||!session.canChangeMovement}>
+                   <Trees aria-hidden="true"/><span>Skatepark</span>
+                 </button>
+               </div>
+             </nav>
+           )}
+           {skim.phase==="off" && skimNearby!==null && aquatic==="land" &&
             discGolf.phase==="off" && bigAir.phase!=="armed" && bigAir.phase!=="flying" &&
             trial.phase!=="armed" && trial.phase!=="running" && (
              <button className={styles.skimPickup} onClick={()=>issueSkim("pickup",skimNearby)}>
@@ -753,7 +773,6 @@ export function WorldHome({ content }: { content: WorldContent }) {
       )}
       {!entered && (
         <footer className={styles.homeFooter}>
-          <span>Sid Hulyalkar · Portfolio</span>
           <Link href="/about" prefetch={false}>
             Get to know me
           </Link>
@@ -761,7 +780,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       )}
       <dialog
         ref={dialog}
-        className={`${styles.dialog} ${photo ? styles.photoDialog : ""}`}
+        className={`${styles.dialog} ${photo || panel === "trident-lagoon" ? styles.photoDialog : ""}`}
         onCancel={(event) => {
           event.preventDefault();
           close();
@@ -966,7 +985,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 height={photo.height}
                 sizes="(max-width: 900px) 92vw, 1000px"
               />
-              <p className={styles.photoCaption}>{caption?.detail ?? photo.alt}</p>
+              <p className={styles.photoCaption}>
+                <a href={photo.mapUrl} target="_blank" rel="noopener noreferrer"
+                   aria-label={`Open ${photo.location} on Google Maps`}>
+                  {photo.location} ↗
+                </a>
+              </p>
               <Link prefetch={false} href="/photography">
                 Photography
               </Link>
@@ -987,16 +1011,29 @@ export function WorldHome({ content }: { content: WorldContent }) {
           )}
           {trident && (
             <>
-              <h2 id="world-panel-title">{trident.title}.</h2>
-              <p className={styles.panelIntro}>
-                A carved navy-and-gold trident inspired by UC San Diego,
-                celebrating Bioengineering and scientific exploration.
-                This sculpture is not an official university emblem.
-              </p>
-              <div className={styles.panelLinks}>
-                <Link href={trident.href} prefetch={false}>Explore this connection</Link>
-                <button onClick={close}>Continue diving</button>
-              </div>
+              <h2 id="world-panel-title">{trident.title}</h2>
+              {trident.id === "trident-lagoon" ? (
+                <>
+                  <a className={styles.geiselPhoto} href={GEISEL_SOURCE}
+                     target="_blank" rel="noopener noreferrer"
+                     aria-label="View Geisel Library lightning photograph">
+                    <Image src={GEISEL_PHOTO} width={700} height={300}
+                       unoptimized priority={false}
+                       sizes="(max-width: 900px) 92vw, 1000px"
+                       alt="Geisel Library at UC San Diego under a sky of lightning at night." />
+                    <span>View photo ↗</span>
+                  </a>
+                  <p className={styles.geiselCredit}>
+                    Geisel Library · Photo: <a href={GEISEL_SOURCE} target="_blank"
+                      rel="noopener noreferrer">Erik Jepsen / UC San Diego</a>
+                  </p>
+                </>
+              ) : (
+                <div className={styles.panelLinks}>
+                  <Link href={trident.href} prefetch={false}>Explore</Link>
+                </div>
+              )}
+              <button className={styles.geiselReturn} onClick={close}>Continue diving</button>
             </>
           )}
           {panel === "paper-archive" && <><h2 id="world-panel-title">Paper Archive.</h2><div className={styles.projectList}>{content.publications.map(p=><Link key={p.id} href={p.href} prefetch={false}><h3>{p.title}</h3>{p.year && <span>{p.year}</span>}</Link>)}</div><Link prefetch={false} href="/publications">Explore publications</Link></>}

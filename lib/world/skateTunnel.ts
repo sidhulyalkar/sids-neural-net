@@ -198,10 +198,10 @@ export function advanceSkateTunnelRide(start:SkateTunnelRide,delta:number,
   }else{
    const turn=clamp(input.steer,-1,1)*1.65*dt;
    const vx=r.vx*Math.cos(turn)-r.vt*Math.sin(turn),vt=r.vx*Math.sin(turn)+r.vt*Math.cos(turn);
-   const drag=input.brake?3:.045,push=input.push&&r.speed<10?2.7:0;
+   const drag=input.brake?3:.045,push=input.push&&r.speed<14?4.5:0;
    r.vx=vx+(-3.8*p.axis[1]+push*vx/Math.max(r.speed,.1)-drag*vx)*dt;
    r.vt=vt+(-3.8*p.tangent[1]+push*vt/Math.max(r.speed,.1)-drag*vt)*dt;
-   if(input.push&&r.speed<.1)r.vx+=r.direction*2.7*dt;
+   if(input.push&&r.speed<.1)r.vx+=r.direction*4.5*dt;
    const along=r.vx/p.metric*dt;
    if(r.surface==="rim")r.rimT=(r.rimT??0)+along;else r.x+=along;
    r.angle+=(r.vt*dt-along*p.skew)/p.ds;

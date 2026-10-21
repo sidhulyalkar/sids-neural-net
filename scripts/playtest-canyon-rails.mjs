@@ -16,13 +16,12 @@ try{
  const page=await browser.newPage({viewport:{width:1440,height:900}});
  page.on("pageerror",e=>errors.push(e.message));
  try{
-  await page.goto(base);
+  await page.goto(`${base}${base.includes("?") ? "&" : "?"}skate-start=canyon-flow`);
   await page.getByRole("button",{name:"Explore world",exact:true}).click();
   await page.waitForFunction(()=>
    Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
    null,{timeout:45000});
-  await page.getByRole("button",{name:"Skateboarding",exact:true}).click();
-  await page.getByRole("button",{name:"Meadow trail · rails & bridge",exact:true}).click();
+  // QA-only link keeps the exact physical Moss Canyon approach without cluttering the HUD.
   await page.waitForFunction(()=>{
    const d=document.querySelector("canvas")?.dataset;
    return d?.activity==="skate"&&d?.skateGroveZone==="canyon-flow";

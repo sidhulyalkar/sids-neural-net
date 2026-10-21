@@ -484,6 +484,8 @@ export type WorldPhoto = {
   alt: string;
   width: number;
   height: number;
+  location: string;
+  mapUrl: string;
 };
 export type WorldVideo = {
   id: string;
@@ -504,4 +506,5 @@ export type WorldCommand = {
   serial: number;
   activity?: import("./activities").Activity;
   skateDestination?: "canyon-flow" | "loop-rollin" | "loop-reverse" | "hollow-log" | "log-top";
+  sportDestination?: "jet-pier";
 };

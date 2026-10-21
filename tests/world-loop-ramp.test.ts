@@ -37,3 +37,13 @@ test('separating wheels and flight beyond the track cannot snap to it',()=>{
 test('slow inverted landing loses contact instead of sticking to ceiling',()=>{
  const hit=land(Math.PI,.2);assert.ok(hit.ride);assert.equal(advanceSkateLoop(hit.ride,.016).released,true);
 });
+
+test('both open mouths reject departing wheels during terrain handoff',()=>{
+ for(const direction of [1,-1] as const){
+  const p=skateLoopSample(beginSkateLoop(8,0,SKATE_LOOP.center.z,0,direction));
+  const from:V=[p.point.x,p.y,p.point.z];
+  const v=p.trackForward.map(n=>n*-direction*8) as V;
+  const to=from.map((n,i)=>n+v[i]*.016-(i===1?.035:0)) as V;
+  assert.equal(contactSkateLoop(from,to,v,0,0),null);
+ }
+});

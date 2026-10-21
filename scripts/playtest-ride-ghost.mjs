@@ -24,7 +24,8 @@ try{
   Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
   null,{timeout:45000});
  await page.getByRole("button",{name:"Mountain biking",exact:true}).click();
- await page.getByRole("button",{name:"Joshua circuit · race Lucas & Ness"}).click();
+ await page.getByRole("button",{name:"Show sport shortcuts",exact:true}).click();
+ await page.getByRole("button",{name:"Bike race",exact:true}).click();
  await page.waitForFunction(()=>{
   const data=document.querySelector("canvas")?.dataset;
   return data?.trialPhase==="armed"&&data?.joshuaGhosts==="2";

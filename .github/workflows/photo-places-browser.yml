@@ -1,0 +1,87 @@
+name: Visual Cortex Photo Places QA
+
+on:
+  push:
+    branches: ['feat/visual-archive-photo-places']
+    paths:
+      - 'src/data/photoPlaces.ts'
+      - 'src/data/visualArchive.ts'
+      - 'components/visual-archive/VisualArchiveGallery.tsx'
+      - 'lib/world/model.ts'
+      - 'lib/world/content.ts'
+      - 'components/world/WorldHome.tsx'
+      - 'tests/world-photo-place-links.test.ts'
+      - 'scripts/playtest-photo-places.mjs'
+      - '.github/workflows/photo-places-browser.yml'
+  pull_request:
+    paths:
+      - 'src/data/photoPlaces.ts'
+      - 'src/data/visualArchive.ts'
+      - 'components/visual-archive/VisualArchiveGallery.tsx'
+      - 'lib/world/model.ts'
+      - 'lib/world/content.ts'
+      - 'components/world/WorldHome.tsx'
+      - 'tests/world-photo-place-links.test.ts'
+      - 'scripts/playtest-photo-places.mjs'
+      - '.github/workflows/photo-places-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: photo-places-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  photo-places:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install lockfile dependencies
+        run: npm ci
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install photo archive validation tools
+        run: python -m pip install Pillow==11.3.0
+      - name: Typecheck, lint and photo geography contracts
+        run: |
+          npm run typecheck
+          npx eslint src/data/photoPlaces.ts src/data/visualArchive.ts components/visual-archive/VisualArchiveGallery.tsx lib/world/model.ts lib/world/content.ts components/world/WorldHome.tsx tests/world-photo-place-links.test.ts --max-warnings=0
+          node --import tsx --test tests/world-photo-place-links.test.ts
+          npm run check:visual-cortex
+      - name: Install isolated Playwright browser
+        run: |
+          mkdir -p /tmp/photo-places-playwright
+          npm install --prefix /tmp/photo-places-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/photo-places-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start website preview
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/photo-places-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/photography >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 120 /tmp/photo-places-next.log
+          exit 1
+      - name: Verify all photo map links on desktop and mobile
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/photo-places-playwright/node_modules/playwright
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/photos/map-location-links
+        run: node scripts/playtest-photo-places.mjs
+      - name: Upload screenshot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: photo-places-${{ github.sha }}
+          path: artifacts/photos/map-location-links/
+          if-no-files-found: warn
+      - name: Print diagnostics on failure
+        if: failure()
+        run: tail -n 100 /tmp/photo-places-next.log || true

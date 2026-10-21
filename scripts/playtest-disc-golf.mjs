@@ -55,7 +55,8 @@ try{
  // Enter disc golf while skateboarding is still selected. Disc throwing
  // must use a forward-facing stance, not the old sideways board pose.
  await page.getByRole("button",{name:"Skateboarding",exact:true}).click();
- await page.getByRole("button",{name:/^Disc golf · (play|resume|scorecard)$/}).click();
+ await page.getByRole("button",{name:"Show sport shortcuts"}).click();
+ await page.getByRole("button",{name:"Disc golf",exact:true}).click();
  const canvas=page.locator("canvas");
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfPhase==="ready");
  // The resting HUD is a small edge-to-edge strip, not a right-side panel.

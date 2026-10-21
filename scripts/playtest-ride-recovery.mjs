@@ -37,7 +37,8 @@ try{
  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
   null,{timeout:45000});
  await page.getByRole("button",{name:"Skiing",exact:true}).click();
- await page.getByRole("button",{name:"Mountain ski jump · summit start",exact:true}).click();
+ await page.getByRole("button",{name:"Show sport shortcuts",exact:true}).click();
+ await page.getByRole("button",{name:"Ski jump",exact:true}).click();
  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.bigAirPhase==="armed",
   null,{timeout:15000});
  await page.locator("canvas").focus();

@@ -156,6 +156,10 @@ export function contactSkateLoop(from:Vector,to:Vector,velocity:Vector,groundY:n
   if(u<0||v<0||u+v>1||t<0||t>1||t>=nearest)continue;
   const ride={...initial,angle:a.a+(b.a-a.a)*u+(c.a-a.a)*v,laneZ:SKATE_LOOP.center.z+a.lane+(b.lane-a.lane)*u+(c.lane-a.lane)*v,ramp:true};
   const pose=skateLoopSample(ride);
+  // A wheel leaving either open mouth must not reattach at t=0 when
+  // ordinary terrain support lowers it from the slightly raised timber lip.
+  const along=dot(motion,pose.trackForward);
+  if((ride.angle<1e-5&&along<=0)||(ride.angle>LOOP_TAU-1e-5&&along>=0))continue;
   if(dot(motion,pose.up)>=-1e-8||dot(velocity,pose.up)>0)continue;
   ride.speed=dot(velocity,pose.trackForward);ride.entryLateralSpeed=dot(velocity,pose.trackRight);ride.direction=ride.speed<0?-1:1;
   nearest=t;result=ride;
