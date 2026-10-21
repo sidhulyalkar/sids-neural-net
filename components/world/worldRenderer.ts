@@ -4526,7 +4526,9 @@ export function createWorld(
             crossing:candidate,airHeight,previousY,
             groundY:groundHeight(SKATE_LOOP.center),
             deltaY:previousY-groundHeight(SKATE_LOOP.center),
-            trick:skateTrick.phase,grind:!!grind,
+            trick:skateTrick.phase,manual:skateTrick.manual,
+            grind:!!grind,tunnel:!!skateTunnelRide,railGap:!!skateRailGapRide,
+            aquatic,lastLoopDelay:elapsed-lastSkateLoopEnd,
             cave:caveLayer,mode:state.activity,speed:travel.speed});
         }
         if(state.activity==="skate"&&caveLayer==="surface"&&
