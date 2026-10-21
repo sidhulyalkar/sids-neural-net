@@ -75,7 +75,7 @@ const INTRO: Record<RegionId, { title: string; text: string }> = {
   cavern: { title: "Arcade cavern.", text: "Playable games carved into stone." },
   grove: { title: "Redwood grove.", text: "Neuroscience · engineering · Shasta." },
   mountain: { title: "Granite ridge.", text: "Selected builds." },
-  neural: { title: "Strange grove.", text: "Research questions." },
+  neural: { title: "Mystic grove.", text: "Research questions." },
   coast: { title: "Wild coast.", text: "Cold water · trails · photographs." },
   lagoon: { title: "Lagoon reef.", text: "Bora Bora · Tahiti · Mo’orea." },
   "north-shore": { title: "North shore.", text: "Skim the shorebreak." },

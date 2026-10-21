@@ -198,6 +198,7 @@ export function createWorld(
   const rideHud=document.createElement("div");
   rideHud.className=worldStyles.rideBoostHud;
   rideHud.setAttribute("aria-label","Land sports target boost");
+  rideHud.hidden=true;
   rideHud.style.display="none";
   host.appendChild(rideHud);
   const skateHud=document.createElement("div");
@@ -5211,10 +5212,17 @@ export function createWorld(
       // One-button skating already has its own thin score strip; don't
       // advertise an unrelated precision skill-shot all the time. F/click
       // still work, and boost notices remain visible when actually used.
-      const showAim=aimEligible&&(mode!=="skate"||
-        boosting||elapsed<rideBoostNoticeUntil);
+      const skateNotice=boosting||elapsed<rideBoostNoticeUntil;
+      const showAim=aimEligible&&(state.activity!=="skate"||skateNotice);
+      // Visibility and accessibility must agree even on the very first
+      // frame after a sport switch. A stale target banner must not cover
+      // skate tricks or intercept assist feedback.
+      rideHud.hidden=!showAim;
       rideHud.style.display=showAim?"block":"none";
-      rideReticle.style.display=aimEligible&&mode!=="skate"?"block":"none";
+      const showReticle=aimEligible&&state.activity!=="skate";
+      rideReticle.hidden=!showReticle;
+      rideReticle.style.display=showReticle?"block":"none";
+      canvas.dataset.rideBoostHudVisible=String(showAim);
       if(showAim){
         const seconds=Math.max(0,rideBoost.until-elapsed);
         rideHud.textContent=elapsed<rideBoostNoticeUntil?rideBoostNotice:
@@ -6970,6 +6978,10 @@ export function createWorld(
         rideRecovery={...rideRecovery,blockedFor:0};
         rideWipeout=idleRideWipeout();
         visualRidePose={pitch:0,roll:0,yaw:0};
+        if(next.activity==="skate"){
+          rideHud.hidden=true;rideHud.style.display="none";
+          rideReticle.hidden=true;rideReticle.style.display="none";
+        }
         if(state.activity==="skate"||next.activity==="skate"){
           // Equipment changes start a fresh, independent trick line. The
           // player's best persists, while old landing cards never leak.
