@@ -8,7 +8,7 @@ import {
 } from "@/lib/world/skatepark";
 import {terrainHeight,type Point} from "@/lib/world/model";
 import {sequoiaTubePoint,TUBE_TAU} from "@/lib/world/skateTunnel";
-import {beginSkateLoop,skateLoopSample,LOOP_TAU} from "@/lib/world/skateLoop";
+import {beginSkateLoop,skateLoopSample,LOOP_TAU,LOOP_SEGMENTS} from "@/lib/world/skateLoop";
 import {biomeAt,BIOME_COLORS} from "@/lib/world/biomes";
 
 /**
@@ -324,7 +324,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   ride(loopExitPoint));
  const loopCedar=material("#c6a071",{side:THREE.DoubleSide});
  const loopBark=material("#55402f",{side:THREE.DoubleSide});
- const loopSegments=144;
+ const loopSegments=LOOP_SEGMENTS;
  const ringPoint=(a:number,z:number,backing=false)=>{
   const pose=skateLoopSample({...sampleRide,angle:a});
   const side=z-SKATE_LOOP.center.z;

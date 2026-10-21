@@ -1,6 +1,7 @@
 import type {Point} from "./model";
 import {SKATE_LOOP} from "./skatepark";
-export type SkateLoopRide={angle:number;speed:number;baseY:number;exitY:number;laneZ:number;direction?:1|-1;entryLateralSpeed?:number};
+export type SkateLoopRide={angle:number;speed:number;baseY:number;exitY:number;laneZ:number;direction?:1|-1;entryLateralSpeed?:number;ramp?:boolean};
+export const LOOP_SEGMENTS=144;
 export const LOOP_TAU=2*Math.PI;
 const clamp=(n:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,n));
 export function skateLoopEntryCrossing(previous:Point,current:Point,heading:Point,speed:number):boolean{
@@ -51,6 +52,8 @@ export function skateLoopSample(ride:SkateLoopRide){
  const curvature=(radius*Math.sin(a)*up[0]+(radiusY*Math.cos(a)+
   (ride.exitY-ride.baseY)*6*(1-2*t)/(LOOP_TAU*LOOP_TAU))*up[1])/(ds*ds);
  const wheelLift=Math.max(0,curvature*.63*.63*.5);
+ const trackForward=[...forward],trackRight=[...right];
+ const velocity=trackForward.map((v,i)=>v*ride.speed+trackRight[i]*(ride.entryLateralSpeed??0));
  const direction=ride.direction??1;
  if(direction===-1){for(let i=0;i<3;i++){forward[i]*=-1;right[i]*=-1;}}
  const positionRight=[...right];
@@ -64,32 +67,35 @@ export function skateLoopSample(ride:SkateLoopRide){
  return {point:{x:center.x-radius*Math.sin(a)-exitOffset*t+positionRight[0]*lateral*direction,
   z:center.z+laneOffset*t*t*(2-t)+positionRight[2]*lateral*direction},
   y:ride.baseY+radiusY*(1-Math.cos(a))+(ride.exitY-ride.baseY)*blend+positionRight[1]*lateral*direction,
-  pitch:-tilt,wheelLift,horizontalTangent:dx,ds,dy,forward,right,up,
+  pitch:-tilt,wheelLift,curvature,trackForward,trackRight,velocity,horizontalTangent:dx,ds,dy,forward,right,up,
   heading:{x:forward[0]/(Math.hypot(forward[0],forward[2])||1),z:forward[2]/(Math.hypot(forward[0],forward[2])||1)}};
 }
 /** Tangential gravity and rolling drag; no motor or minimum-speed floor.
  * Insufficient momentum rolls back down the entry. Small substeps preserve
  * contact and deterministic release even on slow frames. */
 export function advanceSkateLoop(start:SkateLoopRide,delta:number):{
- ride:SkateLoopRide;completed:boolean;returned:boolean}{
- if(!Number.isFinite(delta)||delta<=0)return {ride:start,completed:false,returned:false};
- let ride={...start},returned=false,completed=false;
+ ride:SkateLoopRide;completed:boolean;returned:boolean;released:boolean}{
+ if(!Number.isFinite(delta)||delta<=0)return {ride:start,completed:false,returned:false,released:false};
+ let ride={...start},returned=false,completed=false,released=false;
  const direction=start.direction??1;
  const total=clamp(delta,0,.5),slices=Math.ceil(total/.008),step=total/slices;
  for(let i=0;i<slices;i++){
   const p=skateLoopSample(ride);
+  if(ride.ramp&&ride.speed*ride.speed*p.curvature+3*p.up[1]<-.01){released=true;break;}
   const acceleration=-3*p.dy/p.ds-.08*Math.sign(ride.speed);
   const speed=ride.speed+acceleration*step;
   const angle=ride.angle+(ride.speed+speed)*.5*step/p.ds;
-  const lateral=ride.entryLateralSpeed??0,decay=Math.exp(-step*8);
+  const lateral=(ride.entryLateralSpeed??0)-(ride.ramp?3*p.trackRight[1]*step:0),drag=ride.ramp?.08:8,decay=Math.exp(-step*drag);
   const maxLane=SKATE_LOOP.width*.5-.22;
-  const laneZ=clamp(ride.laneZ+lateral*(1-decay)/8,SKATE_LOOP.center.z-maxLane,SKATE_LOOP.center.z+maxLane);
+  const nextLane=ride.laneZ+lateral*(1-decay)/drag;
+  const laneZ=ride.ramp?nextLane:clamp(nextLane,SKATE_LOOP.center.z-maxLane,SKATE_LOOP.center.z+maxLane);
   const edge=Math.abs(laneZ-SKATE_LOOP.center.z)>=maxLane-1e-8;
-  ride={...ride,speed,angle:clamp(angle,0,LOOP_TAU),laneZ,entryLateralSpeed:edge?0:lateral*decay};
+  ride={...ride,speed,angle:clamp(angle,0,LOOP_TAU),laneZ,entryLateralSpeed:edge&&!ride.ramp?0:lateral*decay};
+  if(ride.ramp&&Math.abs(laneZ-SKATE_LOOP.center.z)>SKATE_LOOP.width*.5){released=true;break;}
   if(angle<=0&&speed<0){completed=direction===-1;returned=!completed;break;}
   if(angle>=LOOP_TAU&&speed>0){completed=direction===1;returned=!completed;break;}
  }
- return {ride,completed,returned};
+ return {ride,completed:completed&&!ride.ramp,returned:returned||(completed&&!!ride.ramp),released};
 }
 
 /** Look through the open side instead of the opaque descending timber skin. */
@@ -118,4 +124,41 @@ export function enterSkateLoop(previous:Point,current:Point,heading:Point,speed:
  const lateral=speed*(heading.x*mouth.right[0]+heading.z*mouth.right[2])/len*direction;
  return {...initial,speed:direction*along,entryLateralSpeed:lateral,laneZ:SKATE_LOOP.center.z+lane,
   angle:clamp(initial.angle+direction*progress/mouth.ds,0,LOOP_TAU)};
+}
+
+
+type Vector=[number,number,number];
+const dot=(a:readonly number[],b:readonly number[])=>a.reduce((sum,v,i)=>sum+v*b[i],0);
+const subtract=(a:readonly number[],b:readonly number[]):Vector=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const cross=(a:readonly number[],b:readonly number[]):Vector=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+let contactMesh:{groundY:number;exitGroundY:number;vertices:{p:Vector;a:number;lane:number}[]}|undefined;
+/** Sweep wheels against the same finite triangles used by the visible timber.
+ * Only an approaching front-face crossing can attach; proximity never snaps. */
+export function contactSkateLoop(from:Vector,to:Vector,velocity:Vector,groundY:number,exitGroundY:number):SkateLoopRide|null{
+ if(![...from,...to,...velocity,groundY,exitGroundY].every(Number.isFinite))return null;
+ const c=SKATE_LOOP.center,extent=SKATE_LOOP.radius+SKATE_LOOP.exitOffset+SKATE_LOOP.width;
+ if(Math.min(from[0],to[0])>c.x+extent||Math.max(from[0],to[0])<c.x-extent||
+ Math.min(from[2],to[2])>c.z+SKATE_LOOP.laneOffset+SKATE_LOOP.width||Math.max(from[2],to[2])<c.z-SKATE_LOOP.width)return null;
+ const initial=beginSkateLoop(0,groundY,c.z,exitGroundY),motion=subtract(to,from);
+ const vertices=contactMesh?.groundY===groundY&&contactMesh.exitGroundY===exitGroundY?contactMesh.vertices:[];
+ if(!vertices.length){
+ for(let i=0;i<=LOOP_SEGMENTS;i++)for(const lane of [-SKATE_LOOP.width/2,SKATE_LOOP.width/2]){
+  const a=i*LOOP_TAU/LOOP_SEGMENTS,p=skateLoopSample({...initial,angle:a,laneZ:c.z+lane});
+  vertices.push({p:[p.point.x,p.y,p.point.z],a,lane});
+ }
+ contactMesh={groundY,exitGroundY,vertices};
+ }
+ let nearest=Infinity,result:SkateLoopRide|null=null;
+ for(let i=0;i<LOOP_SEGMENTS;i++)for(const ids of [[2*i,2*i+1,2*i+2],[2*i+1,2*i+3,2*i+2]]){
+  const [a,b,c]=ids.map(j=>vertices[j]),e1=subtract(b.p,a.p),e2=subtract(c.p,a.p),h=cross(motion,e2),det=dot(e1,h);
+  if(Math.abs(det)<1e-10)continue;
+  const offset=subtract(from,a.p),u=dot(offset,h)/det,q=cross(offset,e1),v=dot(motion,q)/det,t=dot(e2,q)/det;
+  if(u<0||v<0||u+v>1||t<0||t>1||t>=nearest)continue;
+  const ride={...initial,angle:a.a+(b.a-a.a)*u+(c.a-a.a)*v,laneZ:SKATE_LOOP.center.z+a.lane+(b.lane-a.lane)*u+(c.lane-a.lane)*v,ramp:true};
+  const pose=skateLoopSample(ride);
+  if(dot(motion,pose.up)>=-1e-8||dot(velocity,pose.up)>0)continue;
+  ride.speed=dot(velocity,pose.trackForward);ride.entryLateralSpeed=dot(velocity,pose.trackRight);ride.direction=ride.speed<0?-1:1;
+  nearest=t;result=ride;
+ }
+ return result;
 }
