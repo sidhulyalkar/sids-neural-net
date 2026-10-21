@@ -1,6 +1,7 @@
 import {MOSS_CANYON} from "@/lib/world/model";
 import {bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
 import {rideWheelProbe,rideTerrainAttitude} from "@/lib/world/rideSurface";
+import {RIDE_TERRAIN_GRID,terrainMeshHeight} from "@/lib/world/rideMeshContact";
 import {idleRideWipeout,beginRideWipeout,stepRideWipeout,rideWipeoutPose} from "@/lib/world/rideWipeout";
 import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcadeTrailFooting,arcadeEntranceCameraPose} from "@/lib/world/arcadeWayfinding";
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
@@ -509,7 +510,7 @@ export function createWorld(
   // One continuous finite surface covers land, shoreline and the underwater shelf.
   const terrainWidth = WORLD_BOUNDS.maxX - WORLD_BOUNDS.minX;
   const terrainDepth = WORLD_BOUNDS.maxZ - WORLD_BOUNDS.minZ;
-  const terrain = geo(new THREE.PlaneGeometry(terrainWidth, terrainDepth, 142, 132));
+  const terrain = geo(new THREE.PlaneGeometry(terrainWidth, terrainDepth, RIDE_TERRAIN_GRID.x, RIDE_TERRAIN_GRID.z));
   terrain.rotateX(-Math.PI / 2);
   terrain.translate(
     (WORLD_BOUNDS.minX + WORLD_BOUNDS.maxX) / 2,
@@ -517,6 +518,9 @@ export function createWorld(
     (WORLD_BOUNDS.minZ + WORLD_BOUNDS.maxZ) / 2,
   );
   const pos = terrain.attributes.position;
+  // Capture the actual vertex heights once. Movement and wheel contact can
+  // then interpolate the same triangles that WebGL draws on mountain slopes.
+  const terrainGridHeights=new Float32Array(pos.count);
   const colors: number[] = [];
   const groundColor = new THREE.Color();
   function lineDistance(x: number, z: number, a: Point, b: Point) {
@@ -535,6 +539,7 @@ export function createWorld(
     const wet = isWater({ x, z });
     const y = worldFloorHeight(x, z);
     pos.setY(i, y);
+    terrainGridHeights[i]=y;
     const trail = Math.min(
       ...REGIONS.slice(1).map((r) =>
         lineDistance(x, z, REGIONS[0].point, r.point),
@@ -555,6 +560,8 @@ export function createWorld(
     groundColor.multiplyScalar(0.94 + random() * 0.12);
     colors.push(groundColor.r, groundColor.g, groundColor.b);
   }
+  const visibleTerrainHeight=(p:Point)=>
+    terrainMeshHeight(p,terrainGridHeights,WORLD_BOUNDS);
   terrain.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
   terrain.computeVertexNormals();
   const ground = mesh(
@@ -3377,8 +3384,16 @@ export function createWorld(
     const layer = supportLayerAtPoint(caveLayer, p, playerY);
     if (layer === "arcade") return arcadeCaveFloorHeight(p);
     if (layer === "paper") return paperCaveFloorHeight(p);
-    return groundHeight(p);
+    const physical=groundHeight(p);
+    if(!isRideMode(state.activity)||isWater(p))return physical;
+    const analytic=worldFloorHeight(p.x,p.z);
+    // Sculpted natural land is rasterized into triangles, while authored
+    // ramps, boulder tops, beams and cave decks keep their own support.
+    if(physical-analytic>.07||skateParkSurface(p)!==null)return physical;
+    const meshed=visibleTerrainHeight(p);
+    return Number.isFinite(meshed)?meshed:physical;
   };
+  const rideBase=(p:Point)=>skateParkSurface(p)??visibleTerrainHeight(p);
   explorer.rotation.order = "YXZ";
   let dog: Point = { x: 3, z: 12 };
   let dogVelocity: Point = { x: 0, z: 0 };
@@ -4467,6 +4482,7 @@ export function createWorld(
           supportHeight,
           activeRideBoost(rideBoost,elapsed) && isBoostActivity(state.activity),
           playerY,
+          rideBase,
         );
         if(state.activity==="skate"){
           const turn=previousHeading.x*travel.heading.z-previousHeading.z*travel.heading.x;
@@ -4900,10 +4916,9 @@ export function createWorld(
         // visually lift the avatar even when the collision solver stayed below.
         const rigSupport=(p:Point)=>caveLayer==="surface"?
           airborneSupportHeight(playerY,supportHeight(p),
-            skateParkSurface(p)??terrainHeight(p.x,p.z)):supportHeight(p);
+            rideBase(p)):supportHeight(p);
         // The center selects the contact layer; a wheel must not climb a
         // boulder cap before the rider actually reaches its supporting rim.
-        const rideBase=(p:Point)=>skateParkSurface(p)??terrainHeight(p.x,p.z);
         const wheelSupport=(p:Point)=>caveLayer==="surface"?
           rideWheelProbe(player,p,rigSupport,rideBase):rigSupport(p);
         const bankContact=terrainContact(player,travel.heading,1.05,.55,wheelSupport);
@@ -4938,6 +4953,7 @@ export function createWorld(
         canvas.dataset.rideSurfacePitch=pitchAngle.toFixed(3);
         canvas.dataset.rideSurfaceRoll=rollAngle.toFixed(3);
         canvas.dataset.rideContactGap=((skateContact?.y??bikeContact?.y??playerY)-playerY).toFixed(3);
+        canvas.dataset.rideTerrainMeshGap=(visibleTerrainHeight(player)-worldFloorHeight(player.x,player.z)).toFixed(3);
         const loopPitch=skateLoopRide?skateLoopSample(skateLoopRide).pitch:0;
         const tubeRoll=skateTunnelRide?
           skateTunnelSample(skateTunnelRide,groundHeight).roll:0;

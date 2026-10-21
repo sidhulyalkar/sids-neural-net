@@ -334,6 +334,7 @@ export function stepTravel(
   supportHeight: (p: Point) => number = groundHeight,
   boost = false,
   riderY = NaN,
+  rideBase: (p:Point)=>number = p=>skateParkSurface(p)??terrainHeight(p.x,p.z),
 ): Travel {
   dt = Math.max(0, Math.min(dt, 0.05));
   const mode = effectiveActivity(selected, current.point);
@@ -406,8 +407,7 @@ export function stepTravel(
     // Mountain contours may be steep, but high prop lids and true cliffs
     // cannot become invisible elevators for bikes or skateboards.
     const ride=mode==="bike"||mode==="skate"||mode==="ski";
-    if(!ride||!isContinuousRideRise(current.point,point,contactSupport,
-      p=>skateParkSurface(p)??terrainHeight(p.x,p.z)))
+    if(!ride||!isContinuousRideRise(current.point,point,contactSupport,rideBase))
       return { ...current, speed: 0 };
   }
   return {
