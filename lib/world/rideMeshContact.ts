@@ -6,7 +6,7 @@ export const RIDE_TERRAIN_GRID={x:142,z:132} as const;
 export function terrainMeshHeight(
  point:Point,values:Float32Array,
  bounds:{minX:number;maxX:number;minZ:number;maxZ:number},
- segmentsX=RIDE_TERRAIN_GRID.x,segmentsZ=RIDE_TERRAIN_GRID.z,
+ segmentsX:number=RIDE_TERRAIN_GRID.x,segmentsZ:number=RIDE_TERRAIN_GRID.z,
 ):number{
  if(!Number.isFinite(point.x)||!Number.isFinite(point.z)||
   values.length!==(segmentsX+1)*(segmentsZ+1)||segmentsX<1||segmentsZ<1)
