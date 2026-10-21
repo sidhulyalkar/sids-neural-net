@@ -9,6 +9,9 @@ on:
       - 'lib/world/bigAir.ts'
       - 'tests/world-ride-recovery.test.ts'
       - 'scripts/playtest-ride-recovery.mjs'
+      - 'scripts/playtest-ride-steering.mjs'
+      - 'lib/world/rideSurface.ts'
+      - 'tests/world-ride-steering.test.ts'
       - '.github/workflows/ride-recovery-browser.yml'
   workflow_dispatch:
 
@@ -34,7 +37,7 @@ jobs:
       - name: Verify types and deterministic riding edge cases
         run: |
           npm run typecheck
-          node --import tsx --test tests/world-ride-recovery.test.ts
+          node --import tsx --test tests/world-ride-recovery.test.ts tests/world-ride-steering.test.ts
       - name: Install isolated Chromium
         run: |
           mkdir -p /tmp/ride-recovery-playwright
@@ -55,6 +58,12 @@ jobs:
           WORLD_AUDIT_DIR: artifacts/world/ride-recovery
           PLAYWRIGHT_MODULE_ROOT: /tmp/ride-recovery-playwright/node_modules/playwright
         run: node scripts/playtest-ride-recovery.mjs
+      - name: Verify opposite turns on skateboard, bike and skis
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/ride-steering
+          PLAYWRIGHT_MODULE_ROOT: /tmp/ride-recovery-playwright/node_modules/playwright
+        run: node scripts/playtest-ride-steering.mjs
       - name: Preserve actual World browser evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -62,5 +71,6 @@ jobs:
           name: island-ride-recovery-${{ github.sha }}
           path: |
             artifacts/world/ride-recovery/
+            artifacts/world/ride-steering/
             /tmp/ride-recovery-next.log
           if-no-files-found: warn
