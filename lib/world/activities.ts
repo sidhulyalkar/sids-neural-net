@@ -1,6 +1,7 @@
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
 import {insideMeadowConnector,insideSkatePark,skateParkSurface,skateParkLipCrossing,redwoodBowlCarveHeading,SKATE_PARK_RAILS,SKATE_GROVE_FLOW,type SkateRail} from "./skatepark";
 import {skateRollingSpeed} from "./skateDynamics";
+import {isContinuousRideRise} from "./rideSurface";
 import {airborneSupportHeight} from "./rideRecovery";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
@@ -401,8 +402,14 @@ export function stepTravel(
   if (
     (!isWater(point)||jetSkiPierHeight(point)!==null) &&
     contactSupport(point) > contactSupport(current.point) + Math.max(0.6, airborne)
-  )
-    return { ...current, speed: 0 };
+  ) {
+    // Mountain contours may be steep, but high prop lids and true cliffs
+    // cannot become invisible elevators for bikes or skateboards.
+    const ride=mode==="bike"||mode==="skate"||mode==="ski";
+    if(!ride||!isContinuousRideRise(current.point,point,contactSupport,
+      p=>skateParkSurface(p)??terrainHeight(p.x,p.z)))
+      return { ...current, speed: 0 };
+  }
   return {
     point,
     heading,

@@ -35,6 +35,6 @@ export function wheelTerrainPose(point:Point,heading:Point,height:(p:Point)=>num
  return {pitch:-tilt,y:Math.max(r.front,r.rear),error:Math.abs(r.front-r.rear)};
 }
 
-export function bikeTerrainPose(point:Point,heading:Point,height:(p:Point)=>number){
- return wheelTerrainPose(point,heading,height,BIKE_CONTACT);
+export function bikeTerrainPose(point:Point,heading:Point,height:(p:Point)=>number,roll=0){
+ return wheelTerrainPose(point,heading,height,{...BIKE_CONTACT,roll});
 }
