@@ -4513,6 +4513,21 @@ export function createWorld(
           airHeight = verticalSpeed = 0;
         }
         player = travel.point;
+        // Persistent browser evidence for the *actual* wheel/track seam.
+        // A speed-only smoke test misses missing loop acquisitions entirely.
+        if(state.activity==="skate"&&!skateLoopRide&&
+           previousPoint.x>=SKATE_LOOP.center.x&&player.x<SKATE_LOOP.center.x&&
+           Math.abs(player.z-SKATE_LOOP.center.z)<SKATE_LOOP.width){
+          const candidate=skateLoopEntryDirection(previousPoint,player,
+            travel.heading,travel.speed);
+          canvas.dataset.skateLoopEntryProbe=JSON.stringify({
+            from:previousPoint,to:player,heading:travel.heading,
+            crossing:candidate,airHeight,previousY,
+            groundY:groundHeight(SKATE_LOOP.center),
+            deltaY:previousY-groundHeight(SKATE_LOOP.center),
+            trick:skateTrick.phase,grind:!!grind,
+            cave:caveLayer,mode:state.activity,speed:travel.speed});
+        }
         if(state.activity==="skate"&&caveLayer==="surface"&&
           aquatic==="land"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!grind&&airHeight<=.001&&
           skateTrick.phase==="ground"&&skateTrick.manual==="none"&&
@@ -4523,6 +4538,7 @@ export function createWorld(
           skateLoopRide=enterSkateLoop(previousPoint,player,travel.heading,travel.speed,
             previousY,groundHeight(SKATE_LOOP.center),groundHeight(exitPoint));
           if(skateLoopRide){
+          canvas.dataset.skateLoopEntryReject="accepted";
           const loopLens=skateLoopCamera(skateLoopRide);
           camera.position.set(loopLens.position.x,loopLens.position.y,loopLens.position.z);
           look.set(loopLens.look.x,loopLens.look.y,loopLens.look.z);
@@ -4531,7 +4547,7 @@ export function createWorld(
           player=loopStart.point;playerY=loopStart.y;
           travel={point:player,speed:Math.abs(skateLoopRide.speed),heading:loopStart.heading};
           destination=null;lastRampAt=elapsed;skateLoopEntries++;
-          }
+          }else canvas.dataset.skateLoopEntryReject="rejected-contact";
         }
         if(skimHeat.phase==="ready"&&isWater(player)){
           // Carry the board across wet sand, but never switch to swimming

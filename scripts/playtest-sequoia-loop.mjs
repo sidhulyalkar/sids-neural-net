@@ -48,6 +48,7 @@ try{
     completions:Number(el.dataset.skateLoopCompletions),
     phase:el.dataset.skateLoopPhase,activity:el.dataset.activity,
     result:el.dataset.skateLastResult,zone:el.dataset.skateGroveZone,
+    entryProbe:el.dataset.skateLoopEntryProbe??"",entryReject:el.dataset.skateLoopEntryReject??"",
    });
    const key=(kind,k)=>{
     if(kind==="keydown")pressed.add(k);else pressed.delete(k);
@@ -65,7 +66,7 @@ try{
     frames++;
     const s=sample(),p=s.point;
     if(frames%18===0){trace.push(s);window.loopAuditProgress(s);}
-    if(performance.now()-startTime>240000){
+    if(performance.now()-startTime>85000){
      fail("Timed out before completing a real full loop");return;
     }
     if(p.length!==2||!p.every(Number.isFinite)){
