@@ -114,3 +114,17 @@ test('ground-level mouth seams retain inward momentum instead of catching the cu
   assert.ok(Math.abs(m.ride.vx+side*8)<.001);assert.ok(m.ride.speed>7.99);
  }
 });
+
+test('sustained ground contact with bark neither sinks beneath terrain nor crosses the shell',()=>{
+ for(const side of [-1,1]){
+  let position:V=[0,2,g.center.z+side*5];
+  for(let i=0;i<180;i++){
+   const target:V=[position[0],2,position[2]-side*.2];
+   const m=resolveSkateLogMotion(position,target,[0,0,-side*10],floor,[0,1,0],true);
+   assert.equal(m.ride,null);position=m.position;
+   assert.ok(Math.abs(position[1]-2)<1e-8);
+   assert.ok(side*(position[2]-g.center.z)>2.7);
+   for(const h of [.45,.95,1.45])assert.ok(skateLogShellDistance([position[0],position[1]+h,position[2]],floor).distance>.18);
+  }
+ }
+});

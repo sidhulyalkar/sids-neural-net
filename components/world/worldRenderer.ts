@@ -4555,7 +4555,8 @@ export function createWorld(
         if(state.activity==="skate"&&caveLayer==="surface"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!grind){
           const velocity:[number,number,number]=[travel.heading.x*travel.speed,verticalSpeed,travel.heading.z*travel.speed];
           const motion=resolveSkateLogMotion([previousPoint.x,previousY,previousPoint.z],
-            [player.x,playerY,player.z],velocity,groundHeight);
+            [player.x,playerY,player.z],velocity,groundHeight,[0,1,0],
+            airHeight<=.001&&previousY<=groundHeight(previousPoint)+.04);
           skateLogBlocked=motion.blocked;
           if(motion.blocked){
             player={x:motion.position[0],z:motion.position[2]};playerY=motion.position[1];

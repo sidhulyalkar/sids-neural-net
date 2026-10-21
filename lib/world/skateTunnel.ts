@@ -137,7 +137,7 @@ export function contactSkateLog(from:V,to:V,velocity:V,floor:Floor){
 }
 /** Wheel contact plus a short capsule for the rider. Body-only impacts slide
  * outside the wood rather than attaching the board through the wall. */
-export function resolveSkateLogMotion(from:V,to:V,velocity:V,floor:Floor,up:V=[0,1,0]){
+export function resolveSkateLogMotion(from:V,to:V,velocity:V,floor:Floor,up:V=[0,1,0],grounded=false){
  let position=[...from] as V,target=[...to] as V,v=[...velocity] as V,blocked=false;
  for(let iteration=0;iteration<3;iteration++){
   const wheel=sweepSkateLog(position,target,floor);
@@ -150,7 +150,10 @@ export function resolveSkateLogMotion(from:V,to:V,velocity:V,floor:Floor,up:V=[0
   if(wheel&&(!body||wheel.t<=body.t+.00001))return {ride:rideAtLogHit(wheel,v,floor),position:wheel.point,velocity:v,blocked};
   if(!body)return {ride:null,position:target,velocity:v,blocked};
   blocked=true;
-  const normal=skateTunnelSample(rideAtLogHit(body,v,floor),floor).up;
+  let normal=skateTunnelSample(rideAtLogHit(body,v,floor),floor).up;
+  // A grounded rider cannot slide down through terrain under the overhang.
+  // Resolve that contact in the horizontal plane; flight retains the full normal.
+  if(grounded&&Math.hypot(normal[0],normal[2])>.001)normal=unit([normal[0],0,normal[2]]);
   const movement=target.map((n,i)=>n-position[i]) as V;
   position=position.map((n,i)=>n+movement[i]*Math.max(0,body.t-.0001)+normal[i]*.002) as V;
   const into=dot(v,normal);if(into<0)v=v.map((n,i)=>n-normal[i]*into) as V;
