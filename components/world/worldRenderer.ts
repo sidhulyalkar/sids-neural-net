@@ -1,6 +1,7 @@
 import {MOSS_CANYON} from "@/lib/world/model";
 import {bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
 import {rideWheelProbe,rideTerrainAttitude,followRideSurfacePose} from "@/lib/world/rideSurface";
+import {boundedWorldFrameDelta,rideCooldownReady} from "@/lib/world/frameClock";
 import {RIDE_TERRAIN_GRID,terrainMeshHeight} from "@/lib/world/rideMeshContact";
 import {idleRideWipeout,beginRideWipeout,stepRideWipeout,rideWipeoutPose} from "@/lib/world/rideWipeout";
 import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcadeTrailFooting,arcadeEntranceCameraPose} from "@/lib/world/arcadeWayfinding";
@@ -3982,8 +3983,11 @@ export function createWorld(
     raf = 0;
     if (disposed || document.hidden || state.paused) return;
     const fetchNow=now*.001;
-    const rawDelta = (now - last) / 1000,
-      dt = Math.min(rawDelta, 0.05);
+    // requestAnimationFrame's timestamp can precede performance.now() when
+    // a start/resume occurs during an expensive render. Never rewind the
+    // simulation clock or an authored loop's cooldown remains in the future.
+    const rawDelta = boundedWorldFrameDelta(now,last);
+    const dt = Math.min(rawDelta,.05);
     last = now;
     elapsed += dt;
     rideWipeout=stepRideWipeout(rideWipeout,rawDelta);
@@ -4534,7 +4538,7 @@ export function createWorld(
         if(state.activity==="skate"&&caveLayer==="surface"&&
           aquatic==="land"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!grind&&airHeight<=.001&&
           skateTrick.phase==="ground"&&skateTrick.manual==="none"&&
-          elapsed-lastSkateLoopEnd>.15&&
+          rideCooldownReady(elapsed,lastSkateLoopEnd,.15)&&
           skateLoopEntryDirection(previousPoint,player,travel.heading,travel.speed)!==0){
           const exitPoint={x:SKATE_LOOP.center.x-SKATE_LOOP.exitOffset,
             z:SKATE_LOOP.center.z+SKATE_LOOP.laneOffset};
