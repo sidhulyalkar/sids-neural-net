@@ -4678,9 +4678,11 @@ export function createWorld(
       if(isRideMode(watchedRideMode)&&caveLayer==="surface"&&
          aquatic==="land"&&!jetSki&&!jetChoosing&&
          discGolf.phase==="off"&&skimHeat.phase==="off"){
-        const controlled=skateLogBlocked||!!grind||!!climb||!!skateLoopRide||
+        // A blocked log is an obstruction, NOT a controlled trick: excluding
+        // it from recovery caused permanent wedging at its low planks.
+        const controlled=!!grind||!!climb||!!skateLoopRide||
           !!skateTunnelRide||!!skateRailGapRide||
-          bigAir.phase==="armed"||bigAir.phase==="flying";
+          bigAir.phase==="flying";
         const grounded=airHeight<=.03&&Math.abs(verticalSpeed)<.15;
         const moving=Math.hypot(dx,dz)>.16;
         const clear=grounded&&moving&&
