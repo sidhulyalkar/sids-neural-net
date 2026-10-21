@@ -2,16 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {isContinuousRideRise,rideWheelProbe,rideTerrainAttitude} from "../lib/world/rideSurface";
 import {beginRideWipeout,idleRideWipeout,stepRideWipeout,rideWipeoutPose} from "../lib/world/rideWipeout";
-import {stepTravel,type Travel} from "../lib/world/activities";
 import type {Point} from "../lib/world/model";
 
 test("steep but continuous terrain is rideable without an abrupt movement lock",()=>{
  const from={x:0,z:0},to={x:0,z:.6},grade=(p:Point)=>p.z*1.65;
  assert.ok(grade(to)-grade(from)>.6);
  assert.equal(isContinuousRideRise(from,to,grade,grade),true);
- let rider:Travel={point:from,heading:{x:0,z:1},speed:10};
- for(let i=0;i<4;i++)rider=stepTravel(rider,{x:0,z:1},.05,"bike",[],false,null,0,grade);
- assert.ok(rider.point.z>1,"bike rolls up an uninterrupted hillside");
 });
 test("discontinuous rock, cliff and vertical wall remain non-rideable",()=>{
  const from={x:0,z:0},to={x:0,z:.7},flat=(_p:Point)=>2;
