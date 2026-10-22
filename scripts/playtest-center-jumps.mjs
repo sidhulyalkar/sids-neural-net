@@ -45,14 +45,14 @@ try{
       if(side*Number(d.skateTunnelCameraX)<5.99){finish('Camera entered wood');return;}
      }
      if(stage==='carve'&&(Math.abs(s.vx)<.8||s.vx>0)){key('a',false);stage='orbit';}
-     if(stage==='orbit'||stage==='jump'){
+     if(stage==='orbit'){
       // Correct longitudinal drift using real steering, including coarse GPU frames.
       const error=s.vx+p[0]*1.2;key('a',error<-.8);key('d',error>.8);
      }
-     if(stage!=='approach'&&d.skateTunnelPhase==='free'){finish('Premature tube exit');return;}
+     if(stage!=='approach'&&stage!=='jump'&&d.skateTunnelPhase==='free'){finish('Premature tube exit');return;}
      if(!inverted&&Math.abs(angle)>2.65){inverted=true;window.auditImage('tube-inverted',el.toDataURL());}
-     if(stage==='orbit'&&Math.abs(angle)>2.65&&!jumped){jumped=true;jumpSerial=Number(d.skateResultSerial);key(' ',true);stage='jump';}
-     else if(stage==='jump'){key(' ',false);sawAir ||= d.skateTunnelAir==='true';if(sawAir&&d.skateTunnelAir==='false'){if(Math.abs(angle)>.12){finish('Landing missed center');return;}window.auditImage('tube-centered',el.toDataURL());finish();return;}}
+     if(stage==='orbit'&&Math.abs(angle)>2.65&&!jumped){jumped=true;jumpSerial=Number(d.skateResultSerial);key('a',false);key('d',false);key(' ',true);stage='jump';}
+     else if(stage==='jump'){key(' ',false);sawAir ||= d.skateTunnelAir==='true';if(sawAir&&d.skateTunnelAir==='false'){if(Math.abs(angle)>.12||Math.abs(p[1]-59.1)>.12){finish('Landing missed center');return;}window.auditImage('tube-centered',el.toDataURL());finish();return;}}
     }
     requestAnimationFrame(tick);
    };requestAnimationFrame(tick);

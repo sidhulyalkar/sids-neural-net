@@ -1,6 +1,6 @@
 import * as THREE from "three/src/Three.Core.js";
 import {SEA_SURFACE} from "@/lib/world/model";
-import {JET_SKI_ARCHES,JET_SKI_ROCKS} from "@/lib/world/jetSkiCourse";
+import {JET_SKI_ARCHES,JET_SKI_ROCKS,isJetSkiArchSupport} from "@/lib/world/jetSkiCourse";
 import {createSeaArchGeometry,createSeaStackGeometry} from "./worldCoastalRockGeometry";
 import {JET_SKI_JUMPS,jetSkiWaterSample} from "@/lib/world/jetSkiWater";
 
@@ -18,10 +18,15 @@ export function createJetSkiCoastGeometry(scene:THREE.Scene){
  } as const;
  const foam=new THREE.MeshBasicMaterial({color:"#c6eff0",transparent:true,opacity:.65,depthWrite:false,side:THREE.DoubleSide});
  for(const rock of JET_SKI_ROCKS){
-  const mesh=new THREE.Mesh(createSeaStackGeometry(rock),materials[rock.kind]);
-  mesh.position.set(rock.point.x,0,rock.point.z);
-  mesh.castShadow=true;mesh.receiveShadow=true;
-  mesh.name=rock.id;root.add(mesh);
+  // The arch mesh now contains its own two feet and crown. Retaining the
+  // former full-height stack meshes produced overlapping, hanging curtains
+  // across the opening. Keep their collision circles and water foam intact.
+  if(!isJetSkiArchSupport(rock)){
+   const mesh=new THREE.Mesh(createSeaStackGeometry(rock),materials[rock.kind]);
+   mesh.position.set(rock.point.x,0,rock.point.z);
+   mesh.castShadow=true;mesh.receiveShadow=true;
+   mesh.name=rock.id;root.add(mesh);
+  }
   const ring=new THREE.Mesh(new THREE.RingGeometry(rock.radius+.3,
    rock.radius+1.05,16),foam);
   ring.rotation.x=-Math.PI/2;
@@ -35,7 +40,7 @@ export function createJetSkiCoastGeometry(scene:THREE.Scene){
   group.rotation.y=arch.heading;
   const mat=materials[arch.kind];
   const bridge=new THREE.Mesh(createSeaArchGeometry(arch),mat);
-  bridge.name=arch.id+"-wave-eroded-crown";
+  bridge.name=arch.id+"-continuous-sea-arch";
   bridge.castShadow=true;
   bridge.receiveShadow=true;
   group.add(bridge);
@@ -97,5 +102,7 @@ export function createJetSkiCoastGeometry(scene:THREE.Scene){
   [...Object.values(materials),foam,jumpMat,waveMat].forEach(m=>m.dispose());
   scene.remove(root);
  }
- return {root,update,dispose,rockCount:JET_SKI_ROCKS.length,archCount:JET_SKI_ARCHES.length};
+ return {root,update,dispose,rockCount:JET_SKI_ROCKS.length,
+  visibleStackCount:JET_SKI_ROCKS.filter(rock=>!isJetSkiArchSupport(rock)).length,
+  archCount:JET_SKI_ARCHES.length};
 }

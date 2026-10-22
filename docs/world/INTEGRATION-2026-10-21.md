@@ -4,7 +4,7 @@ Target: `feat/sequoia-tunnel-skate-loop`, starting at `90361955`.
 
 Integrated branch heads:
 
-- `fix/island-ride-slope-wipeout-recovery` (`50613192`): rendered terrain contacts, independent steering, recoverable wipeouts, monotone frame clock.
+- `fix/island-ride-slope-wipeout-recovery` (`4e9a4af`): rendered terrain contacts, independent steering, recoverable wipeouts, monotone frame clock, and continuous offshore sea arches with open passages.
 - `feat/marine-wildlife-video-encounters` (`12618be0`): turtle fauna and species-matched real-video discovery/catalog. Actual clips still require qualified published media; no fabricated placeholders.
 - `feat/world-browser-regression-hardening` (`eaf98314`): multi-frame Shasta fetch and browser initialization diagnostics.
 
