@@ -1,10 +1,17 @@
 import type {Point} from "./model";
+import {BIKE_CONTACT} from "./bikeContact";
 import {SKATE_LOOP} from "./skatepark";
 export type SkateLoopRide={angle:number;speed:number;baseY:number;exitY:number;laneZ:number;direction?:1|-1;entryLateralSpeed?:number;ramp?:boolean;jump?:{elapsed:number;duration:number;lane:number}};
 export function jumpSkateLoop(ride:SkateLoopRide):SkateLoopRide{
  const remaining=ride.speed>=0?LOOP_TAU-ride.angle:ride.angle;
  const duration=Math.max(.02,Math.min(.6,remaining*skateLoopSample(ride).ds/(Math.abs(ride.speed)+3)*.7));
  return ride.jump?ride:{...ride,jump:{elapsed:0,duration,lane:ride.laneZ},entryLateralSpeed:0};
+}
+/** Center-to-surface lift uses the actual wheel radius and wheelbase. */
+export function loopVehicleLift(ride:SkateLoopRide,mode:"skate"|"bike"){
+ const pose=skateLoopSample(ride);
+ return mode==="bike"?BIKE_CONTACT.radius-BIKE_CONTACT.axleY+
+  Math.max(0,pose.curvature)*BIKE_CONTACT.halfWheelbase**2*.5:.1311+pose.wheelLift;
 }
 export const LOOP_SEGMENTS=144;
 export const LOOP_TAU=2*Math.PI;

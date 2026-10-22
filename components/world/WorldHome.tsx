@@ -428,11 +428,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
     const ride = new URLSearchParams(window.location.search).get("skate-start");
     if (ride === "loop-rollin" || ride === "loop-reverse" ||
         ride === "hollow-log" || ride === "log-top" || ride === "canyon-flow") {
-      setActivity("skate");
+      const activity=(ride==="loop-rollin"||ride==="loop-reverse")&&
+        new URLSearchParams(window.location.search).get("ride-mode")==="bike"?"bike":"skate";
+      setActivity(activity);
       setCommand(previous => ({
         region: ride === "canyon-flow" ? "canyon" : "grove",
         serial: (previous?.serial ?? 0) + 1,
-        activity: "skate", skateDestination: ride,
+        activity, skateDestination: ride,
       }));
     }
   }

@@ -1,6 +1,6 @@
 import {MOSS_CANYON} from "@/lib/world/model";
-import {bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
-import {rideWheelProbe,rideTerrainAttitude,followRideSurfacePose} from "@/lib/world/rideSurface";
+import {BIKE_CONTACT,bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
+import {rideLeavesSupport,rideWheelProbe,rideTerrainAttitude,followRideSurfacePose} from "@/lib/world/rideSurface";
 import {boundedWorldFrameDelta,rideCooldownReady} from "@/lib/world/frameClock";
 import {RIDE_TERRAIN_GRID,terrainMeshHeight} from "@/lib/world/rideMeshContact";
 import {idleRideWipeout,beginRideWipeout,stepRideWipeout,rideWipeoutPose} from "@/lib/world/rideWipeout";
@@ -8,7 +8,7 @@ import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcade
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
 import {skateParkSurface,insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_PARK_RAILS,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideMeadowConnector,CANYON_FLOW,type SkateRail} from "@/lib/world/skatepark";
-import {jumpSkateLoop,contactSkateLoop,enterSkateLoop,beginSkateLoop,skateLoopCamera,skateLoopEntryDirection,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
+import {loopVehicleLift,jumpSkateLoop,contactSkateLoop,enterSkateLoop,beginSkateLoop,skateLoopCamera,skateLoopEntryDirection,advanceSkateLoop,skateLoopSample,type SkateLoopRide} from "@/lib/world/skateLoop";
 import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample,type SkateRailGapRide} from "@/lib/world/skateRailGaps";
 import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateLogTopRide,resolveSkateLogMotion,enterSkateTunnel,skateTunnelCameraPoint,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
@@ -3880,7 +3880,11 @@ export function createWorld(
   }
   function performAction() {
     if(rideWipeout.phase!=="riding"&&isRideMode(state.activity))return;
-    if(skateLoopRide){launchAssistedSkateTrick();return;}
+    if(skateLoopRide){
+      if(state.activity==="bike"){skateLoopRide=jumpSkateLoop(skateLoopRide);airHeight=.15;destination=null;}
+      else launchAssistedSkateTrick();
+      return;
+    }
     if(skateRailGapRide)return;
     if(skateTunnelRide){launchAssistedSkateTrick();return;}
     if(skimHeat.phase==="riding"){doSkimAction("pop");return;}
@@ -4334,7 +4338,7 @@ export function createWorld(
           if(advanced.released){playerY+=pose.up[1]*.005;player={x:player.x+pose.up[0]*.005,z:player.z+pose.up[2]*.005};airHeight=Math.max(.005,playerY-groundHeight(player));}
           skateLoopRide=null;lastSkateLoopEnd=elapsed;
           if(advanced.completed){skateLoopCompletions++;
-          commitSkateTrick(scoreSkateLoop(skateTrick,elapsed,travel.speed));}
+          if(state.activity==="skate")commitSkateTrick(scoreSkateLoop(skateTrick,elapsed,travel.speed));}
 
         }
       } else if(skateTunnelRide){
@@ -4548,7 +4552,7 @@ export function createWorld(
         player = travel.point;
         // Persistent browser evidence for the *actual* wheel/track seam.
         // A speed-only smoke test misses missing loop acquisitions entirely.
-        if(state.activity==="skate"&&!skateLoopRide&&
+        if((state.activity==="skate"||state.activity==="bike")&&!skateLoopRide&&
            previousPoint.x>=SKATE_LOOP.center.x&&player.x<SKATE_LOOP.center.x&&
            Math.abs(player.z-SKATE_LOOP.center.z)<SKATE_LOOP.width){
           const candidate=skateLoopEntryDirection(previousPoint,player,
@@ -4563,9 +4567,9 @@ export function createWorld(
             aquatic,lastLoopDelay:elapsed-lastSkateLoopEnd,
             cave:caveLayer,mode:state.activity,speed:travel.speed});
         }
-        if(state.activity==="skate"&&caveLayer==="surface"&&
+        if((state.activity==="skate"||state.activity==="bike")&&caveLayer==="surface"&&
           aquatic==="land"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!grind&&airHeight<=.001&&
-          skateTrick.phase==="ground"&&skateTrick.manual==="none"&&
+          (state.activity==="bike"||(skateTrick.phase==="ground"&&skateTrick.manual==="none"))&&
           rideCooldownReady(elapsed,lastSkateLoopEnd,.15)&&
           skateLoopEntryDirection(previousPoint,player,travel.heading,travel.speed)!==0){
           const exitPoint={x:SKATE_LOOP.center.x-SKATE_LOOP.exitOffset,
@@ -4594,7 +4598,7 @@ export function createWorld(
           playerY=skateLoopSample(skateLoopRide).y;
           airHeight=verticalSpeed=0;
         } else if (isWater(player)&&jetSkiPierHeight(player)===null) {
-          const steppedIn = !isWater(previousPoint) && airHeight < 0.12;
+          const steppedIn = !isWater(previousPoint) && airHeight < 0.12 && previousY<=SEA_SURFACE+.65;
           if (steppedIn) {
             setAquaticMode("surface");
             swimDepth = targetDepth = 0;
@@ -4623,6 +4627,8 @@ export function createWorld(
                 skateParkSurface(player)??terrainHeight(player.x,player.z)):supportY;
           // Integrate in world space: crossing a ramp lip must not subtract its
           // deck height from an airborne rider's trajectory.
+          if(isRideMode(state.activity)&&airHeight<=.001&&verticalSpeed<=0&&
+            rideLeavesSupport(previousPoint,player,previousY,groundY,supportHeight,rideBase))airHeight=.01;
           if (airHeight > 0 || verticalSpeed > 0) {
             const airborne = stepAirborne(previousY, verticalSpeed, groundY, dt);
             playerY = airborne.y;
@@ -4659,7 +4665,7 @@ export function createWorld(
             }
           }
         }
-        if(state.activity==="skate"&&caveLayer==="surface"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!grind){
+        if((state.activity==="skate"||state.activity==="bike")&&caveLayer==="surface"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!grind){
           const exit={x:SKATE_LOOP.center.x-SKATE_LOOP.exitOffset,z:SKATE_LOOP.center.z+SKATE_LOOP.laneOffset};
           const landing=contactSkateLoop([previousPoint.x,previousY,previousPoint.z],[player.x,playerY,player.z],
             [travel.heading.x*travel.speed,Math.min(previousVerticalSpeed,verticalSpeed),travel.heading.z*travel.speed],groundHeight(SKATE_LOOP.center),groundHeight(exit));
@@ -4990,7 +4996,7 @@ export function createWorld(
           rideWheelProbe(player,p,rigSupport,rideBase):rigSupport(p);
         const bankContact=terrainContact(player,travel.heading,1.05,.55,wheelSupport);
         const bikeBank=rideTerrainAttitude(bankContact.pitch,bankContact.roll,"bike");
-        const bikeContact = mode==="bike"&&airHeight<=.001&&!climb&&!grind
+        const bikeContact = mode==="bike"&&airHeight<=.001&&!climb&&!grind&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide
           ? bikeTerrainPose(player,travel.heading,wheelSupport,bikeBank.roll):null;
         const footprint = mode === "bike"
           ? { length: 1.05, width: 0.55 }
@@ -5087,18 +5093,26 @@ export function createWorld(
             grind.style === "boardslide" ? 0.06 : 0,
           );
         }
+        // Refit height after smoothing/clamping the actual drawn pitch and
+        // bank. Otherwise the target contact fits while visible tires clip.
+        const renderedWheelContact=(skateContact||bikeContact)?wheelTerrainPose(player,
+          travel.heading,wheelSupport,{...(mode==="bike"?BIKE_CONTACT:
+            {radius:.1111,axleY:-.02,halfWheelbase:.63,halfTrack:.33}),
+            roll:explorer.rotation.z,fixedPitch:explorer.rotation.x}):null;
+        canvas.dataset.rideRenderedWheelGap=renderedWheelContact?
+          (renderedWheelContact.y-playerY).toFixed(4):"0";
         bikeWheels.forEach(wheel => wheel.rotateZ(travel.speed * dt / .586));
         explorer.position.set(
           player.x,
-          (skateContact?.y ?? bikeContact?.y ?? playerY) + (surfing?skimHeat.air:0) + (bikeContact||skateContact?0:supportLift) +
+          (renderedWheelContact?.y ?? playerY) + (surfing?skimHeat.air:0) + (bikeContact||skateContact?0:supportLift) +
             (surfing ? 0.04 : mode === "skate" ? (skateContact?0:0.18) : mode === "bike" ? 0 : mode === "ski" ? 0.08 : 0) +
             (running ? Math.abs(walking) * 0.045 : 0),
           player.z,
         );
         if(skateLoopRide){
-          const pose=skateLoopSample(skateLoopRide);
-          explorer.position.set(pose.point.x+pose.up[0]*(.1311+pose.wheelLift),
-            pose.y+pose.up[1]*(.1311+pose.wheelLift),pose.point.z+pose.up[2]*(.1311+pose.wheelLift));
+          const pose=skateLoopSample(skateLoopRide),lift=loopVehicleLift(skateLoopRide,mode==="bike"?"bike":"skate");
+          explorer.position.set(pose.point.x+pose.up[0]*lift,
+            pose.y+pose.up[1]*lift,pose.point.z+pose.up[2]*lift);
         }
         if(skateTunnelRide){
           const pose=skateTunnelSample(skateTunnelRide,groundHeight),lift=.1311+(skateTunnelRide.air?0:pose.wheelLift);
@@ -7038,18 +7052,26 @@ export function createWorld(
       const requestedWaterAction = next.waterActionSerial !== lastWaterAction;
       if (changedActivity) {
         // Do not turn a midair ski exit into an instant unsupported landing.
-        const preserveFlight=bigAir.phase==="flying"||
+        const loopExitPose=skateLoopRide?skateLoopSample(skateLoopRide):null;
+        const preserveFlight=!!loopExitPose||bigAir.phase==="flying"||
           airHeight>.04||verticalSpeed>.1;
         if(preserveFlight){
           rideFlightContinuity=true;lastFlightExitAt=elapsed;
         }
         const airBefore=Math.max(.05,airHeight,playerY-supportHeight(player));
-        const velocityBefore=verticalSpeed;
+        const velocityBefore=loopExitPose?loopExitPose.velocity[1]:verticalSpeed;
+        skateLoopRide=null;lastSkateLoopEnd=elapsed;
         if(bigAir.phase==="armed"||bigAir.phase==="flying"){
           bigAir={...bigAir,phase:"missed",reason:"Ski mode changed"};
           callbacks.onBigAir(bigAir);
         }
         clearInput();
+        if(loopExitPose){
+          const [vx,,vz]=loopExitPose.velocity;
+          const speed=Math.hypot(vx,vz);
+          travel={...travel,speed,heading:speed>.001?{x:vx/speed,z:vz/speed}:travel.heading};
+        }
+
         resetRideBoost();
         climb = null;
         grind = null;
@@ -7292,9 +7314,9 @@ export function createWorld(
         jetSki=null;jetRivals=[];jetHud.style.display="none";
         callbacks.onJetSkiMode(false);
         if(jetChoosing){jetChoosing=false;jetChooser.hidden=true;}
-        const loopStart=next.command.skateDestination==="loop-rollin"&&next.command.activity==="skate";
+        const loopStart=next.command.skateDestination==="loop-rollin"&&(next.command.activity==="skate"||next.command.activity==="bike");
         tubeCameraActive=false;
-        const reverseStart=next.command.skateDestination==="loop-reverse"&&next.command.activity==="skate";
+        const reverseStart=next.command.skateDestination==="loop-reverse"&&(next.command.activity==="skate"||next.command.activity==="bike");
         const barkStart=next.command.skateDestination==="log-top"&&next.command.activity==="skate";
         const tubeStart=next.command.skateDestination==="hollow-log"&&next.command.activity==="skate";
         const reversePose=skateLoopSample(beginSkateLoop(0,0,SKATE_LOOP.center.z,0,-1));

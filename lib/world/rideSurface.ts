@@ -46,3 +46,10 @@ export function followRideSurfacePose(
   roll:roll+(target.roll-roll)*blend,
   yaw:target.yaw};
 }
+
+/** A sharp support edge starts free flight; continuous descents stay grounded. */
+export function rideLeavesSupport(from:Point,to:Point,previousY:number,nextY:number,
+ support:(p:Point)=>number,base:(p:Point)=>number):boolean{
+ return Number.isFinite(previousY)&&Number.isFinite(nextY)&&previousY-nextY>.16&&
+  !isContinuousRideRise(to,from,support,base);
+}
