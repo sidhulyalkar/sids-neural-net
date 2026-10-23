@@ -6654,6 +6654,17 @@ export function createWorld(
     const freeLandView=state.entered&&aquatic==="land"&&caveLayer==="surface"&&discGolf.phase==="off"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!jetSki&&skimHeat.phase==="off";
     if(freeLandView)camera.position.y=Math.max(camera.position.y,groundHeight(camera.position)+1.5,visibleTerrainHeight(camera.position)+1.5);
     const freeFocus=new THREE.Vector3(player.x,playerY+1.1,player.z);
+    // A camera above its local ground can still look through an intervening ridge.
+    // Clear the whole boom, including the waterfall's raised rock triangles.
+    if(freeLandView&&!seated){
+      for(let i=1;i<12;i++){
+        const t=i/12;
+        const probe={x:THREE.MathUtils.lerp(camera.position.x,freeFocus.x,t),z:THREE.MathUtils.lerp(camera.position.z,freeFocus.z,t)};
+        const floor=Math.max(groundHeight(probe),visibleTerrainHeight(probe))+.35;
+        camera.position.y=Math.max(camera.position.y,(floor-freeFocus.y*t)/(1-t));
+      }
+      look.copy(freeFocus);
+    }
     if(freeLandView)coastalCamera.cutaway(camera.position,freeFocus);else coastalCamera.restore();
     // Last-resort cutaway also covers an obstructed interpolated pose or
     // a lie surrounded by foliage where no unobstructed boom exists.
