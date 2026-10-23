@@ -28,7 +28,7 @@ test("paper cave widens and descends beneath a continuous waterfall shoulder", (
   const mouth = paperCaveFloorHeight({ x: -20, z: -30 });
   const chamber = paperCaveFloorHeight({ x: -20, z: -34 });
   assert.ok(chamber < mouth - .8, "archive chamber descends behind the waterfall");
-  for (let z = -35; z <= -31; z += .25) {
+  for (let z = -35; z <= -32; z += .25) {
     const floor = paperCaveFloorHeight({ x: -20, z });
     const roof = terrainHeight(-20, z);
     assert.ok(roof > floor + 4, `paper cave roof clearance at ${z}`);

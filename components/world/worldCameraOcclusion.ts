@@ -3,7 +3,7 @@ import {CameraVisibilityField,type CameraPoint,type CameraVolume} from "@/lib/wo
 
 /** Snapshot static scenery before adding the player. Each instance keeps its
  * own cutaway handle: hiding one leaf never removes an entire forest. */
-export function createWorldCameraOcclusion(scene:THREE.Scene){
+export function createWorldCameraOcclusion(scene:THREE.Object3D){
  type Part={start:number;count:number;min:number[];max:number[]};
  const entries:{mesh:THREE.Mesh;instance?:number;part?:Part}[]=[],volumes:CameraVolume[]=[];
  const matrix=new THREE.Matrix4(),world=new THREE.Matrix4(),box=new THREE.Box3();

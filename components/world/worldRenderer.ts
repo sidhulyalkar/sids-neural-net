@@ -1410,7 +1410,8 @@ export function createWorld(
   const researchGallery=createResearchGallery();scene.add(researchGallery.root);
   const paperLight=new THREE.PointLight("#c3e4dd",24,20,1.5);paperLight.position.set(-20,paperBackFloor+5.6,-38);scene.add(paperLight);
   const paperEntryLight=new THREE.PointLight("#e8d8a7",15,15,1.5);paperEntryLight.position.set(-20,paperBackFloor+4.5,-32);scene.add(paperEntryLight);
-  const coastalNature=createCoastalNature(p=>Math.max(visibleTerrainHeight(p),waterfallRockHeight(p)??-Infinity));scene.add(coastalNature.root);obstacles.push(...coastalNature.obstacles);
+  const coastalNature=createCoastalNature(p=>Math.max(visibleTerrainHeight(p),waterfallRockHeight(p)??-Infinity));scene.add(coastalNature.root);obstacles.push(...coastalNature.obstacles);groundedObstacles.push(...coastalNature.obstacles);
+  const coastalCamera=createWorldCameraOcclusion(coastalNature.staticMesh);
   canvas.dataset.mountainStreams=String(coastalNature.streams);canvas.dataset.researchFigures=String(researchGallery.targets.length/2);
   const pool=mesh(geo(new THREE.CircleGeometry(3.7,24)),waterRibbonMat,[-20,fallsY+.08,-27],[1,1,1]);pool.rotation.x=-Math.PI/2;
   const lower=downstreamPoints().map(p=>new THREE.Vector3(p.x,p.y,p.z));
@@ -3742,8 +3743,6 @@ export function createWorld(
     // Keep steering active inside the world, but never grab keys from the
     // surrounding site or a text field.
     const key = e.key.toLowerCase();
-    if(seated&&["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"," ","escape","enter"].includes(key)){e.preventDefault();leaveOceanBench();return;}
-    if(!e.repeat&&(key==="e"||key==="enter")&&distance(player,COAST_BENCH)<4&&caveLayer==="surface"&&aquatic==="land"){e.preventDefault();sitOceanBench();return;}
     // Movement must keep working after clicking a transport/sport control,
     // even if browser focus lands on that button after canvas.focus().
     // Never consume typing in form fields or editable content.
@@ -3754,6 +3753,9 @@ export function createWorld(
     if(target!==canvas&&!(jetSki&&
       (target===document.body||host.contains(target as Node)))&&
       !(steeringKey&&!editable))return;
+    if(seated&&["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"," ","escape","enter"].includes(key)){e.preventDefault();leaveOceanBench();return;}
+    if(!e.repeat&&(key==="e"||key==="enter")&&distance(player,COAST_BENCH)<4&&caveLayer==="surface"&&aquatic==="land"){e.preventDefault();sitOceanBench();return;}
+
     if(skimHeat.phase!=="off"){
       if(!e.repeat&&key==="enter"&&skimHeat.phase==="finished"){
         e.preventDefault();doSkimAction("restart");return;
@@ -5805,7 +5807,7 @@ export function createWorld(
         targetLook.set(player.x-Math.sin(yaw)*2.4,playerY+1.85,player.z-Math.cos(yaw)*2.4);
       }
       if(seated){
-        targetCamera.set(player.x+Math.sin(yaw)*6,playerY+3.7,player.z+Math.cos(yaw)*6);
+        targetCamera.set(player.x+Math.sin(yaw)*3.8,playerY+3.7,player.z+Math.cos(yaw)*3.8);
         targetLook.set(player.x-Math.sin(yaw)*28,SEA_SURFACE+3,player.z-Math.cos(yaw)*28);
       }
       // Camera choreography, never gameplay authority:
@@ -6649,11 +6651,15 @@ export function createWorld(
       camera.position.x=THREE.MathUtils.clamp(c.x,centerX-half,centerX+half);camera.position.z=z;
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
     }
+    const freeLandView=state.entered&&aquatic==="land"&&caveLayer==="surface"&&discGolf.phase==="off"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!jetSki&&skimHeat.phase==="off";
+    if(freeLandView)camera.position.y=Math.max(camera.position.y,groundHeight(camera.position)+1.5,visibleTerrainHeight(camera.position)+1.5);
+    const freeFocus=new THREE.Vector3(player.x,playerY+1.1,player.z);
+    if(freeLandView)coastalCamera.cutaway(camera.position,freeFocus);else coastalCamera.restore();
     // Last-resort cutaway also covers an obstructed interpolated pose or
     // a lie surrounded by foliage where no unobstructed boom exists.
     const cutawayCount=lastDiscCameraSolve?
       sceneryCamera.cutaway(camera.position,lastDiscCameraSolve.focus):
-      (sceneryCamera.restore(),0);
+      freeLandView?sceneryCamera.cutaway(camera.position,freeFocus):(sceneryCamera.restore(),0);
     canvas.dataset.discGolfCameraCutaways=String(cutawayCount);
     camera.lookAt(look);
     if(lastDiscCameraSolve){
@@ -7495,7 +7501,7 @@ export function createWorld(
       skateGrove.dispose();
 
       shoreLife.dispose();
-      coastalNature.dispose();researchGallery.dispose();coastalControls.remove();
+      coastalCamera.restore();coastalNature.dispose();researchGallery.dispose();coastalControls.remove();
       skimWake.dispose();
       skimSurf.dispose();
       discGolfObjects.dispose();

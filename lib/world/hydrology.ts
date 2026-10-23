@@ -14,7 +14,7 @@ function surfaceRibbon(points: WaterPoint[]) {
   const sampled = [points[0]];
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1], b = points[i];
-    const count = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / .08);
+    const count = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / .04);
     for (let j = 1; j <= count; j++) {
       const t = j / count, x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t;
       sampled.push({ x, z, y: Math.max(a.y + (b.y - a.y) * t, worldFloorHeight(x, z) + .1) });

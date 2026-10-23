@@ -224,11 +224,11 @@ export function arcadeAccessTerrainMask(x: number, z: number) {
   return Math.max(0, Math.min(1, lateralMask * startFade * endFade));
 }
 function paperAccessTerrainMask(x: number, z: number) {
-  if (z < PAPER_CAVE.z - 0.7 || z > PAPER_CAVE.z + 1.45) return 0;
+  if (z < PAPER_CAVE.z - 1.6 || z > PAPER_CAVE.z + 2.5) return 0;
   const lateral = Math.abs(x - PAPER_CAVE.x);
-  const lateralMask = lateral <= 1.75 ? 1 : 1 - smoothstep01((lateral - 1.75) / 1.2);
-  const backFade = smoothstep01((z - (PAPER_CAVE.z - 0.7)) / 0.55);
-  const frontFade = 1 - smoothstep01((z - (PAPER_CAVE.z + 0.9)) / 0.55);
+  const lateralMask = lateral <= 2.6 ? 1 : 1 - smoothstep01((lateral - 2.6) / 1.2);
+  const backFade = smoothstep01((z - (PAPER_CAVE.z - 1.6)) / .55);
+  const frontFade = 1 - smoothstep01((z - (PAPER_CAVE.z + 1.4)) / 1.1);
   return Math.max(0, Math.min(1, lateralMask * backFade * frontFade));
 }
 
@@ -256,7 +256,7 @@ export function supportLayerAtPoint(layer: CaveLayer, p: Point, y: number): Cave
     y < rawTerrainHeight(p.x, p.z) - 1
   ) return "arcade";
   if (
-    p.z < PAPER_PORTAL_Z &&
+    p.z < PAPER_CAVE.z + .65 &&
     p.z > PAPER_CAVE.z - 2.3 &&
     Math.abs(p.x - PAPER_CAVE.x) < paperCaveHalfWidth(p.z) - 0.45 &&
     y < rawTerrainHeight(p.x, p.z) - 0.7

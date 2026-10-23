@@ -51,7 +51,7 @@ export function createCoastalNature(height:(p:{x:number;z:number})=>number){
  const dorsal=new THREE.Mesh(new THREE.ConeGeometry(.4,.8,5),skin);dorsal.position.set(0,.95,-1.25);dorsal.rotation.x=-.35;whale.add(dorsal);
  const splash=new THREE.Mesh(new THREE.RingGeometry(.6,1,40),foamMat);splash.rotation.x=-Math.PI/2;splash.position.set(COAST_WHALE.x,SEA_SURFACE+.09,COAST_WHALE.z);root.add(splash);
  const spray=new THREE.InstancedMesh(new THREE.SphereGeometry(.1,5,4),foamMat,36);root.add(spray);
- return {root,obstacles,benchY,benchRoot,streams:streams.length+1,update(time:number,o:OceanObservation){
+ return {root,staticMesh,obstacles,benchY,benchRoot,streams:streams.length+1,update(time:number,o:OceanObservation){
   for(let i=0;i<38;i++){const t=(time*.7+i/38)%1;dummy.position.set(COAST_FALL.x-2.35*t,lipY+(SEA_SURFACE+.15-lipY)*t,COAST_FALL.z+Math.sin(i*2.4)*.23);dummy.scale.set(1,3.5,1);dummy.rotation.set(0,0,0);dummy.updateMatrix();drops.setMatrixAt(i,dummy.matrix);}drops.instanceMatrix.needsUpdate=true;foam.scale.setScalar(1+Math.sin(time*1.9)*.09);
   whale.visible=o.phase==='breach';splash.visible=o.phase==='splash';spray.visible=o.phase!=='quiet';const t=Math.max(0,Math.min(1,(o.time-2)/4));
   whale.position.set(COAST_WHALE.x+Math.sin(t*Math.PI)*2,SEA_SURFACE-4.1+Math.sin(Math.PI*t)*10,COAST_WHALE.z+t*3);whale.rotation.set(-1.05+t*2.3,.35,.15+Math.sin(Math.PI*t)*.75);
