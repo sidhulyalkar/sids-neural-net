@@ -1,5 +1,5 @@
 import {ringSurfaceHeight} from "./surfaceSupport";
-import { isWater, SEA_SURFACE, terrainHeight, worldFloorHeight } from "./model";
+import { isWater, SEA_SURFACE, terrainHeight, worldFloorHeight, mountainSurfaceHeight, paperCaveHalfWidth, paperCaveFloorHeight } from "./model";
 export const SNOWMELT_PATH = [
   { x: -13, z: -66 },
   { x: -16, z: -61 },
@@ -93,4 +93,31 @@ export function mountainTributaries(){
   [{x:-13,z:-66},{x:-19,z:-64},{x:-25,z:-60},{x:-28,z:-55},COAST_FALL],
   [{x:1,z:-66},{x:-3,z:-59},{x:-7,z:-53},{x:-12,z:-47},{x:-20,z:-37}],
  ].map(path=>surfaceRibbon(path.map(p=>({...p,y:terrainHeight(p.x,p.z)+.11}))));
+}
+
+export function paperCaveShellRings():WaterPoint[][]{
+  return Array.from({length:15},(_,i)=>{
+    const z=-30-i,w=paperCaveHalfWidth(z),floor=paperCaveFloorHeight({x:-20,z});
+    const roofLimit=Math.min(
+      mountainSurfaceHeight(-20,z),
+      mountainSurfaceHeight(-20-w*.6,z),
+      mountainSurfaceHeight(-20+w*.6,z),
+    )-.28;
+    const roof=Math.min(floor+7.0,roofLimit);
+    const shoulder=Math.min(roof-.25,floor+5.65);
+    return [
+      {x:-20-w,y:floor,z},
+      {x:-20-w,y:shoulder,z},
+      {x:-20-w*.625,y:roof-.18,z},
+      {x:-20,y:roof,z},
+      {x:-20+w*.625,y:roof-.18,z},
+      {x:-20+w,y:shoulder,z},
+      {x:-20+w,y:floor,z},
+    ];
+  });
+}
+let paperRoofCache:WaterPoint[][]|undefined;
+export function paperCaveRoofHeight(p:{x:number;z:number}):number|null{
+ if(p.z< -44||p.z> -30||Math.abs(p.x+20)>6.5)return null;
+ return ringSurfaceHeight(paperRoofCache??=paperCaveShellRings(),p);
 }

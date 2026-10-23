@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {ringSurface} from '../components/world/worldGeometry';
 import {settleSurfaceHeight} from '../lib/world/surfaceSupport';
-import {waterfallCrownRings,waterfallRockHeight,mountainTributaries,COAST_BENCH,COAST_WHALE} from '../lib/world/hydrology';
+import {waterfallCrownRings,waterfallRockHeight,paperCaveShellRings,paperCaveRoofHeight,mountainTributaries,COAST_BENCH,COAST_WHALE} from '../lib/world/hydrology';
 import {groundHeight} from '../lib/world/activities';
 import {terrainHeight,nextCaveLayer,paperCaveFloorHeight} from '../lib/world/model';
 import {idleOceanObservation,advanceOceanObservation} from '../lib/world/coastalObservation';
@@ -28,4 +28,16 @@ test('ocean encounter respects stillness, gaze, pause and cooldown',()=>{
  for(let i=0;i<15;i++)s=advanceOceanObservation(s,.5,input);assert.equal(s.sightings,0);s=advanceOceanObservation(s,.5,input);assert.equal(s.phase,'spout');
  const phases=new Set<string>([s.phase]);for(let i=0;i<22;i++){s=advanceOceanObservation(s,.5,input);phases.add(s.phase);}assert.ok(phases.has('breach')&&phases.has('splash'));assert.equal(s.sightings,1);
  for(let i=0;i<30;i++)s=advanceOceanObservation(s,.5,input);assert.equal(s.sightings,1);s=advanceOceanObservation(s,.5,{...input,speed:3});assert.equal(s.stillFor,0);assert.deepEqual(advanceOceanObservation(s,0,input),s);
+});
+
+test('expanded cave roof remains a solid exterior support matching the rendered shell',()=>{
+ const geometry=ringSurface(paperCaveShellRings().map(r=>r.map(p=>new THREE.Vector3(p.x,p.y,p.z))));
+ const material=new THREE.MeshBasicMaterial({side:THREE.DoubleSide}),mesh=new THREE.Mesh(geometry,material),ray=new THREE.Raycaster();mesh.updateMatrixWorld();let checked=0;
+ for(let z=-43.8;z<-30.1;z+=.47)for(let x=-26.4;x<-13.5;x+=.39){
+  ray.set(new THREE.Vector3(x,100,z),new THREE.Vector3(0,-1,0));const hit=ray.intersectObject(mesh)[0];
+  if(!hit)continue;
+  assert.ok(Math.abs(paperCaveRoofHeight({x,z})!-hit.point.y)<.0001);
+  assert.ok(groundHeight({x,z})>=hit.point.y-.0001);checked++;
+ }
+ assert.ok(checked>500);geometry.dispose();material.dispose();
 });

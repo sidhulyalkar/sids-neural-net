@@ -68,7 +68,7 @@ import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
 import { createNorthShoreLife } from "./worldNorthShoreLife";
 import { ringSurface, ribbon } from "./worldGeometry";
-import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
+import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings, paperCaveShellRings, paperCaveRoofHeight } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
 import { stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
@@ -1373,25 +1373,7 @@ export function createWorld(
   const basin=mesh(geo(new THREE.CircleGeometry(2,20)),waterRibbonMat,[upper[0].x,upper[0].y,upper[0].z],[1,1,1]);basin.rotation.x=-Math.PI/2;
   const fallRings=Array.from({length:13},(_,i)=>{const t=i/12;return [new THREE.Vector3(-21.2-Math.sin(t*4)*.12,lip.y+(fallsY+.1-lip.y)*t,-30+t*.8),new THREE.Vector3(-18.8+Math.sin(t*6)*.18,lip.y+(fallsY+.1-lip.y)*t,-30+t*.8)];});
   const waterfall=mesh(geo(ringSurface(fallRings)),waterRibbonMat,[0,0,0],[1,1,1]);waterfall.castShadow=false;
-  const paperRings=Array.from({length:15},(_,i)=>{
-    const z=-30-i,w=paperCaveHalfWidth(z),floor=paperCaveFloorHeight({x:-20,z});
-    const roofLimit=Math.min(
-      mountainSurfaceHeight(-20,z),
-      mountainSurfaceHeight(-20-w*.6,z),
-      mountainSurfaceHeight(-20+w*.6,z),
-    )-.28;
-    const roof=Math.min(floor+7.0,roofLimit);
-    const shoulder=Math.min(roof-.25,floor+5.65);
-    return [
-      new THREE.Vector3(-20-w,floor,z),
-      new THREE.Vector3(-20-w,shoulder,z),
-      new THREE.Vector3(-20-w*.625,roof-.18,z),
-      new THREE.Vector3(-20,roof,z),
-      new THREE.Vector3(-20+w*.625,roof-.18,z),
-      new THREE.Vector3(-20+w,shoulder,z),
-      new THREE.Vector3(-20+w,floor,z),
-    ];
-  });
+  const paperRings=paperCaveShellRings().map(ring=>ring.map(p=>new THREE.Vector3(p.x,p.y,p.z)));
   mesh(geo(ringSurface(paperRings)),mat("#465958",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
   const paperBackFloor=paperCaveFloorHeight({x:-20,z:PAPER_CAVE.backZ});
   mesh(boxGeo,mat("#43504e"),[-20,paperBackFloor+3.5,PAPER_CAVE.backZ-.2],[13,7,.4]);
@@ -1410,7 +1392,7 @@ export function createWorld(
   const researchGallery=createResearchGallery();scene.add(researchGallery.root);
   const paperLight=new THREE.PointLight("#c3e4dd",24,20,1.5);paperLight.position.set(-20,paperBackFloor+5.6,-38);scene.add(paperLight);
   const paperEntryLight=new THREE.PointLight("#e8d8a7",15,15,1.5);paperEntryLight.position.set(-20,paperBackFloor+4.5,-32);scene.add(paperEntryLight);
-  const coastalNature=createCoastalNature(p=>Math.max(visibleTerrainHeight(p),waterfallRockHeight(p)??-Infinity));scene.add(coastalNature.root);obstacles.push(...coastalNature.obstacles);groundedObstacles.push(...coastalNature.obstacles);
+  const coastalNature=createCoastalNature(p=>Math.max(visibleTerrainHeight(p),waterfallRockHeight(p)??-Infinity,paperCaveRoofHeight(p)??-Infinity));scene.add(coastalNature.root);obstacles.push(...coastalNature.obstacles);groundedObstacles.push(...coastalNature.obstacles);
   const coastalCamera=createWorldCameraOcclusion(coastalNature.staticMesh);
   canvas.dataset.mountainStreams=String(coastalNature.streams);canvas.dataset.researchFigures=String(researchGallery.targets.length/2);
   const pool=mesh(geo(new THREE.CircleGeometry(3.7,24)),waterRibbonMat,[-20,fallsY+.08,-27],[1,1,1]);pool.rotation.x=-Math.PI/2;
@@ -3433,7 +3415,7 @@ export function createWorld(
     const meshed=visibleTerrainHeight(p);
     return Number.isFinite(meshed)?Math.max(physical,meshed):physical;
   };
-  const rideBase=(p:Point)=>skateParkSurface(p)??Math.max(visibleTerrainHeight(p),waterfallRockHeight(p)??-Infinity);
+  const rideBase=(p:Point)=>skateParkSurface(p)??Math.max(visibleTerrainHeight(p),waterfallRockHeight(p)??-Infinity,paperCaveRoofHeight(p)??-Infinity);
   let seated=false;
   let oceanObservation=idleOceanObservation();
   const coastalControls=document.createElement("div");coastalControls.style.cssText="position:absolute;bottom:145px;left:50%;transform:translateX(-50%);z-index:8;display:none;gap:8px;align-items:center";
