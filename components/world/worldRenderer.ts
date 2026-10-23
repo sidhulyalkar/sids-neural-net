@@ -3437,7 +3437,7 @@ export function createWorld(
   const rideBase=(p:Point)=>skateParkSurface(p)??Math.max(visibleTerrainHeight(p),waterfallRockHeight(p)??-Infinity);
   let seated=false;
   let oceanObservation=idleOceanObservation();
-  const coastalControls=document.createElement("div");coastalControls.style.cssText="position:absolute;bottom:86px;left:50%;transform:translateX(-50%);z-index:8;display:none;gap:8px;align-items:center";
+  const coastalControls=document.createElement("div");coastalControls.style.cssText="position:absolute;bottom:145px;left:50%;transform:translateX(-50%);z-index:8;display:none;gap:8px;align-items:center";
   const benchButton=document.createElement("button");benchButton.type="button";benchButton.style.cssText="padding:10px 16px;border:1px solid #c2cdb077;border-radius:20px;background:#183d36ee;color:#f4ebd2;cursor:pointer;font:13px system-ui";
   const paperButton=benchButton.cloneNode() as HTMLButtonElement;paperButton.textContent="Explore the research papers";coastalControls.append(benchButton,paperButton);host.append(coastalControls);
   paperButton.onclick=()=>callbacks.onInteract("paper-archive");
