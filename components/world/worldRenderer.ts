@@ -3427,12 +3427,11 @@ export function createWorld(
     if (layer === "paper") return paperCaveFloorHeight(p);
     const physical=groundHeight(p);
     if(isWater(p))return physical;
-    const analytic=worldFloorHeight(p.x,p.z);
-    // Sculpted natural land is rasterized into triangles, while authored
-    // ramps, boulder tops, beams and cave decks keep their own support.
-    if(physical-analytic>.07||skateParkSurface(p)!==null)return physical;
+    // Raised rock support must never bypass a higher rendered terrain triangle.
+    // Keep the explicitly sculpted skatepark surface authoritative.
+    if(skateParkSurface(p)!==null)return physical;
     const meshed=visibleTerrainHeight(p);
-    return Number.isFinite(meshed)?meshed:physical;
+    return Number.isFinite(meshed)?Math.max(physical,meshed):physical;
   };
   const rideBase=(p:Point)=>skateParkSurface(p)??Math.max(visibleTerrainHeight(p),waterfallRockHeight(p)??-Infinity);
   let seated=false;
