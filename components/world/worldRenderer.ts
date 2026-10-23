@@ -1,3 +1,8 @@
+import {createCoastalNature} from "./worldCoastalNature";
+import {createResearchGallery} from "./worldResearchGallery";
+import {idleOceanObservation,advanceOceanObservation} from "@/lib/world/coastalObservation";
+import {settleSurfaceHeight} from "@/lib/world/surfaceSupport";
+import {COAST_BENCH,COAST_WHALE,COAST_FALL,waterfallRockHeight} from "@/lib/world/hydrology";
 import {MOSS_CANYON} from "@/lib/world/model";
 import {BIKE_CONTACT,bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
 import {rideLeavesSupport,rideWheelProbe,rideTerrainAttitude,followRideSurfacePose} from "@/lib/world/rideSurface";
@@ -94,6 +99,7 @@ import {
   paperCaveFloorHeight,
   paperCaveInside,
   paperCaveHalfWidth,
+  PAPER_CAVE,
   caveObstacles,
   caveHalfWidth,
   mountainSurfaceHeight,
@@ -1313,6 +1319,7 @@ export function createWorld(
   const legs = [-1, 1].map((side) =>
     mesh(boxGeo, dark, [side * 0.16, 0.39, 0], [0.19, 0.72, 0.23], bodyRoot),
   );
+  const seatedCalves=[-1,1].map(side=>mesh(boxGeo,dark,[side*.16,.1,.62],[.18,.5,.2],bodyRoot));seatedCalves.forEach(part=>{part.visible=false;});
   const arms = [-1, 1].map((side) =>
     mesh(cylinder, jacket, [side * 0.38, 1.03, 0], [0.12, 0.6, 0.12], bodyRoot),
   );
@@ -1366,15 +1373,15 @@ export function createWorld(
   const basin=mesh(geo(new THREE.CircleGeometry(2,20)),waterRibbonMat,[upper[0].x,upper[0].y,upper[0].z],[1,1,1]);basin.rotation.x=-Math.PI/2;
   const fallRings=Array.from({length:13},(_,i)=>{const t=i/12;return [new THREE.Vector3(-21.2-Math.sin(t*4)*.12,lip.y+(fallsY+.1-lip.y)*t,-30+t*.8),new THREE.Vector3(-18.8+Math.sin(t*6)*.18,lip.y+(fallsY+.1-lip.y)*t,-30+t*.8)];});
   const waterfall=mesh(geo(ringSurface(fallRings)),waterRibbonMat,[0,0,0],[1,1,1]);waterfall.castShadow=false;
-  const paperRings=Array.from({length:7},(_,i)=>{
+  const paperRings=Array.from({length:15},(_,i)=>{
     const z=-30-i,w=paperCaveHalfWidth(z),floor=paperCaveFloorHeight({x:-20,z});
     const roofLimit=Math.min(
       mountainSurfaceHeight(-20,z),
       mountainSurfaceHeight(-20-w*.6,z),
       mountainSurfaceHeight(-20+w*.6,z),
     )-.28;
-    const roof=Math.min(floor+4.4,roofLimit);
-    const shoulder=floor+(roof-floor)*.66;
+    const roof=Math.min(floor+7.0,roofLimit);
+    const shoulder=Math.min(roof-.25,floor+5.65);
     return [
       new THREE.Vector3(-20-w,floor,z),
       new THREE.Vector3(-20-w,shoulder,z),
@@ -1386,8 +1393,8 @@ export function createWorld(
     ];
   });
   mesh(geo(ringSurface(paperRings)),mat("#465958",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
-  const paperBackFloor=paperCaveFloorHeight({x:-20,z:-36});
-  mesh(boxGeo,mat("#43504e"),[-20,paperBackFloor+2.15,-36.2],[8,4.3,.5]);
+  const paperBackFloor=paperCaveFloorHeight({x:-20,z:PAPER_CAVE.backZ});
+  mesh(boxGeo,mat("#43504e"),[-20,paperBackFloor+3.5,PAPER_CAVE.backZ-.2],[13,7,.4]);
   const paperFloorRings=paperRings.map(ring=>{
     const z=ring[0].z,w=paperCaveHalfWidth(z)-.12,y=paperCaveFloorHeight({x:-20,z})-.08;
     return [new THREE.Vector3(-20-w,y,z),new THREE.Vector3(-20+w,y,z)];
@@ -1400,11 +1407,11 @@ export function createWorld(
   // Close the rock above and beside the mouth without closing the passage.
   const paperRockSkin = [...paperRockRings, paperRings[0]];
   mesh(geo(ringSurface(paperRockSkin)),mat("#78867a",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
-  const paperTablets:Instance[]=Array.from({length:4},(_,i)=>({x:-22.4+i*1.6,y:fallsY+1.9,z:-35.75,sx:1.05,sy:1.5,sz:.16}));
-  instances(boxGeo,mat("#8d9c96"),paperTablets,false);
-  const paperGlyphs:Instance[]=paperTablets.flatMap(p=>Array.from({length:12},(_,i)=>({x:p.x-.4+i*.07,y:p.y+Math.sin(i*1.8)*.19,z:p.z+.1,sx:.05,sy:.055,sz:.025})));
-  instances(boxGeo,mat("#394c4f"),paperGlyphs,false);
-  const paperLight=new THREE.PointLight("#b2dce6",4,9,2);paperLight.position.set(-20,fallsY+3,-33);scene.add(paperLight);
+  const researchGallery=createResearchGallery();scene.add(researchGallery.root);
+  const paperLight=new THREE.PointLight("#c3e4dd",24,20,1.5);paperLight.position.set(-20,paperBackFloor+5.6,-38);scene.add(paperLight);
+  const paperEntryLight=new THREE.PointLight("#e8d8a7",15,15,1.5);paperEntryLight.position.set(-20,paperBackFloor+4.5,-32);scene.add(paperEntryLight);
+  const coastalNature=createCoastalNature(p=>Math.max(visibleTerrainHeight(p),waterfallRockHeight(p)??-Infinity));scene.add(coastalNature.root);obstacles.push(...coastalNature.obstacles);
+  canvas.dataset.mountainStreams=String(coastalNature.streams);canvas.dataset.researchFigures=String(researchGallery.targets.length/2);
   const pool=mesh(geo(new THREE.CircleGeometry(3.7,24)),waterRibbonMat,[-20,fallsY+.08,-27],[1,1,1]);pool.rotation.x=-Math.PI/2;
   const lower=downstreamPoints().map(p=>new THREE.Vector3(p.x,p.y,p.z));
   mesh(geo(ribbon(lower,lower.map(()=>1.2))),waterRibbonMat,[0,0,0],[1,1,1]);
@@ -3418,7 +3425,7 @@ export function createWorld(
     if (layer === "arcade") return arcadeCaveFloorHeight(p);
     if (layer === "paper") return paperCaveFloorHeight(p);
     const physical=groundHeight(p);
-    if(!isRideMode(state.activity)||isWater(p))return physical;
+    if(isWater(p))return physical;
     const analytic=worldFloorHeight(p.x,p.z);
     // Sculpted natural land is rasterized into triangles, while authored
     // ramps, boulder tops, beams and cave decks keep their own support.
@@ -3426,7 +3433,22 @@ export function createWorld(
     const meshed=visibleTerrainHeight(p);
     return Number.isFinite(meshed)?meshed:physical;
   };
-  const rideBase=(p:Point)=>skateParkSurface(p)??visibleTerrainHeight(p);
+  const rideBase=(p:Point)=>skateParkSurface(p)??Math.max(visibleTerrainHeight(p),waterfallRockHeight(p)??-Infinity);
+  let seated=false;
+  let oceanObservation=idleOceanObservation();
+  const coastalControls=document.createElement("div");coastalControls.style.cssText="position:absolute;bottom:86px;left:50%;transform:translateX(-50%);z-index:8;display:none;gap:8px;align-items:center";
+  const benchButton=document.createElement("button");benchButton.type="button";benchButton.style.cssText="padding:10px 16px;border:1px solid #c2cdb077;border-radius:20px;background:#183d36ee;color:#f4ebd2;cursor:pointer;font:13px system-ui";
+  const paperButton=benchButton.cloneNode() as HTMLButtonElement;paperButton.textContent="Explore the research papers";coastalControls.append(benchButton,paperButton);host.append(coastalControls);
+  paperButton.onclick=()=>callbacks.onInteract("paper-archive");
+  function leaveOceanBench(){
+    if(!seated)return;seated=false;clearInput();player={x:COAST_BENCH.x+1.3,z:COAST_BENCH.z};playerY=supportHeight(player);travel={...travel,point:player};canvas.focus({preventScroll:true});
+  }
+  function sitOceanBench(){
+    if(seated){leaveOceanBench();return;}
+    if(distance(player,COAST_BENCH)>4||aquatic!=="land"||caveLayer!=="surface"||discGolf.phase!=="off"||jetSki||skimHeat.phase!=="off"||airHeight>.1)return;
+    clearInput();seated=true;climb=grind=null;airHeight=verticalSpeed=0;player={...COAST_BENCH};playerY=coastalNature.benchY;travel={point:player,speed:0,heading:{x:-1,z:0}};yaw=Math.PI/2;canvas.focus({preventScroll:true});
+  }
+  benchButton.onclick=sitOceanBench;
   explorer.rotation.order = "YXZ";
   let dog: Point = { x: 3, z: 12 };
   let dogVelocity: Point = { x: 0, z: 0 };
@@ -3440,7 +3462,9 @@ export function createWorld(
   let dogYaw = 0;
   let dogPitch = 0;
   let dogRoll = 0;
-  let dogGroundY = discGolfSurfaceHeight(dog);
+  let dogGroundY = groundHeight(dog);
+  let dogCaveLayer:CaveLayer="surface";
+  const dogSupport=(p:Point)=>dogCaveLayer==="paper"?paperCaveFloorHeight(p):dogCaveLayer==="arcade"?arcadeCaveFloorHeight(p):Math.max(groundHeight(p),visibleTerrainHeight(p));
   const dogFootGround=[0,0,0,0];
   let dogCameraAnchor:ShastaCameraAnchor|null=null;
   let dogGaitPhase = 0;
@@ -3625,6 +3649,11 @@ export function createWorld(
       (-(e.clientY - rect.top) / rect.height) * 2 + 1,
     );
     ray.setFromCamera(pointer, camera);
+    if(caveLayer==="paper"){
+      const paperHit=ray.intersectObjects(researchGallery.targets,false)[0];
+      if(paperHit&&paperHit.distance<20){window.open(paperHit.object.userData.paperHref,"_blank","noopener,noreferrer");return;}
+    }
+    if(seated){leaveOceanBench();return;}
     const boardHit=ray.intersectObjects(skimProps,false)[0];
     if(boardHit&&boardHit.distance<60){
       const index=boardHit.object.userData.skimBoardIndex as number;
@@ -3713,6 +3742,8 @@ export function createWorld(
     // Keep steering active inside the world, but never grab keys from the
     // surrounding site or a text field.
     const key = e.key.toLowerCase();
+    if(seated&&["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"," ","escape","enter"].includes(key)){e.preventDefault();leaveOceanBench();return;}
+    if(!e.repeat&&(key==="e"||key==="enter")&&distance(player,COAST_BENCH)<4&&caveLayer==="surface"&&aquatic==="land"){e.preventDefault();sitOceanBench();return;}
     // Movement must keep working after clicking a transport/sport control,
     // even if browser focus lands on that button after canvas.focus().
     // Never consume typing in form fields or editable content.
@@ -3879,6 +3910,7 @@ export function createWorld(
     }
   }
   function performAction() {
+    if(seated){leaveOceanBench();return;}
     if(rideWipeout.phase!=="riding"&&isRideMode(state.activity))return;
     if(skateLoopRide){
       if(state.activity==="bike"){skateLoopRide=jumpSkateLoop(skateLoopRide);airHeight=.15;destination=null;}
@@ -4309,6 +4341,8 @@ export function createWorld(
         travel.speed=0;
         // Recover at the true seabed/wet-sand contact, never inside dry terrain.
         playerY=isWater(player)?SEA_SURFACE-.12:groundHeight(player);
+      } else if(seated){
+        player={...COAST_BENCH};playerY=coastalNature.benchY;travel={point:player,speed:0,heading:{x:-1,z:0}};airHeight=verticalSpeed=0;
       } else if (climb) {
         climb.progress = Math.min(1, climb.progress + dt * 1.25);
         const t = climb.progress * climb.progress * (3 - 2 * climb.progress);
@@ -4863,6 +4897,8 @@ export function createWorld(
         canvas.dataset.joshuaProgress=joshuaPlayerFraction(trial,player).toFixed(3);
       }else canvas.dataset.joshuaGhosts="0";
       const swimming = aquatic !== "land";
+      seatedCalves.forEach(part=>{part.visible=seated;});
+      legs.forEach((leg,i)=>{leg.position.set(i===0?-.16:.16,.39,0);});
       const walking = travel.speed > 0.05
         ? Math.sin(elapsed * (swimming ? 9 : mode === "run" ? 14 : 10))
         : 0;
@@ -5132,6 +5168,10 @@ export function createWorld(
         }
       }
       canvas.dataset.skimFootContactError=skimFootError.toFixed(4);
+      if(seated){
+        explorer.position.set(COAST_BENCH.x,coastalNature.benchY,COAST_BENCH.z);explorer.rotation.set(0,-Math.PI/2,0);bodyRoot.position.set(0,-.1,0);bodyRoot.rotation.set(.08,0,0);
+        legs.forEach(leg=>{leg.position.y=.58;leg.position.z=.28;leg.rotation.x=-Math.PI/2;});arms.forEach(arm=>{arm.rotation.x=-.8;});board.visible=bike.visible=skis.visible=chalk.visible=false;
+      }
       canvas.dataset.skimBodyYaw=bodyRoot.rotation.y.toFixed(4);
       canvas.dataset.skimLaunchKind=skimHeat.launchKind;
       canvas.dataset.skimWaveRideSeconds=skimHeat.waveRideSeconds.toFixed(3);
@@ -5756,13 +5796,17 @@ export function createWorld(
         // A camera just 0.5m behind the player at the threshold rendered the
         // explorer's backpack as a full-screen polygon. Allow a 2.6m exterior
         // throat boom; the layered cave floor still clamps vertical clearance.
-        const minZ = isArcade ? ARCADE_CAVE.entrance.z-2.4 : -35.4;
+        const minZ = isArcade ? ARCADE_CAVE.entrance.z-2.4 : PAPER_CAVE.backZ+.8;
         const maxZ = isArcade ? -63.7 : -30.3;
         const desired = constrainMove(player,{x:player.x+Math.sin(yaw)*2.6,z:player.z+Math.cos(yaw)*2.6},caveSolids);
         const z=THREE.MathUtils.clamp(desired.z,minZ,maxZ);
         const half = isArcade ? caveHalfWidth(z)-.85 : paperCaveHalfWidth(z)-.85;
         targetCamera.set(THREE.MathUtils.clamp(desired.x,centerX-half,centerX+half),playerY+2.15,z);
         targetLook.set(player.x-Math.sin(yaw)*2.4,playerY+1.85,player.z-Math.cos(yaw)*2.4);
+      }
+      if(seated){
+        targetCamera.set(player.x+Math.sin(yaw)*6,playerY+3.7,player.z+Math.cos(yaw)*6);
+        targetLook.set(player.x-Math.sin(yaw)*28,SEA_SURFACE+3,player.z-Math.cos(yaw)*28);
       }
       // Camera choreography, never gameplay authority:
       // flight -> landing reveal -> visible dog chase -> Shasta eye view.
@@ -6297,7 +6341,7 @@ export function createWorld(
       x: dog.x + dogVelocity.x * dogMotionDt,
       z: dog.z + dogVelocity.z * dogMotionDt,
     };
-    const candidate = constrainMove(dog, requestedDogStep, dogLocalObstacles);
+    const candidate = constrainMove(dog, requestedDogStep, dogCaveLayer==="surface"?dogLocalObstacles:caveSolids);
     if (!discGolfSurfaceIsWater(candidate)) {
       dog = candidate;
       const requestedDistance = distance(dogBefore, requestedDogStep);
@@ -6380,7 +6424,7 @@ export function createWorld(
       dogPitch*=1-poseAlpha;
       dogRoll*=1-poseAlpha;
     }else{
-      const contact=terrainContact(dog,dogHeading,.58,.22);
+      const contact=terrainContact(dog,dogHeading,.58,.22,dogSupport);
       dogPitch+=(contact.pitch-dogPitch)*poseAlpha;
       dogRoll+=(contact.roll-dogRoll)*poseAlpha;
     }
@@ -6393,9 +6437,10 @@ export function createWorld(
       (targetMoveBlend - dogMoveBlend) * smoothingAlpha(dogMotionDt, 10.5);
     dogMaxMoveBlend = Math.max(dogMaxMoveBlend, dogMoveBlend);
 
-    const targetDogY = discGolfSurfaceHeight(dog);
-    dogGroundY +=
-      (targetDogY - dogGroundY) * smoothingAlpha(dogMotionDt, 6.5);
+    dogCaveLayer=nextCaveLayer(dogCaveLayer,dogBefore,dog,dogGroundY);
+    const targetDogY = dogSupport(dog);
+    dogGroundY=settleSurfaceHeight(dogGroundY,targetDogY,dogMotionDt);
+    canvas.dataset.dogSupportGap=(dogGroundY-targetDogY).toFixed(4);
     // Use a low-amplitude diagonal trot on the fetch, avoiding the
     // very rapid walk->trot->canter pose changes seen in the screenshots.
     const dogGait=shastaGaitPose(
@@ -6456,7 +6501,7 @@ export function createWorld(
       const worldX=dog.x+leg.x*cosYaw+foot.z*sinYaw;
       const worldZ=dog.z+foot.z*cosYaw-leg.x*sinYaw;
       const groundDelta=THREE.MathUtils.clamp(
-        discGolfSurfaceHeight({x:worldX,z:worldZ})-dogGroundY,-.075,.075);
+        dogSupport({x:worldX,z:worldZ})-dogGroundY,-.075,.075);
       dogFootGround[i]+=(groundDelta-dogFootGround[i])*
         smoothingAlpha(dogMotionDt,7);
       const pose=shastaStraightLeg(
@@ -6474,8 +6519,8 @@ export function createWorld(
       // The paw is one small oval, not three cartoon toes. The pitch is
       // nearly flat with only a little slope compensation during stance.
       const pawPart=shastaRockParts[leg.pawIndex];
-      const front=discGolfSurfaceHeight({x:worldX+sinYaw*.12,z:worldZ+cosYaw*.12});
-      const back=discGolfSurfaceHeight({x:worldX-sinYaw*.12,z:worldZ-cosYaw*.12});
+      const front=dogSupport({x:worldX+sinYaw*.12,z:worldZ+cosYaw*.12});
+      const back=dogSupport({x:worldX-sinYaw*.12,z:worldZ-cosYaw*.12});
       // During fetch keep all paws nearly level rather than feeding
       // per-step micro-slope noise into tiny geometry rotations.
       const slopePitch=activelyFetching?0:foot.stance?
@@ -6599,7 +6644,7 @@ export function createWorld(
       const c=constrainMove(player,{x:camera.position.x,z:camera.position.z},caveSolids);
       const inArcade = caveLayer === "arcade" && arcadeInside(player);
       const centerX = inArcade ? 16 : -20;
-      const z = THREE.MathUtils.clamp(c.z, inArcade ? -81.6 : -35.4, inArcade ? -63.7 : -30.3);
+      const z = THREE.MathUtils.clamp(c.z, inArcade ? -81.6 : PAPER_CAVE.backZ+.8, inArcade ? -63.7 : -30.3);
       const half = (inArcade ? caveHalfWidth(z) : paperCaveHalfWidth(z)) - .85;
       camera.position.x=THREE.MathUtils.clamp(c.x,centerX-half,centerX+half);camera.position.z=z;
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
@@ -6939,6 +6984,14 @@ export function createWorld(
     splash.scale.setScalar(1 + Math.sin(elapsed * 2) * 0.05);
     waterRibbonMat.opacity = .66 + Math.sin(elapsed * 3) * .025;
     waterfall.visible = true;
+    const oceanDirection={x:look.x-camera.position.x,z:look.z-camera.position.z};
+    oceanObservation=advanceOceanObservation(oceanObservation,state.entered&&!state.paused?rawDelta:0,{point:player,speed:travel.speed,look:oceanDirection,eligible:aquatic==="land"&&caveLayer==="surface"&&discGolf.phase==="off"&&!jetSki&&skimHeat.phase==="off"&&airHeight<.1});coastalNature.update(elapsed,oceanObservation);
+    const canSit=state.entered&&!state.paused&&aquatic==="land"&&caveLayer==="surface"&&distance(player,COAST_BENCH)<4&&discGolf.phase==="off"&&!jetSki&&skimHeat.phase==="off",canRead=state.entered&&!state.paused&&caveLayer==="paper";
+    coastalControls.style.display=canSit||canRead?"flex":"none";benchButton.hidden=!canSit;paperButton.hidden=!canRead;benchButton.textContent=seated?"Stand up · WASD / Space":"Sit & watch the ocean · E";
+    canvas.dataset.oceanSeated=String(seated);canvas.dataset.whalePhase=oceanObservation.phase;canvas.dataset.whaleSightings=String(oceanObservation.sightings);canvas.dataset.oceanStillFor=oceanObservation.stillFor.toFixed(2);
+    const whaleScreen=new THREE.Vector3(COAST_WHALE.x,SEA_SURFACE+4,COAST_WHALE.z).project(camera);canvas.dataset.whaleOnScreen=String(Math.abs(whaleScreen.x)<1&&Math.abs(whaleScreen.y)<1&&whaleScreen.z<1);
+    canvas.dataset.waterfallRockHeight=String(waterfallRockHeight(player)??"");canvas.dataset.playerSurfaceGap=(playerY-supportHeight(player)).toFixed(4);
+    canvas.dataset.paperFigureScreens=JSON.stringify(researchGallery.targets.filter((_,i)=>i%2===0).map(o=>{const p=o.getWorldPosition(new THREE.Vector3()).project(camera);return {x:p.x,y:p.y,z:p.z};}));
     if (reefRoot.visible || tropicalReefRoot.visible) {
       const rp=rayGeo.attributes.position;
       for(let i=0;i<rp.count;i++)rp.setZ(i,rayOriginal[i*3+2]+Math.sin(elapsed*1.6+Math.abs(rayOriginal[i*3])*1.2)*.09*Math.abs(rayOriginal[i*3]));
@@ -7051,6 +7104,7 @@ export function createWorld(
       const requestedAction = next.actionSerial !== lastAction;
       const requestedWaterAction = next.waterActionSerial !== lastWaterAction;
       if (changedActivity) {
+        if(seated)leaveOceanBench();
         // Do not turn a midair ski exit into an instant unsupported landing.
         const loopExitPose=skateLoopRide?skateLoopSample(skateLoopRide):null;
         const preserveFlight=!!loopExitPose||bigAir.phase==="flying"||
@@ -7306,6 +7360,7 @@ export function createWorld(
         skateLoopRide=null;skateTunnelRide=null;skateRailGapRide=null;lastSkateLoopEnd=elapsed;
         skateBowlFlightActive=false;skateBowlLandings=skateBowlFailedLandings=0;
         skateBowlLastLanding="";skateBowlLastLandingSpeed=0;
+        if(seated)leaveOceanBench();
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
         const jetPierStart=next.command.sportDestination==="jet-pier";
@@ -7325,6 +7380,8 @@ export function createWorld(
           tubeStart?{x:GROVE_TUNNEL.center.x+GROVE_TUNNEL.halfLength+3,z:GROVE_TUNNEL.center.z}:loopStart?{x:SKATE_LOOP.center.x+SKATE_LOOP.leadLength,z:SKATE_LOOP.center.z}:flowStart?{...CANYON_FLOW.start}:
           (next.command.activity && activityLanding(next.command.activity)) ||
           regionLanding(r.id);
+        const natureStart=next.command.natureDestination;
+        if(natureStart)player=natureStart==="ocean-bench"?{x:COAST_BENCH.x+1.5,z:COAST_BENCH.z}:natureStart==="research-cave"?{x:-20,z:-28}:natureStart==="fern-crown"?{x:-24,z:-34}:{x:COAST_FALL.x+2.2,z:COAST_FALL.z+2.6};
         clearInput();
         travel = { point: player, speed: 0, heading:
           reverseStart?reversePose.heading:tubeStart?{x:-1,z:0}:loopStart?{x:-1,z:0}:flowStart?{x:1,z:0}:
@@ -7347,7 +7404,7 @@ export function createWorld(
         dog = { x: player.x + 2, z: player.z - 2 };
         dogVelocity = { x: 0, z: 0 };
         dogSmoothedTarget = { ...dog };
-        dogGroundY = terrainHeight(dog.x, dog.z);
+        dogCaveLayer="surface";dogGroundY = Math.max(groundHeight(dog),visibleTerrainHeight(dog));
         dogFootGround.fill(0);dogCameraAnchor=null;
         dogPitch = 0;
         dogRoll = 0;
@@ -7395,6 +7452,7 @@ export function createWorld(
           look.set(pose.look.x,pose.look.y,pose.look.z);
           camera.lookAt(look);
         }
+        if(natureStart){yaw=natureStart==="research-cave"?0:Math.PI/2;pitch=.3;zoom=11;look.set(player.x,playerY+1.5,player.z);camera.position.set(player.x+Math.sin(yaw)*zoom,playerY+5,player.z+Math.cos(yaw)*zoom);camera.lookAt(look);}
         if(flowStart){
           yaw=-Math.PI/2;pitch=.37;zoom=19;
         }
@@ -7437,6 +7495,7 @@ export function createWorld(
       skateGrove.dispose();
 
       shoreLife.dispose();
+      coastalNature.dispose();researchGallery.dispose();coastalControls.remove();
       skimWake.dispose();
       skimSurf.dispose();
       discGolfObjects.dispose();

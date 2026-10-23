@@ -1,4 +1,5 @@
 "use client";
+import {RESEARCH_GALLERY} from "@/lib/world/researchGallery";
 import {worldGameSession} from "@/lib/world/gameMode";
 import {Bike, ChevronDown, Disc3, MountainSnow, Waves, Trees} from "lucide-react";
 
@@ -436,6 +437,10 @@ export function WorldHome({ content }: { content: WorldContent }) {
         serial: (previous?.serial ?? 0) + 1,
         activity, skateDestination: ride,
       }));
+    }
+    const nature=new URLSearchParams(window.location.search).get("nature-start");
+    if(nature==="ocean-bench"||nature==="research-cave"||nature==="fern-crown"||nature==="coastal-falls"){
+      setActivity("run");setCommand(previous=>({region:"waterfall",serial:(previous?.serial??0)+1,activity:"run",natureDestination:nature}));
     }
   }
   function jump(id: RegionId) {
@@ -1038,7 +1043,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <button className={styles.geiselReturn} onClick={close}>Continue diving</button>
             </>
           )}
-          {panel === "paper-archive" && <><h2 id="world-panel-title">Paper Archive.</h2><div className={styles.projectList}>{content.publications.map(p=><Link key={p.id} href={p.href} prefetch={false}><h3>{p.title}</h3>{p.year && <span>{p.year}</span>}</Link>)}</div><Link prefetch={false} href="/publications">Explore publications</Link></>}
+          {panel === "paper-archive" && <><h2 id="world-panel-title">Research beneath the falls.</h2><div className={styles.projectList}>{RESEARCH_GALLERY.map(figure=><a key={figure.id} href={figure.href} target="_blank" rel="noopener noreferrer"><h3>{figure.title}</h3><Image unoptimized width={1200} height={Math.round(1200/figure.aspect)} src={figure.image} alt={figure.credit} style={{width:"100%",height:"auto",background:"white",borderRadius:8}}/><p>{figure.credit}</p><span>Open paper ↗</span></a>)}</div><div className={styles.projectList}>{content.publications.map(p=><Link key={p.id} href={p.href} prefetch={false}><h3>{p.title}</h3>{p.year && <span>{p.year}</span>}</Link>)}</div><Link prefetch={false} href="/publications">Explore publications</Link></>}
           {panel === "secret" && (
             <>
               <h2 id="world-panel-title">Shasta.</h2>

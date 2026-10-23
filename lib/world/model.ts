@@ -186,8 +186,8 @@ export function arcadeCaveTerrainMask(x: number, z: number): number {
 export function caveHalfWidth(z:number) {
   return 3.8 + smoothstep01((z + 75) / 5) * 2.5;
 }
-export const PAPER_CAVE = {x:-20,z:-30,backZ:-36,halfWidth:4} as const;
-export function paperCaveHalfWidth(z: number) { return 2.3 + 1.7 * smoothstep01((-z - 30) / 3); }
+export const PAPER_CAVE = {x:-20,z:-30,backZ:-44,halfWidth:6.5} as const;
+export function paperCaveHalfWidth(z: number) { return 3.2 + 3.3 * smoothstep01((-z - 30) / 5); }
 
 export type CaveLayer = "surface" | "arcade" | "paper";
 const ARCADE_PORTAL_Z = ARCADE_CAVE.entrance.z + 0.08;
@@ -209,7 +209,7 @@ export function arcadeCaveFloorHeight(p: Point) {
 }
 export function paperCaveFloorHeight(p: Point) {
   const depth = smoothstep01((-p.z - 30) / 3.2);
-  return paperMouthY - 1.15 * depth;
+  return paperMouthY - 2.2 * depth;
 }
 
 /** Only the entrance apron modifies surface topography. The tunnel footprint
@@ -232,7 +232,7 @@ function paperAccessTerrainMask(x: number, z: number) {
   return Math.max(0, Math.min(1, lateralMask * backFade * frontFade));
 }
 
-export function paperCaveInside(p:Point) {return Math.abs(p.x-PAPER_CAVE.x)<paperCaveHalfWidth(p.z)-.5 && p.z < -31 && p.z > -35.5;}
+export function paperCaveInside(p:Point) {return Math.abs(p.x-PAPER_CAVE.x)<paperCaveHalfWidth(p.z)-.5 && p.z < -31 && p.z > PAPER_CAVE.backZ+.6;}
 export function arcadeInside(p:Point) {return p.z>-81.5 && p.z<-63 && Math.abs(p.x-16)<caveHalfWidth(p.z)-.3;}
 /** The cave is carved inside an alpine biome. Its Shasta waiting behavior
  * follows actual cave-layer geometry, not the nearest open-air region label.
@@ -269,7 +269,12 @@ export function nextCaveLayer(
   to: Point,
   y: number,
 ): CaveLayer {
-  if (layer === "surface") return supportLayerAtPoint(layer, to, y);
+  if (layer === "surface") {
+ const candidate=supportLayerAtPoint(layer,to,y);
+ if(candidate==="paper"&&!(from.z>=PAPER_PORTAL_Z&&to.z<PAPER_PORTAL_Z))return "surface";
+ if(candidate==="arcade"&&!(from.z<=ARCADE_PORTAL_Z&&to.z>ARCADE_PORTAL_Z))return "surface";
+ return candidate;
+ }
   if (
     layer === "arcade" &&
     from.z > ARCADE_PORTAL_Z &&
@@ -286,10 +291,10 @@ export function nextCaveLayer(
 export function caveObstacles(): Obstacle[] {
   const result: Obstacle[] = [];
   for (const side of [-1, 1]) {
-    for (let z = -30; z >= -36; z--) result.push({ x: -20 + side * (paperCaveHalfWidth(z) + .2), z, radius: .35 });
+    for (let z = -30; z >= PAPER_CAVE.backZ; z-=.6) result.push({ x: -20 + side * (paperCaveHalfWidth(z) + .2), z, radius: .35 });
     for (let z = -81; z < -63; z++) result.push({ x: 16 + side * (caveHalfWidth(z) + .4), z, radius: .32 });
   }
-  for (let x = -24; x <= -16; x++) result.push({ x, z: -36.5, radius: .35 });
+  for (let x = PAPER_CAVE.x-PAPER_CAVE.halfWidth; x <= PAPER_CAVE.x+PAPER_CAVE.halfWidth; x+=.6) result.push({ x, z: PAPER_CAVE.backZ-.1, radius: .4 });
   // No baffle obstacle at z=-74.5: the main arcade corridor is unobstructed.
   for (let x = 10; x < 23; x += .8) result.push({ x, z: -62.5, radius: .35 });
   return result;
@@ -505,6 +510,7 @@ export type WorldCommand = {
   region: RegionId;
   serial: number;
   activity?: import("./activities").Activity;
+  natureDestination?: "ocean-bench" | "research-cave" | "fern-crown" | "coastal-falls";
   skateDestination?: "canyon-flow" | "loop-rollin" | "loop-reverse" | "hollow-log" | "log-top";
   sportDestination?: "jet-pier";
 };

@@ -1,3 +1,4 @@
+import {ringSurfaceHeight} from "./surfaceSupport";
 import { isWater, SEA_SURFACE, terrainHeight, worldFloorHeight } from "./model";
 export const SNOWMELT_PATH = [
   { x: -13, z: -66 },
@@ -77,4 +78,19 @@ export function waterfallCrownRings(): WaterPoint[][] {
     { x: p.x + 3.6, y: Math.max(p.y + .25, terrainHeight(p.x + 3.6, p.z)), z: p.z },
     { x: p.x + 7, y: terrainHeight(p.x + 7, p.z), z: p.z },
   ]);
+}
+
+let crownCache:ReturnType<typeof waterfallCrownRings>|undefined;
+export function waterfallRockHeight(p:{x:number;z:number}):number|null{
+ if(p.z < -42 || p.z > -30 || p.x < -30 || p.x > -10)return null;
+ return ringSurfaceHeight(crownCache??=waterfallCrownRings(),p);
+}
+export const COAST_BENCH={x:-29,z:-40} as const;
+export const COAST_WHALE={x:-65,z:-43} as const;
+export const COAST_FALL={x:-32.15,z:-48} as const;
+export function mountainTributaries(){
+ return [
+  [{x:-13,z:-66},{x:-19,z:-64},{x:-25,z:-60},{x:-28,z:-55},COAST_FALL],
+  [{x:1,z:-66},{x:-3,z:-59},{x:-7,z:-53},{x:-12,z:-47},{x:-20,z:-37}],
+ ].map(path=>surfaceRibbon(path.map(p=>({...p,y:terrainHeight(p.x,p.z)+.11}))));
 }

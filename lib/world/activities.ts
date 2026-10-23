@@ -1,3 +1,4 @@
+import {waterfallRockHeight} from "./hydrology";
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
 import {insideMeadowConnector,insideSkatePark,skateParkSurface,skateParkLipCrossing,redwoodBowlCarveHeading,SKATE_PARK_RAILS,SKATE_GROVE_FLOW,type SkateRail} from "./skatepark";
 import {skateRollingSpeed} from "./skateDynamics";
@@ -289,7 +290,7 @@ export const SWIM_SPEED = 4.6;
 export function groundHeight(p: Point) {
   const pier=jetSkiPierHeight(p);
   if(pier!==null)return pier;
-  let height = worldFloorHeight(p.x, p.z);
+  let height = Math.max(worldFloorHeight(p.x, p.z),waterfallRockHeight(p)??-Infinity);
   if (isWater(p)) return height;
   for (const ramp of RIDE_RAMPS)
     height = Math.max(height, rampSurface(ramp, p) ?? -Infinity);
