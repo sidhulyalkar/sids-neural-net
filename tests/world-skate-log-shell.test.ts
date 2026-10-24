@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {GROVE_TUNNEL as g,SKATE_LOOP} from '../lib/world/skatepark';
-import {advanceSkateTunnelRide,beginSkateTunnelRide,contactSkateLog,jumpSkateTunnel,resolveSkateLogMotion,sequoiaTubePoint,skateLogShellDistance,skateTunnelSample,sweepSkateLog,type V} from '../lib/world/skateTunnel';
+import {advanceSkateTunnelRide,beginSkateTunnelRide,contactSkateLog,enterSkateTunnel,jumpSkateTunnel,resolveSkateLogMotion,sequoiaTubePoint,skateLogShellDistance,skateTunnelSample,sweepSkateLog,type V} from '../lib/world/skateTunnel';
 import {advanceSkateLoop,beginSkateLoop,enterSkateLoop,skateLoopSample} from '../lib/world/skateLoop';
 const floor=()=>2;
 const vector=(p:{x:number;y:number;z:number}):V=>[p.x,p.y,p.z];
@@ -106,12 +106,28 @@ test('loop accepts approaches through sixty degrees at either mouth, preserving 
  }
 });
 
-test('ground-level mouth seams retain inward momentum instead of catching the cut rim',()=>{
+test('ground-level mouth seams roll freely instead of auto-catching the sequoia tube',()=>{
  for(const side of [-1,1]){
-  const m=resolveSkateLogMotion([side*(g.halfLength+.35),2,g.center.z],
-   [side*(g.halfLength-.15),2,g.center.z],[-side*8,0,0],floor);
-  assert.ok(m.ride);assert.equal(m.ride.surface,'inner');
-  assert.ok(Math.abs(m.ride.vx+side*8)<.001);assert.ok(m.ride.speed>7.99);
+  const from:V=[side*(g.halfLength+.35),2,g.center.z];
+  const to:V=[side*(g.halfLength-.15),2,g.center.z];
+  const velocity:V=[-side*8,0,0];
+  const m=resolveSkateLogMotion(from,to,velocity,floor);
+  assert.equal(m.ride,null,'low inner skin is normal floor, not a trick');
+  assert.equal(m.blocked,false,'the open mouth stays physically passable');
+  assert.ok(Math.hypot(...m.position.map((n,i)=>n-to[i]))<1e-6);
+  assert.equal(enterSkateTunnel({x:from[0],z:from[2]},
+   {x:to[0],z:to[2]},to[1],velocity,floor),null,
+   'mouth entry cannot bypass the same low-height restriction');
+ }
+});
+test('raised deliberate mouth entry still acquires the sequoia ride',()=>{
+ for(const side of [-1,1]){
+  const from={x:side*(g.halfLength+.35),z:g.center.z};
+  const to={x:side*(g.halfLength-.15),z:g.center.z};
+  const r=enterSkateTunnel(from,to,3.2,[-side*8,0,0],floor);
+  assert.ok(r,'raised approach retains the authored inverted-tube activity');
+  assert.equal(r!.surface,undefined);
+  assert.equal(r!.direction,-side);
  }
 });
 
