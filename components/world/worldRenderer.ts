@@ -2810,6 +2810,9 @@ export function createWorld(
   const goldenTridents = createWorldTridents(reefRoot,tropicalReefRoot);
   canvas.dataset.schoolingFish = String(marineSchools.count);
   canvas.dataset.rayPassage = String(rayPassage.count);
+  canvas.dataset.eagleFever = String(rayPassage.feverCount);
+  canvas.dataset.eagleFeverVisible = String(rayPassage.visibleFeverCount);
+  canvas.dataset.eagleFeverDrawCalls = String(rayPassage.feverDrawCalls);
   canvas.dataset.goldenTridents = String(goldenTridents.count);
 
 
