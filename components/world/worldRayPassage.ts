@@ -171,7 +171,7 @@ export function createRayPassage(lagoonRoot: THREE.Group) {
   }
   rocks.instanceMatrix.needsUpdate=true;
   let last=-Infinity;
-  function update(seconds:number,reducedMotion=false) {
+  function update(seconds:number,reducedMotion=false,observer?:{x:number;y:number;z:number}) {
     if (!lagoonRoot.visible || !root.visible) return;
     if (seconds-last < 1/15) return;
     last=seconds;
@@ -194,7 +194,7 @@ export function createRayPassage(lagoonRoot: THREE.Group) {
       const mesh=feverBodies[cohort];
       for(let slot=0;slot<mesh.count;slot++){
         const index=slot*EAGLE_FEVER_COHORTS+cohort;
-        const pose=sampleEagleFever(index,t,seaFloorHeight,SEA_SURFACE);
+        const pose=sampleEagleFever(index,t,seaFloorHeight,SEA_SURFACE,observer);
         dummy.position.set(pose.x,pose.y,pose.z);
         dummy.rotation.set(0,pose.yaw,pose.roll);
         dummy.scale.setScalar(pose.size);
