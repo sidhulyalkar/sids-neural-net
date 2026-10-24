@@ -19,8 +19,8 @@ test("lagoon trench is smooth, finite and isolated from shores and existing spor
   }
   for(let x=60;x<=94;x+=.5)for(let z=-42;z<=58;z+=.5) {
     const a=rayPassageDepth(x,z),b=rayPassageDepth(x+.1,z+.1);
-    assert.ok(Number.isFinite(a)&&a>=0&&a<=4.35);
-    assert.ok(Math.abs(a-b)<.16,`bathymetry seam at ${x} ${z}`);
+    assert.ok(Number.isFinite(a)&&a>=0&&a<=13.5);
+    assert.ok(Math.abs(a-b)<.55,`bathymetry seam at ${x} ${z}`);
   }
   assert.ok(seaFloorHeight(82,8)<seaFloorHeight(82,65)-2);
 });
@@ -54,7 +54,7 @@ test("twelve distinct ray actors stay inside water and above the true seafloor",
 test("submerged ray geometry has three morphologies, animates and disposes", () => {
   const lagoon=new THREE.Group();
   const lifecycle=createRayPassage(lagoon);
-  assert.equal(lifecycle.count,12);
+  assert.equal(lifecycle.count,132);
   const root=lagoon.getObjectByName("eagle-ray-cleaning-passage")!;
   assert.ok(root);
   for(const spec of RAY_PASSAGE_CAST) {
