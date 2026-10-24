@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {GROVE_TUNNEL as g,SKATE_LOOP} from '../lib/world/skatepark';
-import {beginSkateTunnelRide,jumpSkateTunnel,advanceSkateTunnelRide,skateTunnelSample,canRideLogContact,resolveSkateLogMotion,skateLogShellDistance,type V} from '../lib/world/skateTunnel';
+import {beginSkateTunnelRide,jumpSkateTunnel,advanceSkateTunnelRide,skateTunnelSample,canRideLogContact,LOG_RIM_MIN_HEIGHT,resolveSkateLogMotion,skateLogShellDistance,type V} from '../lib/world/skateTunnel';
 import {beginSkateLoop,jumpSkateLoop,advanceSkateLoop,skateLoopSample} from '../lib/world/skateLoop';
 const floor=()=>2;
 test('low cut edges remain solid but cannot attach the skateboard',()=>{
@@ -11,6 +11,14 @@ test('low cut edges remain solid but cannot attach the skateboard',()=>{
   assert.equal(canRideLogContact({point:[point[0],3,point[2]],t:.5,surface:'rim'},floor),true);
   const result=resolveSkateLogMotion([point[0]+side,point[1],point[2]],[point[0]-side,point[1],point[2]],[-side*8,0,0],floor,[0,1,0],true);
   assert.equal(result.ride,null);assert.ok(result.blocked);assert.ok(result.position[1]>=2);
+ }
+});
+test('only the sequoia tube forbids auto-acquiring any skin below Shasta-body height',()=>{
+ for(const surface of ['inner','outer','rim'] as const){
+  const point:V=[0,2+LOG_RIM_MIN_HEIGHT-.02,g.center.z];
+  assert.equal(canRideLogContact({point,t:.5,surface},floor),false,surface);
+  const high:V=[point[0],2+LOG_RIM_MIN_HEIGHT+.02,point[2]];
+  assert.equal(canRideLogContact({point:high,t:.5,surface},floor),true,surface);
  }
 });
 test('interior jumps from floor, sides and ceiling settle onto center with forward motion',()=>{
