@@ -42,7 +42,7 @@ export function sampleEagleFever(
     + .25*Math.sin(t*.4 + index*.6);
   const depth=Math.min(targetDepth,Math.max(.85,
     seaSurface-floorAt(x,z)-EAGLE_FEVER_MIN_CLEARANCE));
-  const y=seaSurface-depth;
+  let y=seaSurface-depth;
   if(observer && [observer.x,observer.y,observer.z].every(Number.isFinite)) {
     const dx=x-observer.x,dz=z-observer.z;
     const horizontal=Math.hypot(dx,dz);
@@ -54,6 +54,7 @@ export function sampleEagleFever(
       const inv=horizontal>1e-5?1/horizontal:0;
       x+=(inv?dx*inv:Math.cos(index*2.4))*repel;
       z+=(inv?dz*inv:Math.sin(index*2.4))*repel;
+      y=Math.max(y,floorAt(x,z)+EAGLE_FEVER_MIN_CLEARANCE);
     }
   }
   return {
