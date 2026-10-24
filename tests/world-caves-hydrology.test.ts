@@ -23,25 +23,25 @@ test("snowmelt, lip, pool and creek share a continuous downhill profile above te
 });
 
 test("paper cave widens and descends beneath a continuous waterfall shoulder", () => {
-  assert.equal(paperCaveHalfWidth(-30) * 2, 4.6);
-  assert.equal(paperCaveHalfWidth(-34) * 2, 8);
+  assert.equal(paperCaveHalfWidth(-30) * 2, 6.4);
+  assert.equal(paperCaveHalfWidth(-36) * 2, 13);
   const mouth = paperCaveFloorHeight({ x: -20, z: -30 });
   const chamber = paperCaveFloorHeight({ x: -20, z: -34 });
   assert.ok(chamber < mouth - .8, "archive chamber descends behind the waterfall");
-  for (let z = -35; z <= -31; z += .25) {
+  for (let z = -35; z <= -32; z += .25) {
     const floor = paperCaveFloorHeight({ x: -20, z });
     const roof = terrainHeight(-20, z);
     assert.ok(roof > floor + 4, `paper cave roof clearance at ${z}`);
     assert.ok(Math.abs(roof - mountainSurfaceHeight(-20, z)) < 1e-8);
   }
-  assert.equal(paperCaveInside({ x: -17, z: -31.1 }), false);
+  assert.equal(paperCaveInside({ x: -16, z: -31.1 }), false);
   assert.equal(paperCaveInside({ x: -17, z: -34 }), true);
 });
 
-test("both cave routes permit entry and exit while walls and throat baffle remain solid", () => {
+test("both cave routes permit entry and exit with solid walls and an open arcade centerline", () => {
   const solids = caveObstacles();
   const routes = [
-    [{ x: 16, z: -86 }, { x: 16, z: -77 }, { x: 18.1, z: -77 }, { x: 18.1, z: -67 }, { x: 16, z: -67 }],
+    [{ x: 16, z: -86 }, { x: 16, z: -77 }, { x: 16, z: -71 }, { x: 16, z: -67 }],
     [{ x: -20, z: -27 }, { x: -20, z: -34 }],
   ];
   for (const route of routes) {
@@ -52,8 +52,9 @@ test("both cave routes permit entry and exit while walls and throat baffle remai
       }
     }
   }
-  assert.ok(constrainMove({ x: 14, z: -77 }, { x: 14, z: -71 }, solids).z < -74.5);
-  assert.ok(constrainMove({ x: -20, z: -34 }, { x: -20, z: -39 }, solids).z > -36.5);
+  assert.ok(Math.abs(constrainMove({ x: 14, z: -77 }, { x: 14, z: -71 }, solids).z+71)<.001,
+    "the old baffle footprint must allow a direct corridor traversal");
+  assert.ok(constrainMove({ x: -20, z: -40 }, { x: -20, z: -47 }, solids).z > -44.2);
 });
 
 

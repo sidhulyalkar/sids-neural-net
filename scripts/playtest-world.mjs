@@ -29,10 +29,17 @@ try {
   await page.goto(base);
   assert.equal(await page.getByRole('link', { name: 'View site', exact: true }).getAttribute('href'), '/atlas');
   assert.equal(await page.getByRole('link', { name: 'Get to know me', exact: true }).getAttribute('href'), '/about');
+  assert.equal(await page.getByRole('heading', { name: 'Welcome to Sid’s iLand', exact: true }).count(), 1);
+  assert.equal(await page.getByRole('link', { name: 'Sid Hulyalkar', exact: true }).getAttribute('href'), '/');
+  assert.equal(await page.getByText('CALIFORNIA, IN MIND').count(), 0);
+  assert.equal(await page.getByText('Brains, machines,').count(), 0);
+  assert.equal(await page.getByText('Neuroscience & engineering').count(), 0);
   await waitForScene(page);
   assert.equal(await page.locator('canvas').getAttribute('data-carved-games'), '3');
   assert.equal(await page.locator('canvas').getAttribute('data-reef-species'), '8');
   assert.equal(await page.locator('canvas').getAttribute('data-lagoon-species'), '8');
+  assert.equal(await page.locator('canvas').getAttribute('data-tropical-turtles'), '1');
+  assert.ok(Number(await page.locator('canvas').getAttribute('data-marine-video-encounters')) >= 0);
   assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife'), '14');
   assert.equal(await page.locator('canvas').getAttribute('data-land-wildlife-style'), 'anatomical-v4');
   assert.equal(await page.locator('canvas').getAttribute('data-marine-wildlife-style'), 'anatomical-v3');
@@ -92,7 +99,7 @@ try {
   for (const [name, prompt, title] of [
     ['01 Redwood grove A little about me', 'Redwood grove', 'Redwood grove.'],
     ['02 Granite ridge Things I build', 'Granite ridge', 'Granite ridge.'],
-    ['03 Strange grove Things I explore', 'Strange grove', 'Strange grove.'],
+    ['03 Mystic grove Things I explore', 'Mystic grove', 'Mystic grove.'],
     ['04 Wild coast Cold-water coast', 'Wild coast', 'Wild coast.'],
     ['05 Lagoon reef South Pacific reef', 'Lagoon reef', 'Lagoon reef.'],
     ['06 Fern falls Follow the water', 'Fern falls', 'Fern falls.'],
@@ -124,20 +131,27 @@ try {
       );
       await screenshot(page, 'region-08-entrance');
 
-      // Walk the flat tunnel and its offset throat through ordinary controls.
+      // V3 removed the obstructive solid baffle. Walk the open centerline:
+      // the old lateral detour would stall at the cave sidewall and time out.
       const walkUntil = async (key, axis, target, greater) => {
         await page.keyboard.down(key);
         try {
           await page.waitForFunction(({axis,target,greater})=>{
             const p=(document.querySelector('canvas')?.dataset.player??'').split(',').map(Number);
             return greater?p[axis]>=target:p[axis]<=target;
-          },{axis,target,greater},{timeout:22000});
+          },{axis,target,greater},{timeout:110000});
+          // The full-site audit runs Chromium on SwiftShader. Movement is
+          // simulation-frame-bound, so real-world 22s is insufficient for
+          // a 9m corridor despite valid running controls. Use the same
+          // bounded 110s limit as the focused Arcade Cavern browser test.
         } finally {await page.keyboard.up(key);}
       };
       await walkUntil('w',1,-77,true);
-      await walkUntil('a',0,18.1,true);
       await walkUntil('w',1,-67.2,true);
-      await walkUntil('d',0,16.05,false);
+      const clearPath=await page.locator('canvas').getAttribute('data-player');
+      const [crossTrack]=String(clearPath).split(',').map(Number);
+      assert.ok(Math.abs(crossTrack-16)<1.4,
+        'Arcade entry must not require an invisible lateral baffle detour');
       await page.waitForFunction(
         () => document.querySelector('canvas')?.dataset.gazeGame?.startsWith('game:'),
         null,
@@ -239,7 +253,7 @@ try {
       results.push('Boulder action climbs a real ledge');
     } else {
       await page.keyboard.press('Space');
-      await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'true');
+      await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'true',null,{timeout:18000});
       await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'false');
     }
   }
@@ -253,7 +267,8 @@ try {
   // authored skatepark and an actual landed assisted trick here; dedicated
   // skatepark browser QA verifies its ramps, grinds, bowls and moving lines.
   await page.getByRole('button', { name: 'Skateboarding', exact: true }).click();
-  await page.getByRole('button', { name: 'Skatepark · south meadow', exact: true }).click();
+  await page.getByRole('button', { name: 'Show sport shortcuts' }).click();
+  await page.getByRole('button', { name: 'Skatepark', exact: true }).click();
   await page.waitForFunction(() => {
     const d=document.querySelector('canvas')?.dataset;
     return d?.skatePark==='true' && d?.activity==='skate' && d?.skimPhase==='off';
@@ -315,7 +330,10 @@ try {
     await page.waitForFunction(
       () => document.querySelector('canvas')?.dataset.rampId === 'ski-kicker',
       null,
-      { timeout: 12000 },
+      // SwiftShader CI can render roughly 1 FPS on the combined island.
+      // Kicker is 7 m downhill from Granite Ridge; at ~2 m / 12 sec
+      // the old 12-second gate expired before the player reached the lip.
+      { timeout: 90000 },
     );
     await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'true');
   } finally {
@@ -494,7 +512,8 @@ try {
   await page.keyboard.press('Escape'); results.push('Menu keeps keyboard focus and supports Escape');
   // Optional challenges are playable without a new screen or account.
   await page.getByRole('button', { name: 'Mountain biking', exact: true }).click();
-  await page.getByRole('button', { name: 'Joshua lap · start trial', exact: true }).click();
+  await page.getByRole('button', { name: 'Show sport shortcuts' }).click();
+  await page.getByRole('button', { name: 'Bike race', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.trialPhase === 'armed');
   assert.equal(await page.locator('canvas').getAttribute('data-technical-features'), '3-gardens-3-beams');
   await screenshot(page, 'challenge-joshua-start');
@@ -515,7 +534,8 @@ try {
   // Ski Big Air: genuine forward approach, bird escorts, sampled distance
   // and safe landing. This uses only ordinary UI + keyboard input.
   await page.getByRole('button',{name:'Skiing',exact:true}).click();
-  await page.getByRole('button',{name:'Alpine Big Air · start',exact:true}).click();
+  await page.getByRole('button', { name: 'Show sport shortcuts' }).click();
+  await page.getByRole('button', { name: 'Ski jump', exact: true }).click();
   await page.waitForFunction(
     () => document.querySelector('canvas')?.dataset.bigAirPhase === 'armed',
   );
@@ -552,7 +572,8 @@ try {
 
   // World smoke QA: the dedicated disc-golf browser workflow owns the full
   // nine-hole route. Do not retain old four-hole/three-tap controls here.
-  await page.getByRole('button',{name:/^Disc golf · (play|resume|scorecard)$/}).click();
+  await page.getByRole('button', { name: 'Show sport shortcuts' }).click();
+  await page.getByRole('button', { name: 'Disc golf', exact: true }).click();
   await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.discGolfPhase==='ready');
   assert.equal(await page.locator('canvas').getAttribute('data-disc-golf-holes'),'9');
   const discHud=page.getByRole('complementary',{name:'Disc golf controls'});

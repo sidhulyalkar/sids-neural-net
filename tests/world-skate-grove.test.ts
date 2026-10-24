@@ -5,12 +5,13 @@ import {groundHeight,nearestGrind,rampImpulseCrossing} from "../lib/world/activi
 import {
  SKATE_PARK,SKATE_PARK_RAILS,STUMP_PADS,REDWOOD_BOWL,
  insideSkatePark,skateParkZone,skateParkSurface,
- GROVE_BRIDGE,GROVE_LOG,groveBridgeRise,groveLogRise,
+ insideMeadowConnector,GROVE_BRIDGE,GROVE_LOG,groveBridgeRise,groveLogRise,
 } from "../lib/world/skatepark";
 
 test("Redwood Skate Grove has readable, geographically distinct features",()=>{
- assert.equal(SKATE_PARK_RAILS.length,3,"preserve existing grindable segments and ids");
- assert.deepEqual(SKATE_PARK_RAILS.map(rail=>rail.id),[
+ assert.ok(SKATE_PARK_RAILS.length>=18,
+  "preserve the original three while adding connected rail variation");
+ assert.deepEqual(SKATE_PARK_RAILS.filter(rail=>!rail.chainId).map(rail=>rail.id),[
   "park-flat-bar","park-down-rail","park-bowl-coping",
  ]);
  assert.equal(skateParkZone(REDWOOD_BOWL.center),"redwood-bowl");
@@ -86,7 +87,7 @@ test("reference bridge and split log have continuous physical entrances and clea
   let prior=groundHeight({x:feature.center.x-feature.halfLength-.3,z:feature.center.z});
   for(let dx=-feature.halfLength-.25;dx<=feature.halfLength+.25;dx+=.05){
    const p={x:feature.center.x+dx,z:feature.center.z};
-   assert.ok(insideSkatePark(p)&&!isWater(p));
+   assert.ok((insideSkatePark(p)||insideMeadowConnector(p))&&!isWater(p));
    const y=groundHeight(p);
    assert.ok(Math.abs(y-prior)<.18,"no step at either entrance or arch crest");
    assert.equal(y,skateParkSurface(p),"rendered support remains the physical support");

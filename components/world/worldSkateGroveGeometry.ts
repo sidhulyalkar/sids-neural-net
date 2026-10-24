@@ -1,10 +1,14 @@
 import * as THREE from "three/src/Three.Core.js";
 import {
-  SKATE_PARK, SKATE_PARK_RAILS, REDWOOD_BOWL, STUMP_PADS,
+  insideSkatePark,SKATE_PARK, SKATE_PARK_RAILS, REDWOOD_BOWL, STUMP_PADS,
   skateParkSurface, skateParkZone, GROVE_LOG, GROVE_BRIDGE,
-  groveBridgeRise, groveStoneRise,
+  GROVE_TUNNEL, SKATE_LOOP,
+  groveBridgeRise, groveStoneRise, CANYON_FLOW, CANYON_MANUAL_PADS,
+  MEADOW_CONNECTOR,insideMeadowConnector,meadowConnectorRise,canyonFlowRise,railLiftAt,insideCanyonFlow,SKATE_RAIL_GAPS,
 } from "@/lib/world/skatepark";
 import {terrainHeight,type Point} from "@/lib/world/model";
+import {sequoiaTubePoint,TUBE_TAU} from "@/lib/world/skateTunnel";
+import {beginSkateLoop,skateLoopSample,LOOP_TAU,LOOP_SEGMENTS} from "@/lib/world/skateLoop";
 import {biomeAt,BIOME_COLORS} from "@/lib/world/biomes";
 
 /**
@@ -141,6 +145,365 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  surface.name="skate-grove-ride-surface";
  surface.castShadow=false;surface.receiveShadow=true;
  group.add(surface);
+
+ // The new landmark art is one semantic scene group. Root child count stays
+ // within the original low-draw / easy-disposal contract.
+ const landmarkStart=group.children.length;
+
+ // The long eastern flow corridor extends the forest park toward Moss
+ // Canyon. Only its low, dry native-terrain rollers are added to wheel Y;
+ // the rendered grid samples the SAME skateParkSurface at every vertex.
+ const flowVertices:number[]=[],flowColors:number[]=[],flowFaces:number[]=[];
+ const flowStepsX=80,flowStepsZ=42;
+ const flowCedar=new THREE.Color("#c5a477");
+ for(let iz=0;iz<=flowStepsZ;iz++)for(let ix=0;ix<=flowStepsX;ix++){
+  const x=MEADOW_CONNECTOR.minX+
+   ix*(MEADOW_CONNECTOR.maxX-MEADOW_CONNECTOR.minX)/flowStepsX;
+  const z=MEADOW_CONNECTOR.minZ+
+   iz*(MEADOW_CONNECTOR.maxZ-MEADOW_CONNECTOR.minZ)/flowStepsZ;
+  const p={x,z},h=ride(p),lift=canyonFlowRise(p)+meadowConnectorRise(p);
+  flowVertices.push(x,h+.035,z);
+  const mix=THREE.MathUtils.clamp((lift-.02)/.42,0,.85);
+  // Low-lying ground is the host biome, not a rectangular olive decal.
+  // Only shaped rollers and polished wood surfaces acquire cedar pigments.
+  const color=new THREE.Color(0,0,0);
+  for(const [biome,weight] of Object.entries(biomeAt(p).weights))
+   color.add(new THREE.Color(BIOME_COLORS[biome as keyof typeof BIOME_COLORS])
+    .multiplyScalar(weight));
+  color.lerp(flowCedar,mix);
+  const woodGrain=1+.018*Math.sin(x*6.2+z*1.7)*mix;
+  color.multiplyScalar(woodGrain);
+  flowColors.push(color.r,color.g,color.b);
+ }
+ for(let iz=0;iz<flowStepsZ;iz++)for(let ix=0;ix<flowStepsX;ix++){
+  const a=iz*(flowStepsX+1)+ix,b=a+1,d=a+flowStepsX+1;
+  const midpoint={x:(flowVertices[a*3]+flowVertices[(d+1)*3])*.5,z:(flowVertices[a*3+2]+flowVertices[(d+1)*3+2])*.5};
+  if(insideMeadowConnector(midpoint)&&!insideSkatePark(midpoint))flowFaces.push(a,d,b,b,d,d+1);
+ }
+ const flowGeo=geometry(new THREE.BufferGeometry());
+ flowGeo.setAttribute("position",new THREE.Float32BufferAttribute(flowVertices,3));
+ flowGeo.setAttribute("color",new THREE.Float32BufferAttribute(flowColors,3));
+ flowGeo.setIndex(flowFaces);flowGeo.computeVertexNormals();
+ const flowSurface=new THREE.Mesh(flowGeo,material("#ffffff",{
+  vertexColors:true,side:THREE.DoubleSide,roughness:.99,
+ }));
+ flowSurface.name="canyon-woodland-flow-surface";
+ flowSurface.receiveShadow=true;flowSurface.castShadow=false;
+ group.add(flowSurface);
+ // A few polished manual-pad medallions and curved roller scoring rings.
+ // Painted/low-profile details only; no phantom lip or decorative wheel hit.
+ const flowPlanks:Part[]=[],flowPadRings:Part[]=[],flowWood=material("#987453");
+ for(const pad of CANYON_MANUAL_PADS){
+  for(const radius of [pad.radius*.52,pad.radius*.93])
+   for(let i=0;i<32;i++){
+    const a=i*Math.PI*2/32,b=(i+1)*Math.PI*2/32;
+    const p={x:pad.center.x+radius*Math.cos(a),
+     z:pad.center.z+radius*Math.sin(a)};
+    const q={x:pad.center.x+radius*Math.cos(b),
+     z:pad.center.z+radius*Math.sin(b)};
+    flowPadRings.push(beam(onRide(p,.060),onRide(q,.060),.020));
+   }
+ }
+ for(const roller of CANYON_FLOW.rollers){
+  for(let n=0;n<6;n++){
+   const x=roller.x-.9+n*.36;
+   const p={x,z:CANYON_FLOW.centerZ-1.1};
+   const q={x,z:CANYON_FLOW.centerZ+1.1};
+   flowPlanks.push(beam(onRide(p,.060),onRide(q,.060),.013));
+  }
+ }
+ pooled("canyon-manual-wood-rings",flowPadRings,grain);
+ pooled("canyon-roller-grain",flowPlanks,flowWood);
+
+ // An enormous old-growth sequoia, elliptical rather than cylindrical. Inner
+ // and outer skins share a tapering skeleton. The sole wheel-height authority
+ // is the sampled polished floor already present in skateParkSurface.
+ const sequoiaInner=material("#ffffff",{side:THREE.DoubleSide,vertexColors:true});
+ const sequoiaBark=material("#ffffff",{side:THREE.DoubleSide,vertexColors:true});
+ const sequoiaCut=material("#d7ac78",{side:THREE.DoubleSide});
+ const archSlices=88,logSlices=44;
+ const treePoint=(x:number,a:number,outer:boolean)=>{
+  const base=ride({x,z:GROVE_TUNNEL.center.z});
+  const point=sequoiaTubePoint(x,a,base,outer);
+  // Bark detail is shaded; both physical skins share exact contact geometry.
+  return new THREE.Vector3(point.x,point.y,point.z);
+ };
+ const makeSequoiaSkin=(outer:boolean)=>{
+  const vertices:number[]=[],faces:number[]=[],tints:number[]=[];
+  const light=new THREE.Color(outer?"#7e533b":"#dbb58c");
+  const dark=new THREE.Color(outer?"#34251c":"#b9875e");
+  const shade=new THREE.Color();
+  for(let ix=0;ix<=logSlices;ix++){
+   const x=GROVE_TUNNEL.center.x-GROVE_TUNNEL.halfLength+
+    ix*GROVE_TUNNEL.halfLength*2/logSlices;
+   for(let j=0;j<=archSlices;j++){
+    const a=j*TUBE_TAU/archSlices,p=treePoint(x,a,outer);
+    vertices.push(p.x,p.y,p.z);
+    const detail=outer ? .44+.29*Math.sin(21*a+x)+.13*Math.cos(38*a-x*2) :
+     .78+.075*Math.sin(x*4+a*8);
+    shade.copy(dark).lerp(light,THREE.MathUtils.clamp(detail,0,1));
+    tints.push(shade.r,shade.g,shade.b);
+   }
+  }
+  for(let ix=0;ix<logSlices;ix++)for(let j=0;j<archSlices;j++){
+   const a=ix*(archSlices+1)+j,b=a+1,n=a+archSlices+1;
+   faces.push(a,b,n,b,n+1,n);
+  }
+  const g=geometry(new THREE.BufferGeometry());
+  g.setAttribute("position",new THREE.Float32BufferAttribute(vertices,3));
+  g.setAttribute("color",new THREE.Float32BufferAttribute(tints,3));
+  g.setIndex(faces);g.computeVertexNormals();
+  const mesh=new THREE.Mesh(g,outer?sequoiaBark:sequoiaInner);
+  mesh.name=outer?"sequoia-deep-fluted-bark":"sequoia-hollow-inner-roof";
+  mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);
+ };
+ makeSequoiaSkin(false);makeSequoiaSkin(true);
+ // Annular END faces only: a true hollow mouth, never a disk blocking passage.
+ const cutVertices:number[]=[],cutFaces:number[]=[];
+ for(const side of [-1,1]){
+  const x=GROVE_TUNNEL.center.x+side*GROVE_TUNNEL.halfLength;
+  const off=cutVertices.length/3;
+  for(let j=0;j<=archSlices;j++){
+   const a=j*TUBE_TAU/archSlices;
+   for(const outer of [false,true]){
+    const p=treePoint(x,a,outer);
+    cutVertices.push(p.x+side*.005,p.y,p.z);
+   }
+  }
+  for(let j=0;j<archSlices;j++){
+   const v=off+j*2;
+   cutFaces.push(v,v+1,v+2,v+1,v+3,v+2);
+  }
+ }
+ const cutG=geometry(new THREE.BufferGeometry());
+ cutG.setAttribute("position",new THREE.Float32BufferAttribute(cutVertices,3));
+ cutG.setIndex(cutFaces);cutG.computeVertexNormals();
+ const endFaces=new THREE.Mesh(cutG,sequoiaCut);
+ endFaces.name="sequoia-open-end-heartwood";endFaces.receiveShadow=true;
+ group.add(endFaces);
+ const sequoiaEndGrain:Part[]=[],barkFlutes:Part[]=[],brokenRoots:Part[]=[];
+ for(const side of [-1,1]){
+  const x=GROVE_TUNNEL.center.x+side*GROVE_TUNNEL.halfLength;
+  for(const weight of [.18,.54,.91])for(let j=0;j<archSlices;j++){
+   const a=j*TUBE_TAU/archSlices,b=a+TUBE_TAU/archSlices;
+   const wood=(angle:number)=>treePoint(x,angle,false)
+    .lerp(treePoint(x,angle,true),weight);
+   sequoiaEndGrain.push(beam(wood(a),wood(b),weight>.8?.023:.013));
+  }
+  for(const bank of [-1,1]){
+   const z=GROVE_TUNNEL.center.z+bank*(GROVE_TUNNEL.outerHalfWidth-.25);
+   const h=terrainHeight(x,z);
+   const rootX=x+side*1.35,rootZ=z+bank*.65;
+   brokenRoots.push(beam(new THREE.Vector3(x,h+.48,z),
+    new THREE.Vector3(rootX,terrainHeight(rootX,rootZ)+.08,rootZ),.17));
+  }
+ }
+ for(let j=0;j<20;j++){
+  const a=.10+j*(TUBE_TAU-.20)/19;
+  let last:THREE.Vector3|null=null;
+  for(let ix=0;ix<=logSlices;ix+=2){
+   const x=GROVE_TUNNEL.center.x-GROVE_TUNNEL.halfLength+
+    ix*GROVE_TUNNEL.halfLength*2/logSlices;
+   const p=treePoint(x,a,true);
+   p.y+=Math.cos(a)*.02;p.z+=Math.sin(a)*.02;
+   if(last)barkFlutes.push(beam(last,p,.018+(j%6)*.005));
+   last=p;
+  }
+ }
+ pooled("sequoia-open-end-growth-rings",sequoiaEndGrain,sequoiaCut);
+ pooled("sequoia-longitudinal-bark-flutes",barkFlutes,darkTimber);
+ pooled("sequoia-broken-root-buttresses",brokenRoots,bark);
+
+ // The board-contact path, cedar top, bark backing, planks, guard coping,
+ // and end runouts ALL sample the same tilted elliptical x/y track. The ring
+ // advances to a separate west-side exit instead of returning to its start.
+ const loopBase=ride(SKATE_LOOP.center);
+ const loopExitPoint={x:SKATE_LOOP.center.x-SKATE_LOOP.exitOffset,
+  z:SKATE_LOOP.center.z+SKATE_LOOP.laneOffset};
+ const sampleRide=beginSkateLoop(9,loopBase,SKATE_LOOP.center.z,
+  ride(loopExitPoint));
+ const loopCedar=material("#c6a071",{side:THREE.DoubleSide});
+ const loopBark=material("#55402f",{side:THREE.DoubleSide});
+ const loopSegments=LOOP_SEGMENTS;
+ const ringPoint=(a:number,z:number,backing=false)=>{
+  const pose=skateLoopSample({...sampleRide,angle:a});
+  const side=z-SKATE_LOOP.center.z;
+  const thick=backing?-SKATE_LOOP.supportThickness:0;
+  return new THREE.Vector3(pose.point.x+pose.right[0]*side+pose.up[0]*thick,
+   pose.y+pose.right[1]*side+pose.up[1]*thick,
+   pose.point.z+pose.right[2]*side+pose.up[2]*thick);
+ };
+ function addLoopSkin(backing:boolean,mat:THREE.Material,name:string){
+  const vertices:number[]=[],triangles:number[]=[];
+  for(let i=0;i<=loopSegments;i++){
+   const a=i*LOOP_TAU/loopSegments;
+   for(const side of [-1,1]){
+    const p=ringPoint(a,SKATE_LOOP.center.z+
+     side*SKATE_LOOP.width*.5,backing);
+    vertices.push(p.x,p.y,p.z);
+   }
+  }
+  for(let i=0;i<loopSegments;i++){
+   const a=i*2;triangles.push(a,a+1,a+2,a+1,a+3,a+2);
+  }
+  const g=geometry(new THREE.BufferGeometry());
+  g.setAttribute("position",new THREE.Float32BufferAttribute(vertices,3));
+  g.setIndex(triangles);g.computeVertexNormals();
+  const mesh=new THREE.Mesh(g,mat);
+  mesh.name=name;mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);
+ }
+ addLoopSkin(false,loopCedar,"full-360-loop-polished-tread");
+ addLoopSkin(true,loopBark,"full-360-loop-bark-understructure");
+ const loopCoping:Part[]=[],loopSlats:Part[]=[],loopStruts:Part[]=[];
+ for(const side of [-1,1]){
+  const z=SKATE_LOOP.center.z+side*SKATE_LOOP.width*.5;
+  for(let i=0;i<loopSegments;i++){
+   const a=i*LOOP_TAU/loopSegments,b=(i+1)*LOOP_TAU/loopSegments;
+   loopCoping.push(beam(ringPoint(a,z),ringPoint(b,z),.045));
+  }
+  // Buttresses anchored on the OUTER edge of the lane, not across the tread.
+  for(const angle of [LOOP_TAU*.14,LOOP_TAU*.37,LOOP_TAU*.63,LOOP_TAU*.86]){
+   const upper=ringPoint(angle,z,true);
+   const outerZ=upper.z+side*.80;
+   const foot=new THREE.Vector3(upper.x,
+    terrainHeight(upper.x,outerZ)+.05,outerZ);
+   if(upper.y>foot.y+.40)loopStruts.push(beam(foot,upper,.13));
+  }
+ }
+ for(let i=0;i<60;i++){
+  const angle=i*LOOP_TAU/60;
+  loopSlats.push(beam(
+   ringPoint(angle,SKATE_LOOP.center.z-SKATE_LOOP.width*.5),
+   ringPoint(angle,SKATE_LOOP.center.z+SKATE_LOOP.width*.5),.021));
+ }
+ pooled("loop-timber-safety-edges",loopCoping,metal);
+ pooled("loop-crossgrain-planks",loopSlats,grain);
+ pooled("loop-exterior-buttresses",loopStruts,darkTimber);
+ // Grounded approaches are physically normal skate terrain; the tracked
+ // inversion starts at the eastern seam and hands off at a different west
+ // seam. Render contiguous decks that meet both seams without a sharp lip.
+ const loopLead:Part[]=[];
+ const finish=skateLoopSample({...sampleRide,angle:LOOP_TAU});
+ for(const [origin,direction] of [
+  [SKATE_LOOP.center,{x:1,z:0}], [loopExitPoint,finish.heading],
+ ] as const){
+  const steps=32;
+  for(let i=0;i<steps;i++){
+   const along=i*SKATE_LOOP.leadLength/steps;
+   const next=(i+1)*SKATE_LOOP.leadLength/steps;
+   const at=(d:number,side:number)=>({
+    x:origin.x+direction.x*d+direction.z*side*SKATE_LOOP.width*.5,
+    z:origin.z+direction.z*d-direction.x*side*SKATE_LOOP.width*.5});
+   for(const side of [-1,1])loopLead.push(beam(
+    onRide(at(along,side),.045),onRide(at(next,side),.045),.035));
+   loopLead.push(beam(onRide(at(along,-1),.048),onRide(at(along,1),.048),.019));
+  }
+ }
+ // Broad planked bridge/roll-in with open ends and low side rails.
+ const bridgeParts:Part[]=[];
+ for(let z=40;z<=50;z+=.28){
+  bridgeParts.push(beam(onRide({x:29.7,z},.045),onRide({x:32.3,z},.045),.08));
+ }
+ for(const x of [29.7,32.3])for(let z=41;z<48;z+=1.4){
+  bridgeParts.push(beam(onRide({x,z},.06),onRide({x,z},.65),.07));
+  bridgeParts.push(beam(onRide({x,z},.65),onRide({x,z:z+1.4},.65),.06));
+ }
+ pooled("meadow-timber-bridge",bridgeParts,timber);
+ pooled("loop-distinct-entry-exit-ramps",loopLead,grain);
+
+ // The outer stump becomes genuine rugged sequoia bark. This annular shell
+ // hugs only the OUTSIDE of the drivable rim and fades into terrain: no roof,
+ // invisible collider, or bark slab occupying the carved bowl interior.
+ const barkVertices:number[]=[],barkFaces:number[]=[],barkColors:number[]=[];
+ const barkLight=new THREE.Color("#82543a"),barkDark=new THREE.Color("#35271f");
+ const barkMix=new THREE.Color(),barkAzimuths=128,barkRings=10;
+ for(let k=0;k<=barkAzimuths;k++){
+  const a=k*2*Math.PI/barkAzimuths;
+  const split=Math.abs(Math.atan2(Math.sin(a-.15),Math.cos(a-.15)));
+  for(let j=0;j<=barkRings;j++){
+   const f=j/barkRings,r=REDWOOD_BOWL.rimRadius+.18+
+    f*(REDWOOD_BOWL.barkRadius-REDWOOD_BOWL.rimRadius+.24);
+   const p={x:REDWOOD_BOWL.center.x+r*Math.cos(a),
+    z:REDWOOD_BOWL.center.z+r*Math.sin(a)};
+   const flare=.028*Math.sin(a*27+f*4)+.022*Math.cos(a*43-f*8);
+   // Near the open eastern roll-in, recess the bark skin completely.
+   const rise=split<.43?0:.085+.028*Math.max(0,flare);
+   barkVertices.push(p.x,ride(p)+rise,p.z);
+   const grain=.47+.26*Math.sin(a*37+f*1.5)+.12*Math.cos(a*59-f*5);
+   barkMix.copy(barkDark).lerp(barkLight,THREE.MathUtils.clamp(grain,0,1));
+   barkColors.push(barkMix.r,barkMix.g,barkMix.b);
+  }
+ }
+ for(let k=0;k<barkAzimuths;k++)for(let j=0;j<barkRings;j++){
+  const a=k*(barkRings+1)+j,b=a+1,d=a+barkRings+1;
+  barkFaces.push(a,b,d,b,d+1,d);
+ }
+ const barkG=geometry(new THREE.BufferGeometry());
+ barkG.setAttribute("position",new THREE.Float32BufferAttribute(barkVertices,3));
+ barkG.setAttribute("color",new THREE.Float32BufferAttribute(barkColors,3));
+ barkG.setIndex(barkFaces);barkG.computeVertexNormals();
+ const bowlBark=new THREE.Mesh(barkG,material("#ffffff",
+  {vertexColors:true,side:THREE.DoubleSide,roughness:1}));
+ bowlBark.name="stump-bowl-outer-bark-apron";
+ bowlBark.castShadow=false;bowlBark.receiveShadow=true;group.add(bowlBark);
+ const stumpFlutes:Part[]=[],stumpRoots:Part[]=[];
+ for(let j=0;j<56;j++){
+  const a=(j+.5)*Math.PI*2/56;
+  if(Math.abs(Math.atan2(Math.sin(a-.15),Math.cos(a-.15)))<.46)continue;
+  for(let k=0;k<7;k++){
+   const r1=REDWOOD_BOWL.rimRadius+.27+
+    k*(REDWOOD_BOWL.barkRadius-REDWOOD_BOWL.rimRadius)/7;
+   const r2=r1+(REDWOOD_BOWL.barkRadius-REDWOOD_BOWL.rimRadius)/7;
+   const sample=(r:number)=>{
+    const p={x:REDWOOD_BOWL.center.x+r*Math.cos(a),
+     z:REDWOOD_BOWL.center.z+r*Math.sin(a)};
+    return onRide(p,.07);
+   };
+   stumpFlutes.push(beam(sample(r1),sample(r2),.018+(j%7)*.005));
+  }
+  if(j%5===0){
+   const r=REDWOOD_BOWL.barkRadius-.27;
+   const aPoint={x:REDWOOD_BOWL.center.x+r*Math.cos(a),
+    z:REDWOOD_BOWL.center.z+r*Math.sin(a)};
+   const endR=r+.55;
+   const bPoint={x:REDWOOD_BOWL.center.x+endR*Math.cos(a+.055),
+    z:REDWOOD_BOWL.center.z+endR*Math.sin(a+.055)};
+   stumpRoots.push(beam(onRide(aPoint,.03),
+    new THREE.Vector3(bPoint.x,terrainHeight(bPoint.x,bPoint.z)+.02,bPoint.z),.095));
+  }
+ }
+ pooled("stump-bowl-longitudinal-bark",stumpFlutes,darkTimber);
+ pooled("stump-bowl-flared-roots",stumpRoots,bark);
+ // Thin fallen bark, sequoia needles and broken grain surround the grove.
+ // Everything stays below board height and outside the reserved stunt lanes.
+ // No added floor collision, shaders, random streams, or expensive draw calls.
+ const barkLitter:Part[]=[],needleLitter:Part[]=[];
+ for(let i=0;i<310;i++){
+  const u=((i*73)%307)/307,v=((i*113+17)%311)/311;
+  const side=i%4;
+  const x=side===0?SKATE_PARK.center.x-SKATE_PARK.halfWidth+.7+u*2.0:
+   side===1?SKATE_PARK.center.x+SKATE_PARK.halfWidth-.7-u*1.5:
+   SKATE_PARK.center.x-SKATE_PARK.halfWidth+u*SKATE_PARK.halfWidth*2;
+  const z=side===2?SKATE_PARK.center.z-SKATE_PARK.halfDepth+.45+v*1.9:
+   side===3?SKATE_PARK.center.z+SKATE_PARK.halfDepth-.45-v*1.9:
+   SKATE_PARK.center.z-SKATE_PARK.halfDepth+v*SKATE_PARK.halfDepth*2;
+  const p={x,z},zone=skateParkZone(p);
+  if(zone==="sequoia-tunnel"||zone==="timber-loop"||
+   zone==="redwood-bowl"||zone==="timber-quarter"||
+   zone==="stump-pad")continue;
+  const floor=ride(p)+.044;
+  const a=i*2.399,r=.075+(i%8)*.029;
+  const end=new THREE.Vector3(x+Math.cos(a)*r,floor+.004,z+Math.sin(a)*r);
+  const start=new THREE.Vector3(x,floor,z);
+  (i%3===0?barkLitter:needleLitter).push(beam(start,end,i%3===0?.019:.007));
+ }
+ pooled("grove-fallen-bark-fragments",barkLitter,darkTimber);
+ pooled("grove-needle-duff",needleLitter,bark);
+ const landmarkGroup=new THREE.Group();
+ landmarkGroup.name="sequoia-tunnel-and-timber-loop";
+ for(const child of group.children.slice(landmarkStart))
+  landmarkGroup.add(child);
+ group.add(landmarkGroup);
 
  // The dark bark shoulder is painted on this SINGLE sampled riding mesh.
  // No intersecting decorative shell, hidden fascia or extra draw call.
@@ -294,22 +657,74 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  const logRails:Part[]=[],hybridRails:Part[]=[],railCaps:Part[]=[],railPosts:Part[]=[];
  for(const rail of SKATE_PARK_RAILS){
   const a=new THREE.Vector3(rail.a.x,support(rail.a)+rail.lift,rail.a.z);
-  const b=new THREE.Vector3(rail.b.x,support(rail.b)+rail.lift,rail.b.z);
-  const log=rail.id==="park-flat-bar";
+  const b=new THREE.Vector3(rail.b.x,support(rail.b)+railLiftAt(rail,1),rail.b.z);
+  const log=rail.id==="park-flat-bar"||rail.id.startsWith("root-")||rail.id.startsWith("canyon-root-");
   (log?logRails:hybridRails).push(beam(a,b,log ? 0.14 : 0.085));
   const capOffset=log ? 0.1 : 0.058;
   railCaps.push(beam(a.clone().add(new THREE.Vector3(0,capOffset,0)),
    b.clone().add(new THREE.Vector3(0,capOffset,0)),.023));
-  for(const p of [rail.a,rail.b]){
+  for(const [index,p] of [rail.a,rail.b].entries()){
+   if(index===0&&rail.segment!==undefined&&rail.segment>0)continue;
+   const h=railLiftAt(rail,index);
    railPosts.push(beam(
     new THREE.Vector3(p.x,support(p)+.04,p.z),
-    new THREE.Vector3(p.x,support(p)+rail.lift-.025,p.z),.056));
+    new THREE.Vector3(p.x,support(p)+h-.025,p.z),.056));
   }
  }
  pooled("redwood-log-grind",logRails,timber);
  pooled("split-timber-hybrid-rails",hybridRails,darkTimber);
  pooled("durable-grind-caps",railCaps,metal);
  pooled("grind-rail-timber-stands",railPosts,bark);
+
+ // A low, open-air granite/cedar gap garden. These stones sit OUTSIDE the
+ // center trajectory and carry no collision or invisible wheel support.
+ const gapLip:Part[]=[],gapGrain:Part[]=[];
+ const stoneData:{x:number;y:number;z:number;sx:number;sy:number;sz:number;ry:number}[]=[];
+ for(const [i,gap] of SKATE_RAIL_GAPS.entries()){
+  const depart=SKATE_PARK_RAILS.find(r=>r.id===gap.from)!;
+  const arrive=SKATE_PARK_RAILS.find(r=>r.id===gap.to)!;
+  const dx=arrive.a.x-depart.b.x,dz=arrive.a.z-depart.b.z;
+  const length=Math.hypot(dx,dz)||1,fx=dx/length,fz=dz/length;
+  const nx=-fz,nz=fx;
+  for(const [j,rail] of [depart,arrive].entries()){
+   const point=j===0?rail.b:rail.a,t=j===0?1:0;
+   const y=support(point)+railLiftAt(rail,t)+.065;
+   gapLip.push(beam(new THREE.Vector3(point.x+nx*.20,y,point.z+nz*.20),
+    new THREE.Vector3(point.x-nx*.20,y,point.z-nz*.20),.032));
+   const gx=point.x+(j===0?-.12:.12)*fx;
+   const gz=point.z+(j===0?-.12:.12)*fz;
+   gapGrain.push(beam(new THREE.Vector3(gx+nx*.18,y-.035,gz+nz*.18),
+    new THREE.Vector3(gx-nx*.18,y-.035,gz-nz*.18),.015));
+  }
+  for(const side of [-1,1]){
+   const cx=(depart.b.x+arrive.a.x)*.5+nx*side*(2.65+.20*i);
+   const cz=(depart.b.z+arrive.a.z)*.5+nz*side*(2.65+.20*i);
+   const p={x:cx,z:cz};
+   if(!insideCanyonFlow(p)&&!(
+     Math.abs(cx-SKATE_PARK.center.x)<SKATE_PARK.halfWidth&&
+     Math.abs(cz-SKATE_PARK.center.z)<SKATE_PARK.halfDepth))continue;
+   stoneData.push({x:cx,y:ride(p)+.21,z:cz,sx:.40,sy:.29,
+    sz:.47,ry:i*2.1+side*.53});
+  }
+ }
+ pooled("rail-gap-polished-cedar-takeoffs",gapLip,grain);
+ pooled("rail-gap-timber-endgrain",gapGrain,darkTimber);
+ if(stoneData.length){
+  const rockGeometry=geometry(new THREE.IcosahedronGeometry(1,1));
+  const rocks=new THREE.InstancedMesh(rockGeometry,
+   material("#92988f",{roughness:1}),stoneData.length);
+  rocks.name="off-line-northern-california-granite-erratics";
+  rocks.castShadow=false;rocks.receiveShadow=true;
+  stoneData.forEach((stone,i)=>{
+   dummy.position.set(stone.x,stone.y,stone.z);
+   dummy.rotation.set(.07,stone.ry,.09);
+   dummy.scale.set(stone.sx,stone.sy,stone.sz);
+   dummy.updateMatrix();rocks.setMatrixAt(i,dummy.matrix);
+  });
+  rocks.instanceMatrix.needsUpdate=true;rocks.computeBoundingSphere();
+  group.add(rocks);
+ }
+
 
  // Vegetation grows along the outer meadow seam, leaving every bank, rail,
  // stump and entrance clear. Fronds are static pooled strokes, not animated

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three/src/Three.Core.js";
 import {createWorldSkateGrove} from "../components/world/worldSkateGroveGeometry";
-import {skateParkSurface,SKATE_PARK,REDWOOD_BOWL,redwoodBowlBankRise} from "../lib/world/skatepark";
+import {skateParkSurface,SKATE_PARK,REDWOOD_BOWL,redwoodBowlBankRise,SKATE_PARK_RAILS,railLiftAt,insideCanyonFlow} from "../lib/world/skatepark";
 import {groundHeight} from "../lib/world/activities";
 
 test("authored wood geometry is static, named, low-draw and disposable",()=>{
@@ -34,6 +34,34 @@ test("authored wood geometry is static, named, low-draw and disposable",()=>{
  assert.equal(grove.root.parent,null,"dispose removes park from scene");
 });
 
+test("giant bark sculpture and elliptical hollow log are static, open and disposable",()=>{
+ const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
+ try{
+  for(const name of ["sequoia-hollow-inner-roof","sequoia-deep-fluted-bark",
+   "sequoia-open-end-heartwood","stump-bowl-outer-bark-apron",
+   "stump-bowl-longitudinal-bark","full-360-loop-polished-tread",
+   "full-360-loop-bark-understructure"]){
+    const object=grove.root.getObjectByName(name);
+    assert.ok(object,"missing sculptural landmark "+name);
+    assert.ok(object instanceof THREE.Mesh);
+    if(object instanceof THREE.Mesh){
+      const vertices=object.geometry.getAttribute("position");
+      assert.ok(object instanceof THREE.InstancedMesh?object.count>30:vertices.count>100,
+       "feature must be sculpted or batched with meaningful instances: "+name);
+      for(let i=0;i<vertices.count;i+=17)
+        for(const n of [vertices.getX(i),vertices.getY(i),vertices.getZ(i)])
+          assert.ok(Number.isFinite(n),"bad landmark vertex "+name);
+    }
+  }
+  const mouth=grove.root.getObjectByName("sequoia-open-end-heartwood") as THREE.Mesh;
+  const shell=grove.root.getObjectByName("sequoia-hollow-inner-roof") as THREE.Mesh;
+  assert.ok(mouth.geometry.index&&mouth.geometry.index.count>200);
+  assert.ok(shell.geometry.index&&shell.geometry.index.count>4000);
+  assert.equal(grove.root.getObjectByName("sequoia-tunnel-and-timber-loop")?.parent,grove.root);
+  assert.ok(grove.root.children.length<=22,"landmarks must share one pooled root");
+ }finally{grove.dispose();}
+});
+
 test("visible cedar deck samples exact riding heightfield at every grid vertex",()=>{
  const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
  try{
@@ -62,10 +90,10 @@ test("deep redwood silhouette belongs to the real surface, not a hidden art coll
   z:c.z+Math.sin(angle)*r,
  });
  const west=redwoodBowlBankRise(at(5.32,Math.PI));
- const outer=redwoodBowlBankRise(at(6.72,Math.PI));
+ const outer=redwoodBowlBankRise(at(7.15,Math.PI));
  const split=redwoodBowlBankRise(at(5.32,.15));
  const interior=redwoodBowlBankRise(at(.4,0));
- assert.ok(west>1.72&&west<2.3,
+ assert.ok(west>2.28&&west<2.85,
   "raised trunk crest must have a legible old-growth silhouette");
  assert.ok(outer<.05,"exterior bark shoulder returns to natural earth");
  assert.ok(split<west*.53,"east opening stays beginner-friendly");
@@ -120,5 +148,33 @@ test("tree trunk's dark bark exists in the authoritative riding field, not an ov
   assert.ok(brown.r>brown.b&&brown.g>brown.b*.8,
    "outer surface must be warm redwood bark, not concrete or an exposed seam");
   assert.equal(grove.root.getObjectByName("hollow-redwood-bark-shell"),undefined);
+ }finally{grove.dispose();}
+});
+
+
+test("Moss Canyon terrain ribbon and kinked rail art share physics heights",()=>{
+ const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
+ try{
+  const mesh=grove.root.getObjectByName("canyon-woodland-flow-surface");
+  assert.ok(mesh instanceof THREE.Mesh);
+  if(!(mesh instanceof THREE.Mesh))return;
+  const verts=mesh.geometry.getAttribute("position");
+  assert.ok(verts.count>2500&&verts.count<5000,
+   "corridor must be a bounded pooled surface, not thousands of individual objects");
+  for(let i=0;i<verts.count;i+=37){
+   const p={x:verts.getX(i),z:verts.getZ(i)};
+   if(!insideCanyonFlow(p))continue;
+   assert.ok(Math.abs(verts.getY(i)-.035-groundHeight(p))<.001,
+    "visible boards must match physical roller support exactly");
+  }
+  for(const name of ["canyon-roller-grain","canyon-manual-wood-rings",
+    "split-timber-hybrid-rails","redwood-log-grind","grind-rail-timber-stands"])
+   assert.ok(grove.root.getObjectByName(name),"missing "+name);
+  const rail=SKATE_PARK_RAILS.find(s=>s.chainId==="canyon-snake"&&s.segment===1);
+  assert.ok(rail);
+  assert.ok(railLiftAt(rail!,1)>.5);
+  // Every instance is pooled; the scene root must not balloon with single
+  // segment objects or reduce frame rate in the forest.
+  assert.ok(grove.root.children.length<=22);
  }finally{grove.dispose();}
 });

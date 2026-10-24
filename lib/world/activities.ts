@@ -1,6 +1,9 @@
+import {waterfallRockHeight,paperCaveRoofHeight} from "./hydrology";
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
-import {insideSkatePark,skateParkSurface,skateParkLipCrossing,redwoodBowlCarveHeading,SKATE_PARK_RAILS,SKATE_GROVE_FLOW,type SkateRail} from "./skatepark";
+import {insideMeadowConnector,insideSkatePark,skateParkSurface,skateParkLipCrossing,redwoodBowlCarveHeading,SKATE_PARK_RAILS,SKATE_GROVE_FLOW,type SkateRail} from "./skatepark";
 import {skateRollingSpeed} from "./skateDynamics";
+import {isContinuousRideRise} from "./rideSurface";
+import {airborneSupportHeight} from "./rideRecovery";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
 import {jetSkiPierHeight} from "./jetSkiPier";
@@ -192,6 +195,10 @@ export const FALLEN_LOGS = [
 ] as const;
 
 export const RIDE_RAMPS = [
+  {id:"sequoia-return-kicker",point:{x:-15.5,z:59},radius:1.25,
+   heading:{x:0,z:-1},lift:2.2,modes:["skate","bike"] as Activity[]},
+  {id:"grove-home-kicker",point:{x:-17.5,z:54.8},radius:1.1,
+   heading:{x:.1,z:-1},lift:2,modes:["skate","bike"] as Activity[]},
   {
     id: "skate-ramp",
     point: { x: -3, z: 13 },
@@ -283,7 +290,7 @@ export const SWIM_SPEED = 4.6;
 export function groundHeight(p: Point) {
   const pier=jetSkiPierHeight(p);
   if(pier!==null)return pier;
-  let height = worldFloorHeight(p.x, p.z);
+  let height = Math.max(worldFloorHeight(p.x, p.z),waterfallRockHeight(p)??-Infinity,paperCaveRoofHeight(p)??-Infinity);
   if (isWater(p)) return height;
   for (const ramp of RIDE_RAMPS)
     height = Math.max(height, rampSurface(ramp, p) ?? -Infinity);
@@ -327,6 +334,8 @@ export function stepTravel(
   airborne = 0,
   supportHeight: (p: Point) => number = groundHeight,
   boost = false,
+  riderY = NaN,
+  rideBase: (p:Point)=>number = p=>skateParkSurface(p)??terrainHeight(p.x,p.z),
 ): Travel {
   dt = Math.max(0, Math.min(dt, 0.05));
   const mode = effectiveActivity(selected, current.point);
@@ -344,9 +353,19 @@ export function stepTravel(
   const unbanked={x:blended.x/norm,z:blended.z/norm};
   const heading=mode==="skate"?
     redwoodBowlCarveHeading(current.point,unbanked,current.speed,dt):unbanked;
+  // A ski jump can be exited into Run in midair. Airborne contact must
+  // remain geometrically consistent across that activity transition.
+  const aboveShortProp=airborne>.2&&Number.isFinite(riderY);
+  // The same contact rule must control both speed-grade and climb blocking.
+  // Otherwise a high beam "above" the airborne rider can still brake them
+  // to a dead stop even though their trunk collision was correctly skipped.
+  const contactSupport=(p:Point)=>{
+    const y=supportHeight(p);
+    return aboveShortProp?airborneSupportHeight(riderY,y,rideBase(p)):y;
+  };
   const slope =
-    supportHeight({ x: current.point.x + heading.x, z: current.point.z + heading.z }) -
-    supportHeight(current.point);
+    contactSupport({ x: current.point.x + heading.x, z: current.point.z + heading.z }) -
+    contactSupport(current.point);
   const boostEligible=boost && (mode==="bike"||mode==="ski"||mode==="skate");
   const maxSpeed =
     config.speed *
@@ -368,19 +387,31 @@ export function stepTravel(
     speed * dt,
     destination ? distance(current.point, destination) : Infinity,
   );
+  // Finite trunks/rocks are solid near ground yet legitimately passable
+  // above their visual top during jumps. Cave walls (no topY) stay solid.
+  const contactObstacles=aboveShortProp?
+    obstacles.filter(o=>o.topY===undefined||riderY<=o.topY+.45):
+    obstacles;
   const point = constrainMove(
     current.point,
     {
       x: current.point.x + heading.x * step,
       z: current.point.z + heading.z * step,
     },
-    obstacles,
+    contactObstacles,
   );
   if (
     (!isWater(point)||jetSkiPierHeight(point)!==null) &&
-    supportHeight(point) > supportHeight(current.point) + Math.max(0.6, airborne)
-  )
-    return { ...current, speed: 0 };
+    contactSupport(point) > contactSupport(current.point) + Math.max(0.6, airborne)
+  ) {
+    // Mountain contours may be steep, but high prop lids and true cliffs
+    // cannot become invisible elevators for bikes or skateboards.
+    const ride=mode==="bike"||mode==="skate"||mode==="ski";
+    if(!ride||!isContinuousRideRise(current.point,point,contactSupport,rideBase))
+      // A blocked climb still permits the rider to pivot toward clear ground.
+      // Preserving the stale heading here can make the board feel unsteerable.
+      return {...current,heading,speed:0};
+  }
   return {
     point,
     heading,
@@ -634,7 +665,7 @@ export function sportClearance(p: Point) {
     return Math.hypot(p.x - a.x - dx * t, p.z - a.z - dz * t);
   };
   return (
-    insideSkatePark(p,2) ||
+    insideSkatePark(p,2) || insideMeadowConnector(p,2) ||
     desertTrackClearance(p) ||
     technicalFeatureClearance(p) ||
     bigAirClearance(p) ||
