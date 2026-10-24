@@ -1,5 +1,6 @@
 import type {Point} from "./model";
 import {GROVE_TUNNEL} from "./skatepark";
+/** Below Shasta's lower torso, the sequoia mouth is a roll-through, not an automatic grind catch. Scoped to this log only. */
 export const LOG_RIM_MIN_HEIGHT=.85;
 export const TUBE_TAU=2*Math.PI;
 const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
@@ -144,7 +145,9 @@ export function contactSkateLog(from:V,to:V,velocity:V,floor:Floor){
  return hit&&canRideLogContact(hit,floor)?rideAtLogHit(hit,velocity,floor):null;
 }
 export function canRideLogContact(hit:LogHit,floor:Floor){
- return hit.surface==="inner"||hit.point[1]-floor({x:hit.point[0],z:hit.point[2]})>=LOG_RIM_MIN_HEIGHT;
+ // Even the inner skin can report a swept wheel hit at a low mouth seam.
+ // Only acquire the special tube ride above Shasta's lower-torso height.
+ return hit.point[1]-floor({x:hit.point[0],z:hit.point[2]})>=LOG_RIM_MIN_HEIGHT;
 }
 /** Wheel contact plus a short capsule for the rider. Body-only impacts slide
  * outside the wood rather than attaching the board through the wall. */
@@ -158,7 +161,9 @@ export function resolveSkateLogMotion(from:V,to:V,velocity:V,floor:Floor,up:V=[0
    const hit=sweepSkateLog(a,b,floor,.19);
    if(hit&&(!body||hit.t<body.t))body=hit;
   }
-  if(wheel&&!canRideLogContact(wheel,floor)&&(!body||wheel.t<body.t))body=wheel;
+  // Low inner-skin contact belongs to the ordinary rollable ground surface,
+  // not a tube grind or a blocking obstacle. Bark and low end rims stay solid.
+  if(wheel&&wheel.surface!=="inner"&&!canRideLogContact(wheel,floor)&&(!body||wheel.t<body.t))body=wheel;
   if(wheel&&canRideLogContact(wheel,floor)&&(!body||wheel.t<=body.t+.00001))return {ride:rideAtLogHit(wheel,v,floor),position:wheel.point,velocity:v,blocked};
   if(!body)return {ride:null,position:target,velocity:v,blocked};
   blocked=true;
@@ -285,6 +290,9 @@ export function enterSkateTunnel(previous:Point,point:Point,y:number,velocity:V,
  const g=GROVE_TUNNEL;
  if(![previous.x,previous.z,point.x,point.z,y,...velocity].every(Number.isFinite))return null;
  if(Math.abs(point.x-g.center.x)>=g.halfLength)return null;
+ // The explicit mouth-crossing path must respect the same local low-lip
+ // exclusion as swept contact; entering at floor height stays free roaming.
+ if(y-floor({x:point.x,z:point.z})<LOG_RIM_MIN_HEIGHT)return null;
  const side=previous.x>=g.center.x?1:-1,mouth=g.center.x+side*g.halfLength;
  if(side*(previous.x-mouth)<0||side*velocity[0]>=-.05)return null;
  const t=(mouth-previous.x)/(point.x-previous.x),z=previous.z+(point.z-previous.z)*t;
