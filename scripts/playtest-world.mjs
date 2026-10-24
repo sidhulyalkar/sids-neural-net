@@ -56,6 +56,14 @@ try {
   assert.equal(await page.locator('canvas').getAttribute('data-desert-gap-count'),'2');
   assert.equal(await page.locator('canvas').getAttribute('data-desert-bypasses'),'2');
   assert.equal(await page.locator('canvas').getAttribute('data-schooling-fish'),'84');
+  assert.equal(await page.locator('canvas').getAttribute('data-eagle-fever'),'120',
+    '120-ray school must be constructed');
+  assert.equal(await page.locator('canvas').getAttribute('data-ray-passage'),'132',
+    'migration fever and close-up rays coexist');
+  assert.equal(await page.locator('canvas').getAttribute('data-eagle-fever-draw-calls'),'5',
+    'instanced mass school keeps a bounded render budget');
+  assert.ok([96,120].includes(Number(await page.locator('canvas')
+    .getAttribute('data-eagle-fever-visible'))));
   assert.equal(await page.locator('canvas').getAttribute('data-golden-tridents'),'3');
   await screenshot(page, 'desktop-welcome');
   await page.getByRole('button', { name: 'Explore world', exact: true }).click();
