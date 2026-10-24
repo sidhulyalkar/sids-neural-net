@@ -389,7 +389,12 @@ export function worldFloorHeight(x: number, z: number): number {
 
 export function maxDiveDepth(point: Point): number {
   if (!isWater(point)) return 0;
-  return Math.max(0, Math.min(10, SEA_SURFACE - seaFloorHeight(point.x, point.z) - 1.15));
+  // Only the ray channel permits deeper exploration; preserve the existing
+  // 10-unit limit on the other shores and fade the expanded limit smoothly.
+  const passage = waterZone(point) === "lagoon" ? rayPassageDepth(point.x, point.z) : 0;
+  const channelBlend = Math.max(0, Math.min(1, (passage - 3) / 7));
+  const diveLimit = 10 + 6 * channelBlend * channelBlend * (3 - 2 * channelBlend);
+  return Math.max(0, Math.min(diveLimit, SEA_SURFACE - seaFloorHeight(point.x, point.z) - 1.15));
 }
 
 export function distance(a: Point, b: Point): number {
