@@ -20,6 +20,7 @@ export type FeverSample = (x: number, z: number) => number;
 export function sampleEagleFever(
   index: number, seconds: number,
   floorAt: FeverSample, seaSurface: number,
+  observer?: { x: number; y: number; z: number },
 ): EagleFeverPose {
   if (!Number.isInteger(index) || index < 0 || index >= EAGLE_FEVER_COUNT)
     throw new RangeError("Invalid eagle fever index");
@@ -29,9 +30,9 @@ export function sampleEagleFever(
   const depthBand=Math.floor(within/4);
   const column=within%4;
   const wobble=Math.sin(index*2.399963);
-  const x=82 + (column-1.5)*3.2 + wobble*.42
+  let x=82 + (column-1.5)*3.2 + wobble*.42
     + Math.sin(t*.056 + row*.85)*1.1;
-  const z=-27 + row*16 + (depthBand%2)*1.3
+  let z=-27 + row*16 + (depthBand%2)*1.3
     + Math.cos(index*1.618)*1.5
     + Math.sin(t*.038 + row*.65)*4.8;
   // Exact depths are world units; schoolmembers glide both over and below
@@ -42,6 +43,19 @@ export function sampleEagleFever(
   const depth=Math.min(targetDepth,Math.max(.85,
     seaSurface-floorAt(x,z)-EAGLE_FEVER_MIN_CLEARANCE));
   const y=seaSurface-depth;
+  if(observer && [observer.x,observer.y,observer.z].every(Number.isFinite)) {
+    const dx=x-observer.x,dz=z-observer.z;
+    const horizontal=Math.hypot(dx,dz);
+    const vertical=Math.abs(y-observer.y);
+    const close=Math.max(0,Math.min(1,(3.3-horizontal)/3.3));
+    const heightFade=1-Math.max(0,Math.min(1,(vertical-.35)/1.65));
+    const repel=2.4*close*close*(3-2*close)*heightFade;
+    if(repel>0) {
+      const inv=horizontal>1e-5?1/horizontal:0;
+      x+=(inv?dx*inv:Math.cos(index*2.4))*repel;
+      z+=(inv?dz*inv:Math.sin(index*2.4))*repel;
+    }
+  }
   return {
     x,y,z,
     yaw:Math.sin(t*.075+row*.7)*.12 + (column-1.5)*.015,
