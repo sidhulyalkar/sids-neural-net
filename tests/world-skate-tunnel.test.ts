@@ -58,12 +58,12 @@ test('tube flips catch within the physical airtime at multiple frame rates',asyn
  }
 });
 
-test('mouth entry preserves flying contact and rejects side or above-roof acquisition',async()=>{
+test('mouth entry ignores low floor contacts while preserving flying contact and rejection gates',async()=>{
  const {enterSkateTunnel}=await import('../lib/world/skateTunnel');
  for(const side of [-1,1]){
   const before={x:side*(g.halfLength+.1),z:g.center.z},p={x:side*(g.halfLength-.1),z:g.center.z};
   const r=enterSkateTunnel(before,p,2,[-side*6,0,0],floor);
-  assert.ok(r&&!r.air);assert.ok(Math.abs(skateTunnelSample(r,floor).y-2)<1e-8);
+  assert.equal(r,null,'floor-level passage must not auto-grind the mouth');
   const flying=enterSkateTunnel(before,p,3,[-side*6,-1,0],floor);
   assert.ok(flying?.air);assert.deepEqual(flying.air.position,[p.x,3,p.z]);
   assert.equal(enterSkateTunnel(before,p,10,[-side*6,0,0],floor),null);
