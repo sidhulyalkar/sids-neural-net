@@ -85,3 +85,17 @@ test("120 eagle ray bodies use only four instanced draws, tails one, with lifecy
   passage.dispose();
   assert.equal(lagoon.children.length,0);
 });
+
+test("close-up rays gently part to let the snorkeler enter the fever",()=>{
+  for(const i of [0,19,42,77,116]){
+    const unperturbed=sampleEagleFever(i,14,seaFloorHeight,SEA_SURFACE);
+    const near=sampleEagleFever(i,14,seaFloorHeight,SEA_SURFACE,unperturbed);
+    const deflection=Math.hypot(near.x-unperturbed.x,near.z-unperturbed.z);
+    assert.ok(deflection>2 && deflection<=2.401);
+    assert.ok(near.y>=seaFloorHeight(near.x,near.z)+EAGLE_FEVER_MIN_CLEARANCE-1e-7);
+    assert.equal(waterZone(near),"lagoon");
+    const far=sampleEagleFever(i,14,seaFloorHeight,SEA_SURFACE,
+      {x:unperturbed.x+100,y:unperturbed.y,z:unperturbed.z+100});
+    assert.deepEqual(far,unperturbed,"distant swimmer cannot affect remote fish");
+  }
+});
