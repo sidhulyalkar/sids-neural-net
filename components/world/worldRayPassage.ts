@@ -132,7 +132,7 @@ export function createRayPassage(lagoonRoot: THREE.Group) {
   let last=-Infinity;
   function update(seconds:number,reducedMotion=false) {
     if (!lagoonRoot.visible || !root.visible) return;
-    if (seconds-last < 1/15 && !reducedMotion) return;
+    if (seconds-last < 1/15) return;
     last=seconds;
     const t=reducedMotion?0:seconds;
     for (const ray of rays) {
