@@ -7000,7 +7000,7 @@ export function createWorld(
     reefGarden.update(elapsed);
     const reducedFlightMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     marineSchools.update(elapsed,reducedFlightMotion);
-    rayPassage.update(elapsed,reducedFlightMotion);
+    rayPassage.update(elapsed,reducedFlightMotion,{x:player.x,y:playerY,z:player.z});
     discGolfObjects.update(discGolf);
     // Bound prediction to ~2 Hz while a disc is being aimed. The preview
     // runs the same solver as the throw, but intentionally assumes a
