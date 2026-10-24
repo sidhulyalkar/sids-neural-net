@@ -57,7 +57,7 @@ export function createCoastalNature(height:(p:{x:number;z:number})=>number){
   for(let i=0;i<38;i++){const t=(time*.7+i/38)%1;dummy.position.set(COAST_FALL.x-2.35*t,lipY+(SEA_SURFACE+.15-lipY)*t,COAST_FALL.z+Math.sin(i*2.4)*.23);dummy.scale.set(1,3.5,1);dummy.rotation.set(0,0,0);dummy.updateMatrix();drops.setMatrixAt(i,dummy.matrix);}drops.instanceMatrix.needsUpdate=true;foam.scale.setScalar(1+Math.sin(time*1.9)*.09);
  },updateEncounter(o:OceanObservation){
   if(o.phase==='quiet'){hideEncounter();return;}
-  whale.visible=o.phase==='breach';splash.visible=o.phase==='splash';spray.visible=o.phase!=='quiet';const t=Math.max(0,Math.min(1,(o.time-2)/4));
+  whale.visible=o.phase==='breach';splash.visible=o.phase==='splash';spray.visible=true;const t=Math.max(0,Math.min(1,(o.time-2)/4));
   whale.position.set(COAST_WHALE.x+Math.sin(t*Math.PI)*2,SEA_SURFACE-4.1+Math.sin(Math.PI*t)*10,COAST_WHALE.z+t*3);whale.rotation.set(-1.05+t*2.3,.35,.15+Math.sin(Math.PI*t)*.75);
   const st=Math.max(0,o.time-6);splash.scale.setScalar(1+st*2.3);
   for(let i=0;i<36;i++){const a=i*2.4,r=o.phase==='spout'?.08+o.time*.3:st*(.7+(i%5)*.2),h=o.phase==='spout'?Math.sin(o.time/2*Math.PI)*3.5:Math.max(0,st*(4+i%3)-st*st*2.5);dummy.position.set(COAST_WHALE.x+Math.cos(a)*r,SEA_SURFACE+.1+h,COAST_WHALE.z+Math.sin(a)*r);dummy.scale.setScalar(o.phase==='spout'?.35:.6);dummy.updateMatrix();spray.setMatrixAt(i,dummy.matrix);}spray.instanceMatrix.needsUpdate=true;
