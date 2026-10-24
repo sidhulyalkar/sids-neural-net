@@ -49,7 +49,10 @@ test("ray fever trench has room for deeper strata but beaches and shore sports s
     if(waterZone(p)==="lagoon"){
       const depth=maxDiveDepth(p);
       assert.ok(depth>=0&&depth<=16);
-      assert.ok(SEA_SURFACE-depth>=floor+1.15-1e-6);
+      if(depth>0) assert.ok(SEA_SURFACE-depth>=floor+1.15-1e-6,
+        `diving floor clearance failed at x=${x}`);
+      else assert.ok(SEA_SURFACE-floor<=1.15+1e-6,
+        `a deep enough water cell must permit some diving at x=${x}`);
     }
   }
 });
