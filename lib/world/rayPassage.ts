@@ -15,7 +15,8 @@ export function rayPassageDepth(x: number, z: number): number {
   const axis = RAY_PASSAGE.centerX + 2.1 * Math.sin((z - 8) * .035);
   const lateral = 1 - smooth((Math.abs(x - axis) - 3) / 10.5);
   const longitudinal = 1 - smooth((Math.abs(z - 8) - 27) / 16);
-  return 4.35 * lateral * longitudinal * smooth((x - 64) / 8);
+  const worldEdgeFade = 1 - smooth((x - 89) / 5);
+  return 4.35 * lateral * longitudinal * smooth((x - 64) / 8) * worldEdgeFade;
 }
 
 export type RayKind = "eagle" | "manta" | "stingray";
