@@ -76,12 +76,16 @@ export function sampleRayPassage(
   const preferredY = benthic ? floor + clearance :
     seaSurface - (spec.kind === "manta" ? 3.1 : 2.65) - .2 * Math.sin(t * .4 + spec.index);
   const y = Math.max(floor + clearance, Math.min(seaSurface - .72, preferredY));
+  const stationDistance = canClean
+    ? Math.hypot(x - RAY_PASSAGE.stations[spec.cleaningStation!].x,
+        z - RAY_PASSAGE.stations[spec.cleaningStation!].z)
+    : Infinity;
   return {
     x, y, z,
     yaw: lerp(.06 * Math.sin(t * .13 + spec.index), -.35, influence),
     bank: (1 - influence) * Math.sin(t * .72 + spec.index) * .055,
     wingPhase: t * (benthic ? .84 : 1.35) + spec.index * .6,
-    activity: benthic ? "foraging" : influence > .82 ? "cleaning" :
+    activity: benthic ? "foraging" : influence > .82 && stationDistance < 2.8 ? "cleaning" :
       influence > .08 ? "approaching" : "travelling",
     visible: benthic || (phase > .025 && phase < .975),
   };
