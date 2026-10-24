@@ -5,6 +5,7 @@ import { beachBlend, northShoreZ } from "./skimboarding";
 import {MYSTIC_GROVE} from "./mysticGrove";
 import { visualMotion, type WildlifeSubject } from "@/src/data/visualMotion";
 import {buildSnorkelVideoPoints} from "./marineVideoCatalog";
+import { rayPassageDepth } from "./rayPassage";
 /** Small, deterministic geography shared by the renderer, navigation and tests. */
 export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern" | "desert" | "rainforest" | "north-shore";
 export type Point = { x: number; z: number };
@@ -373,7 +374,7 @@ export function seaFloorHeight(x: number, z: number): number {
     const shelf = SEA_SURFACE - 1.9 - Math.min(7.4, offshore * 0.17);
     const sandRipples = Math.sin(z * 0.18 + 0.8) * 0.2 + Math.cos(x * 0.14) * 0.16;
     const coralGarden = 1.65 * Math.exp(-((x - 72) ** 2 / 250 + (z - 11) ** 2 / 460));
-    return shelf + sandRipples + coralGarden;
+    return shelf + sandRipples + coralGarden - rayPassageDepth(x, z);
   }
   const offshore = Math.max(0, coastlineX(z) - x);
   const shelf = SEA_SURFACE - 2.1 - Math.min(8.5, offshore * 0.15);
