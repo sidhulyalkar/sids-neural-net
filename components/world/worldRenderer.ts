@@ -61,6 +61,7 @@ import {
   advanceBigAir,mountainJumpCameraPose,armBigAir,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
+import { createRayPassage } from "./worldRayPassage";
 import {nearbyMarineVideo, type MarineCreaturePose} from "@/lib/world/marineVideoEncounters";
 import { createWorldTridents } from "./worldTridents";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
@@ -2805,8 +2806,10 @@ export function createWorld(
 
   const reefGarden = createReefGarden(tropicalReefRoot);
   const marineSchools = createMarineSchools(reefRoot,tropicalReefRoot);
+  const rayPassage = createRayPassage(tropicalReefRoot);
   const goldenTridents = createWorldTridents(reefRoot,tropicalReefRoot);
   canvas.dataset.schoolingFish = String(marineSchools.count);
+  canvas.dataset.rayPassage = String(rayPassage.count);
   canvas.dataset.goldenTridents = String(goldenTridents.count);
 
 
@@ -6994,6 +6997,7 @@ export function createWorld(
     reefGarden.update(elapsed);
     const reducedFlightMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     marineSchools.update(elapsed,reducedFlightMotion);
+    rayPassage.update(elapsed,reducedFlightMotion);
     discGolfObjects.update(discGolf);
     // Bound prediction to ~2 Hz while a disc is being aimed. The preview
     // runs the same solver as the throw, but intentionally assumes a
@@ -7508,6 +7512,7 @@ export function createWorld(
       habitats.dispose();
       reefGarden.dispose();
       marineSchools.dispose();
+      rayPassage.dispose();
       goldenTridents.dispose();
       disposed = true;
       cancelAnimationFrame(raf);
