@@ -41,3 +41,17 @@ test('expanded cave roof remains a solid exterior support matching the rendered 
  }
  assert.ok(checked>500);geometry.dispose();material.dispose();
 });
+
+test('coastal scenery participates in camera cutaways using the renderer Three.js runtime',async()=>{
+ const Core=await import('three/src/Three.Core.js');
+ const {createCoastalNature}=await import('../components/world/worldCoastalNature');
+ const {createWorldCameraOcclusion}=await import('../components/world/worldCameraOcclusion');
+ const nature=createCoastalNature(groundHeight),occlusion=createWorldCameraOcclusion(nature.staticMesh);
+ const camera=new Core.Vector3(-14.636,22.477,-34),focus=new Core.Vector3(-26.2,8.5457,-34);
+ const ray=new Core.Raycaster(camera,focus.clone().sub(camera).normalize(),0,camera.distanceTo(focus));
+ assert.ok(occlusion.count>700);
+ assert.ok(ray.intersectObject(nature.staticMesh).length>0);
+ assert.ok(occlusion.cutaway(camera,focus)>0);
+ assert.equal(ray.intersectObject(nature.staticMesh).length,0);
+ occlusion.restore();assert.ok(ray.intersectObject(nature.staticMesh).length>0);nature.dispose();
+});

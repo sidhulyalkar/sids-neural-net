@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from 'three/src/Three.Core.js';
 import {GeometryBatch,ringSurface} from './worldGeometry';
 import {COAST_BENCH,COAST_FALL,COAST_WHALE,mountainTributaries} from '@/lib/world/hydrology';
 import {coastlineX,SEA_SURFACE,type Obstacle} from '@/lib/world/model';

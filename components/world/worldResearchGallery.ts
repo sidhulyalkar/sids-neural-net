@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from 'three/src/Three.Core.js';
 import {RESEARCH_GALLERY} from '@/lib/world/researchGallery';
 import {paperCaveFloorHeight} from '@/lib/world/model';
 export function createResearchGallery(){

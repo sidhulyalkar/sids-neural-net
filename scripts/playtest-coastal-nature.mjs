@@ -10,6 +10,7 @@ try{
  const page=await browser.newPage({viewport:{width:1000,height:700}});page.on('pageerror',e=>errors.push(e.message));
  await page.exposeFunction('auditImage',(name,data)=>fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(data.split(',')[1],'base64')));
  const open=async scene=>{await page.goto(process.env.WORLD_BASE_URL+'?nature-start='+scene);await page.getByRole('button',{name:'Explore world',exact:true}).click();await page.waitForFunction(()=>Number(document.querySelector('canvas')?.dataset.drawCalls)>0,null,{timeout:60000});await page.locator('canvas').focus();};
+ if(!process.env.COAST_CONTACT_ONLY){
  await open('ocean-bench');await page.getByRole('button',{name:'Sit & watch the ocean · E',exact:true}).click();
  results.bench=await page.evaluate(()=>new Promise((resolve,reject)=>{
   const el=document.querySelector('canvas'),phases=new Set();let frames=0,captured=false,breachFrames=0;
@@ -20,6 +21,7 @@ try{
  }));
  assert.equal(results.bench.seated,'true');assert.equal(results.bench.onScreen,'true');assert.ok(results.bench.phases.includes('breach'));
  await page.keyboard.press('Space');await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.oceanSeated==='false');console.log('PASS bench and whale');
+ }
  await open('fern-crown');
  results.crown=await page.evaluate(()=>new Promise(resolve=>{const el=document.querySelector('canvas'),trace=[];let frames=0;el.dispatchEvent(new KeyboardEvent('keydown',{key:'w',bubbles:true}));const tick=()=>{const d=el.dataset;trace.push({point:d.player,layer:d.caveLayer,gap:Number(d.playerSurfaceGap),dogGap:Number(d.dogSupportGap),rock:d.waterfallRockHeight});if(++frames===22){el.dispatchEvent(new KeyboardEvent('keyup',{key:'w',bubbles:true}));window.auditImage('rock-contact',el.toDataURL());resolve(trace);return;}requestAnimationFrame(tick);};requestAnimationFrame(tick);}));
  assert.ok(results.crown.every(s=>s.layer==='surface'&&s.gap>=-.03&&s.dogGap>=-.001));console.log('PASS rock support');
