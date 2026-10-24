@@ -27,7 +27,7 @@ export type RaySpec = {
 export const RAY_PASSAGE_CAST: readonly RaySpec[] = [
   ...Array.from({ length: 8 }, (_, i) => ({
     id: `passage-eagle-${i}`, kind: "eagle" as const, index: i,
-    cleaningStation: i === 1 || i === 5 ? i % 2 : null,
+    cleaningStation: i === 1 ? 0 : i === 5 ? 1 : null,
   })),
   { id: "passage-manta", kind: "manta", index: 8, cleaningStation: 1 },
   ...Array.from({ length: 3 }, (_, i) => ({
