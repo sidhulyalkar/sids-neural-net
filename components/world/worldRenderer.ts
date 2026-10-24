@@ -1,3 +1,4 @@
+import {createFreeCamera} from "@/lib/world/freeCamera";
 import {createCoastalNature} from "./worldCoastalNature";
 import {createResearchGallery} from "./worldResearchGallery";
 import {idleOceanObservation,advanceOceanObservation} from "@/lib/world/coastalObservation";
@@ -1295,7 +1296,7 @@ export function createWorld(
   const groundedObstacles: Obstacle[] = [...obstacles, ...DESERT_GAP_DEBRIS];
   // Explorer root carries world/terrain orientation. bodyRoot carries the human pose
   // independently so swimming and bike seating do not rotate/offset the equipment.
-  const sceneryCamera=createWorldCameraOcclusion(scene);
+  const sceneryCamera=createWorldCameraOcclusion(scene,{cutaways:false});
   // One solve against the union is essential. Solving authored foliage and
   // rendered scenery in sequence can produce a pose that clears one field
   // while moving directly behind an obstacle in the other.
@@ -1393,7 +1394,9 @@ export function createWorld(
   const paperLight=new THREE.PointLight("#c3e4dd",24,20,1.5);paperLight.position.set(-20,paperBackFloor+5.6,-38);scene.add(paperLight);
   const paperEntryLight=new THREE.PointLight("#e8d8a7",15,15,1.5);paperEntryLight.position.set(-20,paperBackFloor+4.5,-32);scene.add(paperEntryLight);
   const coastalNature=createCoastalNature(p=>Math.max(visibleTerrainHeight(p),waterfallRockHeight(p)??-Infinity,paperCaveRoofHeight(p)??-Infinity));scene.add(coastalNature.root);obstacles.push(...coastalNature.obstacles);groundedObstacles.push(...coastalNature.obstacles);
-  const coastalCamera=createWorldCameraOcclusion(coastalNature.staticMesh);
+  const coastalCamera=createWorldCameraOcclusion(coastalNature.staticMesh,{cutaways:false});
+  const freeCameraField=new CameraVisibilityField([...cameraCanopies,...habitats.cameraOccluders,...cameraRocks,...sceneryCamera.volumes,...coastalCamera.volumes]);
+  const freeCamera=createFreeCamera(freeCameraField,(x,z)=>Math.max(groundHeight({x,z}),visibleTerrainHeight({x,z})));
   canvas.dataset.mountainStreams=String(coastalNature.streams);canvas.dataset.researchFigures=String(researchGallery.targets.length/2);
   const pool=mesh(geo(new THREE.CircleGeometry(3.7,24)),waterRibbonMat,[-20,fallsY+.08,-27],[1,1,1]);pool.rotation.x=-Math.PI/2;
   const lower=downstreamPoints().map(p=>new THREE.Vector3(p.x,p.y,p.z));
@@ -6583,6 +6586,13 @@ export function createWorld(
       }
       snowPuffs.instanceMatrix.needsUpdate=true;
     }
+    const freeLandView=state.entered&&aquatic==="land"&&caveLayer==="surface"&&discGolf.phase==="off"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!jetSki&&skimHeat.phase==="off";
+    const freeFocus=new THREE.Vector3(player.x,playerY+1.1,player.z);
+    if(freeLandView&&!seated){
+      const pose=freeCamera.resolve(targetCamera,freeFocus);
+      targetCamera.set(pose.point.x,pose.point.y,pose.point.z);
+      targetLook.copy(freeFocus);
+    }else freeCamera.reset();
     const loopCameraChanged=loopCameraWasActive!==!!skateLoopRide;
     loopCameraWasActive=!!skateLoopRide;
     if(showingDiscGolfIntro || snapDiscCamera || loopCameraChanged){
@@ -6632,9 +6642,7 @@ export function createWorld(
       camera.position.x=THREE.MathUtils.clamp(c.x,centerX-half,centerX+half);camera.position.z=z;
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
     }
-    const freeLandView=state.entered&&aquatic==="land"&&caveLayer==="surface"&&discGolf.phase==="off"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!jetSki&&skimHeat.phase==="off";
     if(freeLandView)camera.position.y=Math.max(camera.position.y,groundHeight(camera.position)+1.5,visibleTerrainHeight(camera.position)+1.5);
-    const freeFocus=new THREE.Vector3(player.x,playerY+1.1,player.z);
     // A camera above its local ground can still look through an intervening ridge.
     // Clear the whole boom, including the waterfall's raised rock triangles.
     if(freeLandView&&!seated){
@@ -6646,15 +6654,14 @@ export function createWorld(
       }
       look.copy(freeFocus);
     }
-    const coastalCutaways=freeLandView?coastalCamera.cutaway(camera.position,freeFocus):(coastalCamera.restore(),0);
+    // Solid scenery remains intact in every mode. Camera correction owns visibility.
+    coastalCamera.restore();sceneryCamera.restore();
+    if(freeLandView&&!seated&&!freeCameraField.clear(camera.position,freeFocus)){
+      camera.position.copy(targetCamera);
+    }
     canvas.dataset.coastalCameraVolumes=String(coastalCamera.count);
-    canvas.dataset.coastalCameraCutaways=String(coastalCutaways);
-    // Last-resort cutaway also covers an obstructed interpolated pose or
-    // a lie surrounded by foliage where no unobstructed boom exists.
-    const cutawayCount=lastDiscCameraSolve?
-      sceneryCamera.cutaway(camera.position,lastDiscCameraSolve.focus):
-      freeLandView?sceneryCamera.cutaway(camera.position,freeFocus):(sceneryCamera.restore(),0);
-    canvas.dataset.discGolfCameraCutaways=String(cutawayCount);
+    canvas.dataset.coastalCameraCutaways="0";
+    canvas.dataset.discGolfCameraCutaways="0";
     camera.lookAt(look);
     if(lastDiscCameraSolve){
       camera.updateMatrixWorld();
@@ -6676,7 +6683,7 @@ export function createWorld(
       const obstructing=sceneryCamera.field.blockingIndices(
         camera.position,lastDiscCameraSolve.focus).length;
       canvas.dataset.discGolfRenderedCameraClear=String(
-        obstructing===0||cutawayCount>=obstructing);
+        obstructing===0);
     }
     // Projection diagnostics are read-only: the raycast still decides whether
     // a real click has struck an unoccluded target in the current camera.

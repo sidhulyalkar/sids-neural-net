@@ -47,3 +47,30 @@ test("clear scenery keeps its visibility and hidden objects restore their origin
   for(let i=0;i<geometry.index!.count;i++)assert.equal(geometry.index!.getX(i),i);
   geometry.dispose();g.dispose();mesh.material.dispose();
  });
+
+test("moving the exploration camera preserves trunks, slats, and merged surface triangles",async()=>{
+ const {createFreeCamera}=await import('../lib/world/freeCamera');
+ const scene=new THREE.Scene(),material=new THREE.MeshBasicMaterial();
+ const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.4,.5,5,8),material);trunk.position.set(0,2.5,4);scene.add(trunk);
+ const slats=new THREE.InstancedMesh(new THREE.BoxGeometry(2,.2,.5),material,3);scene.add(slats);
+ for(let i=0;i<3;i++)slats.setMatrixAt(i,new THREE.Matrix4().makeTranslation(i-1,1,6));
+ const batch=new GeometryBatch(),box=new THREE.BoxGeometry(3,.2,3);
+ batch.add(box,'#987654',new THREE.Vector3(0,.2,4),new THREE.Vector3(1,1,1));
+ const deck=new THREE.Mesh(batch.finish(),material);scene.add(deck);
+ const originalInstances=Array.from(slats.instanceMatrix.array),originalVertices=Array.from(deck.geometry.attributes.position.array);
+ const scenery=createWorldCameraOcclusion(scene,{cutaways:false});
+ assert.equal(deck.geometry.index,null,'read-only visibility registration must not rewrite geometry');
+ const controller=createFreeCamera(scenery.field,()=>0);
+ let adjusted=0;
+ for(let i=0;i<60;i++){
+  const desired={x:Math.sin(i*.15)*4,y:3,z:10},focus={x:0,y:1.5,z:0};
+  const pose=controller.resolve(desired,focus);assert.ok(Number.isFinite(pose.point.y));if(pose.adjusted)adjusted++;
+  assert.equal(scenery.cutaway(desired,focus),0,'live camera cannot hide structural pieces');
+  assert.equal(trunk.visible,true);assert.equal(slats.visible,true);assert.equal(deck.visible,true);
+  assert.deepEqual(Array.from(slats.instanceMatrix.array),originalInstances);
+  assert.deepEqual(Array.from(deck.geometry.attributes.position.array),originalVertices);
+  assert.equal(deck.geometry.index,null);
+ }
+ assert.ok(adjusted>0);controller.reset();scenery.restore();
+ trunk.geometry.dispose();slats.geometry.dispose();slats.dispose();deck.geometry.dispose();box.dispose();material.dispose();
+});

@@ -3,7 +3,7 @@ import {CameraVisibilityField,type CameraPoint,type CameraVolume} from "@/lib/wo
 
 /** Snapshot static scenery before adding the player. Each instance keeps its
  * own cutaway handle: hiding one leaf never removes an entire forest. */
-export function createWorldCameraOcclusion(scene:THREE.Object3D){
+export function createWorldCameraOcclusion(scene:THREE.Object3D,options:{cutaways?:boolean}={}){
  type Part={start:number;count:number;min:number[];max:number[]};
  const entries:{mesh:THREE.Mesh;instance?:number;part?:Part}[]=[],volumes:CameraVolume[]=[];
  const matrix=new THREE.Matrix4(),world=new THREE.Matrix4(),box=new THREE.Box3();
@@ -16,7 +16,7 @@ export function createWorldCameraOcclusion(scene:THREE.Object3D){
   object.geometry.computeBoundingBox();
   const bounds=object.geometry.boundingBox;if(!bounds)return;
   const parts=object.geometry.userData.cameraParts as Part[]|undefined;
-  if(parts&&!object.geometry.index){
+  if(options.cutaways!==false&&parts&&!object.geometry.index){
    object.geometry.setIndex(Array.from({length:object.geometry.getAttribute("position").count},(_,i)=>i));
   }
   const count=object instanceof THREE.InstancedMesh?object.count:parts?.length??1;
@@ -51,6 +51,7 @@ export function createWorldCameraOcclusion(scene:THREE.Object3D){
   hidden.length=0;hiddenKey="";
  }
  function cutaway(camera:CameraPoint,focus:CameraPoint){
+  if(options.cutaways===false)return 0;
   const ids=field.blockingIndices(camera,focus),key=ids.join(",");
   if(key===hiddenKey){
    for(const h of hidden)if(h.instance===undefined&&!h.part)h.mesh.visible=false;
