@@ -15,18 +15,18 @@ try{
  await page.getByRole('button',{name:'Show sport shortcuts',exact:true}).click();
  await page.getByRole('button',{name:'Skatepark',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.skatePark==='true');
- for(const [mode,label] of [['skate','Skateboarding'],['bike','Mountain biking']]){
-  if(mode==='bike')await page.getByRole('button',{name:label,exact:true}).click();
+ for(const [mode,label] of [['skate','Skateboarding'],['bike','Mountain biking'],['run','Trail running'],['ski','Skiing']]){
+  if(mode!=='skate')await page.getByRole('button',{name:label,exact:true}).click();
   await page.locator('canvas').focus();
   const trace=await page.evaluate(()=>new Promise(resolve=>{
    const canvas=document.querySelector('canvas'),samples=[];let frames=0;
    canvas.dispatchEvent(new KeyboardEvent('keydown',{key:'w',bubbles:true}));
    canvas.dispatchEvent(new KeyboardEvent('keydown',{key:'a',bubbles:true}));
-   function tick(){const d=canvas.dataset;samples.push({mode:d.activity,point:d.player,height:Number(d.height),coastal:Number(d.coastalCameraCutaways),scenery:Number(d.discGolfCameraCutaways)});
+   function tick(){const d=canvas.dataset;samples.push({mode:d.activity,point:d.player,height:Number(d.height),coastal:Number(d.coastalCameraCutaways),scenery:Number(d.discGolfCameraCutaways),correction:Number(d.cameraPostBlendCorrection),whaleTicks:Number(d.whaleTicks)});
     if(++frames===18){for(const key of ['w','a'])canvas.dispatchEvent(new KeyboardEvent('keyup',{key,bubbles:true}));resolve(samples);return;}requestAnimationFrame(tick);
    }requestAnimationFrame(tick);
   }));
-  assert.ok(trace.every(s=>s.mode===mode&&Number.isFinite(s.height)&&s.coastal===0&&s.scenery===0));results.push(...trace);
+  assert.ok(trace.every(s=>s.mode===mode&&Number.isFinite(s.height)&&s.coastal===0&&s.scenery===0&&s.correction===0&&s.whaleTicks===0));results.push(...trace);
   for(const [i,dx] of [0,-160,300].entries()){
    if(dx){await page.mouse.move(500,320);await page.mouse.down();await page.mouse.move(500+dx,335,{steps:8});await page.mouse.up();}
    await page.screenshot({path:path.join(out,mode+'-'+i+'.png')});

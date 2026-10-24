@@ -49,7 +49,6 @@ test("clear scenery keeps its visibility and hidden objects restore their origin
  });
 
 test("moving the exploration camera preserves trunks, slats, and merged surface triangles",async()=>{
- const {createFreeCamera}=await import('../lib/world/freeCamera');
  const scene=new THREE.Scene(),material=new THREE.MeshBasicMaterial();
  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.4,.5,5,8),material);trunk.position.set(0,2.5,4);scene.add(trunk);
  const slats=new THREE.InstancedMesh(new THREE.BoxGeometry(2,.2,.5),material,3);scene.add(slats);
@@ -60,17 +59,17 @@ test("moving the exploration camera preserves trunks, slats, and merged surface 
  const originalInstances=Array.from(slats.instanceMatrix.array),originalVertices=Array.from(deck.geometry.attributes.position.array);
  const scenery=createWorldCameraOcclusion(scene,{cutaways:false});
  assert.equal(deck.geometry.index,null,'read-only visibility registration must not rewrite geometry');
- const controller=createFreeCamera(scenery.field,()=>0);
+
  let adjusted=0;
  for(let i=0;i<60;i++){
   const desired={x:Math.sin(i*.15)*4,y:3,z:10},focus={x:0,y:1.5,z:0};
-  const pose=controller.resolve(desired,focus);assert.ok(Number.isFinite(pose.point.y));if(pose.adjusted)adjusted++;
+  const pose=scenery.field.resolve(desired,focus,()=>0);assert.ok(Number.isFinite(pose.point.y));if(pose.adjusted)adjusted++;
   assert.equal(scenery.cutaway(desired,focus),0,'live camera cannot hide structural pieces');
   assert.equal(trunk.visible,true);assert.equal(slats.visible,true);assert.equal(deck.visible,true);
   assert.deepEqual(Array.from(slats.instanceMatrix.array),originalInstances);
   assert.deepEqual(Array.from(deck.geometry.attributes.position.array),originalVertices);
   assert.equal(deck.geometry.index,null);
  }
- assert.ok(adjusted>0);controller.reset();scenery.restore();
+ assert.ok(adjusted>0);scenery.restore();
  trunk.geometry.dispose();slats.geometry.dispose();slats.dispose();deck.geometry.dispose();box.dispose();material.dispose();
 });

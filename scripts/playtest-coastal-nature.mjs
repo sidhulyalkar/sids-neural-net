@@ -11,7 +11,7 @@ try{
  await page.exposeFunction('auditImage',(name,data)=>fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(data.split(',')[1],'base64')));
  const open=async scene=>{await page.goto(process.env.WORLD_BASE_URL+'?nature-start='+scene);await page.getByRole('button',{name:'Explore world',exact:true}).click();await page.waitForFunction(()=>Number(document.querySelector('canvas')?.dataset.drawCalls)>0,null,{timeout:60000});await page.locator('canvas').focus();};
  if(!process.env.COAST_CONTACT_ONLY){
- await open('ocean-bench');await page.getByRole('button',{name:'Sit & watch the ocean · E',exact:true}).click();
+ await open('ocean-bench');assert.equal(await page.locator('canvas').getAttribute('data-whale-ticks'),'0');await page.getByRole('button',{name:'Sit & watch the ocean · E',exact:true}).click();
  results.bench=await page.evaluate(()=>new Promise((resolve,reject)=>{
   const el=document.querySelector('canvas'),phases=new Set();let frames=0,captured=false,breachFrames=0;
   const tick=()=>{const d=el.dataset;phases.add(d.whalePhase);if(d.whalePhase==='breach'&&++breachFrames>=4&&!captured){captured=true;window.auditImage('whale-breach',el.toDataURL());}
@@ -20,11 +20,15 @@ try{
   };requestAnimationFrame(tick);
  }));
  assert.equal(results.bench.seated,'true');assert.equal(results.bench.onScreen,'true');assert.ok(results.bench.phases.includes('breach'));
- await page.keyboard.press('Space');await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.oceanSeated==='false');console.log('PASS bench and whale');
+ await page.keyboard.press('Space');await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.oceanSeated==='false');const stopped=await page.locator('canvas').getAttribute('data-whale-ticks');
+ await page.evaluate(()=>new Promise(resolve=>{let n=0;function tick(){if(++n===12){resolve();return;}requestAnimationFrame(tick);}requestAnimationFrame(tick);}));
+ assert.equal(await page.locator('canvas').getAttribute('data-whale-ticks'),stopped);
+ assert.equal(await page.locator('canvas').getAttribute('data-whale-phase'),'quiet');
+ console.log('PASS bench-only whale and cancellation on standing');
  }
  await open('fern-crown');
- results.crown=await page.evaluate(()=>new Promise(resolve=>{const el=document.querySelector('canvas'),trace=[];let frames=0;el.dispatchEvent(new KeyboardEvent('keydown',{key:'w',bubbles:true}));const tick=()=>{const d=el.dataset;trace.push({point:d.player,layer:d.caveLayer,gap:Number(d.playerSurfaceGap),dogGap:Number(d.dogSupportGap),rock:d.waterfallRockHeight,volumes:d.coastalCameraVolumes,cutaways:d.coastalCameraCutaways});if(++frames===22){el.dispatchEvent(new KeyboardEvent('keyup',{key:'w',bubbles:true}));window.auditImage('rock-contact',el.toDataURL());resolve(trace);return;}requestAnimationFrame(tick);};requestAnimationFrame(tick);}));
- assert.ok(results.crown.every(s=>s.layer==='surface'&&s.gap>=-.03&&s.dogGap>=-.001));console.log('PASS rock support',JSON.stringify(results.crown.at(-1)));assert.ok(results.crown.every(s=>Number(s.volumes)>700&&Number(s.cutaways)===0));
+ results.crown=await page.evaluate(()=>new Promise(resolve=>{const el=document.querySelector('canvas'),trace=[];let frames=0;el.dispatchEvent(new KeyboardEvent('keydown',{key:'w',bubbles:true}));const tick=()=>{const d=el.dataset;trace.push({point:d.player,layer:d.caveLayer,gap:Number(d.playerSurfaceGap),dogGap:Number(d.dogSupportGap),rock:d.waterfallRockHeight,cutaways:d.coastalCameraCutaways});if(++frames===22){el.dispatchEvent(new KeyboardEvent('keyup',{key:'w',bubbles:true}));window.auditImage('rock-contact',el.toDataURL());resolve(trace);return;}requestAnimationFrame(tick);};requestAnimationFrame(tick);}));
+ assert.ok(results.crown.every(s=>s.layer==='surface'&&s.gap>=-.03&&s.dogGap>=-.001));console.log('PASS rock support',JSON.stringify(results.crown.at(-1)));assert.ok(results.crown.every(s=>Number(s.cutaways)===0));
  await open('research-cave');
  results.cave=await page.evaluate(()=>new Promise((resolve,reject)=>{const el=document.querySelector('canvas');let frames=0;el.dispatchEvent(new KeyboardEvent('keydown',{key:'w',bubbles:true}));const tick=()=>{const d=el.dataset,p=d.player.split(',').map(Number);if(p[1]<-37.5){el.dispatchEvent(new KeyboardEvent('keyup',{key:'w',bubbles:true}));window.auditImage('research-cave',el.toDataURL());resolve({layer:d.caveLayer,point:d.player,figures:d.researchFigures,screens:JSON.parse(d.paperFigureScreens)});return;}if(++frames>180){reject(Error('Cave entry failed '+JSON.stringify({...d})));return;}requestAnimationFrame(tick);};requestAnimationFrame(tick);}));
  assert.equal(results.cave.layer,'paper');assert.equal(results.cave.figures,'3');

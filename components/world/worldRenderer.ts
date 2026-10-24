@@ -1,7 +1,6 @@
-import {createFreeCamera} from "@/lib/world/freeCamera";
 import {createCoastalNature} from "./worldCoastalNature";
 import {createResearchGallery} from "./worldResearchGallery";
-import {idleOceanObservation,advanceOceanObservation} from "@/lib/world/coastalObservation";
+import {idleOceanObservation,advanceOceanObservation,stopOceanObservation} from "@/lib/world/coastalObservation";
 import {settleSurfaceHeight} from "@/lib/world/surfaceSupport";
 import {COAST_BENCH,COAST_WHALE,COAST_FALL,waterfallRockHeight} from "@/lib/world/hydrology";
 import {MOSS_CANYON} from "@/lib/world/model";
@@ -1394,9 +1393,7 @@ export function createWorld(
   const paperLight=new THREE.PointLight("#c3e4dd",24,20,1.5);paperLight.position.set(-20,paperBackFloor+5.6,-38);scene.add(paperLight);
   const paperEntryLight=new THREE.PointLight("#e8d8a7",15,15,1.5);paperEntryLight.position.set(-20,paperBackFloor+4.5,-32);scene.add(paperEntryLight);
   const coastalNature=createCoastalNature(p=>Math.max(visibleTerrainHeight(p),waterfallRockHeight(p)??-Infinity,paperCaveRoofHeight(p)??-Infinity));scene.add(coastalNature.root);obstacles.push(...coastalNature.obstacles);groundedObstacles.push(...coastalNature.obstacles);
-  const coastalCamera=createWorldCameraOcclusion(coastalNature.staticMesh,{cutaways:false});
-  const freeCameraField=new CameraVisibilityField([...cameraCanopies,...habitats.cameraOccluders,...cameraRocks,...sceneryCamera.volumes,...coastalCamera.volumes]);
-  const freeCamera=createFreeCamera(freeCameraField,(x,z)=>Math.max(groundHeight({x,z}),visibleTerrainHeight({x,z})));
+
   canvas.dataset.mountainStreams=String(coastalNature.streams);canvas.dataset.researchFigures=String(researchGallery.targets.length/2);
   const pool=mesh(geo(new THREE.CircleGeometry(3.7,24)),waterRibbonMat,[-20,fallsY+.08,-27],[1,1,1]);pool.rotation.x=-Math.PI/2;
   const lower=downstreamPoints().map(p=>new THREE.Vector3(p.x,p.y,p.z));
@@ -3411,27 +3408,32 @@ export function createWorld(
     if (layer === "arcade") return arcadeCaveFloorHeight(p);
     if (layer === "paper") return paperCaveFloorHeight(p);
     const physical=groundHeight(p);
-    if(isWater(p))return physical;
-    // Raised rock support must never bypass a higher rendered terrain triangle.
-    // Keep the explicitly sculpted skatepark surface authoritative.
-    if(skateParkSurface(p)!==null)return physical;
+    if(waterfallRockHeight(p)!==null||paperCaveRoofHeight(p)!==null)return Math.max(physical,visibleTerrainHeight(p));
+    if(!isRideMode(state.activity)||isWater(p))return physical;
+    const analytic=worldFloorHeight(p.x,p.z);
+    // Sculpted natural land is rasterized into triangles, while authored
+    // ramps, boulder tops, beams and cave decks keep their own support.
+    if(physical-analytic>.07||skateParkSurface(p)!==null)return physical;
     const meshed=visibleTerrainHeight(p);
-    return Number.isFinite(meshed)?Math.max(physical,meshed):physical;
+    return Number.isFinite(meshed)?meshed:physical;
   };
   const rideBase=(p:Point)=>skateParkSurface(p)??Math.max(visibleTerrainHeight(p),waterfallRockHeight(p)??-Infinity,paperCaveRoofHeight(p)??-Infinity);
   let seated=false;
+  let benchCameraHeight=0;
   let oceanObservation=idleOceanObservation();
+  let whaleTicks=0;
+  const expectedChaseCamera=new THREE.Vector3();
   const coastalControls=document.createElement("div");coastalControls.style.cssText="position:absolute;bottom:145px;left:50%;transform:translateX(-50%);z-index:8;display:none;gap:8px;align-items:center";
   const benchButton=document.createElement("button");benchButton.type="button";benchButton.style.cssText="padding:10px 16px;border:1px solid #c2cdb077;border-radius:20px;background:#183d36ee;color:#f4ebd2;cursor:pointer;font:13px system-ui";
   const paperButton=benchButton.cloneNode() as HTMLButtonElement;paperButton.textContent="Explore the research papers";coastalControls.append(benchButton,paperButton);host.append(coastalControls);
   paperButton.onclick=()=>callbacks.onInteract("paper-archive");
   function leaveOceanBench(){
-    if(!seated)return;seated=false;clearInput();player={x:COAST_BENCH.x+1.3,z:COAST_BENCH.z};playerY=supportHeight(player);travel={...travel,point:player};canvas.focus({preventScroll:true});
+    if(!seated)return;seated=false;oceanObservation=stopOceanObservation(oceanObservation);coastalNature.hideEncounter();clearInput();player={x:COAST_BENCH.x+1.3,z:COAST_BENCH.z};playerY=supportHeight(player);travel={...travel,point:player};canvas.focus({preventScroll:true});
   }
   function sitOceanBench(){
     if(seated){leaveOceanBench();return;}
     if(distance(player,COAST_BENCH)>4||aquatic!=="land"||caveLayer!=="surface"||discGolf.phase!=="off"||jetSki||skimHeat.phase!=="off"||airHeight>.1)return;
-    clearInput();seated=true;climb=grind=null;airHeight=verticalSpeed=0;player={...COAST_BENCH};playerY=coastalNature.benchY;travel={point:player,speed:0,heading:{x:-1,z:0}};yaw=Math.PI/2;canvas.focus({preventScroll:true});
+    clearInput();seated=true;benchCameraHeight=Math.max(coastalNature.benchY+3.7,groundHeight({x:COAST_BENCH.x+3.8,z:COAST_BENCH.z})+1.5);climb=grind=null;airHeight=verticalSpeed=0;player={...COAST_BENCH};playerY=coastalNature.benchY;travel={point:player,speed:0,heading:{x:-1,z:0}};yaw=Math.PI/2;canvas.focus({preventScroll:true});
   }
   benchButton.onclick=sitOceanBench;
   explorer.rotation.order = "YXZ";
@@ -5791,7 +5793,7 @@ export function createWorld(
         targetLook.set(player.x-Math.sin(yaw)*2.4,playerY+1.85,player.z-Math.cos(yaw)*2.4);
       }
       if(seated){
-        targetCamera.set(player.x+Math.sin(yaw)*3.8,playerY+3.7,player.z+Math.cos(yaw)*3.8);
+        targetCamera.set(player.x+Math.sin(yaw)*3.8,benchCameraHeight,player.z+Math.cos(yaw)*3.8);
         targetLook.set(player.x-Math.sin(yaw)*28,SEA_SURFACE+3,player.z-Math.cos(yaw)*28);
       }
       // Camera choreography, never gameplay authority:
@@ -6586,13 +6588,7 @@ export function createWorld(
       }
       snowPuffs.instanceMatrix.needsUpdate=true;
     }
-    const freeLandView=state.entered&&aquatic==="land"&&caveLayer==="surface"&&discGolf.phase==="off"&&!skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&!jetSki&&skimHeat.phase==="off";
-    const freeFocus=new THREE.Vector3(player.x,playerY+1.1,player.z);
-    if(freeLandView&&!seated){
-      const pose=freeCamera.resolve(targetCamera,freeFocus);
-      targetCamera.set(pose.point.x,pose.point.y,pose.point.z);
-      targetLook.copy(freeFocus);
-    }else freeCamera.reset();
+    let chaseBlendApplied=false;
     const loopCameraChanged=loopCameraWasActive!==!!skateLoopRide;
     loopCameraWasActive=!!skateLoopRide;
     if(showingDiscGolfIntro || snapDiscCamera || loopCameraChanged){
@@ -6609,6 +6605,7 @@ export function createWorld(
         discGolf.phase!=="off"&&discFetch.phase!=="idle"?5.2:3.6;
       const cameraDelta=skateLoopRide||skateTunnelRide||skateRailGapRide?Math.min(rawDelta,.15):dt;
       camera.position.lerp(targetCamera, 1 - Math.exp(-cameraDelta * cinematicRate));
+      expectedChaseCamera.copy(camera.position);chaseBlendApplied=true;
       look.lerp(targetLook, 1 - Math.exp(-cameraDelta * (cinematicRate+.4)));
     }
     if(tubeCameraActive){
@@ -6642,26 +6639,10 @@ export function createWorld(
       camera.position.x=THREE.MathUtils.clamp(c.x,centerX-half,centerX+half);camera.position.z=z;
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
     }
-    if(freeLandView)camera.position.y=Math.max(camera.position.y,groundHeight(camera.position)+1.5,visibleTerrainHeight(camera.position)+1.5);
-    // A camera above its local ground can still look through an intervening ridge.
-    // Clear the whole boom, including the waterfall's raised rock triangles.
-    if(freeLandView&&!seated){
-      for(let i=1;i<12;i++){
-        const t=i/12;
-        const probe={x:THREE.MathUtils.lerp(camera.position.x,freeFocus.x,t),z:THREE.MathUtils.lerp(camera.position.z,freeFocus.z,t)};
-        const floor=Math.max(groundHeight(probe),visibleTerrainHeight(probe))+.35;
-        camera.position.y=Math.max(camera.position.y,(floor-(playerY+.15)*t)/(1-t));
-      }
-      look.copy(freeFocus);
-    }
-    // Solid scenery remains intact in every mode. Camera correction owns visibility.
-    coastalCamera.restore();sceneryCamera.restore();
-    if(freeLandView&&!seated&&!freeCameraField.clear(camera.position,freeFocus)){
-      camera.position.copy(targetCamera);
-    }
-    canvas.dataset.coastalCameraVolumes=String(coastalCamera.count);
+    // Preserve the pre-coastal chase camera. Never search, zoom, or hide world geometry here.
     canvas.dataset.coastalCameraCutaways="0";
     canvas.dataset.discGolfCameraCutaways="0";
+    canvas.dataset.cameraPostBlendCorrection=chaseBlendApplied?camera.position.distanceTo(expectedChaseCamera).toFixed(5):"0";
     camera.lookAt(look);
     if(lastDiscCameraSolve){
       camera.updateMatrixWorld();
@@ -6991,14 +6972,19 @@ export function createWorld(
     splash.scale.setScalar(1 + Math.sin(elapsed * 2) * 0.05);
     waterRibbonMat.opacity = .66 + Math.sin(elapsed * 3) * .025;
     waterfall.visible = true;
-    const oceanDirection={x:look.x-camera.position.x,z:look.z-camera.position.z};
-    oceanObservation=advanceOceanObservation(oceanObservation,state.entered&&!state.paused?rawDelta:0,{point:player,speed:travel.speed,look:oceanDirection,eligible:aquatic==="land"&&caveLayer==="surface"&&discGolf.phase==="off"&&!jetSki&&skimHeat.phase==="off"&&airHeight<.1});coastalNature.update(elapsed,oceanObservation);
+    // The encounter clock only runs while the visitor is actually sitting.
+    if(seated&&state.entered&&!state.paused){
+      oceanObservation=advanceOceanObservation(oceanObservation,rawDelta,{seated:true});whaleTicks++;
+    }
+    coastalNature.updateWater(elapsed);
+    if(seated)coastalNature.updateEncounter(oceanObservation);
     const canSit=state.entered&&!state.paused&&aquatic==="land"&&caveLayer==="surface"&&distance(player,COAST_BENCH)<4&&discGolf.phase==="off"&&!jetSki&&skimHeat.phase==="off",canRead=state.entered&&!state.paused&&caveLayer==="paper";
     coastalControls.style.display=canSit||canRead?"flex":"none";benchButton.hidden=!canSit;paperButton.hidden=!canRead;benchButton.textContent=seated?"Stand up · WASD / Space":"Sit & watch the ocean · E";
     canvas.dataset.oceanSeated=String(seated);canvas.dataset.whalePhase=oceanObservation.phase;canvas.dataset.whaleSightings=String(oceanObservation.sightings);canvas.dataset.oceanStillFor=oceanObservation.stillFor.toFixed(2);
-    const whaleScreen=new THREE.Vector3(COAST_WHALE.x,SEA_SURFACE+4,COAST_WHALE.z).project(camera);canvas.dataset.whaleOnScreen=String(Math.abs(whaleScreen.x)<1&&Math.abs(whaleScreen.y)<1&&whaleScreen.z<1);
+    canvas.dataset.whaleTicks=String(whaleTicks);
+    if(seated){const whaleScreen=new THREE.Vector3(COAST_WHALE.x,SEA_SURFACE+4,COAST_WHALE.z).project(camera);canvas.dataset.whaleOnScreen=String(Math.abs(whaleScreen.x)<1&&Math.abs(whaleScreen.y)<1&&whaleScreen.z<1);}else canvas.dataset.whaleOnScreen="false";
     canvas.dataset.waterfallRockHeight=String(waterfallRockHeight(player)??"");canvas.dataset.playerSurfaceGap=(playerY-supportHeight(player)).toFixed(4);
-    canvas.dataset.paperFigureScreens=JSON.stringify(researchGallery.targets.filter((_,i)=>i%2===0).map(o=>{const p=o.getWorldPosition(new THREE.Vector3()).project(camera);return {x:p.x,y:p.y,z:p.z};}));
+    canvas.dataset.paperFigureScreens=caveLayer!=="paper"?"[]":JSON.stringify(researchGallery.targets.filter((_,i)=>i%2===0).map(o=>{const p=o.getWorldPosition(new THREE.Vector3()).project(camera);return {x:p.x,y:p.y,z:p.z};}));
     if (reefRoot.visible || tropicalReefRoot.visible) {
       const rp=rayGeo.attributes.position;
       for(let i=0;i<rp.count;i++)rp.setZ(i,rayOriginal[i*3+2]+Math.sin(elapsed*1.6+Math.abs(rayOriginal[i*3])*1.2)*.09*Math.abs(rayOriginal[i*3]));
@@ -7502,7 +7488,7 @@ export function createWorld(
       skateGrove.dispose();
 
       shoreLife.dispose();
-      coastalCamera.restore();coastalNature.dispose();researchGallery.dispose();coastalControls.remove();
+      coastalNature.dispose();researchGallery.dispose();coastalControls.remove();
       skimWake.dispose();
       skimSurf.dispose();
       discGolfObjects.dispose();
