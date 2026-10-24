@@ -173,24 +173,26 @@ export function createRayPassage(lagoonRoot: THREE.Group) {
   let last=-Infinity;
   function update(seconds:number,reducedMotion=false,observer?:{x:number;y:number;z:number}) {
     if (!lagoonRoot.visible || !root.visible) return;
-    if (seconds-last < 1/15) return;
-    last=seconds;
+    const updateWings = seconds - last >= 1/15;
+    if(updateWings) last=seconds;
     const t=reducedMotion?0:seconds;
 
     // Animated school: one matrix write per visible body and tail.
     // Four shared wing buffers ripple independently instead of cloning
     // and recomputing 120 wing geometries.
     for(let cohort=0;cohort<EAGLE_FEVER_COHORTS;cohort++){
-      const geometry=feverGeometries[cohort];
-      const positions=geometry.getAttribute("position") as THREE.BufferAttribute;
-      const flap=Math.sin(t*1.22+cohort*Math.PI/2);
-      for(let v=0;v<positions.count;v++){
-        const x=feverSource[v*3];
-        positions.setY(v,feverSource[v*3+1]+
-          Math.pow(Math.min(1,Math.abs(x)/1.64),1.6)*flap*.19);
+      if(updateWings){
+        const geometry=feverGeometries[cohort];
+        const positions=geometry.getAttribute("position") as THREE.BufferAttribute;
+        const flap=Math.sin(t*1.22+cohort*Math.PI/2);
+        for(let v=0;v<positions.count;v++){
+          const x=feverSource[v*3];
+          positions.setY(v,feverSource[v*3+1]+
+            Math.pow(Math.min(1,Math.abs(x)/1.64),1.6)*flap*.19);
+        }
+        positions.needsUpdate=true;
+        geometry.computeVertexNormals();
       }
-      positions.needsUpdate=true;
-      geometry.computeVertexNormals();
       const mesh=feverBodies[cohort];
       for(let slot=0;slot<mesh.count;slot++){
         const index=slot*EAGLE_FEVER_COHORTS+cohort;
@@ -219,18 +221,20 @@ export function createRayPassage(lagoonRoot: THREE.Group) {
       ray.group.visible=pose.visible;
       ray.group.position.set(pose.x,pose.y,pose.z);
       ray.group.rotation.set(0,pose.yaw,pose.bank);
-      const positions=ray.geometry.getAttribute("position") as THREE.BufferAttribute;
-      const phase=Math.sin(pose.wingPhase);
-      const span=ray.spec.kind==="manta"?2.4:ray.spec.kind==="eagle"?1.64:1.24;
-      for (let i=0; i<positions.count; i++) {
-        const x=ray.base[i*3];
-        const flap=Math.pow(Math.min(1,Math.abs(x)/span),1.6)*phase*.19;
-        positions.setY(i,ray.base[i*3+1]+flap);
+      if(updateWings){
+        const positions=ray.geometry.getAttribute("position") as THREE.BufferAttribute;
+        const phase=Math.sin(pose.wingPhase);
+        const span=ray.spec.kind==="manta"?2.4:ray.spec.kind==="eagle"?1.64:1.24;
+        for (let i=0; i<positions.count; i++) {
+          const x=ray.base[i*3];
+          const flap=Math.pow(Math.min(1,Math.abs(x)/span),1.6)*phase*.19;
+          positions.setY(i,ray.base[i*3+1]+flap);
+        }
+        positions.needsUpdate=true;
+        ray.geometry.computeVertexNormals();
       }
-      positions.needsUpdate=true;
-      ray.geometry.computeVertexNormals();
     }
-    for (let i=0; i<14; i++) {
+    if(updateWings) for (let i=0; i<14; i++) {
       const station=RAY_PASSAGE.stations[Math.floor(i/7)];
       const angle=t*.48+i*2.4;
       const radius=.7+.24*(i%3);
@@ -241,8 +245,8 @@ export function createRayPassage(lagoonRoot: THREE.Group) {
       dummy.scale.set(.19,.19,.19);
       dummy.updateMatrix();cleaners.setMatrixAt(i,dummy.matrix);
     }
-    cleaners.instanceMatrix.needsUpdate=true;
-    for (let i=0; i<10; i++) {
+    if(updateWings) cleaners.instanceMatrix.needsUpdate=true;
+    if(updateWings) for (let i=0; i<10; i++) {
       const station=RAY_PASSAGE.stations[Math.floor(i/5)];
       const a=i*2.399963+t*.07;
       const x=station.x+Math.cos(a)*(.4+i%3*.16);
@@ -252,7 +256,7 @@ export function createRayPassage(lagoonRoot: THREE.Group) {
       dummy.rotation.set(0,a,0);
       dummy.updateMatrix();shrimp.setMatrixAt(i,dummy.matrix);
     }
-    shrimp.instanceMatrix.needsUpdate=true;
+    if(updateWings) shrimp.instanceMatrix.needsUpdate=true;
   }
   // Construct valid matrices before a reef becomes visible.
   const initiallyVisible=lagoonRoot.visible;
