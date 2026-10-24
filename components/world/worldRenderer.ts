@@ -6642,11 +6642,13 @@ export function createWorld(
         const t=i/12;
         const probe={x:THREE.MathUtils.lerp(camera.position.x,freeFocus.x,t),z:THREE.MathUtils.lerp(camera.position.z,freeFocus.z,t)};
         const floor=Math.max(groundHeight(probe),visibleTerrainHeight(probe))+.35;
-        camera.position.y=Math.max(camera.position.y,(floor-freeFocus.y*t)/(1-t));
+        camera.position.y=Math.max(camera.position.y,(floor-(playerY+.15)*t)/(1-t));
       }
       look.copy(freeFocus);
     }
-    if(freeLandView)coastalCamera.cutaway(camera.position,freeFocus);else coastalCamera.restore();
+    const coastalCutaways=freeLandView?coastalCamera.cutaway(camera.position,freeFocus):(coastalCamera.restore(),0);
+    canvas.dataset.coastalCameraVolumes=String(coastalCamera.count);
+    canvas.dataset.coastalCameraCutaways=String(coastalCutaways);
     // Last-resort cutaway also covers an obstructed interpolated pose or
     // a lie surrounded by foliage where no unobstructed boom exists.
     const cutawayCount=lastDiscCameraSolve?
