@@ -63,7 +63,12 @@ test('mouth entry ignores low floor contacts while preserving flying contact and
  for(const side of [-1,1]){
   const before={x:side*(g.halfLength+.1),z:g.center.z},p={x:side*(g.halfLength-.1),z:g.center.z};
   const r=enterSkateTunnel(before,p,2,[-side*6,0,0],floor);
-  assert.equal(r,null,'floor-level passage must not auto-grind the mouth');
+  assert.ok(r,'the low center must roll smoothly onto the inside wood');
+  assert.equal(r.surface,'inner');
+  assert.ok(!r.air,'ground-level entry must never get flung into free flight');
+  const pose=skateTunnelSample(r,floor);
+  assert.ok(Math.abs(pose.y-2)<.02,'inside contact must match the ground-level floor');
+  assert.ok(Math.abs(r.vx+side*6)<.1,'preserve forward wheel momentum');
   const flying=enterSkateTunnel(before,p,3,[-side*6,-1,0],floor);
   assert.ok(flying?.air);assert.deepEqual(flying.air.position,[p.x,3,p.z]);
   assert.equal(enterSkateTunnel(before,p,10,[-side*6,0,0],floor),null);
