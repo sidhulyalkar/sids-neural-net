@@ -223,6 +223,11 @@ export function createWorld(
   arcadeTrailHud.setAttribute("aria-label","Arcade Cavern trail guidance");
   arcadeTrailHud.style.cssText="display:none;position:absolute;left:24px;top:91px;max-width:min(350px,calc(100% - 48px));z-index:6;pointer-events:none;padding:8px 13px;border-radius:10px;background:#17252add;color:#f4d29d;border:1px solid #ecb56a8a;box-shadow:0 6px 20px #0d181c55;text-align:center;font:650 11px/1.4 system-ui,sans-serif;letter-spacing:.055em";
   host.appendChild(arcadeTrailHud);
+  const southPassageHud=document.createElement("div");
+  southPassageHud.setAttribute("role","status");
+  southPassageHud.setAttribute("aria-label","Southern arch snorkeling guidance");
+  southPassageHud.style.cssText="display:none;position:absolute;top:74px;left:16px;max-width:min(340px,calc(100% - 32px));z-index:6;pointer-events:none;padding:8px 12px;border:1px solid #9ecbd37a;border-radius:10px;background:#12353dc7;color:#e4f7f4;font:650 11px/1.45 system-ui,sans-serif;letter-spacing:.035em";
+  host.appendChild(southPassageHud);
   // A brief, non-blocking landing card is more rewarding than a permanent
   // dashboard. The island stays visible while the completed move is named.
   const skateResult=document.createElement("div");
@@ -6739,6 +6744,17 @@ export function createWorld(
     canvas.dataset.reef = String(reefRoot.visible || tropicalReefRoot.visible || southPassageRoot.visible);
     canvas.dataset.southPassage = String(southPassageRoot.visible);
     canvas.dataset.southPassageSwimmable = String(currentWaterZone==="south-channel" && aquatic!=="land");
+    const southHintVisible = state.entered && !state.paused &&
+      (currentWaterZone==="south-channel" && aquatic!=="land" ||
+       aquatic==="land" && caveLayer==="surface" && player.z<-87 &&
+       Math.abs(player.x-17)<43 && playerY<SEA_SURFACE+7);
+    southPassageHud.style.display=southHintVisible?"block":"none";
+    if(southHintVisible){
+      const hint=aquatic==="land"
+        ?"Eagle Ray Passage · Swim around the southern cape"
+        :"Eagle Ray Passage · 120+ eagle rays · Dive to explore";
+      if(southPassageHud.textContent!==hint)southPassageHud.textContent=hint;
+    }
     canvas.dataset.reefZone = currentWaterZone ?? "";
     if (snowfall.visible) {
       snowfall.position.set(player.x, playerY - 4, player.z);
@@ -7531,7 +7547,7 @@ export function createWorld(
       discGolfObjects.dispose();
       jetskiCoast.dispose();
       rideVisual.dispose();rideHud.remove();rideReticle.remove();rideAnnounce.remove();
-      skateHud.remove();skateTouch.remove();skateResult.remove();arcadeTrailHud.remove();
+      skateHud.remove();skateTouch.remove();skateResult.remove();arcadeTrailHud.remove();southPassageHud.remove();
       jetHud.remove();jetAnnounce.remove();jetTouch.remove();jetNotice.remove();jetChooser.remove();
       jetskiVisual.root.traverse(object=>{
         if(object instanceof THREE.Mesh){object.geometry.dispose();
