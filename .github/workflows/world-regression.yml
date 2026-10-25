@@ -157,6 +157,10 @@ jobs:
           lib/world/marineHabitatPatches.ts
           components/world/worldMarineHabitatPatches.ts
           tests/world-marine-habitat-patches.test.ts
+          lib/world/southCoastAccess.ts
+          lib/world/southCoastHabitats.ts
+          components/world/worldSouthCoastalEcology.ts
+          tests/world-south-coast-access-ecology.test.ts
           --max-warnings=0
       - name: Verify manual browser playtest script syntax
         run: |
