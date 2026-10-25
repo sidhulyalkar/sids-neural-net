@@ -3,7 +3,8 @@ import {createResearchGallery} from "./worldResearchGallery";
 import {idleOceanObservation,advanceOceanObservation,stopOceanObservation} from "@/lib/world/coastalObservation";
 import {settleSurfaceHeight} from "@/lib/world/surfaceSupport";
 import {COAST_BENCH,COAST_WHALE,COAST_FALL,waterfallRockHeight} from "@/lib/world/hydrology";
-import {MOSS_CANYON} from "@/lib/world/model";
+import {MOSS_CANYON  southernChannelFloorHeight,
+} from "@/lib/world/model";
 import {BIKE_CONTACT,bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
 import {rideLeavesSupport,rideWheelProbe,rideTerrainAttitude,followRideSurfacePose} from "@/lib/world/rideSurface";
 import {boundedWorldFrameDelta,rideCooldownReady} from "@/lib/world/frameClock";
@@ -582,28 +583,35 @@ export function createWorld(
     [1, 1, 1],
   );
   ground.castShadow = false;
-  // Soft north/south shoreline aprons join the finite island terrain to the
-  // existing ocean plane. The outside racing channel starts beyond these
-  // slopes; no exploration bounds, caves or ecology rules are expanded.
+  // Northern jet-ski apron remains unchanged. The SOUTH apron now extends
+  // to the authored volcanic arch and uses the identical floor as snorkeling
+  // and camera clearance. No island heightfield or sports terrain is altered.
   for(const side of [-1,1]){
     const edgeZ=side>0?WORLD_BOUNDS.maxZ:WORLD_BOUNDS.minZ;
-    const depth=20;
-    const apron=geo(new THREE.PlaneGeometry(102,depth,64,18));
+    const depth=side<0?70:20;
+    const apron=geo(new THREE.PlaneGeometry(
+      side<0?terrainWidth:102,depth,side<0?128:64,side<0?70:18));
     apron.rotateX(-Math.PI/2);
-    apron.translate(12,0,edgeZ+side*depth/2);
+    apron.translate(side<0?(WORLD_BOUNDS.minX+WORLD_BOUNDS.maxX)/2:12,
+      0,edgeZ+side*depth/2);
     const vertices=apron.attributes.position;
     for(let i=0;i<vertices.count;i++){
       const x=vertices.getX(i),z=vertices.getZ(i);
-      const u=THREE.MathUtils.clamp(side*(z-edgeZ)/depth,0,1);
-      const blend=u*u*(3-2*u);
-      const shoreY=worldFloorHeight(x,edgeZ);
-      const seabed=SEA_SURFACE-3.7+Math.sin(x*.12)*.2;
-      vertices.setY(i,shoreY*(1-blend)+seabed*blend);
+      if(side<0){
+        vertices.setY(i,southernChannelFloorHeight(x,z));
+      }else{
+        const u=THREE.MathUtils.clamp(side*(z-edgeZ)/depth,0,1);
+        const blend=u*u*(3-2*u);
+        const shoreY=worldFloorHeight(x,edgeZ);
+        const seabed=SEA_SURFACE-3.7+Math.sin(x*.12)*.2;
+        vertices.setY(i,shoreY*(1-blend)+seabed*blend);
+      }
     }
     apron.computeVertexNormals();
     const cap=mesh(apron,mat("#7b8272",{roughness:.98}),
       [0,0,0],[1,1,1]);
     cap.castShadow=false;
+    if(side<0)cap.name="southern-swimmable-seabed";
   }
 
   // Fine-grained shore skin masks the ~1m polygonal edge of the island grid.
@@ -2806,7 +2814,12 @@ export function createWorld(
 
   const reefGarden = createReefGarden(tropicalReefRoot);
   const marineSchools = createMarineSchools(reefRoot,tropicalReefRoot);
-  const rayPassage = createRayPassage(tropicalReefRoot);
+  // The south-channel biome is distinct from BOTH original snorkeling reefs.
+  const southPassageRoot = new THREE.Group();
+  southPassageRoot.visible = false;
+  southPassageRoot.name = "southern-volcanic-arch-snorkeling";
+  scene.add(southPassageRoot);
+  const rayPassage = createRayPassage(southPassageRoot);
   const goldenTridents = createWorldTridents(reefRoot,tropicalReefRoot);
   canvas.dataset.schoolingFish = String(marineSchools.count);
   canvas.dataset.rayPassage = String(rayPassage.count);
@@ -6690,26 +6703,38 @@ export function createWorld(
     const currentWaterZone = waterZone(player);
     reefRoot.visible = aquatic !== "land" && currentWaterZone === "kelp";
     tropicalReefRoot.visible = aquatic !== "land" && currentWaterZone === "lagoon";
+    // The migration route appears on entering southern water; also allow
+    // glimpses from the nearby mountain shore without forcing reef rendering
+    // on the rest of the island.
+    southPassageRoot.visible =
+      (aquatic !== "land" && currentWaterZone === "south-channel") ||
+      (aquatic === "land" && player.z < -86 && Math.abs(player.x-17) < 39);
     bubbles.visible = aquatic !== "land";
     shasta.visible = !underwater;
     dogContact.visible = !underwater;
     waterMaterial.opacity = underwater ? 0.48 : aquatic === "surface" ? 0.58 : 0.76;
     const underwaterColor =
-      currentWaterZone === "lagoon" ? "#167f91" : "#0b6170";
+      currentWaterZone === "lagoon" ? "#167f91" :
+      currentWaterZone === "south-channel" ? "#145c7a" : "#0b6170";
     const underwaterFog =
-      currentWaterZone === "lagoon" ? "#2f8f91" : "#196b72";
+      currentWaterZone === "lagoon" ? "#2f8f91" :
+      currentWaterZone === "south-channel" ? "#266989" : "#196b72";
     if (scene.background instanceof THREE.Color)
       scene.background.set(underwater ? underwaterColor : "#67b7ef");
     if (scene.fog instanceof THREE.Fog) {
       if (underwater) scene.fog.color.set(underwaterFog);
       scene.fog.near = underwater ? 7 : 85;
-      scene.fog.far = underwater ? (currentWaterZone === "lagoon" ? 70 : 58) : 270;
+      scene.fog.far = underwater ?
+        (currentWaterZone === "south-channel" ? 85 :
+          currentWaterZone === "lagoon" ? 70 : 58) : 270;
     }
 
     // Ski-mode snowfall follows the player anywhere in the world.
     snowfall.visible = state.activity === "ski" && aquatic !== "dive";
     canvas.dataset.snowing = String(snowfall.visible);
-    canvas.dataset.reef = String(reefRoot.visible || tropicalReefRoot.visible);
+    canvas.dataset.reef = String(reefRoot.visible || tropicalReefRoot.visible || southPassageRoot.visible);
+    canvas.dataset.southPassage = String(southPassageRoot.visible);
+    canvas.dataset.southPassageSwimmable = String(currentWaterZone==="south-channel" && aquatic!=="land");
     canvas.dataset.reefZone = currentWaterZone ?? "";
     if (snowfall.visible) {
       snowfall.position.set(player.x, playerY - 4, player.z);
@@ -6991,7 +7016,7 @@ export function createWorld(
     if(seated){const whaleScreen=new THREE.Vector3(COAST_WHALE.x,SEA_SURFACE+4,COAST_WHALE.z).project(camera);canvas.dataset.whaleOnScreen=String(Math.abs(whaleScreen.x)<1&&Math.abs(whaleScreen.y)<1&&whaleScreen.z<1);}else canvas.dataset.whaleOnScreen="false";
     canvas.dataset.waterfallRockHeight=String(waterfallRockHeight(player)??"");canvas.dataset.playerSurfaceGap=(playerY-supportHeight(player)).toFixed(4);
     canvas.dataset.paperFigureScreens=caveLayer!=="paper"?"[]":JSON.stringify(researchGallery.targets.filter((_,i)=>i%2===0).map(o=>{const p=o.getWorldPosition(new THREE.Vector3()).project(camera);return {x:p.x,y:p.y,z:p.z};}));
-    if (reefRoot.visible || tropicalReefRoot.visible) {
+    if (reefRoot.visible || tropicalReefRoot.visible || southPassageRoot.visible) {
       const rp=rayGeo.attributes.position;
       for(let i=0;i<rp.count;i++)rp.setZ(i,rayOriginal[i*3+2]+Math.sin(elapsed*1.6+Math.abs(rayOriginal[i*3])*1.2)*.09*Math.abs(rayOriginal[i*3]));
       rp.needsUpdate=true;
