@@ -9,7 +9,7 @@ import {
  */
 export function southCoastDryShore(x:number):boolean {
   const z=SOUTH_CHANNEL_SHORE_Z;
-  return Number.isFinite(x) && x>coastlineX(z)+.4 && x<eastCoastlineX(z)-.4;
+  return Number.isFinite(x) && x>coastlineX(z)+3.2 && x<eastCoastlineX(z)-3.2;
 }
 export function southCoastEntry(
   point:Point, intended:Point, isSurface:boolean, isGrounded:boolean,
