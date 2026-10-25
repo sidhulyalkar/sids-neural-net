@@ -138,8 +138,12 @@ export function createSouthCoastalEcology(parent:THREE.Group){
   const dummy=new THREE.Object3D();
   const set=(b:Batch,i:number,t:number)=>{
     const p=b.points[i],move=swimmers.has(b.kind);
-    const phi=t*(b.kind==="sea-lion"?.82:.54)+i*2.4;
-    const radius=move?(b.kind==="leopard-shark"?2.4:1.6):0;
+    const speed=b.kind==="sea-lion"?.94:b.kind==="harbor-seal"?.66:
+      b.kind==="sea-otter"?.32:b.kind==="leopard-shark"?.48:.64;
+    const phi=t*speed+i*2.4;
+    const radius=!move?0:b.kind==="sea-lion"?3.0:
+      b.kind==="harbor-seal"?2.6:b.kind==="leopard-shark"?3.7:
+      b.kind==="sea-otter"?1.1:1.65;
     const x=p.x+Math.cos(phi)*radius,z=p.z+Math.sin(phi)*radius;
     const floor=seaFloorHeight(x,z);
     const bob=move?Math.sin(t*1.1+i)*.14:0;
@@ -147,8 +151,11 @@ export function createSouthCoastalEcology(parent:THREE.Group){
       floor+groundOffset(b.kind,p.size)+bob):
       p.y+groundOffset(b.kind,p.size);
     dummy.position.set(x,y,z);
-    dummy.rotation.set(0,p.angle+(move?phi+.5:0),
-      growth.has(b.kind)?Math.sin(t*.45+i)*.035:0);
+    // Motion tangent on the x=cos(phi), z=sin(phi) route points toward
+    // local +Z at yaw=-phi; wrong sign made dolphins/fish slide sideways.
+    dummy.rotation.set(0,move?-phi:p.angle,
+      growth.has(b.kind)?Math.sin(t*.45+i)*.035:
+      move?Math.sin(t*.78+i)*.045:0);
     dummy.scale.setScalar(p.size);
     dummy.updateMatrix();b.mesh.setMatrixAt(i,dummy.matrix);
   };
