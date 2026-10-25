@@ -146,6 +146,14 @@ jobs:
           tests/world-occupancy.test.ts
           lib/world/skimboarding.ts
           tests/world-skimboarding.test.ts
+          lib/world/rayPassage.ts
+          lib/world/rayFever.ts
+          components/world/worldRayPassage.ts
+          components/world/worldSouthChannelLife.ts
+          lib/world/biomes.ts
+          tests/world-ray-passage.test.ts
+          tests/world-eagle-fever.test.ts
+          tests/world-south-channel.test.ts
           --max-warnings=0
       - name: Verify manual browser playtest script syntax
         run: |
