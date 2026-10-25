@@ -3,6 +3,7 @@ import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
 import {
   MARINE_HABITAT_PATCHES, marineHabitatPoint, marineHabitatCounts,
+  marineHabitatAt, marineHabitatLabel,
   type ReefZone,
 } from "../lib/world/marineHabitatPatches";
 import { createMarineHabitatPatches } from "../components/world/worldMarineHabitatPatches";
@@ -102,6 +103,18 @@ test("lagoon and kelp geometry reuses instances, paints species differently, sta
   habitats.dispose();
   assert.equal(west.children.length,0);
   assert.equal(east.children.length,0);
+});
+
+test("swimmers discover named east and west neighborhoods only within authored bounds",()=>{
+  for(const patch of MARINE_HABITAT_PATCHES){
+    const atCenter=marineHabitatAt({x:patch.x,z:patch.z},patch.zone);
+    assert.ok(atCenter,`no neighborhood at ${patch.id}`);
+    assert.ok(marineHabitatLabel(atCenter!).length>4);
+  }
+  assert.equal(marineHabitatLabel(MARINE_HABITAT_PATCHES[0]),"Kelp Cathedral");
+  assert.equal(marineHabitatLabel(MARINE_HABITAT_PATCHES[6]),"Anemone Garden");
+  assert.equal(marineHabitatAt({x:0,z:0},"kelp"),null);
+  assert.equal(marineHabitatAt({x:0,z:0},"lagoon"),null);
 });
 
 test("marine habitats are independent of southern ray passage",()=>{
