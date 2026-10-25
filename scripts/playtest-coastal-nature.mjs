@@ -31,7 +31,7 @@ try{
  assert.ok(results.crown.every(s=>s.layer==='surface'&&s.gap>=-.03&&s.dogGap>=-.001));console.log('PASS rock support',JSON.stringify(results.crown.at(-1)));assert.ok(results.crown.every(s=>Number(s.cutaways)===0));
  await open('research-cave');
  results.cave=await page.evaluate(()=>new Promise((resolve,reject)=>{const el=document.querySelector('canvas');let frames=0;el.dispatchEvent(new KeyboardEvent('keydown',{key:'w',bubbles:true}));const tick=()=>{const d=el.dataset,p=d.player.split(',').map(Number);if(p[1]<-37.5){el.dispatchEvent(new KeyboardEvent('keyup',{key:'w',bubbles:true}));window.auditImage('research-cave',el.toDataURL());resolve({layer:d.caveLayer,point:d.player,figures:d.researchFigures,screens:JSON.parse(d.paperFigureScreens)});return;}if(++frames>180){reject(Error('Cave entry failed '+JSON.stringify({...d})));return;}requestAnimationFrame(tick);};requestAnimationFrame(tick);}));
- assert.equal(results.cave.layer,'paper');assert.equal(results.cave.figures,'3');
+ assert.equal(results.cave.layer,'paper');assert.equal(results.cave.figures,'9');
  await page.getByRole('button',{name:'Explore the research papers',exact:true}).click();const papers=page.locator('a[href^="/papers/"]');assert.ok(await papers.count()>=3);results.paperLinks=await papers.evaluateAll(as=>as.map(a=>a.getAttribute('href')));console.log('PASS cave entry and paper links');
  await open('coastal-falls');await page.screenshot({path:path.join(out,'coastal-falls.png')});assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(results,null,2));console.log('PASS coastal nature');
 }finally{await browser.close();}

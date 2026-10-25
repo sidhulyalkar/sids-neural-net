@@ -1,5 +1,6 @@
 import {ringSurfaceHeight} from "./surfaceSupport";
-import { isWater, SEA_SURFACE, terrainHeight, worldFloorHeight, mountainSurfaceHeight, paperCaveHalfWidth, paperCaveFloorHeight } from "./model";
+import { isWater, SEA_SURFACE, terrainHeight, worldFloorHeight, mountainSurfaceHeight, paperCaveHalfWidth, paperCaveFloorHeight, PAPER_CAVE_SECTIONS, paperCaveCenterX, PAPER_CAVE } from "./model";
+export const SNOWMELT_POOL={x:-13,z:-66,radius:3.6,scaleX:1.25} as const;
 export const SNOWMELT_PATH = [
   { x: -13, z: -66 },
   { x: -16, z: -61 },
@@ -69,15 +70,16 @@ export function downstreamPoints() {
  * constant-height slab. The center channel is shallow; outer shoulders tie into
  * the surrounding mountain, leaving the interior chamber beneath it. */
 export function waterfallCrownRings(): WaterPoint[][] {
-  return drainagePoints().filter(p => p.z >= -42).map(p => [
-    { x: p.x - 7, y: terrainHeight(p.x - 7, p.z), z: p.z },
-    { x: p.x - 3.6, y: Math.max(p.y + .25, terrainHeight(p.x - 3.6, p.z)), z: p.z },
-    { x: p.x - 1.25, y: p.y - .07, z: p.z },
-    { x: p.x, y: p.y - .07, z: p.z },
-    { x: p.x + 1.25, y: p.y - .07, z: p.z },
-    { x: p.x + 3.6, y: Math.max(p.y + .25, terrainHeight(p.x + 3.6, p.z)), z: p.z },
-    { x: p.x + 7, y: terrainHeight(p.x + 7, p.z), z: p.z },
-  ]);
+  return drainagePoints().filter(p => p.z >= -42).map(p => {
+    const section=[[-7,terrainHeight(p.x-7,p.z)+.09],[-3.6,Math.max(p.y+.25,terrainHeight(p.x-3.6,p.z)+.09)],[-1.25,p.y-.07],[1.25,p.y-.07],[3.6,Math.max(p.y+.25,terrainHeight(p.x+3.6,p.z)+.09)],[7,terrainHeight(p.x+7,p.z)+.09]];
+    // Sample cross-slope relief instead of intersecting it with broad triangles.
+    return Array.from({length:57},(_,i)=>{
+      const dx=-7+i*.25,x=p.x+dx;
+      const j=Math.max(1,section.findIndex(v=>v[0]>=dx)),a=section[j-1],b=section[j];
+      const y=a[1]+(b[1]-a[1])*(dx-a[0])/(b[0]-a[0]);
+      return {x,y:Math.max(y,terrainHeight(x,p.z)+.025),z:p.z};
+    });
+  });
 }
 
 let crownCache:ReturnType<typeof waterfallCrownRings>|undefined;
@@ -91,33 +93,30 @@ export const COAST_FALL={x:-32.15,z:-48} as const;
 export function mountainTributaries(){
  return [
   [{x:-13,z:-66},{x:-19,z:-64},{x:-25,z:-60},{x:-28,z:-55},COAST_FALL],
-  [{x:1,z:-66},{x:-3,z:-59},{x:-7,z:-53},{x:-12,z:-47},{x:-20,z:-37}],
  ].map(path=>surfaceRibbon(path.map(p=>({...p,y:terrainHeight(p.x,p.z)+.11}))));
 }
 
 export function paperCaveShellRings():WaterPoint[][]{
-  return Array.from({length:15},(_,i)=>{
-    const z=-30-i,w=paperCaveHalfWidth(z),floor=paperCaveFloorHeight({x:-20,z});
-    const roofLimit=Math.min(
-      mountainSurfaceHeight(-20,z),
-      mountainSurfaceHeight(-20-w*.6,z),
-      mountainSurfaceHeight(-20+w*.6,z),
-    )-.28;
-    const roof=Math.min(floor+7.0,roofLimit);
-    const shoulder=Math.min(roof-.25,floor+5.65);
+  const sections:{x:number;z:number;w:number}[]=[];
+  for(let i=1;i<PAPER_CAVE_SECTIONS.length;i++){
+    const a=PAPER_CAVE_SECTIONS[i-1],b=PAPER_CAVE_SECTIONS[i],n=Math.ceil(a.z-b.z);
+    for(let j=0;j<n;j++){const z=a.z+(b.z-a.z)*j/n;sections.push({z,x:paperCaveCenterX(z),w:paperCaveHalfWidth(z)});}
+  }
+  sections.push(PAPER_CAVE_SECTIONS.at(-1)!);
+  return sections.map(({x,z,w})=>{
+    const floor=paperCaveFloorHeight({x,z});
+    const roof=Math.min(floor+7,...[-1,-.625,0,.625,1].map(t=>mountainSurfaceHeight(x+w*t,z)-.55));
+    const shoulder=Math.min(roof-.45,floor+5.65);
     return [
-      {x:-20-w,y:floor,z},
-      {x:-20-w,y:shoulder,z},
-      {x:-20-w*.625,y:roof-.18,z},
-      {x:-20,y:roof,z},
-      {x:-20+w*.625,y:roof-.18,z},
-      {x:-20+w,y:shoulder,z},
-      {x:-20+w,y:floor,z},
+      {x:x-w,y:floor-.12,z},{x:x-w,y:shoulder,z},
+      {x:x-w*.625,y:roof-.18,z},{x,y:roof,z},
+      {x:x+w*.625,y:roof-.18,z},{x:x+w,y:shoulder,z},
+      {x:x+w,y:floor-.12,z},
     ];
   });
 }
 let paperRoofCache:WaterPoint[][]|undefined;
 export function paperCaveRoofHeight(p:{x:number;z:number}):number|null{
- if(p.z< -44||p.z> -30||Math.abs(p.x+20)>6.5)return null;
+ if(p.z< PAPER_CAVE.backZ||p.z> -30||Math.abs(p.x+20)>6.5)return null;
  return ringSurfaceHeight(paperRoofCache??=paperCaveShellRings(),p);
 }

@@ -68,13 +68,12 @@ test("melt basin clears the slope and stream has continuous rock support above t
     }
   }
   const crown = waterfallCrownRings();
-  assert.equal(crown.at(-1)![3].z, waterfallProfile().lip.z);
+  assert.equal(crown.at(-1)![28].z, waterfallProfile().lip.z);
   const channel = upper.filter(p => p.z >= -42);
   for (let i = 0; i < crown.length; i++) {
-    assert.ok(Math.abs(channel[i].y - crown[i][3].y - .07) < 1e-8);
-    assert.equal(crown[i][0].y, terrainHeight(crown[i][0].x, crown[i][0].z));
-    assert.equal(crown[i][6].y, terrainHeight(crown[i][6].x, crown[i][6].z));
-    assert.ok(crown[i][3].y > waterfallProfile().floorY + 5);
+    assert.ok(Math.abs(channel[i].y - crown[i][28].y - .07) < 1e-8);
+    assert.ok(crown[i].every(p=>p.y>terrainHeight(p.x,p.z)+.02));
+    assert.ok(crown[i][28].y > waterfallProfile().floorY + 5);
   }
 });
 

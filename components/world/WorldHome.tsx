@@ -439,7 +439,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       }));
     }
     const nature=new URLSearchParams(window.location.search).get("nature-start");
-    if(nature==="ocean-bench"||nature==="research-cave"||nature==="fern-crown"||nature==="coastal-falls"){
+    if(nature==="ocean-bench"||nature==="research-cave"||nature==="fern-crown"||nature==="coastal-falls"||nature==="snowmelt-pool"){
       setActivity("run");setCommand(previous=>({region:"waterfall",serial:(previous?.serial??0)+1,activity:"run",natureDestination:nature}));
     }
   }

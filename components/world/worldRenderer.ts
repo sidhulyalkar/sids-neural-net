@@ -68,7 +68,7 @@ import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
 import { createNorthShoreLife } from "./worldNorthShoreLife";
 import { ringSurface, ribbon } from "./worldGeometry";
-import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings, paperCaveShellRings, paperCaveRoofHeight } from "@/lib/world/hydrology";
+import { SNOWMELT_POOL, drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings, paperCaveShellRings, paperCaveRoofHeight } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
 import { stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
@@ -99,6 +99,7 @@ import {
   paperCaveFloorHeight,
   paperCaveInside,
   paperCaveHalfWidth,
+  paperCaveCenterX,
   PAPER_CAVE,
   caveObstacles,
   caveHalfWidth,
@@ -1370,27 +1371,36 @@ export function createWorld(
   const upper=melt.map(p=>new THREE.Vector3(p.x,p.y,p.z));
   const lip=upper[upper.length-1];
   mesh(geo(ribbon(upper,upper.map((_,i)=>.6+1.6*i/(upper.length-1)))),waterRibbonMat,[0,0,0],[1,1,1]);
-  const basin=mesh(geo(new THREE.CircleGeometry(2,20)),waterRibbonMat,[upper[0].x,upper[0].y,upper[0].z],[1,1,1]);basin.rotation.x=-Math.PI/2;
+  const basin=mesh(geo(new THREE.CircleGeometry(SNOWMELT_POOL.radius,64)),waterRibbonMat,[upper[0].x,upper[0].y,upper[0].z],[SNOWMELT_POOL.scaleX,1,1]);basin.rotation.x=-Math.PI/2;
   const fallRings=Array.from({length:13},(_,i)=>{const t=i/12;return [new THREE.Vector3(-21.2-Math.sin(t*4)*.12,lip.y+(fallsY+.1-lip.y)*t,-30+t*.8),new THREE.Vector3(-18.8+Math.sin(t*6)*.18,lip.y+(fallsY+.1-lip.y)*t,-30+t*.8)];});
   const waterfall=mesh(geo(ringSurface(fallRings)),waterRibbonMat,[0,0,0],[1,1,1]);waterfall.castShadow=false;
   const paperRings=paperCaveShellRings().map(ring=>ring.map(p=>new THREE.Vector3(p.x,p.y,p.z)));
-  mesh(geo(ringSurface(paperRings)),mat("#465958",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  mesh(geo(ringSurface(paperRings)),detailCavernStone(mat("#66726c",{side:THREE.DoubleSide})),[0,0,0],[1,1,1]);
   const paperBackFloor=paperCaveFloorHeight({x:-20,z:PAPER_CAVE.backZ});
-  mesh(boxGeo,mat("#43504e"),[-20,paperBackFloor+3.5,PAPER_CAVE.backZ-.2],[13,7,.4]);
+  mesh(boxGeo,detailCavernStone(mat("#66726c")),[-20,paperBackFloor+3.5,PAPER_CAVE.backZ-.2],[13,7,.4]);
   const paperFloorRings=paperRings.map(ring=>{
-    const z=ring[0].z,w=paperCaveHalfWidth(z)-.12,y=paperCaveFloorHeight({x:-20,z})-.08;
-    return [new THREE.Vector3(-20-w,y,z),new THREE.Vector3(-20+w,y,z)];
+    const z=ring[0].z,w=paperCaveHalfWidth(z)+.08,y=paperCaveFloorHeight({x:-20,z})-.08,x=paperCaveCenterX(z);
+    return [new THREE.Vector3(x-w,y,z),new THREE.Vector3(x+w,y,z)];
   });
-  mesh(geo(ringSurface(paperFloorRings)),mat("#4d5a57",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  mesh(geo(ringSurface(paperFloorRings)),detailCavernStone(mat("#71786b",{side:THREE.DoubleSide})),[0,0,0],[1,1,1]);
   // Cave solids are active only on an underground navigation layer. Projecting
   // them into global x/z collision is what previously made the roof unwalkable.
   const caveSolids=caveObstacles();
   const paperRockRings = waterfallCrownRings().map(ring => ring.map(p => new THREE.Vector3(p.x, p.y, p.z)));
   // Close the rock above and beside the mouth without closing the passage.
-  const paperRockSkin = [...paperRockRings, paperRings[0]];
+  // Terrain sections and arch sections have incompatible vertex meanings.
+  // Joining them creates crossed triangles, so cap the entrance separately.
+  const paperRockSkin = paperRockRings;
   mesh(geo(ringSurface(paperRockSkin)),mat("#78867a",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  const arch=paperRings[0].slice(1,-1);
+  const fascia=arch.map(p=>new THREE.Vector3(p.x,Math.max(p.y,waterfallRockHeight({x:p.x,z:p.z})??p.y),p.z));
+  mesh(geo(ringSurface([arch,fascia])),detailCavernStone(mat("#78867a",{side:THREE.DoubleSide})),[0,0,0],[1,1,1]);
   const researchGallery=createResearchGallery();scene.add(researchGallery.root);
   const paperLight=new THREE.PointLight("#c3e4dd",24,20,1.5);paperLight.position.set(-20,paperBackFloor+5.6,-38);scene.add(paperLight);
+  for(const z of [-55,-72]){
+    const light=new THREE.PointLight("#e8d8a7",30,19,1.5);
+    light.position.set(-20,paperBackFloor+5.5,z);scene.add(light);
+  }
   const paperEntryLight=new THREE.PointLight("#e8d8a7",15,15,1.5);paperEntryLight.position.set(-20,paperBackFloor+4.5,-32);scene.add(paperEntryLight);
   const coastalNature=createCoastalNature(p=>Math.max(visibleTerrainHeight(p),waterfallRockHeight(p)??-Infinity,paperCaveRoofHeight(p)??-Infinity));scene.add(coastalNature.root);obstacles.push(...coastalNature.obstacles);groundedObstacles.push(...coastalNature.obstacles);
 
@@ -5780,7 +5790,6 @@ export function createWorld(
       }
       if (caveInside || paperInside) {
         const isArcade = caveInside;
-        const centerX = isArcade ? 16 : -20;
         // A camera just 0.5m behind the player at the threshold rendered the
         // explorer's backpack as a full-screen polygon. Allow a 2.6m exterior
         // throat boom; the layered cave floor still clamps vertical clearance.
@@ -5788,6 +5797,7 @@ export function createWorld(
         const maxZ = isArcade ? -63.7 : -30.3;
         const desired = constrainMove(player,{x:player.x+Math.sin(yaw)*2.6,z:player.z+Math.cos(yaw)*2.6},caveSolids);
         const z=THREE.MathUtils.clamp(desired.z,minZ,maxZ);
+        const centerX = isArcade ? 16 : paperCaveCenterX(z);
         const half = isArcade ? caveHalfWidth(z)-.85 : paperCaveHalfWidth(z)-.85;
         targetCamera.set(THREE.MathUtils.clamp(desired.x,centerX-half,centerX+half),playerY+2.15,z);
         targetLook.set(player.x-Math.sin(yaw)*2.4,playerY+1.85,player.z-Math.cos(yaw)*2.4);
@@ -6633,7 +6643,7 @@ export function createWorld(
     ) {
       const c=constrainMove(player,{x:camera.position.x,z:camera.position.z},caveSolids);
       const inArcade = caveLayer === "arcade" && arcadeInside(player);
-      const centerX = inArcade ? 16 : -20;
+      const centerX = inArcade ? 16 : paperCaveCenterX(c.z);
       const z = THREE.MathUtils.clamp(c.z, inArcade ? -81.6 : PAPER_CAVE.backZ+.8, inArcade ? -63.7 : -30.3);
       const half = (inArcade ? caveHalfWidth(z) : paperCaveHalfWidth(z)) - .85;
       camera.position.x=THREE.MathUtils.clamp(c.x,centerX-half,centerX+half);camera.position.z=z;
@@ -7374,7 +7384,7 @@ export function createWorld(
           (next.command.activity && activityLanding(next.command.activity)) ||
           regionLanding(r.id);
         const natureStart=next.command.natureDestination;
-        if(natureStart)player=natureStart==="ocean-bench"?{x:COAST_BENCH.x+1.5,z:COAST_BENCH.z}:natureStart==="research-cave"?{x:-20,z:-28}:natureStart==="fern-crown"?{x:-24,z:-34}:{x:COAST_FALL.x+2.2,z:COAST_FALL.z+2.6};
+        if(natureStart)player=natureStart==="ocean-bench"?{x:COAST_BENCH.x+1.5,z:COAST_BENCH.z}:natureStart==="research-cave"?{x:-20,z:-28}:natureStart==="fern-crown"?{x:-24,z:-34}:natureStart==="snowmelt-pool"?{x:-8,z:-62}:{x:COAST_FALL.x+2.2,z:COAST_FALL.z+2.6};
         clearInput();
         travel = { point: player, speed: 0, heading:
           reverseStart?reversePose.heading:tubeStart?{x:-1,z:0}:loopStart?{x:-1,z:0}:flowStart?{x:1,z:0}:

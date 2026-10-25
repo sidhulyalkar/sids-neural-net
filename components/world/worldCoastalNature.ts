@@ -35,7 +35,6 @@ export function createCoastalNature(height:(p:{x:number;z:number})=>number){
  for(const [index,path] of streams.entries()){
   const rings=path.map((p,i)=>{const prev=path[Math.max(0,i-1)],next=path[Math.min(path.length-1,i+1)],dx=next.x-prev.x,dz=next.z-prev.z,n=Math.hypot(dx,dz)||1,w=.38+index*.1;return [-1,1].map(side=>v(p.x+side*dz/n*w,Math.max(p.y,height({x:p.x+side*dz/n*w,z:p.z-side*dx/n*w})+.055),p.z-side*dx/n*w));});
   root.add(new THREE.Mesh(ringSurface(rings),water));
-  for(let i=0;i<path.length;i+=14){const p=path[i];for(const side of [-1,1]){const x=p.x+side*.8,z=p.z;batch.add(stone,i%3?'#778477':'#969c86',v(x,height({x,z})+.07,z),v(.25,.13,.3));}}
  }
  const lipY=streams[0].at(-1)!.y;
  const fallRings=Array.from({length:32},(_,i)=>{const t=i/31;return [-1,1].map(side=>v(COAST_FALL.x-2.35*t,lipY+(SEA_SURFACE+.12-lipY)*t,COAST_FALL.z+side*(.23+.12*t)));});root.add(new THREE.Mesh(ringSurface(fallRings),water));

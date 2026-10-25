@@ -186,8 +186,24 @@ export function arcadeCaveTerrainMask(x: number, z: number): number {
 export function caveHalfWidth(z:number) {
   return 3.8 + smoothstep01((z + 75) / 5) * 2.5;
 }
-export const PAPER_CAVE = {x:-20,z:-30,backZ:-44,halfWidth:6.5} as const;
-export function paperCaveHalfWidth(z: number) { return 3.2 + 3.3 * smoothstep01((-z - 30) / 5); }
+export const PAPER_CAVE = {x:-20,z:-30,backZ:-79,halfWidth:6.5} as const;
+/** Shared room/corridor footprint for walls, navigation and camera clearance. */
+export const PAPER_CAVE_SECTIONS = [
+ {z:-30,x:-20,w:3.2},{z:-35,x:-20,w:6.5},{z:-44,x:-20,w:6.5},
+ {z:-44.4,x:-23.4,w:2.1},{z:-49,x:-23.4,w:2.1},
+ {z:-49.4,x:-20,w:6.5},{z:-61,x:-20,w:6.5},
+ {z:-61.4,x:-16.6,w:2.1},{z:-66,x:-16.6,w:2.1},
+ {z:-66.4,x:-20,w:6.5},{z:-79,x:-20,w:6.5},
+] as const;
+export function paperCaveSection(z:number){
+ for(let i=1;i<PAPER_CAVE_SECTIONS.length;i++){
+  const a=PAPER_CAVE_SECTIONS[i-1],b=PAPER_CAVE_SECTIONS[i];
+  if(z>=b.z){const t=Math.max(0,Math.min(1,(z-a.z)/(b.z-a.z)));return {x:a.x+(b.x-a.x)*t,w:a.w+(b.w-a.w)*t};}
+ }
+ return PAPER_CAVE_SECTIONS[PAPER_CAVE_SECTIONS.length-1];
+}
+export function paperCaveHalfWidth(z:number){return paperCaveSection(z).w;}
+export function paperCaveCenterX(z:number){return paperCaveSection(z).x;}
 
 export type CaveLayer = "surface" | "arcade" | "paper";
 const ARCADE_PORTAL_Z = ARCADE_CAVE.entrance.z + 0.08;
@@ -232,7 +248,7 @@ function paperAccessTerrainMask(x: number, z: number) {
   return Math.max(0, Math.min(1, lateralMask * backFade * frontFade));
 }
 
-export function paperCaveInside(p:Point) {return Math.abs(p.x-PAPER_CAVE.x)<paperCaveHalfWidth(p.z)-.5 && p.z < -31 && p.z > PAPER_CAVE.backZ+.6;}
+export function paperCaveInside(p:Point) {return Math.abs(p.x-paperCaveCenterX(p.z))<paperCaveHalfWidth(p.z)-.5 && p.z < -31 && p.z > PAPER_CAVE.backZ+.6;}
 export function arcadeInside(p:Point) {return p.z>-81.5 && p.z<-63 && Math.abs(p.x-16)<caveHalfWidth(p.z)-.3;}
 /** The cave is carved inside an alpine biome. Its Shasta waiting behavior
  * follows actual cave-layer geometry, not the nearest open-air region label.
@@ -291,7 +307,12 @@ export function nextCaveLayer(
 export function caveObstacles(): Obstacle[] {
   const result: Obstacle[] = [];
   for (const side of [-1, 1]) {
-    for (let z = -30; z >= PAPER_CAVE.backZ; z-=.6) result.push({ x: -20 + side * (paperCaveHalfWidth(z) + .2), z, radius: .35 });
+    for(let i=1;i<PAPER_CAVE_SECTIONS.length;i++){
+      const a=PAPER_CAVE_SECTIONS[i-1],b=PAPER_CAVE_SECTIONS[i];
+      const ax=a.x+side*(a.w+.2),bx=b.x+side*(b.w+.2);
+      const n=Math.ceil(Math.hypot(bx-ax,b.z-a.z)/.3);
+      for(let j=0;j<=n;j++){const t=j/n;result.push({x:ax+(bx-ax)*t,z:a.z+(b.z-a.z)*t,radius:.35});}
+    }
     for (let z = -81; z < -63; z++) result.push({ x: 16 + side * (caveHalfWidth(z) + .4), z, radius: .32 });
   }
   for (let x = PAPER_CAVE.x-PAPER_CAVE.halfWidth; x <= PAPER_CAVE.x+PAPER_CAVE.halfWidth; x+=.6) result.push({ x, z: PAPER_CAVE.backZ-.1, radius: .4 });
@@ -303,7 +324,7 @@ export function terrainHeight(x: number, z: number): number {
   let base = rawTerrainHeight(x, z);
   // A shallow level bench receives melt at the snow edge. Feather its banks
   // into the slope so the basin surface cannot intersect the uphill terrain.
-  const meltBasinMask = 1 - smoothstep01((Math.hypot(x + 13, z + 66) - 2) / 0.9);
+  const meltBasinMask = 1 - smoothstep01((Math.hypot((x + 13) / 1.25, z + 66) - 3.6) / 1.3);
   base += (rawTerrainHeight(-13, -66) - 0.08 - base) * meltBasinMask;
   // The plunge pool occupies a shallow basin, not a disc buried in the hillside.
   const poolDistance = Math.hypot(x + 20, z + 27);
@@ -510,7 +531,7 @@ export type WorldCommand = {
   region: RegionId;
   serial: number;
   activity?: import("./activities").Activity;
-  natureDestination?: "ocean-bench" | "research-cave" | "fern-crown" | "coastal-falls";
+  natureDestination?: "ocean-bench" | "research-cave" | "fern-crown" | "coastal-falls" | "snowmelt-pool";
   skateDestination?: "canyon-flow" | "loop-rollin" | "loop-reverse" | "hollow-log" | "log-top";
   sportDestination?: "jet-pier";
 };

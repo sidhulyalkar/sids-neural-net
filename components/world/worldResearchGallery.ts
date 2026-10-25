@@ -4,7 +4,7 @@ import {paperCaveFloorHeight} from '@/lib/world/model';
 export function createResearchGallery(){
  const root=new THREE.Group(),targets:THREE.Mesh[]=[],textures:THREE.Texture[]=[];const loader=new THREE.TextureLoader();let disposed=false;
  for(const entry of RESEARCH_GALLERY){
-  const group=new THREE.Group();group.position.set(entry.position.x,paperCaveFloorHeight(entry.position)+3.15,entry.position.z);group.rotation.y=entry.yaw;root.add(group);
+  const group=new THREE.Group();group.position.set(entry.position.x,paperCaveFloorHeight(entry.position)+(entry.room===1?2.7:3.15),entry.position.z);group.rotation.y=entry.yaw;root.add(group);
   const height=entry.width/entry.aspect;
   group.add(new THREE.Mesh(new THREE.BoxGeometry(entry.width+.22,height+.22,.12),new THREE.MeshStandardMaterial({color:'#5c4834',roughness:.9})));
   const material=new THREE.MeshBasicMaterial({color:'#f3f0e9'}),panel=new THREE.Mesh(new THREE.PlaneGeometry(entry.width,height),material);panel.position.z=.075;panel.userData.paperHref=entry.href;group.add(panel);targets.push(panel);
