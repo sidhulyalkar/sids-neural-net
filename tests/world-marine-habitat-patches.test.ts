@@ -99,7 +99,7 @@ test("lagoon and kelp geometry reuses instances, paints species differently, sta
 });
 
 test("marine habitats are independent of southern ray passage",()=>{
-  assert.ok(MARINE_HABITAT_PATCHES.every(p=>p.zone!=="south-channel"));
+  assert.ok(MARINE_HABITAT_PATCHES.every(p=>["kelp","lagoon"].includes(p.zone)));
   assert.ok(MARINE_HABITAT_PATCHES.every(p=>p.z>-65));
   assert.equal(waterZone({x:17,z:-127}),"south-channel");
   for(const point of [{x:-69,z:5},{x:78,z:5}]){
