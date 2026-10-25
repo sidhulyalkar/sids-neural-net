@@ -110,7 +110,7 @@ test("close-up rays gently part to let the snorkeler enter the fever",()=>{
     const deflection=Math.hypot(near.x-unperturbed.x,near.z-unperturbed.z);
     assert.ok(deflection>2 && deflection<=2.401);
     assert.ok(near.y>=seaFloorHeight(near.x,near.z)+EAGLE_FEVER_MIN_CLEARANCE-1e-7);
-    assert.equal(waterZone(near),"lagoon");
+    assert.equal(waterZone(near),"south-channel");
     const far=sampleEagleFever(i,14,seaFloorHeight,SEA_SURFACE,
       {x:unperturbed.x+100,y:unperturbed.y,z:unperturbed.z+100});
     assert.deepEqual(far,unperturbed,"distant swimmer cannot affect remote fish");
