@@ -2,9 +2,14 @@ import { desertTrackHeightOffset } from "./desertTrack";
 import { rockGardenHeightOffset } from "./technicalFeatures";
 import { bigAirTerrainOffset } from "./bigAir";
 import { beachBlend, northShoreZ } from "./skimboarding";
+import {MYSTIC_GROVE} from "./mysticGrove";
+import { visualMotion, type WildlifeSubject } from "@/src/data/visualMotion";
+import {buildSnorkelVideoPoints} from "./marineVideoCatalog";
 /** Small, deterministic geography shared by the renderer, navigation and tests. */
 export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern" | "desert" | "rainforest" | "north-shore";
 export type Point = { x: number; z: number };
+
+export const MOSS_CANYON = {center:{x:46,z:-76},startZ:-85,segments:8,spacing:2.8} as const;
 
 export const REGIONS: {
   id: RegionId;
@@ -15,18 +20,18 @@ export const REGIONS: {
 }[] = [
   { id: "grove", name: "Redwood grove", meaning: "A little about me", point: { x: 0, z: 8 }, href: "/about" },
   { id: "mountain", name: "Granite ridge", meaning: "Things I build", point: { x: 8, z: -54 }, href: "/projects" },
-  { id: "neural", name: "Strange grove", meaning: "Things I explore", point: { x: 30, z: -5 }, href: "/ideas" },
+  { id: "neural", name: "Mystic grove", meaning: "Things I explore", point: MYSTIC_GROVE.center, href: "/ideas" },
   { id: "coast", name: "Wild coast", meaning: "Cold-water coast", point: { x: -29, z: 13 }, href: "/photography" },
   { id: "lagoon", name: "Lagoon reef", meaning: "South Pacific reef", point: { x: 58, z: 13 }, href: "/photography" },
   { id: "waterfall", name: "Fern falls", meaning: "Follow the water", point: { x: -20, z: -24 }, href: "/photography" },
-  { id: "canyon", name: "Moss canyon", meaning: "A quieter trail", point: { x: 29, z: 34 }, href: "/about" },
+  { id: "canyon", name: "Moss canyon", meaning: "A quieter trail", point: MOSS_CANYON.center, href: "/about" },
   { id: "cavern", name: "Arcade cavern", meaning: "Play my games", point: { x: 16, z: -82 }, href: "/arcade" },
   { id: "desert", name: "Joshua basin", meaning: "Granite and desert trails", point: { x: 22, z: -33 }, href: "/photography" },
   { id: "rainforest", name: "Rainforest", meaning: "Canopy to coast", point: { x: 44, z: 33 }, href: "/photography" },
   { id: "north-shore", name: "North shore", meaning: "Skimboarding · Shore break", point: { x: 0, z: northShoreZ(0) - 8 }, href: "/photography" },
 ];
 
-export const WORLD_BOUNDS = { minX: -92, maxX: 94, minZ: -96, maxZ: 94 } as const;
+export const WORLD_BOUNDS = { minX: -92, maxX: 94, minZ: -96, maxZ: 104 } as const;
 export const SEA_SURFACE = -1.4;
 
 export const ARCADE_CAVE = {
@@ -116,18 +121,18 @@ export type WorldVideoPoint = {
   id: string;
   title: string;
   detail: string;
-  point: Point;
+  animal: WildlifeSubject;
+  reef: "kelp" | "lagoon";
   src: string;
   posterSrc?: string;
-  reef: "kelp" | "lagoon";
 };
 
 /**
- * Snorkeling video discoveries intentionally stay empty until Sid's real clips are
- * added to the repo/media pipeline. Adding an entry here makes it discoverable in
- * place without changing renderer or dialog code.
+ * Only curated, genuinely published MP4 footage becomes an animal encounter.
+ * The species and reef must be deliberately authored in the Visual Cortex motion
+ * manifest. Until Sid supplies clips, this list stays empty by construction.
  */
-export const SNORKEL_VIDEO_POINTS: WorldVideoPoint[] = [];
+export const SNORKEL_VIDEO_POINTS: WorldVideoPoint[] = buildSnorkelVideoPoints(visualMotion);
 
 /** Quiet wildlife observation, photo upload attaches only after a real asset is committed. */
 export const WILDLIFE_DISCOVERIES = [
@@ -181,8 +186,24 @@ export function arcadeCaveTerrainMask(x: number, z: number): number {
 export function caveHalfWidth(z:number) {
   return 3.8 + smoothstep01((z + 75) / 5) * 2.5;
 }
-export const PAPER_CAVE = {x:-20,z:-30,backZ:-36,halfWidth:4} as const;
-export function paperCaveHalfWidth(z: number) { return 2.3 + 1.7 * smoothstep01((-z - 30) / 3); }
+export const PAPER_CAVE = {x:-20,z:-30,backZ:-79,halfWidth:6.5} as const;
+/** Shared room/corridor footprint for walls, navigation and camera clearance. */
+export const PAPER_CAVE_SECTIONS = [
+ {z:-30,x:-20,w:3.2},{z:-35,x:-20,w:6.5},{z:-44,x:-20,w:6.5},
+ {z:-44.4,x:-23.4,w:2.1},{z:-49,x:-23.4,w:2.1},
+ {z:-49.4,x:-20,w:6.5},{z:-61,x:-20,w:6.5},
+ {z:-61.4,x:-16.6,w:2.1},{z:-66,x:-16.6,w:2.1},
+ {z:-66.4,x:-20,w:6.5},{z:-79,x:-20,w:6.5},
+] as const;
+export function paperCaveSection(z:number){
+ for(let i=1;i<PAPER_CAVE_SECTIONS.length;i++){
+  const a=PAPER_CAVE_SECTIONS[i-1],b=PAPER_CAVE_SECTIONS[i];
+  if(z>=b.z){const t=Math.max(0,Math.min(1,(z-a.z)/(b.z-a.z)));return {x:a.x+(b.x-a.x)*t,w:a.w+(b.w-a.w)*t};}
+ }
+ return PAPER_CAVE_SECTIONS[PAPER_CAVE_SECTIONS.length-1];
+}
+export function paperCaveHalfWidth(z:number){return paperCaveSection(z).w;}
+export function paperCaveCenterX(z:number){return paperCaveSection(z).x;}
 
 export type CaveLayer = "surface" | "arcade" | "paper";
 const ARCADE_PORTAL_Z = ARCADE_CAVE.entrance.z + 0.08;
@@ -204,7 +225,7 @@ export function arcadeCaveFloorHeight(p: Point) {
 }
 export function paperCaveFloorHeight(p: Point) {
   const depth = smoothstep01((-p.z - 30) / 3.2);
-  return paperMouthY - 1.15 * depth;
+  return paperMouthY - 2.2 * depth;
 }
 
 /** Only the entrance apron modifies surface topography. The tunnel footprint
@@ -219,15 +240,15 @@ export function arcadeAccessTerrainMask(x: number, z: number) {
   return Math.max(0, Math.min(1, lateralMask * startFade * endFade));
 }
 function paperAccessTerrainMask(x: number, z: number) {
-  if (z < PAPER_CAVE.z - 0.7 || z > PAPER_CAVE.z + 1.45) return 0;
+  if (z < PAPER_CAVE.z - 1.6 || z > PAPER_CAVE.z + 2.5) return 0;
   const lateral = Math.abs(x - PAPER_CAVE.x);
-  const lateralMask = lateral <= 1.75 ? 1 : 1 - smoothstep01((lateral - 1.75) / 1.2);
-  const backFade = smoothstep01((z - (PAPER_CAVE.z - 0.7)) / 0.55);
-  const frontFade = 1 - smoothstep01((z - (PAPER_CAVE.z + 0.9)) / 0.55);
+  const lateralMask = lateral <= 2.6 ? 1 : 1 - smoothstep01((lateral - 2.6) / 1.2);
+  const backFade = smoothstep01((z - (PAPER_CAVE.z - 1.6)) / .55);
+  const frontFade = 1 - smoothstep01((z - (PAPER_CAVE.z + 1.4)) / 1.1);
   return Math.max(0, Math.min(1, lateralMask * backFade * frontFade));
 }
 
-export function paperCaveInside(p:Point) {return Math.abs(p.x-PAPER_CAVE.x)<paperCaveHalfWidth(p.z)-.5 && p.z < -31 && p.z > -35.5;}
+export function paperCaveInside(p:Point) {return Math.abs(p.x-paperCaveCenterX(p.z))<paperCaveHalfWidth(p.z)-.5 && p.z < -31 && p.z > PAPER_CAVE.backZ+.6;}
 export function arcadeInside(p:Point) {return p.z>-81.5 && p.z<-63 && Math.abs(p.x-16)<caveHalfWidth(p.z)-.3;}
 /** The cave is carved inside an alpine biome. Its Shasta waiting behavior
  * follows actual cave-layer geometry, not the nearest open-air region label.
@@ -251,7 +272,7 @@ export function supportLayerAtPoint(layer: CaveLayer, p: Point, y: number): Cave
     y < rawTerrainHeight(p.x, p.z) - 1
   ) return "arcade";
   if (
-    p.z < PAPER_PORTAL_Z &&
+    p.z < PAPER_CAVE.z + .65 &&
     p.z > PAPER_CAVE.z - 2.3 &&
     Math.abs(p.x - PAPER_CAVE.x) < paperCaveHalfWidth(p.z) - 0.45 &&
     y < rawTerrainHeight(p.x, p.z) - 0.7
@@ -264,7 +285,12 @@ export function nextCaveLayer(
   to: Point,
   y: number,
 ): CaveLayer {
-  if (layer === "surface") return supportLayerAtPoint(layer, to, y);
+  if (layer === "surface") {
+ const candidate=supportLayerAtPoint(layer,to,y);
+ if(candidate==="paper"&&!(from.z>=PAPER_PORTAL_Z&&to.z<PAPER_PORTAL_Z))return "surface";
+ if(candidate==="arcade"&&!(from.z<=ARCADE_PORTAL_Z&&to.z>ARCADE_PORTAL_Z))return "surface";
+ return candidate;
+ }
   if (
     layer === "arcade" &&
     from.z > ARCADE_PORTAL_Z &&
@@ -281,11 +307,16 @@ export function nextCaveLayer(
 export function caveObstacles(): Obstacle[] {
   const result: Obstacle[] = [];
   for (const side of [-1, 1]) {
-    for (let z = -30; z >= -36; z--) result.push({ x: -20 + side * (paperCaveHalfWidth(z) + .2), z, radius: .35 });
+    for(let i=1;i<PAPER_CAVE_SECTIONS.length;i++){
+      const a=PAPER_CAVE_SECTIONS[i-1],b=PAPER_CAVE_SECTIONS[i];
+      const ax=a.x+side*(a.w+.2),bx=b.x+side*(b.w+.2);
+      const n=Math.ceil(Math.hypot(bx-ax,b.z-a.z)/.3);
+      for(let j=0;j<=n;j++){const t=j/n;result.push({x:ax+(bx-ax)*t,z:a.z+(b.z-a.z)*t,radius:.35});}
+    }
     for (let z = -81; z < -63; z++) result.push({ x: 16 + side * (caveHalfWidth(z) + .4), z, radius: .32 });
   }
-  for (let x = -24; x <= -16; x++) result.push({ x, z: -36.5, radius: .35 });
-  for (let x = 12; x < 16.7; x += .7) result.push({ x, z: -74.5, radius: .28 });
+  for (let x = PAPER_CAVE.x-PAPER_CAVE.halfWidth; x <= PAPER_CAVE.x+PAPER_CAVE.halfWidth; x+=.6) result.push({ x, z: PAPER_CAVE.backZ-.1, radius: .4 });
+  // No baffle obstacle at z=-74.5: the main arcade corridor is unobstructed.
   for (let x = 10; x < 23; x += .8) result.push({ x, z: -62.5, radius: .35 });
   return result;
 }
@@ -293,7 +324,7 @@ export function terrainHeight(x: number, z: number): number {
   let base = rawTerrainHeight(x, z);
   // A shallow level bench receives melt at the snow edge. Feather its banks
   // into the slope so the basin surface cannot intersect the uphill terrain.
-  const meltBasinMask = 1 - smoothstep01((Math.hypot(x + 13, z + 66) - 2) / 0.9);
+  const meltBasinMask = 1 - smoothstep01((Math.hypot((x + 13) / 1.25, z + 66) - 3.6) / 1.3);
   base += (rawTerrainHeight(-13, -66) - 0.08 - base) * meltBasinMask;
   // The plunge pool occupies a shallow basin, not a disc buried in the hillside.
   const poolDistance = Math.hypot(x + 20, z + 27);
@@ -394,8 +425,6 @@ export function nearestRegion(point: Point): RegionId {
 export function nearbyDiscovery(point: Point): string | null {
   if (paperCaveInside(point)) return "paper-archive";
   if (distance(point, SECRET) < 3.5) return "secret";
-  const video = SNORKEL_VIDEO_POINTS.find((m) => distance(point, m.point) < 3.2);
-  if (video) return video.id;
   const wildlife=WILDLIFE_DISCOVERIES.find(m=>distance(point,m.point)<3.1);
   if(wildlife)return wildlife.id;
   const memory = MEMORY_POINTS.find((m) => distance(point, m.point) < 3.2);
@@ -424,7 +453,9 @@ export function regionLanding(region: RegionId): Point {
   return { x: target.point.x, z };
 }
 
-export type Obstacle = Point & { radius: number };
+/** topY is optional because walls and unbounded cave solids are deliberate
+ * infinite-height barriers. Above finite tree/rock props, riders can fly over. */
+export type Obstacle = Point & { radius: number; topY?: number };
 
 const clampToWorld = (p: Point): Point => ({
   x: Math.max(WORLD_BOUNDS.minX, Math.min(WORLD_BOUNDS.maxX, p.x)),
@@ -479,6 +510,8 @@ export type WorldPhoto = {
   alt: string;
   width: number;
   height: number;
+  location: string;
+  mapUrl: string;
 };
 export type WorldVideo = {
   id: string;
@@ -498,4 +531,7 @@ export type WorldCommand = {
   region: RegionId;
   serial: number;
   activity?: import("./activities").Activity;
+  natureDestination?: "ocean-bench" | "research-cave" | "fern-crown" | "coastal-falls" | "snowmelt-pool";
+  skateDestination?: "canyon-flow" | "loop-rollin" | "loop-reverse" | "hollow-log" | "log-top";
+  sportDestination?: "jet-pier";
 };

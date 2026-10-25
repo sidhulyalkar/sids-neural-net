@@ -11,7 +11,7 @@ export const JET_SKI_ARCHES:readonly JetSkiArch[]=[
  // Route bends westward through the northern cape at gate 5.
  // This 21m offshore relocation clears the skimboard sightline without
  // removing physical arch legs or decoupling the actual race checkpoint.
- {id:"natural-bridges",kind:"sandstone",center:{x:0,z:109},
+ {id:"natural-bridges",kind:"sandstone",center:{x:0,z:117},
   span:19,height:13,heading:Math.PI/2,gateIndex:4},
  // The southern ocean passage is a darker, more fractured lava coastline.
  {id:"lava-window",kind:"basalt",center:{x:17,z:-127},
@@ -19,8 +19,8 @@ export const JET_SKI_ARCHES:readonly JetSkiArch[]=[
 ];
 export const JET_SKI_ROCKS:readonly JetSkiRock[]=[
  // Both arch legs are true physical obstacles. The openings stay clear.
- {id:"natural-bridge-north",kind:"sandstone",point:{x:0,z:118.5},radius:2.6,height:13},
- {id:"natural-bridge-south",kind:"sandstone",point:{x:0,z:99.5},radius:2.6,height:13},
+ {id:"natural-bridge-north",kind:"sandstone",point:{x:0,z:126.5},radius:2.6,height:13},
+ {id:"natural-bridge-south",kind:"sandstone",point:{x:0,z:107.5},radius:2.6,height:13},
  {id:"lava-window-north",kind:"basalt",point:{x:17,z:-118},radius:2.7,height:12},
  {id:"lava-window-south",kind:"basalt",point:{x:17,z:-136},radius:2.7,height:12},
  // Mendocino-like eroded sentinels straddling (not blocking) the western line.
@@ -33,6 +33,18 @@ export const JET_SKI_ROCKS:readonly JetSkiRock[]=[
  {id:"lava-shelf-west",kind:"basalt",point:{x:-8,z:-141},radius:3.1,height:8},
  {id:"lava-shelf-east",kind:"basalt",point:{x:40,z:-140},radius:3.7,height:10},
 ];
+/** Link the *rendered* arch feet with the existing leg colliders without
+ * relying on naming quirks (natural-bridges vs natural-bridge-north). */
+export function isJetSkiArchSupport(rock:JetSkiRock):boolean{
+ return JET_SKI_ARCHES.some(arch=>{
+  if(rock.kind!==arch.kind)return false;
+  const dx=rock.point.x-arch.center.x,dz=rock.point.z-arch.center.z;
+  // Three.js positive yaw maps local +X to (cos(yaw), -sin(yaw)).
+  const along=dx*Math.cos(arch.heading)-dz*Math.sin(arch.heading);
+  const lateral=dx*Math.sin(arch.heading)+dz*Math.cos(arch.heading);
+  return Math.abs(Math.abs(along)-arch.span*.5)<.45&&Math.abs(lateral)<.45;
+ });
+}
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
 /** Physical hull radius is approximately 0.6m. */
 export function jetSkiRockAt(point:Point,extraRadius=.65):JetSkiRock|null{

@@ -10,7 +10,17 @@ on:
       - 'lib/world/skateAssist.ts'
       - 'lib/world/skateTricks.ts'
       - 'lib/world/skateDynamics.ts'
+      - 'lib/world/skateLoop.ts'
+      - 'lib/world/skateTunnel.ts'
+      - 'lib/world/skateRailGaps.ts'
+      - 'tests/world-skate-rail-gaps.test.ts'
+      - 'lib/world/skateTricks.ts'
+      - 'tests/world-sequoia-loop.test.ts'
+      - 'tests/world-skate-tunnel.test.ts'
       - 'scripts/playtest-skatepark.mjs'
+      - 'scripts/playtest-sequoia-loop.mjs'
+      - 'scripts/playtest-sequoia-tunnel.mjs'
+      - 'scripts/playtest-canyon-rails.mjs'
       - 'scripts/playtest-skate-grove-flow.mjs'
       - '.github/workflows/skate-grove-browser.yml'
   pull_request:
@@ -21,7 +31,17 @@ on:
       - 'lib/world/skateAssist.ts'
       - 'lib/world/skateTricks.ts'
       - 'lib/world/skateDynamics.ts'
+      - 'lib/world/skateLoop.ts'
+      - 'lib/world/skateTunnel.ts'
+      - 'lib/world/skateRailGaps.ts'
+      - 'tests/world-skate-rail-gaps.test.ts'
+      - 'lib/world/skateTricks.ts'
+      - 'tests/world-sequoia-loop.test.ts'
+      - 'tests/world-skate-tunnel.test.ts'
       - 'scripts/playtest-skatepark.mjs'
+      - 'scripts/playtest-sequoia-loop.mjs'
+      - 'scripts/playtest-sequoia-tunnel.mjs'
+      - 'scripts/playtest-canyon-rails.mjs'
       - 'scripts/playtest-skate-grove-flow.mjs'
       - '.github/workflows/skate-grove-browser.yml'
   workflow_dispatch:
@@ -60,6 +80,24 @@ jobs:
           done
           tail -n 120 /tmp/skate-grove-next.log
           exit 1
+      - name: Ride the giant loop and verify controls after inversion
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/sequoia-loop-browser
+          PLAYWRIGHT_MODULE_ROOT: /tmp/skate-grove-playwright/node_modules/playwright
+        run: node scripts/playtest-sequoia-loop.mjs
+      - name: Ride the actual inside of the giant sequoia and exit normally
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/sequoia-tunnel-browser
+          PLAYWRIGHT_MODULE_ROOT: /tmp/skate-grove-playwright/node_modules/playwright
+        run: node scripts/playtest-sequoia-tunnel.mjs
+      - name: Ride a curved Moss Canyon grind across connected timber segments
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/canyon-rail-browser
+          PLAYWRIGHT_MODULE_ROOT: /tmp/skate-grove-playwright/node_modules/playwright
+        run: node scripts/playtest-canyon-rails.mjs
       - name: Audit one-button grove roll-in and safe bowl carve
         env:
           WORLD_BASE_URL: http://127.0.0.1:3000
@@ -80,6 +118,9 @@ jobs:
           path: |
             artifacts/world/redwood-skate-grove/
             artifacts/world/redwood-skate-flow/
+            artifacts/world/sequoia-loop-browser/
+            artifacts/world/sequoia-tunnel-browser/
+            artifacts/world/canyon-rail-browser/
             /tmp/skate-grove-next.log
           if-no-files-found: warn
       - name: Report browser or server errors

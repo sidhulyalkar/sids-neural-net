@@ -54,7 +54,7 @@ const normalize = (v: SkimPoint): SkimPoint => {
 };
 /** The far shore opposite Granite Ridge; rainforest canopy keeps its inland apron. */
 export function northShoreZ(x: number): number {
-  return 66 + 12.5 * Math.exp(-((x - 43) ** 2) / 210) + 1.25 * Math.sin(x * 0.085);
+  return 66 + 8 * Math.exp(-(x*x)/400) + 12.5 * Math.exp(-((x - 43) ** 2) / 210) + 1.25 * Math.sin(x * 0.085);
 }
 export function beachBlend(x: number, z: number): number {
   return smooth((z - (northShoreZ(x) - 12)) / 7) * (1 - smooth((Math.abs(x) - 19) / 14));

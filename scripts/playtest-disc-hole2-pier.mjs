@@ -19,7 +19,8 @@ try{
  await page.getByRole("button",{name:"Explore world",exact:true}).click();
  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
   null,{timeout:45000});
- await page.getByRole("button",{name:/^Disc golf · (play|resume|scorecard)$/}).click();
+ await page.getByRole("button",{name:"Show sport shortcuts"}).click();
+ await page.getByRole("button",{name:"Disc golf",exact:true}).click();
  await page.getByRole("button",{name:"Course",exact:true}).click();
  await page.getByRole("button",{name:/^Play hole 2:/}).click();
  const canvas=page.locator("canvas");

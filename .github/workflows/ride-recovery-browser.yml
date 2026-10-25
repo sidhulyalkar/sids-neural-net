@@ -1,0 +1,76 @@
+name: Island Ride Recovery Browser QA
+
+on:
+  pull_request:
+    paths:
+      - 'components/world/worldRenderer.ts'
+      - 'lib/world/rideRecovery.ts'
+      - 'lib/world/activities.ts'
+      - 'lib/world/bigAir.ts'
+      - 'tests/world-ride-recovery.test.ts'
+      - 'scripts/playtest-ride-recovery.mjs'
+      - 'scripts/playtest-ride-steering.mjs'
+      - 'lib/world/rideSurface.ts'
+      - 'tests/world-ride-steering.test.ts'
+      - '.github/workflows/ride-recovery-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: island-ride-recovery-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ski-exit-and-ride-controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify types and deterministic riding edge cases
+        run: |
+          npm run typecheck
+          node --import tsx --test tests/world-ride-recovery.test.ts tests/world-ride-steering.test.ts
+      - name: Install isolated Chromium
+        run: |
+          mkdir -p /tmp/ride-recovery-playwright
+          npm install --prefix /tmp/ride-recovery-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/ride-recovery-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start site on localhost
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/ride-recovery-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 100 /tmp/ride-recovery-next.log
+          exit 1
+      - name: Exit airborne ski jump, resume skate and bike without lockups
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/ride-recovery
+          PLAYWRIGHT_MODULE_ROOT: /tmp/ride-recovery-playwright/node_modules/playwright
+        run: node scripts/playtest-ride-recovery.mjs
+      - name: Verify opposite turns on skateboard, bike and skis
+        env:
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/ride-steering
+          PLAYWRIGHT_MODULE_ROOT: /tmp/ride-recovery-playwright/node_modules/playwright
+        run: node scripts/playtest-ride-steering.mjs
+      - name: Preserve actual World browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: island-ride-recovery-${{ github.sha }}
+          path: |
+            artifacts/world/ride-recovery/
+            artifacts/world/ride-steering/
+            /tmp/ride-recovery-next.log
+          if-no-files-found: warn

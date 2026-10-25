@@ -4,7 +4,7 @@ import {
 } from "./discGolf";
 import {
  REGIONS,MEMORY_POINTS,distance,
- coastlineX,eastCoastlineX,caveObstacles,type Point,
+ coastlineX,eastCoastlineX,caveObstacles,PAPER_CAVE,ARCADE_CAVE,type Point,
 } from "./model";
 import {BOULDER_HOLDS,RIDE_RAMPS,FALLEN_LOGS} from "./activities";
 import {biomeAt} from "./biomes";
@@ -56,7 +56,8 @@ export function discGolfFixedFeatureClearance(p:Point):number{
   ...RIDE_RAMPS.map(x=>distance(p,x.point)-x.radius),
   ...FALLEN_LOGS.map(x=>distanceToLine(p,x.a,x.b)-x.radius),
   ...fixedTrees.map(x=>distance(p,x)-x.radius),
-  ...caveObstacles().map(x=>distance(p,x)-x.radius),
+  // Only portal walls reach the outdoor course; museum walls are underground.
+  ...caveObstacles().filter(x=>x.x<0?Math.abs(x.z-PAPER_CAVE.z)<1.5:Math.abs(x.z-ARCADE_CAVE.entrance.z)<1.5).map(x=>distance(p,x)-x.radius),
   // Region/photo labels are semantic landmarks, not solid collision
   // objects. On the raised pier they do not obstruct the tee circle.
   ...(jetSkiPierHeight(p)===null?

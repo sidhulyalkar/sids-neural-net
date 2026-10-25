@@ -160,6 +160,12 @@ jobs:
           /tmp/frontier-playwright/node_modules/.bin/playwright install --with-deps chromium firefox webkit
           /tmp/frontier-playwright/node_modules/.bin/playwright install chrome
 
+      - name: Verify Arcade Cavern landmark route and walkable threshold
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/frontier-playwright/node_modules/playwright
+          WORLD_AUDIT_DIR: artifacts/world/arcade-wayfinding
+        run: node scripts/playtest-arcade-wayfinding.mjs
+
       - name: Audit World Mode navigation and fallbacks
         env:
           PLAYWRIGHT_MODULE_ROOT: /tmp/frontier-playwright/node_modules/playwright

@@ -12,6 +12,7 @@ export type SkateTrickState={
  flip:number;shove:number;points:number;combo:number;best:number;
  lastLandedAt:number;lastLabel:string;bails:number;grab:"none"|"left"|"right";
  spinDegrees:number;stance:SkateStance;assisted:boolean;
+ durationSeconds?:number;
  manual:SkateManual;manualDistance:number;manualTime:number;
 };
 export const SKATE_FLIP_SECONDS=0.66;
@@ -44,7 +45,7 @@ export function startSkateTrick(state:SkateTrickState,name:SkateTrickName,now:nu
  const base=state.manual!=="none"?finishSkateManual(state,now):state;
  const trick=specs[name];
  return {...base,phase:"air",name,startedAt:now,flip:trick.flip,shove:trick.shove,
-  grab:"none",spinDegrees:0,assisted,manual:"none",manualDistance:0,manualTime:0};
+  grab:"none",spinDegrees:0,assisted,durationSeconds:undefined,manual:"none",manualDistance:0,manualTime:0};
 }
 export function setSkateGrab(state:SkateTrickState,hand:"none"|"left"|"right"):SkateTrickState{
  return state.phase==="air"&&state.name?{...state,grab:hand}:state;
@@ -57,7 +58,7 @@ export function queueSkateSpin(state:SkateTrickState,direction:-1|1,now:number):
  return degrees===state.spinDegrees?state:{...state,spinDegrees:degrees};
 }
 export function skateTrickPose(state:SkateTrickState,now:number){
- const duration=Math.max(state.assisted ? 0.44 : SKATE_FLIP_SECONDS,Math.abs(state.spinDegrees)/360*.78);
+ const duration=state.durationSeconds??Math.max(state.assisted ? 0.44 : SKATE_FLIP_SECONDS,Math.abs(state.spinDegrees)/360*.78);
  const progress=state.phase==="air"?clamp((now-state.startedAt)/duration,0,1):0;
  const e=smooth(progress);
  const baseYaw=state.stance==="fakie"?Math.PI:0;
@@ -74,12 +75,12 @@ export function skateTrickPose(state:SkateTrickState,now:number){
 export function finishSkateTrick(state:SkateTrickState,now:number,landingSpeed:number):SkateTrickState{
  if(state.phase!=="air"||!state.name||!Number.isFinite(now))return state;
  const seconds=Math.max(0,now-state.startedAt);
- const duration=Math.max(state.assisted ? 0.44 : SKATE_FLIP_SECONDS,Math.abs(state.spinDegrees)/360*.78);
+ const duration=state.durationSeconds??Math.max(state.assisted ? 0.44 : SKATE_FLIP_SECONDS,Math.abs(state.spinDegrees)/360*.78);
  // Assisted tricks complete their catch slightly earlier. Truly premature
  // touchdown still bails, so the rider never banks an unperformed flip.
  const clean=seconds>=duration*(state.assisted ? .76 : .72);
  const base={...state,phase:"ground" as const,name:null,grab:"none" as const,
-  spinDegrees:0,assisted:false,manual:"none" as const,manualDistance:0,manualTime:0};
+  spinDegrees:0,assisted:false,durationSeconds:undefined,manual:"none" as const,manualDistance:0,manualTime:0};
  if(!clean)return {...base,combo:0,points:0,lastLabel:"Bail",
   bails:state.bails+1,lastLandedAt:now};
  const rotate=Math.abs(state.spinDegrees);
@@ -121,6 +122,30 @@ export function finishSkateManual(state:SkateTrickState,now:number):SkateTrickSt
  const label=manual==="manual"?"Manual":"Nose manual";
  return award(base,label,Math.round(manualDistance*13+45),now);
 }
+/** Completing the entire authored inversion is a skate line, not a new
+ * minigame. Partial rotations, teleports and non-skate approaches earn nothing. */
+export function scoreSkateLoop(state:SkateTrickState,now:number,speed:number):SkateTrickState{
+ if(state.phase!=="ground"||!Number.isFinite(now)||!Number.isFinite(speed))return state;
+ return award(state,"Sequoia Loop 360°",420+Math.round(Math.min(18,Math.max(0,speed))*8),now);
+}
+
+/** A real complete inside-trunk revolution, not the proximity of a log. */
+export function scoreSkateTunnel(state:SkateTrickState,now:number,speed:number):SkateTrickState{
+ if(state.phase!=="ground"||!Number.isFinite(now)||!Number.isFinite(speed))return state;
+ return award(state,"Sequoia Hollow 360°",350+Math.round(Math.min(18,Math.max(0,speed))*7),now);
+}
+
+/** Reward only a completed, physically sampled gap landing. Ordinary
+ * grind distance is awarded separately at the departure endpoint. */
+export function scoreSkateRailGap(
+ state:SkateTrickState,id:string,now:number,speed:number,
+):SkateTrickState{
+ if(state.phase!=="ground"||!Number.isFinite(now)||
+   !Number.isFinite(speed)||speed<4||!id)return state;
+ return award(state,"Rail → Rail · "+id.replaceAll("-"," "),
+  205+Math.round(clamp(speed,0,18)*12),now);
+}
+
 /** Grinding scores only covered distance; a camera-nearby rail never scores. */
 export function scoreSkateGrind(state:SkateTrickState,meters:number,style:"fifty-fifty"|"boardslide",now:number):SkateTrickState{
  if(!Number.isFinite(meters)||meters<.5||state.phase!=="ground")return state;
