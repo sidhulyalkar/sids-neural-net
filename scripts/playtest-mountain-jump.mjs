@@ -114,7 +114,11 @@ try{
  await page.getByRole("button",{name:/Redwood grove A little about me/}).click();
  await ensureSportsVisible();
  await page.getByRole("button",{name:"Skiing",exact:true}).click();
- await page.getByRole("button",{name:"Mountain ski jump · summit start",exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.bigAirPhase==="idle");
+ await ensureSportsVisible();
+ await page.getByRole("button",{name:"Ski jump",exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.bigAirPhase==="armed",
+  null,{timeout:15000});
  await page.getByRole("button",{name:"Exit jump",exact:true}).click();
  await ensureSportsVisible();
  assert.equal(await page.getByRole("button",{name:"Trail running",exact:true}).getAttribute("aria-pressed"),"true");
