@@ -30,11 +30,11 @@ export function sampleEagleFever(
   const depthBand=Math.floor(within/4);
   const column=within%4;
   const wobble=Math.sin(index*2.399963);
-  let x=82 + (column-1.5)*3.2 + wobble*.42
+  let x=17 + (column-1.5)*3.2 + wobble*.42
     + Math.sin(t*.056 + row*.85)*1.1;
-  let z=-27 + row*16 + (depthBand%2)*1.3
+  let z=-142 + row*6 + (depthBand%2)*1.3
     + Math.cos(index*1.618)*1.5
-    + Math.sin(t*.038 + row*.65)*4.8;
+    + Math.sin(t*.038 + row*.65)*2.8;
   // Exact depths are world units; schoolmembers glide both over and below
   // the snorkeler while the deepest silhouettes stay above the same seabed
   // used by terrain meshes and diving collision.
