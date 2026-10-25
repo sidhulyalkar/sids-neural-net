@@ -62,6 +62,7 @@ import {
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
 import { createMarineHabitatPatches } from "./worldMarineHabitatPatches";
+import { marineHabitatAt, marineHabitatLabel } from "@/lib/world/marineHabitatPatches";
 import { createRayPassage } from "./worldRayPassage";
 import { createSouthChannelLife } from "./worldSouthChannelLife";
 import {nearbyMarineVideo, type MarineCreaturePose} from "@/lib/world/marineVideoEncounters";
@@ -229,6 +230,11 @@ export function createWorld(
   southPassageHud.setAttribute("aria-label","Southern arch snorkeling guidance");
   southPassageHud.style.cssText="display:none;position:absolute;top:74px;left:16px;max-width:min(340px,calc(100% - 32px));z-index:6;pointer-events:none;padding:8px 12px;border:1px solid #9ecbd37a;border-radius:10px;background:#12353dc7;color:#e4f7f4;font:650 11px/1.45 system-ui,sans-serif;letter-spacing:.035em";
   host.appendChild(southPassageHud);
+  const marineDiscoveryHud=document.createElement("div");
+  marineDiscoveryHud.setAttribute("role","status");
+  marineDiscoveryHud.setAttribute("aria-label","Underwater habitat discovery");
+  marineDiscoveryHud.style.cssText="display:none;position:absolute;left:16px;top:76px;z-index:6;pointer-events:none;padding:7px 12px;border:1px solid #a3d3c47a;border-radius:10px;background:#122f36cb;color:#eff6eb;font:650 11px/1.4 system-ui,sans-serif;letter-spacing:.045em";
+  host.appendChild(marineDiscoveryHud);
   // A brief, non-blocking landing card is more rewarding than a permanent
   // dashboard. The island stays visible while the completed move is named.
   const skateResult=document.createElement("div");
@@ -6760,6 +6766,17 @@ export function createWorld(
         :"Eagle Ray Passage · 120+ eagle rays · Dive to explore";
       if(southPassageHud.textContent!==hint)southPassageHud.textContent=hint;
     }
+    // Underwater field-guide label for authored kelp and lagoon neighborhoods.
+    // Does not appear on land or in the independent southern ray passage.
+    const namedMarineHabitat=aquatic!=="land" &&
+      (currentWaterZone==="kelp" || currentWaterZone==="lagoon")
+      ? marineHabitatAt(player,currentWaterZone):null;
+    const marineHabitatText=namedMarineHabitat
+      ? marineHabitatLabel(namedMarineHabitat):"";
+    marineDiscoveryHud.style.display=namedMarineHabitat?"block":"none";
+    if(namedMarineHabitat && marineDiscoveryHud.textContent!==marineHabitatText)
+      marineDiscoveryHud.textContent=marineHabitatText;
+    canvas.dataset.marineHabitat=namedMarineHabitat?.id??"";
     canvas.dataset.reefZone = currentWaterZone ?? "";
     if (snowfall.visible) {
       snowfall.position.set(player.x, playerY - 4, player.z);
@@ -7553,7 +7570,7 @@ export function createWorld(
       discGolfObjects.dispose();
       jetskiCoast.dispose();
       rideVisual.dispose();rideHud.remove();rideReticle.remove();rideAnnounce.remove();
-      skateHud.remove();skateTouch.remove();skateResult.remove();arcadeTrailHud.remove();southPassageHud.remove();
+      skateHud.remove();skateTouch.remove();skateResult.remove();arcadeTrailHud.remove();southPassageHud.remove();marineDiscoveryHud.remove();
       jetHud.remove();jetAnnounce.remove();jetTouch.remove();jetNotice.remove();jetChooser.remove();
       jetskiVisual.root.traverse(object=>{
         if(object instanceof THREE.Mesh){object.geometry.dispose();
