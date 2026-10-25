@@ -387,7 +387,16 @@ export function southernChannelFloorHeight(x: number, z: number): number {
   const u = Math.max(0, Math.min(1, (SOUTH_CHANNEL_SHORE_Z - z) / 20));
   const fade = u*u*(3-2*u);
   const shelf = SEA_SURFACE - 3.7 + Math.sin(x*.12)*.2;
-  return edge*(1-fade)+shelf*fade-rayPassageDepth(x,z);
+  const easternKelp = 4.2 * smoothstep01((x-27)/17) *
+    (1-smoothstep01((x-88)/10)) *
+    smoothstep01((-z-102)/12) *
+    (1-smoothstep01((-z-156)/11));
+  const westernReef = .8 * (1-smoothstep01((x+12)/13)) *
+    smoothstep01((-z-102)/10);
+  // Depth for full-sized kelp in the southeast, gentle reef relief west.
+  // Fade to zero at the original island seam to avoid geometric cracks.
+  return edge*(1-fade)+(shelf-easternKelp+westernReef)*fade-
+    rayPassageDepth(x,z);
 }
 
 export function seaFloorHeight(x: number, z: number): number {
