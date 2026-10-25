@@ -9,6 +9,7 @@ import { bigAirClearance } from "./bigAir";
 import {jetSkiPierHeight} from "./jetSkiPier";
 import {
   constrainMove,
+  constrainSwimMove,
   distance,
   isWater,
   terrainHeight,
@@ -441,13 +442,14 @@ export function stepSwim(
     speed * dt,
     destination ? distance(current.point, destination) : Infinity,
   );
-  const point = constrainMove(
+  // Swim through the southern offshore channel without enlarging the
+  // island's land / skate / bike movement bounds or touching rock colliders.
+  const point = constrainSwimMove(
     current.point,
     {
       x: current.point.x + heading.x * step,
       z: current.point.z + heading.z * step,
     },
-    [],
   );
   return {
     point,
