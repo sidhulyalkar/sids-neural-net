@@ -8,7 +8,7 @@ export type MarineKind =
   | "boulder" | "slab" | "spire" | "kelp" | "sand-ripple"
   | "branch-coral" | "table-coral" | "fan-coral" | "anemone"
   | "sea-star" | "urchin" | "crab" | "lobster" | "nudibranch"
-  | "moray" | "jelly" | "reef-fish" | "baitfish";
+  | "moray" | "jelly" | "reef-fish" | "baitfish" | "clownfish" | "angelfish";
 
 export type MarinePatch = Readonly<{
   id: string;
@@ -50,17 +50,17 @@ export const MARINE_HABITAT_PATCHES: readonly MarinePatch[] = [
   {
     id: "east-coral-crescent", zone: "lagoon", theme: "coral-crescent",
     x: 71, z: -37, radius: 8,
-    population: { boulder: 7, "branch-coral": 18, "table-coral": 13, "fan-coral": 13, "reef-fish": 20, baitfish: 18 },
+    population: { boulder: 7, "branch-coral": 18, "table-coral": 13, "fan-coral": 13, "reef-fish": 20, baitfish: 18, angelfish: 11 },
   },
   {
     id: "east-anemone-garden", zone: "lagoon", theme: "clownfish-garden",
     x: 73, z: -9, radius: 7,
-    population: { "branch-coral": 9, "fan-coral": 7, anemone: 36, "reef-fish": 22, crab: 7, nudibranch: 10 },
+    population: { "branch-coral": 9, "fan-coral": 7, anemone: 36, "reef-fish": 22, crab: 7, nudibranch: 10, clownfish: 16 },
   },
   {
     id: "east-coral-bommies", zone: "lagoon", theme: "coral-bommies",
     x: 80, z: 21, radius: 8,
-    population: { boulder: 12, spire: 7, "branch-coral": 15, "table-coral": 10, "fan-coral": 11, baitfish: 28, "reef-fish": 21 },
+    population: { boulder: 12, spire: 7, "branch-coral": 15, "table-coral": 10, "fan-coral": 11, baitfish: 28, "reef-fish": 21, angelfish: 9 },
   },
   {
     id: "east-rubble-garden", zone: "lagoon", theme: "rubble-nudibranch-slope",
