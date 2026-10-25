@@ -62,6 +62,7 @@ import {
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
 import { createRayPassage } from "./worldRayPassage";
+import { createSouthChannelLife } from "./worldSouthChannelLife";
 import {nearbyMarineVideo, type MarineCreaturePose} from "@/lib/world/marineVideoEncounters";
 import { createWorldTridents } from "./worldTridents";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
@@ -2820,12 +2821,15 @@ export function createWorld(
   southPassageRoot.name = "southern-volcanic-arch-snorkeling";
   scene.add(southPassageRoot);
   const rayPassage = createRayPassage(southPassageRoot);
+  const southChannelLife = createSouthChannelLife(southPassageRoot);
   const goldenTridents = createWorldTridents(reefRoot,tropicalReefRoot);
   canvas.dataset.schoolingFish = String(marineSchools.count);
   canvas.dataset.rayPassage = String(rayPassage.count);
   canvas.dataset.eagleFever = String(rayPassage.feverCount);
   canvas.dataset.eagleFeverVisible = String(rayPassage.visibleFeverCount);
   canvas.dataset.eagleFeverDrawCalls = String(rayPassage.feverDrawCalls);
+  canvas.dataset.southReefFish = String(southChannelLife.counts.fish);
+  canvas.dataset.southReefCorals = String(southChannelLife.counts.coral);
   canvas.dataset.goldenTridents = String(goldenTridents.count);
 
 
@@ -7026,6 +7030,7 @@ export function createWorld(
     const reducedFlightMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     marineSchools.update(elapsed,reducedFlightMotion);
     rayPassage.update(elapsed,reducedFlightMotion,{x:player.x,y:playerY,z:player.z});
+    southChannelLife.update(elapsed,reducedFlightMotion);
     discGolfObjects.update(discGolf);
     // Bound prediction to ~2 Hz while a disc is being aimed. The preview
     // runs the same solver as the throw, but intentionally assumes a
@@ -7541,6 +7546,7 @@ export function createWorld(
       reefGarden.dispose();
       marineSchools.dispose();
       rayPassage.dispose();
+      southChannelLife.dispose();
       goldenTridents.dispose();
       disposed = true;
       cancelAnimationFrame(raf);
