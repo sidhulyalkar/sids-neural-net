@@ -161,6 +161,12 @@ jobs:
           lib/world/southCoastHabitats.ts
           components/world/worldSouthCoastalEcology.ts
           tests/world-south-coast-access-ecology.test.ts
+          lib/world/hydrology.ts
+          lib/world/researchGallery.ts
+          tests/world-caves-hydrology.test.ts
+          tests/world-waterfall-rock-seams.test.ts
+          tests/world-research-museum.test.ts
+          tests/world-marine-waterfall-integration.test.ts
           --max-warnings=0
       - name: Verify manual browser playtest script syntax
         run: |
