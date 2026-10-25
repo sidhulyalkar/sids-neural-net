@@ -338,6 +338,18 @@ export function terrainHeight(x: number, z: number): number {
   base += (arcadeCaveFloorHeight({ x, z }) - base) * arcadeMask;
   const paperMask = paperAccessTerrainMask(x, z);
   base += (paperCaveFloorHeight({ x, z }) - base) * paperMask;
+  // Shared shoreline collar: the land mesh, avatar feet and south apron
+  // descend into the SAME water level across the full southern face.
+  // Sculpt only the last 7 units of the land and feather away near side reefs;
+  // the arcade/paper cave mouths and all interior ride areas stay unchanged.
+  if(z < -89 && z >= WORLD_BOUNDS.minZ) {
+    const south=(1-smoothstep01((z+96)/7));
+    const west=smoothstep01((x-coastlineX(z)-.1)/3);
+    const east=1-smoothstep01((x-eastCoastlineX(z)+3.1)/3);
+    const mask=south*west*east;
+    const shoreY=SEA_SURFACE+.16+(-96-z)*-.025;
+    base += (shoreY-base)*mask;
+  }
   return base;
 }
 /** Natural roof surface, intentionally independent from underground cave floors. */
@@ -375,7 +387,28 @@ export function southernChannelFloorHeight(x: number, z: number): number {
   const u = Math.max(0, Math.min(1, (SOUTH_CHANNEL_SHORE_Z - z) / 20));
   const fade = u*u*(3-2*u);
   const shelf = SEA_SURFACE - 3.7 + Math.sin(x*.12)*.2;
-  return edge*(1-fade)+shelf*fade-rayPassageDepth(x,z);
+  const easternKelp = 4.2 * smoothstep01((x-27)/17) *
+    (1-smoothstep01((x-88)/10)) *
+    smoothstep01((-z-102)/12) *
+    (1-smoothstep01((-z-156)/11));
+  const westernReef = .8 * (1-smoothstep01((x+12)/13)) *
+    smoothstep01((-z-102)/10);
+  // Existing side reefs already slope into water; retain their original
+  // 20-unit apron there. Across the new south dry shoreline, the first two
+  // meters become actual wading water. A slow 20-unit blend previously left
+  // the seabed ABOVE the water surface after entering, trapping swimmers.
+  const dryBand = smoothstep01((x-coastlineX(SOUTH_CHANNEL_SHORE_Z)-.1)/3) *
+    (1-smoothstep01((x-eastCoastlineX(SOUTH_CHANNEL_SHORE_Z)+3.1)/3));
+  const offshore = Math.max(0,SOUTH_CHANNEL_SHORE_Z-z);
+  const nearFade = smoothstep01(offshore/1.25);
+  const deepFade = smoothstep01((offshore-1.5)/17);
+  const wadingFloor=edge*(1-nearFade)+(SEA_SURFACE-.95)*nearFade;
+  const newFloor=wadingFloor*(1-deepFade)+
+    (shelf-easternKelp+westernReef)*deepFade;
+  const existingFloor=edge*(1-fade)+
+    (shelf-easternKelp+westernReef)*fade;
+  return existingFloor*(1-dryBand)+newFloor*dryBand-
+    rayPassageDepth(x,z);
 }
 
 export function seaFloorHeight(x: number, z: number): number {

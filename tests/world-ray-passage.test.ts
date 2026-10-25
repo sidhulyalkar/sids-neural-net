@@ -57,7 +57,7 @@ test("southern arch ray visitors remain swimmable and above shared seabed", () =
 test("submerged ray geometry has three morphologies, animates and disposes", () => {
   const lagoon=new THREE.Group();
   const lifecycle=createRayPassage(lagoon);
-  assert.equal(lifecycle.count,132);
+  assert.equal(lifecycle.count,108);
   const root=lagoon.getObjectByName("eagle-ray-cleaning-passage")!;
   assert.ok(root);
   for(const spec of RAY_PASSAGE_CAST) {

@@ -2,9 +2,9 @@
  * The school is a moving volume, not a 2D sheet or one synchronous animation.
  * Independently sampled bands stay deterministic across pause/re-entry.
  */
-export const EAGLE_FEVER_COUNT = 120;
+export const EAGLE_FEVER_COUNT = 96;
 export const EAGLE_FEVER_COHORTS = 4;
-export const EAGLE_FEVER_MOBILE_COUNT = 96;
+export const EAGLE_FEVER_MOBILE_COUNT = 72;
 export const EAGLE_FEVER_MIN_CLEARANCE = 0.65;
 
 export type EagleFeverPose = {

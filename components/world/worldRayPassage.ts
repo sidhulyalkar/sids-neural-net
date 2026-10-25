@@ -236,7 +236,7 @@ export function createRayPassage(lagoonRoot: THREE.Group) {
     }
     if(updateWings) for (let i=0; i<14; i++) {
       const station=RAY_PASSAGE.stations[Math.floor(i/7)];
-      const angle=t*.48+i*2.4;
+      const angle=t*1.22+i*2.4;
       const radius=.7+.24*(i%3);
       const x=station.x+Math.cos(angle)*radius;
       const z=station.z+Math.sin(angle)*radius;
@@ -248,7 +248,7 @@ export function createRayPassage(lagoonRoot: THREE.Group) {
     if(updateWings) cleaners.instanceMatrix.needsUpdate=true;
     if(updateWings) for (let i=0; i<10; i++) {
       const station=RAY_PASSAGE.stations[Math.floor(i/5)];
-      const a=i*2.399963+t*.07;
+      const a=i*2.399963+t*.17;
       const x=station.x+Math.cos(a)*(.4+i%3*.16);
       const z=station.z+Math.sin(a)*(.4+i%3*.16);
       dummy.position.set(x,seaFloorHeight(x,z)+.3+.06*Math.sin(t+i),z);
