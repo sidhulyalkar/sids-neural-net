@@ -1,22 +1,26 @@
-/** Procedural eastern lagoon channel. Never changes the shoreline or water classification. */
+/** Dedicated offshore southern snorkeling passage at the volcanic arch.
+ * Its habitat occupies existing offshore jet-ski scenery and never carves
+ * the island, west kelp reef, east lagoon, or north skim beach. */
 export const RAY_PASSAGE = {
-  centerX: 82,
-  centerZ: 8,
-  stations: [{ x: 73.8, z: -6.5 }, { x: 74.5, z: 27 }],
+  centerX: 17,
+  centerZ: -127,
+  stations: [{ x: 8.5, z: -119 }, { x: 26.5, z: -137 }],
 } as const;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const smooth = (v: number) => { const t = clamp(v); return t * t * (3 - 2 * t); };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const fract = (v: number) => v - Math.floor(v);
 
-/** The cut fades to zero before the beach, world edges, and both ends. */
+/** Southern volcanic-arch trench: bounded, smooth, and ZERO inside the
+ * original playable island (z >= -96).  This is sampled by BOTH bathymetry
+ * and the new south-water seabed mesh, so visible and physical floor agree. */
 export function rayPassageDepth(x: number, z: number): number {
-  if (!Number.isFinite(x) || !Number.isFinite(z) || x <= 64) return 0;
-  const axis = RAY_PASSAGE.centerX + 2.1 * Math.sin((z - 8) * .035);
-  const lateral = 1 - smooth((Math.abs(x - axis) - 3) / 10.5);
-  const longitudinal = 1 - smooth((Math.abs(z - 8) - 27) / 16);
-  const worldEdgeFade = 1 - smooth((x - 89) / 5);
-  return 13.5 * lateral * longitudinal * smooth((x - 64) / 8) * worldEdgeFade;
+  if (!Number.isFinite(x) || !Number.isFinite(z) || z >= -96 || z <= -166) return 0;
+  const axis = RAY_PASSAGE.centerX + 1.1 * Math.sin((z + 127) * .065);
+  const lateral = 1 - smooth((Math.abs(x - axis) - 8) / 13);
+  const longitudinal = 1 - smooth((Math.abs(z + 127) - 16) / 22);
+  const shoreFade = smooth((-z - 108) / 14);
+  return 17.5 * lateral * longitudinal * shoreFade;
 }
 
 export type RayKind = "eagle" | "manta" | "stingray";
@@ -56,11 +60,11 @@ export function sampleRayPassage(
   const phase = fract(t * speed + offset);
   const lane = spec.kind === "manta" ? 3.8 :
     benthic ? 4.6 : (spec.index % 3 - 1) * 1.4;
-  let x = 81 + lane + Math.sin(phase * Math.PI * 2 + spec.index * .7) * (benthic ? 3 : 2);
-  let z = -28 + 78 * phase;
+  let x = 16 + lane + Math.sin(phase * Math.PI * 2 + spec.index * .7) * (benthic ? 3 : 2);
+  let z = -146 + 31 * phase;
   if (benthic) {
-    x = 82.5 + lane * Math.cos(phase * Math.PI * 2 + spec.index);
-    z = -11 + (spec.index - 9) * 15 + Math.sin(phase * Math.PI * 2) * 10;
+    x = 15 + lane * Math.cos(phase * Math.PI * 2 + spec.index);
+    z = -139 + (spec.index - 9) * 9 + Math.sin(phase * Math.PI * 2) * 5;
   }
   const canClean = spec.cleaningStation !== null;
   const influence = canClean
@@ -94,6 +98,7 @@ export function sampleRayPassage(
 export type MarineAnchor = { id: string; x: number; z: number; reach: number };
 export const PASSAGE_ANCHORS: readonly MarineAnchor[] = [
   ...RAY_PASSAGE.stations.map((p, i) => ({ id: `ray-cleaning-${i}`, ...p, reach: 16 })),
+  { id: "southern-arch", x: 17, z: -127, reach: 24 },
   { id: "coral-crescent", x: 73, z: 13, reach: 17 },
   { id: "turtle-garden", x: 79, z: 20, reach: 15 },
   { id: "cold-kelp", x: -53, z: 12, reach: 24 },
