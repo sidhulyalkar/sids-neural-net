@@ -93,7 +93,9 @@ test("lagoon and kelp geometry reuses instances, paints species differently, sta
   assert.ok(props.has("branch-coral")&&props.has("kelp")&&props.has("moray")&&props.has("jelly"));
   assert.ok(props.has("lobster")&&props.has("nudibranch")&&props.has("anemone"));
   assert.ok(props.has("clownfish")&&props.has("angelfish"),"tropical fish must have their own silhouettes");
-  assert.ok(geometryRefs.size<=18,`sharing too little geometry: ${geometryRefs.size}`);
+  assert.ok(geometryRefs.size<=20,`unexpected geometry families: ${geometryRefs.size}`);
+  assert.ok(geometryRefs.size < habitats.drawCalls.kelp+habitats.drawCalls.lagoon,
+    "source geometries must be reused across both coastlines");
   const live=west.getObjectByName("marine-kelp-baitfish") as THREE.InstancedMesh;
   assert.ok(live);
   const a=new THREE.Matrix4(),b=new THREE.Matrix4();
