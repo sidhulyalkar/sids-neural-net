@@ -101,7 +101,12 @@ export function marineHabitatPoint(patch: MarinePatch, kind: MarineKind, index: 
   const next = generator(hash(`${patch.id}:${kind}:${index}`));
   const isTall = kind === "kelp" || kind === "spire";
   const scale = isTall ? .65 + next() * .52 : .45 + next() * .55;
-  const required = isTall ? 3.4 * scale : kind.includes("coral") ? 2.2 * scale : 1.3 * scale;
+  const required = isTall ? 3.4*scale :
+    kind==="boulder" ? 1.8*scale :
+    kind==="angelfish" ? 3.3*scale :
+    kind==="clownfish" ? 2.2*scale :
+    kind==="jelly" ? 2.2 :
+    kind.includes("coral") ? 2.2*scale : 1.3*scale;
   for (let attempt = 0; attempt < 64; attempt++) {
     const theta = next() * Math.PI * 2;
     const radius = Math.sqrt(next()) * patch.radius;
