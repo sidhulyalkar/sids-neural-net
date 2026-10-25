@@ -18,7 +18,9 @@ test("all dry southern shoreline samples enter while old land bounds remain prot
     assert.equal(waterZone(p),null,`dry entry point x=${x}`);
     const entry=southCoastEntry(p,{x:0,z:-1},true,true);
     assert.ok(entry,`blocked shoreline x=${x}`);
-    assert.equal(entry?.z,-96.38);
+    assert.equal(entry?.z,-96.9);
+    assert.ok(seaFloorHeight(x,entry!.z)<SOUTH_ENTRY_SURFACE_Y-.2,
+      `entry puts swimmer under physical floor at x=${x}`);
     assert.equal(waterZone(entry!),"south-channel");
     assert.equal(southCoastEntry(p,{x:0,z:1},true,true),null);
     assert.equal(southCoastEntry(p,{x:0,z:-1},true,false),null);
