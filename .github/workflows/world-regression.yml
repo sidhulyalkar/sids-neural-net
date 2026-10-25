@@ -154,6 +154,9 @@ jobs:
           tests/world-ray-passage.test.ts
           tests/world-eagle-fever.test.ts
           tests/world-south-channel.test.ts
+          lib/world/marineHabitatPatches.ts
+          components/world/worldMarineHabitatPatches.ts
+          tests/world-marine-habitat-patches.test.ts
           --max-warnings=0
       - name: Verify manual browser playtest script syntax
         run: |
