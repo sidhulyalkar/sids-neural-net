@@ -338,6 +338,18 @@ export function terrainHeight(x: number, z: number): number {
   base += (arcadeCaveFloorHeight({ x, z }) - base) * arcadeMask;
   const paperMask = paperAccessTerrainMask(x, z);
   base += (paperCaveFloorHeight({ x, z }) - base) * paperMask;
+  // Shared shoreline collar: the land mesh, avatar feet and south apron
+  // descend into the SAME water level across the full southern face.
+  // Sculpt only the last 7 units of the land and feather away near side reefs;
+  // the arcade/paper cave mouths and all interior ride areas stay unchanged.
+  if(z < -89 && z >= WORLD_BOUNDS.minZ) {
+    const south=(1-smoothstep01((z+96)/7));
+    const west=smoothstep01((x-coastlineX(z)-.1)/3);
+    const east=1-smoothstep01((x-eastCoastlineX(z)+3.1)/3);
+    const mask=south*west*east;
+    const shoreY=SEA_SURFACE+.16+(-96-z)*-.025;
+    base += (shoreY-base)*mask;
+  }
   return base;
 }
 /** Natural roof surface, intentionally independent from underground cave floors. */
