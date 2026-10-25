@@ -3,8 +3,7 @@ import {createResearchGallery} from "./worldResearchGallery";
 import {idleOceanObservation,advanceOceanObservation,stopOceanObservation} from "@/lib/world/coastalObservation";
 import {settleSurfaceHeight} from "@/lib/world/surfaceSupport";
 import {COAST_BENCH,COAST_WHALE,COAST_FALL,waterfallRockHeight} from "@/lib/world/hydrology";
-import {MOSS_CANYON  southernChannelFloorHeight,
-} from "@/lib/world/model";
+import {MOSS_CANYON} from "@/lib/world/model";
 import {BIKE_CONTACT,bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
 import {rideLeavesSupport,rideWheelProbe,rideTerrainAttitude,followRideSurfacePose} from "@/lib/world/rideSurface";
 import {boundedWorldFrameDelta,rideCooldownReady} from "@/lib/world/frameClock";
@@ -124,6 +123,7 @@ import {
   SECRET,
   SPAWN,
   seaFloorHeight,
+  southernChannelFloorHeight,
   terrainHeight,
   waterZone,
   worldFloorHeight,
