@@ -62,6 +62,10 @@ try {
     'migration fever and close-up rays coexist');
   assert.equal(await page.locator('canvas').getAttribute('data-eagle-fever-draw-calls'),'5',
     'instanced mass school keeps a bounded render budget');
+  assert.equal(await page.locator('canvas').getAttribute('data-south-reef-fish'),'72',
+    'southern arch has its own batched reef fish');
+  assert.equal(await page.locator('canvas').getAttribute('data-south-reef-corals'),'48',
+    'the new sea arch reef does not replace either existing reef');
   assert.ok([96,120].includes(Number(await page.locator('canvas')
     .getAttribute('data-eagle-fever-visible'))));
   assert.equal(await page.locator('canvas').getAttribute('data-golden-tridents'),'3');
