@@ -65,6 +65,7 @@ import { createMarineHabitatPatches } from "./worldMarineHabitatPatches";
 import { marineHabitatAt, marineHabitatLabel } from "@/lib/world/marineHabitatPatches";
 import { createRayPassage } from "./worldRayPassage";
 import { createSouthChannelLife } from "./worldSouthChannelLife";
+import { createSouthCoastalEcology } from "./worldSouthCoastalEcology";
 import { southCoastEntry, SOUTH_ENTRY_SURFACE_Y } from "@/lib/world/southCoastAccess";
 import {nearbyMarineVideo, type MarineCreaturePose} from "@/lib/world/marineVideoEncounters";
 import { createWorldTridents } from "./worldTridents";
@@ -2836,6 +2837,7 @@ export function createWorld(
   scene.add(southPassageRoot);
   const rayPassage = createRayPassage(southPassageRoot);
   const southChannelLife = createSouthChannelLife(southPassageRoot);
+  const southEcology = createSouthCoastalEcology(southPassageRoot);
   const goldenTridents = createWorldTridents(reefRoot,tropicalReefRoot);
   canvas.dataset.schoolingFish = String(marineSchools.count);
   canvas.dataset.marineHabitatPatches = String(marinePatches.patchCount);
@@ -2847,6 +2849,9 @@ export function createWorld(
   canvas.dataset.eagleFeverDrawCalls = String(rayPassage.feverDrawCalls);
   canvas.dataset.southReefFish = String(southChannelLife.counts.fish);
   canvas.dataset.southReefCorals = String(southChannelLife.counts.coral);
+  canvas.dataset.southCoastalDrawCalls = String(southEcology.draws);
+  canvas.dataset.southwestReefPatches = "7";
+  canvas.dataset.southeastKelpPatches = "5";
   canvas.dataset.goldenTridents = String(goldenTridents.count);
 
 
@@ -7093,6 +7098,7 @@ export function createWorld(
     marinePatches.update(elapsed,reducedFlightMotion);
     rayPassage.update(elapsed,reducedFlightMotion,{x:player.x,y:playerY,z:player.z});
     southChannelLife.update(elapsed,reducedFlightMotion);
+    southEcology.update(elapsed,{x:player.x,z:player.z},reducedFlightMotion);
     discGolfObjects.update(discGolf);
     // Bound prediction to ~2 Hz while a disc is being aimed. The preview
     // runs the same solver as the throw, but intentionally assumes a
@@ -7610,6 +7616,7 @@ export function createWorld(
       marinePatches.dispose();
       rayPassage.dispose();
       southChannelLife.dispose();
+      southEcology.dispose();
       goldenTridents.dispose();
       disposed = true;
       cancelAnimationFrame(raf);
