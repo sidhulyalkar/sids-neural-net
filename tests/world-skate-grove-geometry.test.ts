@@ -208,3 +208,29 @@ test("sequoia interior has seamless normals and refined contact geometry",()=>{
   assert.ok(Math.abs(b.y-groundHeight({x:b.x,z:b.z}))<.01);
  }finally{grove.dispose();}
 });
+
+
+test("meadow support mesh stays behind the log's curved inner floor, never a bright flat stripe",()=>{
+ const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
+ try{
+  const meadow=grove.root.getObjectByName("canyon-woodland-flow-surface");
+  assert.ok(meadow instanceof THREE.Mesh);
+  const verts=meadow.geometry.getAttribute("position");
+  const sample=(x:number,z:number)=>{
+   let best=Infinity,index=0;
+   for(let i=0;i<verts.count;i++){
+    const distance=Math.hypot(verts.getX(i)-x,verts.getZ(i)-z);
+    if(distance<best){best=distance;index=i;}
+   }
+   assert.ok(best<.55,"requested actual fine-grid vertex");
+   const point={x:verts.getX(index),z:verts.getZ(index)};
+   return {point,y:verts.getY(index)};
+  };
+  const inside=sample(0,59.1);
+  assert.ok(inside.y<groundHeight(inside.point)-.02,
+   "physical polished log surface must draw over flat meadow underlay");
+  const outside=sample(9.8,59.1);
+  assert.ok(Math.abs(outside.y-groundHeight(outside.point)-.035)<.001,
+   "away from the mouth, visible meadow must still match ride geometry");
+ }finally{grove.dispose();}
+});
