@@ -25,7 +25,9 @@ const snapshot=async label=>{
 };
 const capture=async label=>page.screenshot({path:path.join(out,label+".png")});
 try{
- page=await browser.newPage({viewport:{width:1440,height:900}});
+ // A smaller SwiftShader framebuffer is enough to audit the full physical
+ // log, without asking CI to rasterize the entire island at 1440x900.
+ page=await browser.newPage({viewport:{width:1200,height:750}});
  page.on("pageerror",e=>errors.push("page: "+e.message));
  page.on("console",m=>{if(m.type()==="error")errors.push("console: "+m.text().slice(0,240));});
  const base=process.env.WORLD_BASE_URL??"http://127.0.0.1:3000";
@@ -102,6 +104,17 @@ try{
  fs.writeFileSync(path.join(out,"trace.json"),JSON.stringify({trace,errors},null,2)+"\n");
  console.log("SEQUOIA SMOOTH ROLL-IN AND REAL INNER-WHEEL CONTACT PASS",JSON.stringify({trace,errors}));
 }catch(e){
+ try{
+  const browserState=await page.evaluate(()=>({
+   world:document.querySelector("[data-world-state]")?.getAttribute("data-world-state"),
+   canvasCount:document.querySelectorAll("canvas").length,
+   render:document.querySelector("canvas")?.getAttribute("data-draw-calls"),
+   location:document.querySelector("canvas")?.getAttribute("data-player"),
+   activity:document.querySelector("canvas")?.getAttribute("data-activity"),
+   fallback:document.body.innerText.includes("The 3D world couldn’t open on this device"),
+  }));
+  trace.push({label:"browser-state-on-failure",...browserState});
+ }catch{}
  try{await snapshot("failure");}catch{}
  try{await capture("failure-scene");}catch{}
  fs.writeFileSync(path.join(out,"trace.json"),JSON.stringify({trace,errors,error:String(e)},null,2)+"\n");
