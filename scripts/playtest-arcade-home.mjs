@@ -33,7 +33,7 @@ for (const viewport of viewports) {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
 
-  await page.goto(`${baseUrl}/`, { waitUntil: 'networkidle' });
+  await page.goto(`${baseUrl}/atlas`, { waitUntil: 'networkidle' });
   await page.locator('[data-fractal-morphology]:not([data-fractal-morphology="measuring"])').waitFor();
   await page.waitForFunction(
     (expected) =>
