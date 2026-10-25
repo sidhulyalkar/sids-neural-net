@@ -12,7 +12,7 @@ export const SOUTH_REEF_COUNTS = {
   lobsters: 10, nudibranchs: 25,
 } as const;
 const habitats = [
-  { x: -7, z: -114 }, // rocky west approach
+  { x: -7, z: -125 }, // rocky west approach, away from steep dry apron
   { x: 37, z: -133 }, // volcanic wall / cleaner-fish edge
   { x: 20, z: -153 }, // deeper outer rubble garden
 ] as const;
@@ -56,8 +56,13 @@ export function createSouthChannelLife(parent: THREE.Group) {
   const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};
   const position=(index:number,spread=9)=>{
     const base=habitats[index%habitats.length];
-    const a=rnd()*Math.PI*2,rad=Math.sqrt(rnd())*spread;
-    return {x:base.x+Math.cos(a)*rad,z:base.z+Math.sin(a)*rad};
+    for(let attempt=0;attempt<24;attempt++){
+      const a=rnd()*Math.PI*2,rad=Math.sqrt(rnd())*spread;
+      const p={x:base.x+Math.cos(a)*rad,z:base.z+Math.sin(a)*rad};
+      if(seaFloorHeight(p.x,p.z)<SEA_SURFACE-2.15)return p;
+    }
+    // Guaranteed submerged fallback if a later terrain sculpt moves the reef.
+    return {x:20,z:-145};
   };
   const place=(mesh:THREE.InstancedMesh,index:number,x:number,y:number,z:number,sx:number,sy:number,sz:number,angle:number)=>{
     dummy.position.set(x,y,z);dummy.rotation.set(0,angle,0);
