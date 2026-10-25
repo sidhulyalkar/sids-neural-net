@@ -1,29 +1,12 @@
-import dynamic from 'next/dynamic';
+import type { Metadata } from "next";
+import { WorldHome } from "@/components/world/WorldHome";
+import { getWorldContent } from "@/lib/world/content";
 
-/**
- * Homepage - Adaptive Fractal Dendritic Landing
- *
- * The landing neuron owns all eight primary destinations. Its geometry is
- * generated client-side from the actual viewport so wide screens receive a
- * wide arbor, portrait screens receive a taller arbor, and each visit gets a
- * fresh procedural morphology without changing the navigation topology.
- */
-const AdaptiveFractalHome = dynamic(
-  () => import('@/components/neural-atlas-canvas').then((module) => module.AdaptiveFractalHome),
-  {
-    loading: () => (
-      <div className="fixed inset-0 flex items-center justify-center bg-[#010204]">
-        <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-pulse rounded-full border border-white/20" />
-          <p className="mt-4 font-mono text-xs uppercase tracking-[0.2em] text-white/40">
-            Growing dendritic field
-          </p>
-        </div>
-      </div>
-    ),
-  }
-);
-
+export const metadata: Metadata = {
+  title: "Sid’s World | Sidharth Hulyalkar",
+  description:
+    "Engineer, neuroscience researcher, and builder. Explore a small world of neural systems, things I build, and life outdoors—or go straight to my work.",
+};
 export default function HomePage() {
-  return <AdaptiveFractalHome />;
+  return <WorldHome content={getWorldContent()} />;
 }

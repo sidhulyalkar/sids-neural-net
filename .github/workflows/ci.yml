@@ -160,6 +160,11 @@ jobs:
           /tmp/frontier-playwright/node_modules/.bin/playwright install --with-deps chromium firefox webkit
           /tmp/frontier-playwright/node_modules/.bin/playwright install chrome
 
+      - name: Audit World Mode navigation and fallbacks
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/frontier-playwright/node_modules/playwright
+        run: node scripts/playtest-world.mjs
+
       - name: Audit FRONTIER bounded first useful paint
         env:
           NODE_PATH: /tmp/frontier-playwright/node_modules
