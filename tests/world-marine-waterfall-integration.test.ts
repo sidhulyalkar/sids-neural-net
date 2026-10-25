@@ -9,6 +9,7 @@ import {waterfallProfile, waterfallCrownRings, waterfallRockWalls} from "../lib/
 import {southCoastDryShore, southCoastEntry, southCoastLanding, SOUTH_ENTRY_SURFACE_Y}
   from "../lib/world/southCoastAccess";
 import {stepSwim} from "../lib/world/activities";
+import {southCoastDiscoveryAt,southCoastDiscoveryHint} from "../lib/world/southCoastDiscovery";
 
 /**
  * These contracts intentionally exercise both formerly divergent feature
@@ -72,4 +73,21 @@ test("southern swim return remains available without changing land bounds",()=>{
     assert.equal(waterZone(travel.point),null,`missing surface exit at ${x}`);
     assert.ok(southCoastLanding(travel.point),`no beach landing at ${x}`);
   }
+});
+
+test("southern guide distinguishes marine areas and accurately reports mobile rays",()=>{
+  const rocky=southCoastDiscoveryAt({x:-57,z:-118});
+  const kelp=southCoastDiscoveryAt({x:63,z:-135});
+  const rays=southCoastDiscoveryAt({x:17,z:-127});
+  assert.equal(rocky?.kind,"reef");
+  assert.equal(kelp?.kind,"kelp");
+  assert.equal(rays?.kind,"ray");
+  assert.equal(southCoastDiscoveryAt({x:-65,z:15}),null);
+  assert.equal(southCoastDiscoveryAt({x:17,z:-95.95}),null);
+  assert.match(southCoastDiscoveryHint(rocky,96),/Southwest Rocky Reef/);
+  assert.match(southCoastDiscoveryHint(kelp,96),/Kelp|Otter|Seal|Shark|Octopus/);
+  assert.match(southCoastDiscoveryHint(rays,72),/72 eagle rays/);
+  assert.match(southCoastDiscoveryHint(rays,96),/96 eagle rays/);
+  assert.doesNotMatch(southCoastDiscoveryHint(kelp,72),/Eagle Ray Passage/);
+  assert.doesNotMatch(southCoastDiscoveryHint(rocky,96),/Eagle Ray Passage/);
 });
