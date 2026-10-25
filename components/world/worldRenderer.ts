@@ -67,6 +67,7 @@ import { createRayPassage } from "./worldRayPassage";
 import { createSouthChannelLife } from "./worldSouthChannelLife";
 import { createSouthCoastalEcology } from "./worldSouthCoastalEcology";
 import { southCoastEntry, SOUTH_ENTRY_SURFACE_Y } from "@/lib/world/southCoastAccess";
+import { southCoastDiscoveryAt, southCoastDiscoveryHint } from "@/lib/world/southCoastDiscovery";
 import {nearbyMarineVideo, type MarineCreaturePose} from "@/lib/world/marineVideoEncounters";
 import { createWorldTridents } from "./worldTridents";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
@@ -6802,11 +6803,14 @@ export function createWorld(
       (currentWaterZone==="south-channel" && aquatic!=="land" ||
        aquatic==="land" && caveLayer==="surface" && player.z<-87 &&
        Math.abs(player.x-17)<43 && playerY<SEA_SURFACE+7);
+    const southDiscovery=currentWaterZone==="south-channel"&&aquatic!=="land"
+      ? southCoastDiscoveryAt(player):null;
+    canvas.dataset.southDiscovery=southDiscovery?.id??"";
     southPassageHud.style.display=southHintVisible?"block":"none";
     if(southHintVisible){
       const hint=aquatic==="land"
-        ?"Eagle Ray Passage · Enter from the southern shoreline"
-        :"Eagle Ray Passage · 96 eagle rays · Dive to explore";
+        ?"South Coast · Walk into the water to snorkel"
+        :southCoastDiscoveryHint(southDiscovery,rayPassage.feverCount);
       if(southPassageHud.textContent!==hint)southPassageHud.textContent=hint;
     }
     // Underwater field-guide label for authored kelp and lagoon neighborhoods.
