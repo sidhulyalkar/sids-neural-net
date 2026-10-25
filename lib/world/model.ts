@@ -393,9 +393,21 @@ export function southernChannelFloorHeight(x: number, z: number): number {
     (1-smoothstep01((-z-156)/11));
   const westernReef = .8 * (1-smoothstep01((x+12)/13)) *
     smoothstep01((-z-102)/10);
-  // Depth for full-sized kelp in the southeast, gentle reef relief west.
-  // Fade to zero at the original island seam to avoid geometric cracks.
-  return edge*(1-fade)+(shelf-easternKelp+westernReef)*fade-
+  // Existing side reefs already slope into water; retain their original
+  // 20-unit apron there. Across the new south dry shoreline, the first two
+  // meters become actual wading water. A slow 20-unit blend previously left
+  // the seabed ABOVE the water surface after entering, trapping swimmers.
+  const dryBand = smoothstep01((x-coastlineX(SOUTH_CHANNEL_SHORE_Z)-.1)/3) *
+    (1-smoothstep01((x-eastCoastlineX(SOUTH_CHANNEL_SHORE_Z)+3.1)/3));
+  const offshore = Math.max(0,SOUTH_CHANNEL_SHORE_Z-z);
+  const nearFade = smoothstep01(offshore/1.25);
+  const deepFade = smoothstep01((offshore-1.5)/17);
+  const wadingFloor=edge*(1-nearFade)+(SEA_SURFACE-.95)*nearFade;
+  const newFloor=wadingFloor*(1-deepFade)+
+    (shelf-easternKelp+westernReef)*deepFade;
+  const existingFloor=edge*(1-fade)+
+    (shelf-easternKelp+westernReef)*fade;
+  return existingFloor*(1-dryBand)+newFloor*dryBand-
     rayPassageDepth(x,z);
 }
 
