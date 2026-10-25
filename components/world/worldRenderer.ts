@@ -61,6 +61,7 @@ import {
   advanceBigAir,mountainJumpCameraPose,armBigAir,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
+import { createMarineHabitatPatches } from "./worldMarineHabitatPatches";
 import { createRayPassage } from "./worldRayPassage";
 import { createSouthChannelLife } from "./worldSouthChannelLife";
 import {nearbyMarineVideo, type MarineCreaturePose} from "@/lib/world/marineVideoEncounters";
@@ -2820,6 +2821,7 @@ export function createWorld(
 
   const reefGarden = createReefGarden(tropicalReefRoot);
   const marineSchools = createMarineSchools(reefRoot,tropicalReefRoot);
+  const marinePatches = createMarineHabitatPatches(reefRoot,tropicalReefRoot);
   // The south-channel biome is distinct from BOTH original snorkeling reefs.
   const southPassageRoot = new THREE.Group();
   southPassageRoot.visible = false;
@@ -2829,6 +2831,9 @@ export function createWorld(
   const southChannelLife = createSouthChannelLife(southPassageRoot);
   const goldenTridents = createWorldTridents(reefRoot,tropicalReefRoot);
   canvas.dataset.schoolingFish = String(marineSchools.count);
+  canvas.dataset.marineHabitatPatches = String(marinePatches.patchCount);
+  canvas.dataset.westHabitatDrawCalls = String(marinePatches.drawCalls.kelp);
+  canvas.dataset.eastHabitatDrawCalls = String(marinePatches.drawCalls.lagoon);
   canvas.dataset.rayPassage = String(rayPassage.count);
   canvas.dataset.eagleFever = String(rayPassage.feverCount);
   canvas.dataset.eagleFeverVisible = String(rayPassage.visibleFeverCount);
@@ -7045,6 +7050,7 @@ export function createWorld(
     reefGarden.update(elapsed);
     const reducedFlightMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     marineSchools.update(elapsed,reducedFlightMotion);
+    marinePatches.update(elapsed,reducedFlightMotion);
     rayPassage.update(elapsed,reducedFlightMotion,{x:player.x,y:playerY,z:player.z});
     southChannelLife.update(elapsed,reducedFlightMotion);
     discGolfObjects.update(discGolf);
@@ -7561,6 +7567,7 @@ export function createWorld(
       habitats.dispose();
       reefGarden.dispose();
       marineSchools.dispose();
+      marinePatches.dispose();
       rayPassage.dispose();
       southChannelLife.dispose();
       goldenTridents.dispose();
