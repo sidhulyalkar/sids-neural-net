@@ -55,49 +55,77 @@ try{
  await capture("01-eastern-open-mouth");
  const canvas=page.locator("canvas[role=application]");
  await canvas.focus();
- await page.keyboard.down("w");
- try{
-  // Approach via actual input and wheel-based movement, not a write to
-  // position or collision state. Both end faces remain collision-only.
-  await page.waitForFunction(()=>{
-   const d=document.querySelector("canvas")?.dataset;
-   return Number(d?.skateTunnelEntries)>0&&d?.skateTunnelSurface==="inner"&&
-    d?.skateTunnelPhase==="roll-through";
-  },null,{timeout:110000});
-  const mouth=await snapshot("crossed east mouth on the floor");
-  assert.equal(mouth.grinding,"false");
-  assert.equal(mouth.grindReady,"false");
-  assert.equal(mouth.surface,"inner");
-  assert.equal(mouth.blocked,"false");
-  assert.ok(mouth.speed>0.25);
-  assert.ok(mouth.lift>=0&&mouth.lift<.3);
-  await capture("02-wheels-on-inner-floor");
-  // Gentle rider steering should smoothly climb the same wooden surface.
-  await page.keyboard.down("a");
-  try{
-   await page.waitForFunction(()=>{
-    const d=document.querySelector("canvas")?.dataset;
-    return d?.skateTunnelSurface==="inner"&&
-     Math.abs(Number(d.skateTunnelAngle))>.075 &&
-     d.skateTunnelAir==="false";
-   },null,{timeout:25000});
-   const curved=await snapshot("rolling on inside curved wood");
-   assert.ok(Math.abs(curved.angle)>.075);
-   assert.ok(curved.lift>=0&&curved.lift<=.3);
-   assert.equal(curved.grinding,"false");
-   await capture("03-interior-curved-wheel-contact");
-  }finally{await page.keyboard.up("a");}
-  // An ordinary traversal cannot become stuck at the far exit.
-  await page.waitForFunction(()=>{
-   const d=document.querySelector("canvas")?.dataset;
-   const p=d?.player?.split(",").map(Number);
-   return Number(d?.skateTunnelEntries)>=1&&
-    d?.skateTunnelPhase==="free"&&p?.length===2&&p[0]<-5.4;
-  },null,{timeout:120000});
- }finally{await page.keyboard.up("w");}
- const exit=await snapshot("west mouth exit");
+ // Read the world state AND send real keyboard events inside the same browser
+ // animation frame. On SwiftShader, a Playwright round trip can span the
+ // entire 10m tunnel; separate waits accidentally observe the exit instead
+ // of the entry that did occur.
+ const journey=await canvas.evaluate(el=>new Promise((resolve,reject)=>{
+  const start=performance.now(),pressed=new Set(),samples=[];
+  let entered=null,curved=null,exit=null,frames=0;
+  const send=(type,key)=>el.dispatchEvent(new KeyboardEvent(type,{
+   key,code:"Key"+key.toUpperCase(),bubbles:true,cancelable:true}));
+  const hold=(key,on)=>{
+   if(on&&!pressed.has(key)){pressed.add(key);send("keydown",key);}
+   else if(!on&&pressed.has(key)){pressed.delete(key);send("keyup",key);}
+  };
+  const release=()=>{for(const key of [...pressed])hold(key,false);};
+  const sample=()=>{
+   const d=el.dataset;
+   return {point:d.player,phase:d.skateTunnelPhase,surface:d.skateTunnelSurface,
+    angle:Number(d.skateTunnelAngle),speed:Number(d.speed),
+    lift:Number(d.skateTunnelWheelLift),air:d.skateTunnelAir,
+    entries:Number(d.skateTunnelEntries),grinding:d.grinding,
+    grindReady:d.grindReady,blocked:d.skateLogBlocked,
+    renderCalls:Number(d.drawCalls)};
+  };
+  const tick=()=>{
+   frames++;
+   const d=sample(),x=Number(d.point?.split(",")[0]);
+   if(frames%15===0)samples.push(d);
+   if(!Number.isFinite(x)||!Number.isFinite(d.speed)){
+    release();reject(Error("Nonfinite log ride state "+JSON.stringify({d,samples})));return;
+   }
+   if(!entered&&d.entries>=1&&d.phase==="roll-through"&&d.surface==="inner"){
+    entered={...d,label:"crossed east mouth on the floor"};
+    // Steer immediately while *physically inside* the log, before the
+    // remote browser driver can miss the whole ride.
+    hold("a",true);
+   }
+   if(entered&&!curved&&d.surface==="inner"&&d.air==="false"&&
+      Math.abs(d.angle)>.075){
+    curved={...d,label:"rolling on inside curved wood"};
+    hold("a",false);
+   }
+   if(entered&&d.phase==="free"&&x< -5.4){
+    exit={...d,label:"west mouth exit"};
+    release();
+    resolve({entered,curved,exit,samples,frames});
+    return;
+   }
+   if(performance.now()-start>160000){
+    release();reject(Error("Tunnel movement timed out "+JSON.stringify({entered,curved,latest:d,samples})));return;
+   }
+   requestAnimationFrame(tick);
+  };
+  hold("w",true);
+  requestAnimationFrame(tick);
+ }));
+ const mouth=journey.entered,curved=journey.curved,exit=journey.exit;
+ trace.push(mouth);
+ if(curved)trace.push(curved);
+ trace.push(exit);
+ assert.equal(mouth.grinding,"false");
+ assert.equal(mouth.grindReady,"false");
+ assert.equal(mouth.surface,"inner");
+ assert.equal(mouth.blocked,"false");
+ assert.ok(mouth.speed>0.25);
+ assert.ok(mouth.lift>=0&&mouth.lift<=.3);
+ assert.ok(curved,"wheels must remain on the real curved interior when steering");
+ assert.ok(Math.abs(curved.angle)>.075);
+ assert.ok(curved.lift>=0&&curved.lift<=.3);
+ assert.equal(curved.grinding,"false");
  assert.equal(exit.grinding,"false");
- assert.ok(exit.speed>.15,"skating speed should survive the exit");
+ assert.ok(exit.speed>.15,"skating speed should survive the west exit");
  assert.ok(exit.renderCalls>20);
  await capture("04-free-roam-after-log");
  assert.deepEqual(errors,[]);
