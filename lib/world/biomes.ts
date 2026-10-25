@@ -60,10 +60,12 @@ export function biomeAt(p: Point) {
     const zone = waterZone(p)!;
     const offshore = zone === "kelp" ? coastlineX(p.z) - p.x :
       zone === "lagoon" ? p.x - eastCoastlineX(p.z) :
+      zone === "south-channel" ? -96 - p.z :
       p.z - northShoreZ(p.x);
     const marine = smooth(0.35, 5.35, offshore);
     weights["cold-beach"] = 1 - marine;
-    weights[zone==="north-shore"?"lagoon":zone] = marine;
+    // A distinctive sea-life zone, not a ninth land-cover material.
+    weights[zone==="north-shore"?"lagoon":zone==="south-channel"?"kelp":zone] = marine;
   }
   const total = Object.values(weights).reduce((a, b) => a + b, 0);
   if (total > 0) {
