@@ -58,7 +58,7 @@ import {
 } from "@/lib/world/discGolf";
 import {
   BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,mountainJumpEligible,mountainSkiTakeoff,mountainJumpOutwardGain,
-  advanceBigAir,mountainJumpCameraPose,armBigAir,idleBigAir,type BigAirState,
+  advanceBigAir,mountainJumpCameraPose,armBigAir,idleBigAir,bigAirChallengeReady,type BigAirState,
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
 import { createMarineHabitatPatches } from "./worldMarineHabitatPatches";
@@ -3977,7 +3977,7 @@ export function createWorld(
       bigAir.phase==="flying"||
       climb||(grind&&state.activity!=="skate")||
       (airHeight>0.01&&!(state.activity==="skate"&&verticalSpeed>0.1)))return;
-    if(state.activity==="ski"&&!nearestGrind(player,1.45)&&
+    if(bigAirChallengeReady(bigAir.phase,state.activity)&&!nearestGrind(player,1.45)&&
       mountainJumpEligible(player,supportHeight(player),travel.speed)){
       const ahead={x:player.x+travel.heading.x*2.1,
         z:player.z+travel.heading.z*2.1};
@@ -4844,8 +4844,8 @@ export function createWorld(
         skateBowlFlightActive=false;
       }
 
-      // Skiing may launch from any steep downhill edge on the mountain.
-      // The original marked kicker remains as a deliberate easy starting point.
+      // Ordinary skiing never triggers the cinematic bird-assisted flight.
+      // Only a deliberately selected Ski Jump game may launch from a slope or lip.
       // A sustained attempted ride with no translation signals a bad
       // obstacle/terrain contact. Intentional grinds, loops and airborne tricks
       // are exempt; the recovery is strictly local and uses safe support.
@@ -4890,8 +4890,8 @@ export function createWorld(
       }else rideRecovery={...rideRecovery,blockedFor:0};
       if(rideFlightContinuity&&airHeight<=.001&&verticalSpeed===0)
         rideFlightContinuity=false;
-      const skiEligible=state.activity==="ski"&&
-        bigAir.phase!=="flying"&&elapsed-lastRampAt>1.1&&
+      const skiEligible=bigAirChallengeReady(bigAir.phase,state.activity)&&
+        elapsed-lastRampAt>1.1&&
         discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
         trial.phase!=="running"&&trial.phase!=="armed"&&
         !climb&&!grind&&aquatic==="land"&&airHeight<.1&&
