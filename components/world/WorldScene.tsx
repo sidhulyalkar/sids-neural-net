@@ -74,8 +74,16 @@ export default function WorldScene(props: Props) {
           onSkimNearby:(board)=>callbacks.current.onSkimNearby(board),
         }, WebGLRenderer, callbacks.current.gameTitles);
         runtime.current.setState(callbacks.current);
-      } catch { callbacks.current.onError(); }
-    }).catch(() => { if (!cancelled) callbacks.current.onError(); });
+      } catch (error) {
+        console.error("World 3D initialization failed",error);
+        callbacks.current.onError();
+      }
+    }).catch((error) => {
+      if (!cancelled) {
+        console.error("World WebGL renderer module failed to load",error);
+        callbacks.current.onError();
+      }
+    });
     return () => {
       cancelled = true;
       runtime.current?.dispose();
