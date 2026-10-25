@@ -7,7 +7,7 @@ import {southCoastDryShore,southCoastEntry,southCoastLanding,
   SOUTH_ENTRY_SURFACE_Y} from "../lib/world/southCoastAccess";
 import {SOUTH_HABITATS,southHabitatPoint,southHabitatTotals} from "../lib/world/southCoastHabitats";
 import {createSouthCoastalEcology} from "../components/world/worldSouthCoastalEcology";
-import {stepSwim} from "../lib/world/activities";
+import {stepSwim,stepTravel} from "../lib/world/activities";
 
 test("all dry southern shoreline samples enter while old land bounds remain protected",()=>{
   const shore:number[]=[];
@@ -37,6 +37,24 @@ test("all dry southern shoreline samples enter while old land bounds remain prot
   assert.equal(WORLD_BOUNDS.minZ,-96);
   assert.equal(SOUTH_ENTRY_SURFACE_Y,SEA_SURFACE-.42);
   for(const x of [-80,80])assert.equal(southCoastDryShore(x),false);
+});
+
+test("ordinary running actually reaches each south entry without changing sport bounds",()=>{
+  for(let x=-29;x<=52;x+=7){
+    let travel={point:{x,z:-91.8},heading:{x:0,z:-1},speed:0};
+    let entered=false;
+    for(let i=0;i<180;i++){
+      travel=stepTravel(travel,{x:0,z:-1},.05,"run",[],false,null,
+        0,p=>terrainHeight(p.x,p.z));
+      const target=southCoastEntry(travel.point,{x:0,z:-1},true,true);
+      if(target){
+        entered=true;
+        assert.equal(waterZone(target),"south-channel");
+        break;
+      }
+    }
+    assert.ok(entered,`runner could not reach south shore entry x=${x}`);
+  }
 });
 
 test("surface swimmer can depart south and return through every landing segment",()=>{
