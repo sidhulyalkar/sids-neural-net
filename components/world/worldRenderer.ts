@@ -6785,8 +6785,8 @@ export function createWorld(
     southPassageHud.style.display=southHintVisible?"block":"none";
     if(southHintVisible){
       const hint=aquatic==="land"
-        ?"Eagle Ray Passage · Swim around the southern cape"
-        :"Eagle Ray Passage · 120+ eagle rays · Dive to explore";
+        ?"Eagle Ray Passage · Enter from the southern shoreline"
+        :"Eagle Ray Passage · 96 eagle rays · Dive to explore";
       if(southPassageHud.textContent!==hint)southPassageHud.textContent=hint;
     }
     // Underwater field-guide label for authored kelp and lagoon neighborhoods.
