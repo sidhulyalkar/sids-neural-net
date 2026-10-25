@@ -113,11 +113,11 @@ export function createSouthChannelLife(parent: THREE.Group) {
     last=seconds;
     const t=reducedMotion?0:seconds;
     for(const f of fishCoords){
-      const a=f.theta+t*.25;
-      const x=f.home.x+Math.cos(a)*(.9+(f.i%7)*.24);
-      const z=f.home.z+Math.sin(a)*(.9+(f.i%7)*.24);
+      const a=f.theta+t*(.72+(f.i%5)*.055);
+      const x=f.home.x+Math.cos(a)*(1.4+(f.i%7)*.31);
+      const z=f.home.z+Math.sin(a)*(1.4+(f.i%7)*.31);
       const y=Math.min(SEA_SURFACE-.5,seaFloorHeight(x,z)+f.height);
-      place(fish,f.i,x,y,z,.32,.32,.32,-a);
+      place(fish,f.i,x,y,z,.34,.34,.34,-a+Math.PI/2);
     }
     fish.instanceMatrix.needsUpdate=true;
   }
