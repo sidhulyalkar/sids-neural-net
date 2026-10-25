@@ -206,8 +206,13 @@ export function resolveSkateLogMotion(from:V,to:V,velocity:V,floor:Floor,up:V=[0
   // Ignore low mouth seams; only the wheel path inside the actual bore may
   // attach to the tube. Bark and elevated cut end-grain remain collision-only.
   const wheelRide=wheel&&canRideLogContact(wheel,floor);
-  const solidWheel=wheel&&wheel.surface!=="inner"&&
-    wheel.point[1]-floor({x:wheel.point[0],z:wheel.point[2]})>=LOG_RIM_MIN_HEIGHT;
+  // The low, centered mouth is an open floor. Off-center end grain remains
+  // solid at ALL heights, so a skateboard cannot tunnel through bark just
+  // because it is below torso height. Neither can ever become a grind.
+  const lowCenter=wheel&&
+    Math.abs(wheel.point[2]-GROVE_TUNNEL.center.z)<=LOG_ROLL_IN_HALF_WIDTH&&
+    wheel.point[1]-floor({x:wheel.point[0],z:wheel.point[2]})<LOG_RIM_MIN_HEIGHT;
+  const solidWheel=wheel&&wheel.surface!=="inner"&&!lowCenter;
   if(solidWheel&&(!body||wheel!.t<body.t))body=wheel;
   if(wheelRide&&(!body||wheel!.t<=body.t+.00001))
     return {ride:rideAtLogHit(wheel!,v,floor),position:wheel!.point,velocity:v,blocked};
