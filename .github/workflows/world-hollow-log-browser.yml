@@ -1,0 +1,73 @@
+name: Hollow Sequoia Roll-In Browser QA
+
+on:
+  pull_request:
+    paths:
+      - 'lib/world/skateTunnel.ts'
+      - 'lib/world/skatepark.ts'
+      - 'components/world/worldRenderer.ts'
+      - 'components/world/worldSkateGroveGeometry.ts'
+      - 'tests/world-skate-tunnel.test.ts'
+      - 'tests/world-skate-log-shell.test.ts'
+      - 'tests/world-log-edge-assist.test.ts'
+      - 'tests/world-skate-grove-geometry.test.ts'
+      - 'scripts/playtest-sequoia-tunnel.mjs'
+      - '.github/workflows/world-hollow-log-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hollow-sequoia-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hollow-log:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WORLD_BASE_URL: http://127.0.0.1:3000
+      WORLD_AUDIT_DIR: artifacts/world/hollow-sequoia
+      PLAYWRIGHT_MODULE_ROOT: /tmp/hollow-log-playwright/node_modules/playwright
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install exact dependencies
+        run: npm ci
+      - name: Verify wheel physics and rendered mesh contracts
+        run: |
+          npm run typecheck
+          node --import tsx --test tests/world-skate-tunnel.test.ts tests/world-skate-log-shell.test.ts tests/world-log-edge-assist.test.ts tests/world-skate-grove-geometry.test.ts
+          node --check scripts/playtest-sequoia-tunnel.mjs
+      - name: Install isolated Playwright
+        run: |
+          mkdir -p /tmp/hollow-log-playwright
+          npm install --prefix /tmp/hollow-log-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/hollow-log-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start site with the exact PR code
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/hollow-log-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 120 /tmp/hollow-log-next.log
+          exit 1
+      - name: Actually ride through both open mouths and sample inside wheel contact
+        run: node scripts/playtest-sequoia-tunnel.mjs
+      - name: Show browser build failures
+        if: failure()
+        run: tail -n 160 /tmp/hollow-log-next.log || true
+      - name: Upload screenshots and exact entrance movement trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hollow-sequoia-${{ github.sha }}
+          path: |
+            artifacts/world/hollow-sequoia/
+            /tmp/hollow-log-next.log
+          if-no-files-found: warn
