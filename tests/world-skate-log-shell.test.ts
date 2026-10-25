@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {GROVE_TUNNEL as g,SKATE_LOOP} from '../lib/world/skatepark';
-import {advanceSkateTunnelRide,beginSkateTunnelRide,contactSkateLog,enterSkateTunnel,jumpSkateTunnel,resolveSkateLogMotion,sequoiaTubePoint,skateLogShellDistance,skateTunnelSample,sweepSkateLog,type V} from '../lib/world/skateTunnel';
+import {advanceSkateTunnelRide,beginSkateTunnelRide,contactSkateLog,enterSkateTunnel,jumpSkateTunnel,resolveSkateLogMotion,sequoiaTubePoint,skateLogShellDistance,skateTunnelSample,sweepSkateLog,type V,type SkateTunnelRide} from '../lib/world/skateTunnel';
 import {advanceSkateLoop,beginSkateLoop,enterSkateLoop,skateLoopSample} from '../lib/world/skateLoop';
 const floor=()=>2;
 const vector=(p:{x:number;y:number;z:number}):V=>[p.x,p.y,p.z];
@@ -31,7 +31,7 @@ test('both open mouths remain hollow while annular end grain stops approach',()=
 test('outer crown does not magnetize skaters; manually started bark rides remain supported',()=>{
  const top=sequoiaTubePoint(0,Math.PI,2,true);
  assert.equal(contactSkateLog([0,top.y+2,g.center.z],[0,top.y-2,g.center.z],[0,-12,0],floor),null);
- let r={...base(),surface:'outer' as const,angle:Math.PI};
+ let r:SkateTunnelRide={...base(),surface:'outer',angle:Math.PI};
  for(let i=0;i<240;i++){
   const n=advanceSkateTunnelRide(r,1/60,undefined,floor);r=n.ride;
   assert.equal(n.completed,false);assert.ok(!r.air);
