@@ -6,7 +6,7 @@ import {
   EAGLE_FEVER_MIN_CLEARANCE, sampleEagleFever,
 } from "../lib/world/rayFever";
 import { createRayPassage } from "../components/world/worldRayPassage";
-import { SEA_SURFACE, maxDiveDepth, seaFloorHeight, waterZone } from "../lib/world/model";
+import { SEA_SURFACE, maxDiveDepth, seaFloorHeight, waterZone, constrainMove, constrainSwimMove, WORLD_BOUNDS, SOUTH_CHANNEL_MIN_Z } from "../lib/world/model";
 import { rayPassageDepth } from "../lib/world/rayPassage";
 
 test("eagle fever fills a large vertical channel with 120 deterministic ray trajectories",()=>{
@@ -19,9 +19,9 @@ test("eagle fever fills a large vertical channel with 120 deterministic ray traj
     for(let i=0;i<poses.length;i++) {
       const p=poses[i];
       assert.deepEqual(p,sampleEagleFever(i,seconds,seaFloorHeight,SEA_SURFACE));
-      assert.equal(waterZone(p),"lagoon",`ray ${i}`);
+      assert.equal(waterZone(p),"south-channel",`ray ${i}`);
       assert.ok([p.x,p.y,p.z,p.yaw,p.roll,p.flap,p.size].every(Number.isFinite));
-      assert.ok(p.x>70&&p.x<94&&p.z>-45&&p.z<55);
+      assert.ok(p.x>-8&&p.x<43&&p.z>-166&&p.z<-96);
       assert.ok(p.y <= SEA_SURFACE-.7);
       assert.ok(p.y >= seaFloorHeight(p.x,p.z)+EAGLE_FEVER_MIN_CLEARANCE-1e-7,
         `ray ${i} breached seafloor`);
@@ -36,16 +36,17 @@ test("eagle fever fills a large vertical channel with 120 deterministic ray traj
 });
 
 test("ray fever trench has room for deeper strata but beaches and shore sports stay unchanged",()=>{
-  assert.ok(rayPassageDepth(82,8)>13);
-  assert.ok(SEA_SURFACE-seaFloorHeight(82,8)>16,"channel has deep water");
-  assert.ok(maxDiveDepth({x:82,z:8})>14,"inner channel enables deeper observation");
-  assert.ok(maxDiveDepth({x:-54,z:8})<=10,"kelp depth unchanged");
-  assert.ok(maxDiveDepth({x:68,z:8})<=10,"shoreline retains normal safety limit");
-  assert.equal(rayPassageDepth(58,8),0,"island boundary unchanged");
-  assert.equal(rayPassageDepth(94,8),0,"outer world edge unchanged");
-  for(const x of [60,62,64,66,68,70,74,80,86,90,92,94]){
-    const p={x,z:8};
-    const floor=seaFloorHeight(x,8);
+  assert.ok(rayPassageDepth(17,-127)>17);
+  assert.ok(SEA_SURFACE-seaFloorHeight(17,-127)>19,"southern arch has deep water");
+  assert.ok(maxDiveDepth({x:17,z:-127})>14,"southern inner channel allows deep exploration");
+  assert.ok(maxDiveDepth({x:-54,z:8})<=10,"original kelp dive limit unchanged");
+  assert.ok(maxDiveDepth({x:68,z:8})<=10,"original lagoon dive limit unchanged");
+  assert.equal(rayPassageDepth(82,8),0,"original lagoon has no fever trench");
+  assert.equal(rayPassageDepth(17,-96),0,"island boundary unchanged");
+  assert.equal(rayPassageDepth(17,-166),0,"south ocean boundary unchanged");
+  for(const z of [-96,-98,-105,-112,-120,-127,-140,-158,-166]){
+    const p={x:17,z};
+    const floor=seaFloorHeight(17,z);
     if(waterZone(p)==="lagoon"){
       const depth=maxDiveDepth(p);
       assert.ok(depth>=0&&depth<=16);
@@ -55,6 +56,19 @@ test("ray fever trench has room for deeper strata but beaches and shore sports s
         `a deep enough water cell must permit some diving at x=${x}`);
     }
   }
+});
+
+test("southern snorkeling route crosses the old map edge, land sports do not",()=>{
+  const landTarget={x:17,z:-127};
+  assert.equal(constrainMove({x:17,z:-95},landTarget,[]).z,WORLD_BOUNDS.minZ);
+  const swimming=constrainSwimMove({x:17,z:-95},landTarget);
+  assert.deepEqual(swimming,landTarget);
+  assert.equal(waterZone(swimming),"south-channel");
+  assert.equal(constrainSwimMove(swimming,{x:17,z:-999}).z,SOUTH_CHANNEL_MIN_Z);
+  assert.equal(waterZone({x:-42,z:-94}),"kelp");
+  assert.equal(waterZone({x:-42,z:-100}),"south-channel");
+  assert.equal(waterZone({x:65,z:-94}),"lagoon");
+  assert.equal(waterZone({x:65,z:-100}),"south-channel");
 });
 
 test("120 eagle ray bodies use only four instanced draws, tails one, with lifecycle cleanup",()=>{
