@@ -129,3 +129,20 @@ export function marineHabitatCounts(zone: ReefZone) {
   }
   return counts;
 }
+
+/** Closest named discovery within its authored boundary. No per-frame heap
+ * allocation or spatial tree necessary for only ten patches.
+ */
+export function marineHabitatAt(point: {x:number;z:number}, zone: ReefZone): MarinePatch | null {
+  let best: MarinePatch | null=null, distance=Infinity;
+  for(const patch of MARINE_HABITAT_PATCHES) {
+    if(patch.zone!==zone)continue;
+    const d=Math.hypot(point.x-patch.x,point.z-patch.z);
+    if(d<patch.radius+1.7 && d<distance){best=patch;distance=d;}
+  }
+  return best;
+}
+export function marineHabitatLabel(patch: MarinePatch):string {
+  const words=patch.id.replace(/^(west|east)-/,"").split("-");
+  return words.map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ");
+}
