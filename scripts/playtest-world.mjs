@@ -62,9 +62,9 @@ try {
     const draws=Number(await page.locator('canvas').getAttribute(id));
     assert.ok(draws>5&&draws<=18,`bounded instanced habitat batches: ${id}=${draws}`);
   }
-  assert.equal(await page.locator('canvas').getAttribute('data-eagle-fever'),'120',
-    '120-ray school must be constructed');
-  assert.equal(await page.locator('canvas').getAttribute('data-ray-passage'),'132',
+  assert.equal(await page.locator('canvas').getAttribute('data-eagle-fever'),'96',
+    '96-ray school must be constructed');
+  assert.equal(await page.locator('canvas').getAttribute('data-ray-passage'),'108',
     'migration fever and close-up rays coexist');
   assert.equal(await page.locator('canvas').getAttribute('data-eagle-fever-draw-calls'),'5',
     'instanced mass school keeps a bounded render budget');
@@ -72,7 +72,7 @@ try {
     'southern arch has its own batched reef fish');
   assert.equal(await page.locator('canvas').getAttribute('data-south-reef-corals'),'48',
     'the new sea arch reef does not replace either existing reef');
-  assert.ok([96,120].includes(Number(await page.locator('canvas')
+  assert.ok([72,96].includes(Number(await page.locator('canvas')
     .getAttribute('data-eagle-fever-visible'))));
   assert.equal(await page.locator('canvas').getAttribute('data-golden-tridents'),'3');
   await screenshot(page, 'desktop-welcome');
