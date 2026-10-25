@@ -25,7 +25,11 @@ concurrency:
 jobs:
   south-shore-and-ski:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        journey: [shore, ski]
     env:
       WORLD_BASE_URL: http://127.0.0.1:3000
       PLAYWRIGHT_MODULE_ROOT: /tmp/south-shore-playwright/node_modules/playwright
@@ -60,10 +64,12 @@ jobs:
           tail -n 160 /tmp/south-shore-next.log
           exit 1
       - name: Walk into south shore, dive, surface and return
+        if: matrix.journey == 'shore'
         env:
           WORLD_AUDIT_DIR: artifacts/world/south-shore-browser
         run: node scripts/playtest-south-shore.mjs
       - name: Verify normal skiing never launches Big Air and menu selection does
+        if: matrix.journey == 'ski'
         env:
           WORLD_AUDIT_DIR: artifacts/world/ski-menu-isolation
         run: node scripts/playtest-mountain-jump.mjs
@@ -74,7 +80,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: south-shore-ski-browser-${{ github.sha }}
+          name: south-shore-ski-browser-${{ matrix.journey }}-${{ github.sha }}
           path: |
             artifacts/world/south-shore-browser/
             artifacts/world/ski-menu-isolation/
