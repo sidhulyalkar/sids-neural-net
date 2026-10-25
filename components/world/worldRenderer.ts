@@ -5309,6 +5309,7 @@ export function createWorld(
       canvas.dataset.skateTunnelSurface=skateTunnelRide?.surface??(skateTunnelRide?"inner":"");
       canvas.dataset.skateTunnelAngle=(skateTunnelRide?.angle??0).toFixed(4);
       canvas.dataset.skateTunnelAir=String(!!skateTunnelRide?.air);
+      canvas.dataset.skateLogBlocked=String(skateLogBlocked);
       canvas.dataset.skateTunnelWheelLift=skateTunnelRide?
         skateTunnelSample(skateTunnelRide,groundHeight).wheelLift.toFixed(4):"";
       canvas.dataset.skateTunnelAlongSpeed=(skateTunnelRide?.vx??0).toFixed(3);
