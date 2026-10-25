@@ -1,7 +1,11 @@
 import type {Point} from "./model";
 import {GROVE_TUNNEL} from "./skatepark";
-/** Below Shasta's lower torso, the sequoia mouth is a roll-through, not an automatic grind catch. Scoped to this log only. */
+/** End grain and bark can never acquire a grind/tube ride. Wall capture is
+ * reserved for inner wood well inside the log, above ordinary wheel height. */
 export const LOG_RIM_MIN_HEIGHT=.85;
+export const LOG_MOUTH_BLEND=.55;
+export const LOG_ROLL_IN_HALF_WIDTH=.85;
+export const LOG_ROLL_IN_TOLERANCE=.24;
 export const TUBE_TAU=2*Math.PI;
 const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
 export type V=[number,number,number];
@@ -145,9 +149,14 @@ export function contactSkateLog(from:V,to:V,velocity:V,floor:Floor){
  return hit&&canRideLogContact(hit,floor)?rideAtLogHit(hit,velocity,floor):null;
 }
 export function canRideLogContact(hit:LogHit,floor:Floor){
- // Even the inner skin can report a swept wheel hit at a low mouth seam.
- // Only acquire the special tube ride above Shasta's lower-torso height.
- return hit.point[1]-floor({x:hit.point[0],z:hit.point[2]})>=LOG_RIM_MIN_HEIGHT;
+ // An outer-bark or cut-end strike is COLLISION, never a grind acquisition.
+ // Wheel-level contact on the bottom of the bore belongs to the roll-in.
+ // The inner-wall acquisition band is recessed so neither entrance lip can
+ // magnetically pull an approaching skater up from the dry runout.
+ const x=hit.point[0],g=GROVE_TUNNEL;
+ return hit.surface==="inner"&&
+  Math.abs(x-g.center.x)<g.halfLength-LOG_MOUTH_BLEND&&
+  hit.point[1]-floor({x,z:hit.point[2]})>=LOG_RIM_MIN_HEIGHT;
 }
 /** Wheel contact plus a short capsule for the rider. Body-only impacts slide
  * outside the wood rather than attaching the board through the wall. */
@@ -161,10 +170,14 @@ export function resolveSkateLogMotion(from:V,to:V,velocity:V,floor:Floor,up:V=[0
    const hit=sweepSkateLog(a,b,floor,.19);
    if(hit&&(!body||hit.t<body.t))body=hit;
   }
-  // Low inner-skin contact belongs to the ordinary rollable ground surface,
-  // not a tube grind or a blocking obstacle. Bark and low end rims stay solid.
-  if(wheel&&wheel.surface!=="inner"&&!canRideLogContact(wheel,floor)&&(!body||wheel.t<body.t))body=wheel;
-  if(wheel&&canRideLogContact(wheel,floor)&&(!body||wheel.t<=body.t+.00001))return {ride:rideAtLogHit(wheel,v,floor),position:wheel.point,velocity:v,blocked};
+  // Ignore low mouth seams; only the wheel path inside the actual bore may
+  // attach to the tube. Bark and elevated cut end-grain remain collision-only.
+  const wheelRide=wheel&&canRideLogContact(wheel,floor);
+  const solidWheel=wheel&&wheel.surface!=="inner"&&
+    wheel.point[1]-floor({x:wheel.point[0],z:wheel.point[2]})>=LOG_RIM_MIN_HEIGHT;
+  if(solidWheel&&(!body||wheel!.t<body.t))body=wheel;
+  if(wheelRide&&(!body||wheel!.t<=body.t+.00001))
+    return {ride:rideAtLogHit(wheel!,v,floor),position:wheel!.point,velocity:v,blocked};
   if(!body)return {ride:null,position:target,velocity:v,blocked};
   blocked=true;
   let normal=skateTunnelSample(rideAtLogHit(body,v,floor),floor).up;
@@ -290,9 +303,9 @@ export function enterSkateTunnel(previous:Point,point:Point,y:number,velocity:V,
  const g=GROVE_TUNNEL;
  if(![previous.x,previous.z,point.x,point.z,y,...velocity].every(Number.isFinite))return null;
  if(Math.abs(point.x-g.center.x)>=g.halfLength)return null;
- // The explicit mouth-crossing path must respect the same local low-lip
- // exclusion as swept contact; entering at floor height stays free roaming.
- if(y-floor({x:point.x,z:point.z})<LOG_RIM_MIN_HEIGHT)return null;
+ // A low central approach is a roll-in, NOT a collision-grind on the end.
+ // The tube's shared analytic surface will take over wheel contact *after*
+ // the entrance plane is crossed, without teleporting up onto the rim.
  const side=previous.x>=g.center.x?1:-1,mouth=g.center.x+side*g.halfLength;
  if(side*(previous.x-mouth)<0||side*velocity[0]>=-.05)return null;
  const t=(mouth-previous.x)/(point.x-previous.x),z=previous.z+(point.z-previous.z)*t;
@@ -301,12 +314,21 @@ export function enterSkateTunnel(previous:Point,point:Point,y:number,velocity:V,
  const qy=(y-floorY-ry)/ry,qz=(point.z-g.center.z)/rz;
  if(Math.abs(z-g.center.z)>rz||qy*qy+qz*qz>1.055||y<floorY-.08)return null;
  const angle=Math.atan2(qz,-qy),direction=velocity[0]>=0?1:-1;
- let ride:SkateTunnelRide={x:point.x,angle,vx:0,vt:0,speed:Math.hypot(...velocity),
+ let ride:SkateTunnelRide={x:point.x,angle,surface:"inner",vx:0,vt:0,speed:Math.hypot(...velocity),
   direction,progress:0,startAngle:angle,spin:1,startX:point.x,endX:g.center.x+direction*g.halfLength};
  const pose=skateTunnelSample(ride,floor),distance=Math.hypot(point.z-pose.point.z,y-pose.y);
+ const lowRollIn=y-floor({x:point.x,z:point.z})<LOG_RIM_MIN_HEIGHT;
+ if(lowRollIn){
+  // At the low center of both mouths, the board rides into the open bore.
+  // Never pull an off-center skater, a high nose, or a falling board onto it.
+  if(Math.abs(z-g.center.z)>LOG_ROLL_IN_HALF_WIDTH||
+    Math.abs(point.z-g.center.z)>LOG_ROLL_IN_HALF_WIDTH||
+    distance>LOG_ROLL_IN_TOLERANCE||Math.abs(velocity[1])>.8)return null;
+ }else if(distance>g.innerRadius*.95)return null;
  ride={...ride,vx:dot(velocity,pose.axis),vt:dot(velocity,pose.tangent)};
  ride.speed=Math.hypot(ride.vx,ride.vt);
- if(distance>.075)ride.air={position:[point.x,y,point.z],velocity:[...velocity]};
+ if(!lowRollIn&&distance>.075)
+  ride.air={position:[point.x,y,point.z],velocity:[...velocity]};
  return ride;
 }
 export function skateTunnelCameraPoint(side:1|-1,floor:(p:Point)=>number){
