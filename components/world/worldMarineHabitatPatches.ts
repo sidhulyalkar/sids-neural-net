@@ -17,7 +17,7 @@ const KINDS: readonly MarineKind[] = [
 /** Low-poly asset family shared between all ecological patches. All props are
  * decorative and non-colliding. Nothing changes ride or swimming contact.
  */
-function buildShape(kind: MarineKind): THREE.BufferGeometry {
+export function buildShape(kind: MarineKind): THREE.BufferGeometry {
   if (kind === "reef-fish") return createFishGeometry("rockfish","#ecebca");
   if (kind === "baitfish") return createFishGeometry("anchovy","#b8d5cb");
   const batch = new GeometryBatch();
