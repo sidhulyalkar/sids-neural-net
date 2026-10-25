@@ -38,7 +38,7 @@ test('outer crown does not magnetize skaters; manually started bark rides remain
   const p=skateTunnelSample(r,floor);assert.ok(Math.abs(p.y-sequoiaTubePoint(r.x,Math.PI,2,true).y)<.0001);assert.ok(p.up[1]>.999);
  }
 });
-test('exterior jumps leave the bark, land on it again, and preserve finite contact frames',()=>{
+test('exterior aerials remain ballistic and never magnetically snap onto an entrance rim',()=>{
  for(const fps of [10,30,60]){
   let r=jumpSkateTunnel({...base(),surface:'outer',angle:Math.PI,vx:0,vt:0,speed:0},floor),peak=0;
   for(let i=0;i<4*fps;i++){
@@ -47,7 +47,9 @@ test('exterior jumps leave the bark, land on it again, and preserve finite conta
    assert.ok([...p.up,...p.right,...p.forward,p.y].every(Number.isFinite));
    if(!r.air)assert.equal(r.surface,'outer');
   }
-  assert.ok(peak>2+g.innerRadius+g.outerRadius+.8);assert.ok(!r.air);
+  assert.ok(peak>2+g.innerRadius+g.outerRadius+.8);
+  assert.equal(r.surface,'outer','aerials must never switch to end-grain grind mode');
+  if(r.air)assert.ok(r.air.position.every(Number.isFinite));
  }
 });
 test('a fast crown carve releases naturally and remains outside solid wood',()=>{
