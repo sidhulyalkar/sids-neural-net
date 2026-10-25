@@ -30,18 +30,23 @@ try{
  page.on("console",m=>{if(m.type()==="error")errors.push("console: "+m.text().slice(0,240));});
  const base=process.env.WORLD_BASE_URL??"http://127.0.0.1:3000";
  await page.goto(base+"/?skate-start=hollow-log");
+ // Hydration and first WebGL frame may be slow on software GPUs. Once the
+ // world is entered, the welcome button disappears; never click it twice.
  for(let attempt=0;attempt<5;attempt++){
-  await page.getByRole("button",{name:"Explore world",exact:true}).click();
+  const alreadyExploring=await page.locator('[data-world-state="exploring"]').count()>0;
+  if(alreadyExploring)break;
+  const welcome=page.getByRole("button",{name:"Explore world",exact:true});
+  await welcome.click({timeout:30000});
   try{
-   await page.waitForFunction(()=>{
-    const d=document.querySelector("canvas")?.dataset;
-    const p=d?.player?.split(",").map(Number);
-    return d?.activity==="skate"&&p?.length===2&&p[0]>7&&p[1]>57&&p[1]<61&&
-     Number(d.drawCalls)>0;
-   },null,{timeout:8500});
+   await page.waitForFunction(()=>document.querySelector('[data-world-state]')?.getAttribute('data-world-state')==='exploring',null,{timeout:10000});
    break;
   }catch(e){if(attempt===4)throw e;}
  }
+ await page.waitForFunction(()=>{
+   const d=document.querySelector('canvas')?.dataset;
+   const p=d?.player?.split(',').map(Number);
+   return d?.activity==='skate'&&p?.length===2&&p[0]>7&&p[1]>57&&p[1]<61&&Number(d.drawCalls)>0;
+ },null,{timeout:75000});
  const initial=await snapshot("east mouth approach");
  assert.equal(initial.phase,"free");
  assert.equal(initial.grinding,"false");
