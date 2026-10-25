@@ -1377,7 +1377,7 @@ export function createWorld(
   const paperRings=paperCaveShellRings().map(ring=>ring.map(p=>new THREE.Vector3(p.x,p.y,p.z)));
   mesh(geo(ringSurface(paperRings)),detailCavernStone(mat("#66726c",{side:THREE.DoubleSide})),[0,0,0],[1,1,1]);
   const paperBackFloor=paperCaveFloorHeight({x:-20,z:PAPER_CAVE.backZ});
-  mesh(boxGeo,detailCavernStone(mat("#66726c")),[-20,paperBackFloor+3.5,PAPER_CAVE.backZ-.2],[13,7,.4]);
+  mesh(boxGeo,detailCavernStone(mat("#66726c")),[-20,paperBackFloor+3.4,PAPER_CAVE.backZ-.2],[13.2,7.4,.4]);
   const paperFloorRings=paperRings.map(ring=>{
     const z=ring[0].z,w=paperCaveHalfWidth(z)+.08,y=paperCaveFloorHeight({x:-20,z})-.08,x=paperCaveCenterX(z);
     return [new THREE.Vector3(x-w,y,z),new THREE.Vector3(x+w,y,z)];
