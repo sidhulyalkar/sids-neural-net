@@ -18,7 +18,7 @@ export function southCoastEntry(
      point.z>SOUTH_CHANNEL_SHORE_Z+.72 || point.z<SOUTH_CHANNEL_SHORE_Z-.05 ||
      intended.z>-.15 || waterZone(point)!==null)return null;
   const intoWater={x:Math.max(WORLD_BOUNDS.minX,Math.min(WORLD_BOUNDS.maxX,point.x)),
-    z:SOUTH_CHANNEL_SHORE_Z-.38};
+    z:SOUTH_CHANNEL_SHORE_Z-.9};
   return waterZone(intoWater)==="south-channel"?intoWater:null;
 }
 /** Shallow landing cell inside the island, reached by ordinary surface swim.
