@@ -67,8 +67,8 @@ import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
 import { createNorthShoreLife } from "./worldNorthShoreLife";
-import { ringSurface, ribbon } from "./worldGeometry";
-import { SNOWMELT_POOL, drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings, paperCaveShellRings, paperCaveRoofHeight } from "@/lib/world/hydrology";
+import { GeometryBatch, ringSurface, ribbon } from "./worldGeometry";
+import { SNOWMELT_POOL, drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings, waterfallRockWalls, paperCaveShellRings, paperCaveRoofHeight } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
 import { stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
@@ -1392,9 +1392,14 @@ export function createWorld(
   // Joining them creates crossed triangles, so cap the entrance separately.
   const paperRockSkin = paperRockRings;
   mesh(geo(ringSurface(paperRockSkin)),mat("#78867a",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
-  const arch=paperRings[0].slice(1,-1);
-  const fascia=arch.map(p=>new THREE.Vector3(p.x,Math.max(p.y,waterfallRockHeight({x:p.x,z:p.z})??p.y),p.z));
-  mesh(geo(ringSurface([arch,fascia])),detailCavernStone(mat("#78867a",{side:THREE.DoubleSide})),[0,0,0],[1,1,1]);
+  // Seal every exposed crown edge; the front faces preserve the arch opening.
+  const rockWalls=new GeometryBatch();
+  for(const rings of waterfallRockWalls()){
+    const geometry=ringSurface(rings.map(r=>r.map(p=>new THREE.Vector3(p.x,p.y,p.z))));
+    rockWalls.add(geometry,"#78867a",new THREE.Vector3(),new THREE.Vector3(1,1,1));
+    geometry.dispose();
+  }
+  mesh(geo(rockWalls.finish()),detailCavernStone(mat("#ffffff",{vertexColors:true,side:THREE.DoubleSide})),[0,0,0],[1,1,1]);
   const researchGallery=createResearchGallery();scene.add(researchGallery.root);
   const paperLight=new THREE.PointLight("#c3e4dd",24,20,1.5);paperLight.position.set(-20,paperBackFloor+5.6,-38);scene.add(paperLight);
   for(const z of [-55,-72]){

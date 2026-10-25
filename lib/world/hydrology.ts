@@ -120,3 +120,26 @@ export function paperCaveRoofHeight(p:{x:number;z:number}):number|null{
  if(p.z< PAPER_CAVE.backZ||p.z> -30||Math.abs(p.x+20)>6.5)return null;
  return ringSurfaceHeight(paperRoofCache??=paperCaveShellRings(),p);
 }
+
+/** Close the raised crown to the hillside. The front cap follows the cave arch
+ * only across the doorway; its shoulders descend into terrain. These are
+ * static vertical faces, not new riding surfaces or camera occluder cutaways. */
+export function waterfallRockWalls():WaterPoint[][][]{
+ const crown=waterfallCrownRings(),front=crown.at(-1)!,arch=paperCaveShellRings()[0].slice(1,-1);
+ const bury=(p:WaterPoint)=>({...p,y:terrainHeight(p.x,p.z)-.4});
+ const edges=[crown.map(r=>r[0]),crown.map(r=>r.at(-1)!),crown[0]];
+ const walls=edges.map(edge=>[edge,edge.map(bury)]);
+ const atX=(section:WaterPoint[],x:number)=>{
+  const i=Math.max(1,section.findIndex(p=>p.x>=x));
+  const a=section[i-1],b=section[i],t=(x-a.x)/(b.x-a.x);
+  return {x,y:a.y+(b.y-a.y)*t,z:a.z};
+ };
+ const left=arch[0].x,right=arch.at(-1)!.x;
+ const xs=[...new Set([...front.map(p=>p.x),...arch.map(p=>p.x)])].sort((a,b)=>a-b);
+ for(const [lo,hi,doorway] of [[front[0].x,left,false],[left,right,true],[right,front.at(-1)!.x,false]] as const){
+  const top=xs.filter(x=>x>=lo&&x<=hi).map(x=>atX(front,x));
+  const bottom=top.map(p=>doorway?atX(arch,p.x):bury(p));
+  walls.push([top,bottom]);
+ }
+ return walls;
+}
