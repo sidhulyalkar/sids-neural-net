@@ -180,9 +180,11 @@ export function createMarineHabitatPatches(kelpRoot:THREE.Group,lagoonRoot:THREE
     const floor=seaFloorHeight(x,z);
     const bob=kind==="jelly"?Math.sin(t*.78+i)*.18:active?Math.sin(t*1.45+i)*.075:0;
     const height=yOffset(kind,p.scale);
-    const y=active?Math.min(SEA_SURFACE-.54,floor+height+bob):p.y+height;
+    const surfaceClearance=kind==="jelly"?.95:.54;
+    const y=active?Math.min(SEA_SURFACE-surfaceClearance,floor+height+bob):p.y+height;
     dummy.position.set(x,y,z);
-    dummy.rotation.set(kind==="sea-star"?-Math.PI/2:0,p.yaw+(active?a:0),0);
+    // Starfish geometry was already laid into the XZ seabed plane at build time.
+    dummy.rotation.set(0,p.yaw+(active?a:0),0);
     dummy.scale.setScalar(p.scale);
     dummy.updateMatrix();
     actor.mesh.setMatrixAt(i,dummy.matrix);
