@@ -20,16 +20,18 @@ test('both open mouths remain hollow while annular end grain stops approach',()=
   assert.equal(sweepSkateLog([side*(g.halfLength+1),4,g.center.z],[side*(g.halfLength-1),4,g.center.z],floor),null);
   const rim=sequoiaTubePoint(side*g.halfLength,Math.PI,2);
   rim.y+=(g.outerRadius-g.innerRadius)*(1-g.taper*side)*.5;
-  const r=contactSkateLog([side*(g.halfLength+1),rim.y,rim.z],[side*(g.halfLength-1),rim.y,rim.z],[-side*8,2,0],floor);
-  assert.ok(r);assert.equal(r.surface,'rim');assert.ok(Math.abs((r.rimT??0)-.5)<.0001);
-  const p=skateTunnelSample(r,floor);assert.ok(Math.abs(p.point.x-side*g.halfLength)<1e-8);
-  assert.ok(Math.abs(p.y-rim.y)<.0001);assert.equal(p.up[0],side);
+  const approach:[number,number,number]=[side*(g.halfLength+1),rim.y,rim.z];
+  const inside:[number,number,number]=[side*(g.halfLength-1),rim.y,rim.z];
+  assert.equal(contactSkateLog(approach,inside,[-side*8,2,0],floor),null,
+   'end grain is solid scenery, never an automatic grind rail');
+  const hit=sweepSkateLog(approach,inside,floor);
+  assert.equal(hit?.surface,'rim');
  }
 });
-test('landings acquire the outer crown and remain supported when stopped',()=>{
+test('outer crown does not magnetize skaters; manually started bark rides remain supported',()=>{
  const top=sequoiaTubePoint(0,Math.PI,2,true);
- let r=contactSkateLog([0,top.y+2,g.center.z],[0,top.y-2,g.center.z],[0,-12,0],floor)!;
- assert.equal(r.surface,'outer');
+ assert.equal(contactSkateLog([0,top.y+2,g.center.z],[0,top.y-2,g.center.z],[0,-12,0],floor),null);
+ let r={...base(),surface:'outer' as const,angle:Math.PI};
  for(let i=0;i<240;i++){
   const n=advanceSkateTunnelRide(r,1/60,undefined,floor);r=n.ride;
   assert.equal(n.completed,false);assert.ok(!r.air);
@@ -112,12 +114,15 @@ test('ground-level mouth seams roll freely instead of auto-catching the sequoia 
   const to:V=[side*(g.halfLength-.15),2,g.center.z];
   const velocity:V=[-side*8,0,0];
   const m=resolveSkateLogMotion(from,to,velocity,floor);
-  assert.equal(m.ride,null,'low inner skin is normal floor, not a trick');
+  assert.equal(m.ride,null,'low inner skin is not acquired by end-grain collision');
   assert.equal(m.blocked,false,'the open mouth stays physically passable');
   assert.ok(Math.hypot(...m.position.map((n,i)=>n-to[i]))<1e-6);
-  assert.equal(enterSkateTunnel({x:from[0],z:from[2]},
-   {x:to[0],z:to[2]},to[1],velocity,floor),null,
-   'mouth entry cannot bypass the same low-height restriction');
+  const entry=enterSkateTunnel({x:from[0],z:from[2]},
+   {x:to[0],z:to[2]},to[1],velocity,floor);
+  assert.ok(entry,'the open floor should become a seamless roll-through');
+  assert.equal(entry.surface,'inner');
+  assert.equal(entry.air,undefined);
+  assert.equal(entry.speed,8);
  }
 });
 test('raised deliberate mouth entry still acquires the sequoia ride',()=>{
@@ -126,7 +131,7 @@ test('raised deliberate mouth entry still acquires the sequoia ride',()=>{
   const to={x:side*(g.halfLength-.15),z:g.center.z};
   const r=enterSkateTunnel(from,to,3.2,[-side*8,0,0],floor);
   assert.ok(r,'raised approach retains the authored inverted-tube activity');
-  assert.equal(r!.surface,undefined);
+  assert.equal(r!.surface,'inner');
   assert.equal(r!.direction,-side);
  }
 });
