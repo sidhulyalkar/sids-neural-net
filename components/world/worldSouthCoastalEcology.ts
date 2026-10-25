@@ -155,7 +155,7 @@ export function createSouthCoastalEcology(parent:THREE.Group){
   for(const side of ["southwest-reef","southeast-kelp"] as const){
     const sub=new THREE.Group();sub.name=side;root.add(sub);
     for(const kind of KINDS){
-      const points:SOUTH_HABITAT_POINTS=[];
+      const points:SouthHabitatPoint[]=[];
       for(const patch of SOUTH_HABITATS)if(patch.side===side)
         for(let i=0;i<(patch.population[kind]??0);i++)
           points.push(southHabitatPoint(patch,kind,i));
@@ -206,4 +206,3 @@ export function createSouthCoastalEcology(parent:THREE.Group){
     },
   };
 }
-type SOUTH_HABITAT_POINTS=SouthHabitatPoint[];
