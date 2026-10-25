@@ -42,7 +42,7 @@ export function southHabitatPoint(p:SouthPatch,kind:SouthFaunaKind,i:number):Sou
   const rand=random(hash(p.id+kind+i));
   const size=.72+rand()*.38;
   const isTall=kind==="giant-kelp"||kind==="bull-kelp";
-  const clearance=isTall?5.3*size:
+  const clearance=isTall?6.2*size:
     kind==="leopard-shark"?2.2:kind==="sea-lion"?2.5:
     kind==="harbor-seal"?2.2:kind==="sea-otter"?1.7:1.25;
   for(let attempt=0;attempt<64;attempt++){
