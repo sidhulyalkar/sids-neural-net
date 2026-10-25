@@ -11,7 +11,7 @@ const KINDS: readonly MarineKind[] = [
   "boulder","slab","spire","kelp","sand-ripple",
   "branch-coral","table-coral","fan-coral","anemone",
   "sea-star","urchin","crab","lobster","nudibranch",
-  "moray","jelly","reef-fish","baitfish",
+  "moray","jelly","reef-fish","baitfish","clownfish","angelfish",
 ];
 
 /** Low-poly asset family shared between all ecological patches. All props are
@@ -27,6 +27,32 @@ function buildShape(kind: MarineKind): THREE.BufferGeometry {
     g.dispose();
   };
   const stone = "#dddddd", pale = "#faf7ee";
+  if(kind==="clownfish"||kind==="angelfish"){
+    const clown=kind==="clownfish";
+    const body=clown?"#e6a24c":"#e8d99d";
+    add(new THREE.SphereGeometry(1,12,8),body,[0,0,0],
+      clown?[.25,.36,.59]:[.14,.66,.62]);
+    // Clownfish white bars are baked into each one-draw geometry.
+    if(clown)for(const z of [-.28,.22]){
+      add(new THREE.SphereGeometry(1,10,7),"#f8f3dc",[0,0,z],
+        [.252,.34,.11]);
+    }
+    add(new THREE.ConeGeometry(.31,.62,5),clown?"#b96d50":"#ccac74",
+      [0,0,-.75],[1,.8,.35],[Math.PI/2,0,0]);
+    for(const side of [-1,1]){
+      add(new THREE.SphereGeometry(.075,6,5),"#333735",
+        [side*(clown?.245:.14),.13,.43],[.7,.7,.7]);
+      add(new THREE.ConeGeometry(.32,.72,4),clown?"#be794f":"#e0c68e",
+        [side*(clown?.20:.12),.28,-.16],[.36,.70,.62],[0,0,side*.40]);
+    }
+    if(!clown){
+      add(new THREE.ConeGeometry(.44,1.16,4),"#dbc38b",
+        [0,.72,-.17],[.60,1,.32],[0,0,.10]);
+      add(new THREE.ConeGeometry(.39,.93,4),"#d6bca1",
+        [0,-.64,-.19],[.65,.85,.30],[0,0,Math.PI]);
+    }
+    return batch.finish();
+  }
   if (kind === "boulder") {
     add(new THREE.DodecahedronGeometry(1,0),stone,[0,0,0],[1.25,.76,1.02]);
     add(new THREE.IcosahedronGeometry(1,0),"#a7b9b2",[-.29,.22,-.32],[.72,.38,.62]);
@@ -142,8 +168,11 @@ const fishCold=["#d6b880","#8a9fa0","#b6c8c0","#a4a584"];
 const fishWarm=["#f6c17f","#e5ccaa","#a8d8ba","#bba5e4"];
 
 function tint(kind:MarineKind,zone:ReefZone,i:number) {
-  const palette=kind==="reef-fish"||kind==="baitfish"
-    ? zone==="kelp"?fishCold:fishWarm : zone==="kelp"?coldColors:warmColors;
+  const palette=kind==="clownfish"
+    ? ["#fff0c4","#ffd8a0"] :
+      kind==="angelfish" ? ["#fff4bf","#efd9a1","#eedcba"] :
+      kind==="reef-fish"||kind==="baitfish"
+      ? zone==="kelp"?fishCold:fishWarm : zone==="kelp"?coldColors:warmColors;
   return new THREE.Color(palette[(i*7+kind.length)%palette.length]);
 }
 const yOffset=(kind:MarineKind,scale:number)=>{
@@ -152,7 +181,7 @@ const yOffset=(kind:MarineKind,scale:number)=>{
   if(kind==="slab")return .14*scale;
   if(kind==="spire")return .08;
   if(kind==="jelly")return 2.5*scale;
-  if(kind==="reef-fish"||kind==="baitfish")return 1.25*scale;
+  if(kind.endsWith("fish"))return 1.25*scale;
   return .14*scale;
 };
 type Actor={mesh:THREE.InstancedMesh;kind:MarineKind;poses:HabitatPoint[]};
@@ -173,7 +202,7 @@ export function createMarineHabitatPatches(kelpRoot:THREE.Group,lagoonRoot:THREE
   const roots={kelp:kelpRoot,lagoon:lagoonRoot};
   const dummy=new THREE.Object3D();
   const place=(actor:Actor,i:number,t:number)=>{
-    const p=actor.poses[i],kind=actor.kind,active=kind==="reef-fish"||kind==="baitfish"||kind==="jelly";
+    const p=actor.poses[i],kind=actor.kind,active=kind.endsWith("fish")||kind==="jelly";
     const a=active?t*.32+(i%13)*.37:0;
     const radius=active?(kind==="jelly"?.38:.58):0;
     const x=p.x+Math.cos(a)*radius,z=p.z+Math.sin(a)*radius;
@@ -222,7 +251,7 @@ export function createMarineHabitatPatches(kelpRoot:THREE.Group,lagoonRoot:THREE
     last=t;
     for(const actor of groups) {
       if(!actor.mesh.parent?.parent?.visible)continue;
-      if(!["reef-fish","baitfish","jelly"].includes(actor.kind))continue;
+      if(!actor.kind.endsWith("fish") && actor.kind!=="jelly")continue;
       for(let i=0;i<actor.poses.length;i++)place(actor,i,reducedMotion?0:t);
       actor.mesh.instanceMatrix.needsUpdate=true;
     }
