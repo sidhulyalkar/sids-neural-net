@@ -76,7 +76,40 @@ export function skateTunnelSample(r:SkateTunnelRide,floorAt:Floor){
  }
  const right=unit(cross(up,forward));
  const curvature=rim?0:(outer?-1:1)*ry*rz/(ds*ds*ds);
- const wheelLift=.5*curvature*(.63*.63*r.vt*r.vt+.33*.33*r.vx*r.vx)/Math.max(.01,r.speed*r.speed);
+ // Fit the actual four wheels to the *same elliptical inner shell* drawn by
+ // the mesh. A speed-weighted curvature estimate changed wheel clearance on
+ // turns and could let the front or rear pair clip through the wood.
+ let wheelLift=.5*curvature*(.63*.63*r.vt*r.vt+.33*.33*r.vx*r.vx)/Math.max(.01,r.speed*r.speed);
+ if(!outer&&!rim&&!r.air){
+  const footprint=[] as {x:number;y:number;z:number;floorY:number}[];
+  for(const track of [-.33,.33])for(const axle of [-.63,.63]){
+   const x=p.x+right[0]*track+forward[0]*axle;
+   const y=p.y+right[1]*track+forward[1]*axle;
+   const z=p.z+right[2]*track+forward[2]*axle;
+   if(Math.abs(x-g.center.x)>g.halfLength)continue;
+   footprint.push({x,y,z,floorY:floorAt({x,z:g.center.z})});
+  }
+  const wheelPenetrates=(lift:number)=>footprint.some(w=>{
+   const taperAt=1-g.taper*(w.x-g.center.x)/g.halfLength;
+   const localRy=g.innerRadius*taperAt,localRz=g.innerHalfWidth*taperAt;
+   const y=(w.y+up[1]*lift-w.floorY-localRy)/localRy;
+   const z=(w.z+up[2]*lift-g.center.z)/localRz;
+   return y*y+z*z>1+1e-7;
+  });
+  if(!wheelPenetrates(0))wheelLift=0;
+  else{
+   let low=0,high=.30;
+   // Do not introduce a large magnetic correction near the entrance.
+   if(wheelPenetrates(high))wheelLift=high;
+   else{
+    for(let i=0;i<12;i++){
+     const mid=(low+high)*.5;
+     if(wheelPenetrates(mid))low=mid;else high=mid;
+    }
+    wheelLift=high;
+   }
+  }
+ }
  const pos=r.air?.position??[p.x,p.y,p.z];
  return {point:{x:pos[0],z:pos[2]},y:pos[1],roll:r.angle,angle:r.angle,
   up,forward,right,tangent,axis,ds,curvature,wheelLift,metric,skew,
