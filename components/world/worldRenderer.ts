@@ -5301,10 +5301,16 @@ export function createWorld(
       canvas.dataset.skateLoopEntries=String(skateLoopEntries);
       canvas.dataset.skateLoopCompletions=String(skateLoopCompletions);
       canvas.dataset.skateLoopSpeed=(skateLoopRide?.speed??0).toFixed(2);
-      canvas.dataset.skateTunnelPhase=skateTunnelRide?"wall-ride":"free";
+      // A centered floor entry is ordinary wheel-supported traversal, not a
+      // mouth grind. Only climbing the inner curve is called a wall ride.
+      canvas.dataset.skateTunnelPhase=skateTunnelRide?
+        (skateTunnelRide.surface==="inner"&&!skateTunnelRide.air&&
+          Math.cos(skateTunnelRide.angle)>.92?"roll-through":"wall-ride"):"free";
       canvas.dataset.skateTunnelSurface=skateTunnelRide?.surface??(skateTunnelRide?"inner":"");
       canvas.dataset.skateTunnelAngle=(skateTunnelRide?.angle??0).toFixed(4);
       canvas.dataset.skateTunnelAir=String(!!skateTunnelRide?.air);
+      canvas.dataset.skateTunnelWheelLift=skateTunnelRide?
+        skateTunnelSample(skateTunnelRide,groundHeight).wheelLift.toFixed(4):"";
       canvas.dataset.skateTunnelAlongSpeed=(skateTunnelRide?.vx??0).toFixed(3);
       canvas.dataset.skateTunnelCircumSpeed=(skateTunnelRide?.vt??0).toFixed(3);
       canvas.dataset.skateTunnelEntries=String(skateTunnelEntries);
@@ -5417,7 +5423,7 @@ export function createWorld(
       const grindCandidate =
         aquatic === "land" &&
         (mode === "skate" || mode === "ski") &&
-        !grind &&
+        !grind && !skateTunnelRide &&
         airHeight < 0.1 &&
         travel.speed > 2.2
           ? nearestGrind(player)
