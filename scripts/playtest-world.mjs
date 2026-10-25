@@ -56,6 +56,12 @@ try {
   assert.equal(await page.locator('canvas').getAttribute('data-desert-gap-count'),'2');
   assert.equal(await page.locator('canvas').getAttribute('data-desert-bypasses'),'2');
   assert.equal(await page.locator('canvas').getAttribute('data-schooling-fish'),'84');
+  assert.equal(await page.locator('canvas').getAttribute('data-marine-habitat-patches'),'10',
+    'five authored subhabitats per existing coast');
+  for(const id of ['data-west-habitat-draw-calls','data-east-habitat-draw-calls']){
+    const draws=Number(await page.locator('canvas').getAttribute(id));
+    assert.ok(draws>5&&draws<=18,`bounded instanced habitat batches: ${id}=${draws}`);
+  }
   assert.equal(await page.locator('canvas').getAttribute('data-eagle-fever'),'120',
     '120-ray school must be constructed');
   assert.equal(await page.locator('canvas').getAttribute('data-ray-passage'),'132',
