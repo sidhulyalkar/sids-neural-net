@@ -56,6 +56,24 @@ try {
   assert.equal(await page.locator('canvas').getAttribute('data-desert-gap-count'),'2');
   assert.equal(await page.locator('canvas').getAttribute('data-desert-bypasses'),'2');
   assert.equal(await page.locator('canvas').getAttribute('data-schooling-fish'),'84');
+  assert.equal(await page.locator('canvas').getAttribute('data-marine-habitat-patches'),'10',
+    'five authored subhabitats per existing coast');
+  for(const id of ['data-west-habitat-draw-calls','data-east-habitat-draw-calls']){
+    const draws=Number(await page.locator('canvas').getAttribute(id));
+    assert.ok(draws>5&&draws<=18,`bounded instanced habitat batches: ${id}=${draws}`);
+  }
+  assert.equal(await page.locator('canvas').getAttribute('data-eagle-fever'),'96',
+    '96-ray school must be constructed');
+  assert.equal(await page.locator('canvas').getAttribute('data-ray-passage'),'108',
+    'migration fever and close-up rays coexist');
+  assert.equal(await page.locator('canvas').getAttribute('data-eagle-fever-draw-calls'),'5',
+    'instanced mass school keeps a bounded render budget');
+  assert.equal(await page.locator('canvas').getAttribute('data-south-reef-fish'),'72',
+    'southern arch has its own batched reef fish');
+  assert.equal(await page.locator('canvas').getAttribute('data-south-reef-corals'),'48',
+    'the new sea arch reef does not replace either existing reef');
+  assert.ok([72,96].includes(Number(await page.locator('canvas')
+    .getAttribute('data-eagle-fever-visible'))));
   assert.equal(await page.locator('canvas').getAttribute('data-golden-tridents'),'3');
   await screenshot(page, 'desktop-welcome');
   await page.getByRole('button', { name: 'Explore world', exact: true }).click();

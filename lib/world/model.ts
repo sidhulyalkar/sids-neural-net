@@ -5,6 +5,7 @@ import { beachBlend, northShoreZ } from "./skimboarding";
 import {MYSTIC_GROVE} from "./mysticGrove";
 import { visualMotion, type WildlifeSubject } from "@/src/data/visualMotion";
 import {buildSnorkelVideoPoints} from "./marineVideoCatalog";
+import { rayPassageDepth } from "./rayPassage";
 /** Small, deterministic geography shared by the renderer, navigation and tests. */
 export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern" | "desert" | "rainforest" | "north-shore";
 export type Point = { x: number; z: number };
@@ -32,6 +33,10 @@ export const REGIONS: {
 ];
 
 export const WORLD_BOUNDS = { minX: -92, maxX: 94, minZ: -96, maxZ: 104 } as const;
+/** Offshore southern snorkeling is an aquatic-only extension. Land sports,
+ * collision, and the island terrain keep the existing WORLD_BOUNDS. */
+export const SOUTH_CHANNEL_MIN_Z = -166;
+export const SOUTH_CHANNEL_SHORE_Z = WORLD_BOUNDS.minZ;
 export const SEA_SURFACE = -1.4;
 
 export const ARCADE_CAVE = {
@@ -354,6 +359,18 @@ export function terrainHeight(x: number, z: number): number {
   base += (arcadeCaveFloorHeight({ x, z }) - base) * arcadeMask;
   const paperMask = paperAccessTerrainMask(x, z);
   base += (paperCaveFloorHeight({ x, z }) - base) * paperMask;
+  // Shared shoreline collar: the land mesh, avatar feet and south apron
+  // descend into the SAME water level across the full southern face.
+  // Sculpt only the last 7 units of the land and feather away near side reefs;
+  // the arcade/paper cave mouths and all interior ride areas stay unchanged.
+  if(z < -89 && z >= WORLD_BOUNDS.minZ) {
+    const south=(1-smoothstep01((z+96)/7));
+    const west=smoothstep01((x-coastlineX(z)-.1)/3);
+    const east=1-smoothstep01((x-eastCoastlineX(z)+3.1)/3);
+    const mask=south*west*east;
+    const shoreY=SEA_SURFACE+.16+(-96-z)*-.025;
+    base += (shoreY-base)*mask;
+  }
   return base;
 }
 /** Natural roof surface, intentionally independent from underground cave floors. */
@@ -367,8 +384,13 @@ export function eastCoastlineX(z: number): number {
   return 58 + Math.sin(z * 0.067 + 0.7) * 1.9 + Math.sin(z * 0.019) * 1.1;
 }
 
-export type WaterZone = "kelp" | "lagoon" | "north-shore";
+export type WaterZone = "kelp" | "lagoon" | "north-shore" | "south-channel";
 export function waterZone(point: Point): WaterZone | null {
+  // The southern lava arch at (17,-127) sits beyond the former terrain edge.
+  // This new water zone joins west/east snorkeling without relabeling either.
+  if (point.z < SOUTH_CHANNEL_SHORE_Z && point.z >= SOUTH_CHANNEL_MIN_Z &&
+      point.x >= WORLD_BOUNDS.minX && point.x <= WORLD_BOUNDS.maxX)
+    return "south-channel";
   if (point.x < coastlineX(point.z) - 0.35) return "kelp";
   if (point.x > eastCoastlineX(point.z) + 0.35) return "lagoon";
   if (point.z > northShoreZ(point.x) + 0.35) return "north-shore";
@@ -379,8 +401,40 @@ export function isWater(point: Point): boolean {
   return waterZone(point) !== null;
 }
 
+/** Same mathematical shelf profile used by the southern offshore mesh.
+ * The first 20 units inherit the actual island edge without a vertical gap. */
+export function southernChannelFloorHeight(x: number, z: number): number {
+  const edge = worldFloorHeight(x, SOUTH_CHANNEL_SHORE_Z);
+  const u = Math.max(0, Math.min(1, (SOUTH_CHANNEL_SHORE_Z - z) / 20));
+  const fade = u*u*(3-2*u);
+  const shelf = SEA_SURFACE - 3.7 + Math.sin(x*.12)*.2;
+  const easternKelp = 4.2 * smoothstep01((x-27)/17) *
+    (1-smoothstep01((x-88)/10)) *
+    smoothstep01((-z-102)/12) *
+    (1-smoothstep01((-z-156)/11));
+  const westernReef = .8 * (1-smoothstep01((x+12)/13)) *
+    smoothstep01((-z-102)/10);
+  // Existing side reefs already slope into water; retain their original
+  // 20-unit apron there. Across the new south dry shoreline, the first two
+  // meters become actual wading water. A slow 20-unit blend previously left
+  // the seabed ABOVE the water surface after entering, trapping swimmers.
+  const dryBand = smoothstep01((x-coastlineX(SOUTH_CHANNEL_SHORE_Z)-.1)/3) *
+    (1-smoothstep01((x-eastCoastlineX(SOUTH_CHANNEL_SHORE_Z)+3.1)/3));
+  const offshore = Math.max(0,SOUTH_CHANNEL_SHORE_Z-z);
+  const nearFade = smoothstep01(offshore/1.25);
+  const deepFade = smoothstep01((offshore-1.5)/17);
+  const wadingFloor=edge*(1-nearFade)+(SEA_SURFACE-.95)*nearFade;
+  const newFloor=wadingFloor*(1-deepFade)+
+    (shelf-easternKelp+westernReef)*deepFade;
+  const existingFloor=edge*(1-fade)+
+    (shelf-easternKelp+westernReef)*fade;
+  return existingFloor*(1-dryBand)+newFloor*dryBand-
+    rayPassageDepth(x,z);
+}
+
 export function seaFloorHeight(x: number, z: number): number {
   const zone = waterZone({ x, z });
+  if (zone === "south-channel") return southernChannelFloorHeight(x,z);
   if (zone === "north-shore") {
     const offshore = Math.max(0, z - northShoreZ(x));
     // The former 0.4m step created a cliff at the wet-sand/water boundary.
@@ -394,6 +448,7 @@ export function seaFloorHeight(x: number, z: number): number {
     const shelf = SEA_SURFACE - 1.9 - Math.min(7.4, offshore * 0.17);
     const sandRipples = Math.sin(z * 0.18 + 0.8) * 0.2 + Math.cos(x * 0.14) * 0.16;
     const coralGarden = 1.65 * Math.exp(-((x - 72) ** 2 / 250 + (z - 11) ** 2 / 460));
+    // The established tropical snorkeling seafloor is unchanged.
     return shelf + sandRipples + coralGarden;
   }
   const offshore = Math.max(0, coastlineX(z) - x);
@@ -409,7 +464,12 @@ export function worldFloorHeight(x: number, z: number): number {
 
 export function maxDiveDepth(point: Point): number {
   if (!isWater(point)) return 0;
-  return Math.max(0, Math.min(10, SEA_SURFACE - seaFloorHeight(point.x, point.z) - 1.15));
+  // Only the ray channel permits deeper exploration; preserve the existing
+  // 10-unit limit on the other shores and fade the expanded limit smoothly.
+  const passage = waterZone(point) === "south-channel" ? rayPassageDepth(point.x, point.z) : 0;
+  const channelBlend = Math.max(0, Math.min(1, (passage - 3) / 7));
+  const diveLimit = 10 + 6 * channelBlend * channelBlend * (3 - 2 * channelBlend);
+  return Math.max(0, Math.min(diveLimit, SEA_SURFACE - seaFloorHeight(point.x, point.z) - 1.15));
 }
 
 export function distance(a: Point, b: Point): number {
@@ -461,6 +521,13 @@ const clampToWorld = (p: Point): Point => ({
   x: Math.max(WORLD_BOUNDS.minX, Math.min(WORLD_BOUNDS.maxX, p.x)),
   z: Math.max(WORLD_BOUNDS.minZ, Math.min(WORLD_BOUNDS.maxZ, p.z)),
 });
+/** Never enlarge the land movement box for an offshore swimming feature. */
+export function constrainSwimMove(_from: Point, to: Point): Point {
+  return {
+    x: Math.max(WORLD_BOUNDS.minX, Math.min(WORLD_BOUNDS.maxX,to.x)),
+    z: Math.max(SOUTH_CHANNEL_MIN_Z,Math.min(WORLD_BOUNDS.maxZ,to.z)),
+  };
+}
 
 export function constrainMove(from: Point, to: Point, obstacles: Obstacle[]): Point {
   let position = clampToWorld(from);
