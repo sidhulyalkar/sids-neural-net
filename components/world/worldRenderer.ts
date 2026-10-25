@@ -65,6 +65,7 @@ import { createMarineHabitatPatches } from "./worldMarineHabitatPatches";
 import { marineHabitatAt, marineHabitatLabel } from "@/lib/world/marineHabitatPatches";
 import { createRayPassage } from "./worldRayPassage";
 import { createSouthChannelLife } from "./worldSouthChannelLife";
+import { southCoastEntry, SOUTH_ENTRY_SURFACE_Y } from "@/lib/world/southCoastAccess";
 import {nearbyMarineVideo, type MarineCreaturePose} from "@/lib/world/marineVideoEncounters";
 import { createWorldTridents } from "./worldTridents";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
@@ -4758,6 +4759,28 @@ export function createWorld(
             travel={point:player,speed:next.speed,heading:pose.heading};
             airHeight=next.air?.15:0;verticalSpeed=next.air?.velocity[1]??0;
           }
+        }
+      }
+
+      // Ordinary land travel clamps at z=-96, so the offshore water could not
+      // be reached by running forward. Convert a grounded, outward movement
+      // at any southern beach cell into a real surface swim. No change to land
+      // collision, cave navigation, or movement bounds is necessary.
+      if(aquatic==="land" && caveLayer==="surface" && !jetSki && !jetChoosing &&
+         discGolf.phase==="off" && skimHeat.phase==="off" &&
+         !skateLoopRide && !skateTunnelRide && !skateRailGapRide &&
+         bigAir.phase!=="flying") {
+        const entry=southCoastEntry(player,{x:dx,z:dz},true,
+          airHeight<.15 && Math.abs(verticalSpeed)<.25);
+        if(entry){
+          player=entry;
+          travel={...travel,point:entry,speed:Math.min(travel.speed,3.2)};
+          swimDepth=targetDepth=0;
+          airHeight=verticalSpeed=0;
+          setAquaticMode("surface");
+          playerY=SOUTH_ENTRY_SURFACE_Y;
+          destination=null;
+          canvas.dataset.southShoreEntry="true";
         }
       }
 
