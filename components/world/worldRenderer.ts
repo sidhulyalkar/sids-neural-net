@@ -6810,7 +6810,7 @@ export function createWorld(
     if(southHintVisible){
       const hint=aquatic==="land"
         ?"South Coast · Walk into the water to snorkel"
-        :southCoastDiscoveryHint(southDiscovery,rayPassage.feverCount);
+        :southCoastDiscoveryHint(southDiscovery,rayPassage.visibleFeverCount);
       if(southPassageHud.textContent!==hint)southPassageHud.textContent=hint;
     }
     // Underwater field-guide label for authored kelp and lagoon neighborhoods.
