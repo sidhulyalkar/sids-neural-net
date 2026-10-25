@@ -178,6 +178,7 @@ jobs:
           node --check scripts/playtest-jet-ski.mjs
           node --check scripts/playtest-ride-ghost.mjs
           node --check scripts/playtest-mountain-jump.mjs
+          node --check scripts/playtest-south-shore.mjs
           node --check scripts/playtest-shasta-snow.mjs
           node --check scripts/playtest-skatepark.mjs
           node --check scripts/playtest-skimboarding.mjs
