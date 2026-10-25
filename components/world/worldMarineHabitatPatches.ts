@@ -181,6 +181,7 @@ const yOffset=(kind:MarineKind,scale:number)=>{
   if(kind==="slab")return .14*scale;
   if(kind==="spire")return .08;
   if(kind==="jelly")return 2.5*scale;
+  if(kind==="angelfish")return 1.60*scale;
   if(kind.endsWith("fish"))return 1.25*scale;
   return .14*scale;
 };
@@ -209,7 +210,9 @@ export function createMarineHabitatPatches(kelpRoot:THREE.Group,lagoonRoot:THREE
     const floor=seaFloorHeight(x,z);
     const bob=kind==="jelly"?Math.sin(t*.78+i)*.18:active?Math.sin(t*1.45+i)*.075:0;
     const height=yOffset(kind,p.scale);
-    const surfaceClearance=kind==="jelly"?.95:.54;
+    const surfaceClearance=kind==="jelly"?.95:
+      kind==="angelfish"?1.45*p.scale:
+      kind==="clownfish"?.90*p.scale:.54;
     const y=active?Math.min(SEA_SURFACE-surfaceClearance,floor+height+bob):p.y+height;
     dummy.position.set(x,y,z);
     // Starfish geometry was already laid into the XZ seabed plane at build time.
