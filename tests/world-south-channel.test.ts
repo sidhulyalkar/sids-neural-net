@@ -42,7 +42,7 @@ test("offshore seabed joins existing terrain without tears and retains cave/moun
  assert.equal(rayPassageDepth(17,-91),0);
  assert.ok(rayPassageDepth(17,-127)>17);
  assert.equal(waterZone({x:17,z:-127}),"south-channel");
- assert.ok(maxDiveDepth(RAY_PASSAGE)>14);
+ assert.ok(maxDiveDepth({x:RAY_PASSAGE.centerX,z:RAY_PASSAGE.centerZ})>14);
  assert.ok(maxDiveDepth({x:68,z:10})<=10);
  assert.ok(maxDiveDepth({x:-52,z:10})<=10);
  assert.ok(SEA_SURFACE-seaFloorHeight(17,-127)>19);
