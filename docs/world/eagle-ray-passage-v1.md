@@ -1,44 +1,77 @@
-# Eagle Ray Passage v1: playable underwater vertical slice
+# Southern Arch Snorkeling / Eagle Ray Fever
 
-Base: `feat/sequoia-tunnel-skate-loop` (2026-10-24 snapshot).
-Implementation branch: `feat/eagle-ray-passage-v1`.
+Implementation branch: `feat/eagle-ray-passage-v1` · PR #124.
+**This branch is not deployed until merged and released.**
 
-## What ships
-- A smooth deep eastern-lagoon bathymetric cut. All sea-floor sampling and the terrain mesh use `seaFloorHeight`, so camera, swimmer clearance, and drawn surface share the same terrain.
-- An instanced migration fever of **120 eagle rays** in six vertical strata, plus twelve close-up ray actors in three separately generated silhouettes (eight more eagle rays, one manta and three stingrays): **132 total channel rays** on desktop.
-- Four wing cohorts plus one tail instance batch (five draw calls for the fever), with per-frame travel matrices, 15 Hz wing-normal updates, and gently swimmer-aware parting.
-- An adaptive mobile cohort of 96 eagle rays, conserving mobile GPU/CPU work while preserving the full deterministic school on desktop.
-- Two benthic cleaning pinnacles with instanced rocks, 14 cleaner fish and 10 shrimp. Rays visit via deterministic travelling/approaching/cleaning/foraging states.
-- A visibility-gated rendering submodule integrated into the warm reef with explicit disposal, no extra dependencies, no global reactive state, and no changes to land sports, caves, swimming controls, or shoreline masks.
-- An initial shoreline-entry coverage sampling contract that exposes unfilled stretches instead of asserting full 360-degree habitat coverage.
+## Correct geography (fixed after screenshot review)
+The basalt **lava-window** jet-ski arch lives at **(x=17,z=-127)**,
+outside the finite land-heightfield at z=-96. The initial PR erroneously
+put rays in the eastern tropical lagoon (x≈82,z≈8), where the user already
+enjoyed existing snorkeling. That placement has been **removed**:
+the original west kelp reef, eastern lagoon reef, and north skimboard
+snorkeling remain unchanged.
 
-## Mathematical geometry
-`rayPassageDepth(x,z)` is zero west of x=64 and outside the softened channel envelope. Its maximum trench subtraction is 13.5 world units. The channel center is substantially deeper while both lateral edges remain unchanged. This is not a new water zone: it modifies the existing lagoon `seaFloorHeight()`.
+This feature adds a new `south-channel` water zone from **z=-96 to -166**.
+It connects naturally to existing east lagoon and west coast swimming at
+the island's southern corner. `stepSwim` alone uses the expanded aquatic
+clamp; land/skate/bike/ski remain inside `WORLD_BOUNDS`.
 
-Most underwater snorkeling keeps its existing 10-unit maximum depth. Inside the channel, the dive cap smoothly increases to at most 16 world units, always respecting the same floor-clearance check. The trench's deepest region is an observation feature, not permission to bypass those clamps.
+### Reach the south passage
+1. Enter either the established east tropical lagoon or west kelp water near
+   the southern shoreline.
+2. Swim toward **negative Z** past the southern headland, then toward
+   the basalt sea arch at **(17,-127)**.
+3. The HUD canvas dataset exposes `southPassageSwimmable` when inside the
+   southern zone, and `eagleFever`, `eagleFeverVisible`, `southReefFish`,
+   and `southReefCorals` for browser audits.
 
-## Render/performance decisions
-- 3 morphology source geometries for detailed individuals. All 120 school members share four cloned wing geometries and an instanced tail mesh.
-- Wing vertex updates and normal recomputation throttled to 15 Hz; swimming movement matrices remain per-frame and tied to absolute elapsed time.
-- Shared low-poly fins/tails, station rocks, cleaner fish, and shrimp are reused/instanced.
-- No expensive physics, pathfinding, shader package, assets, or additional renderer.
-- Only updates while the tropical lagoon is visible; near-player displacement uses constant work per ray rather than interactions between all pairs. `dispose()` releases owned GPU buffers and materials.
+No inland teleport or rerouted cave portal is required. The south arch is
+not directly walkable past z=-96 because land-sport bounds are deliberately
+unchanged. A future coast access/wayfinding design can give a shorter entry
+without risking the mountain and arcade cave.
 
-## Verification requirements
-1. `npm run typecheck`
-2. `npx eslint lib/world/rayPassage.ts components/world/worldRayPassage.ts tests/world-ray-passage.test.ts lib/world/model.ts components/world/worldRenderer.ts --max-warnings=0`
-3. `node --import tsx --test tests/world-ray-passage.test.ts tests/world-eagle-fever.test.ts`
-4. `node --import tsx --test tests/world-*.test.ts`
-5. `npm run build`
-6. Desktop and mobile browser pass: jump off lagoon shore, surface swim, dive/deeper/shallower/surface, inspect both cleaning stations, return to land, verify unrelated sports and cave exits.
-7. Frame-time and draw-call comparison before/after, including all land and non-lagoon states. Inspect ray silhouette readability, bank turns, fin geometry and rocks from above.
+## Marine content
+- **120 instanced eagle rays** in 6 vertical bands / 4 wing cohorts,
+  plus 8 detailed eagle-ray visitors, 1 manta and 3 benthic stingrays.
+- **Two cleaning stations** near the arch, with 14 cleaner fish and 10
+  shrimp; occasional visitors detach from the migration flow.
+- **Three southern reef gardens:** 72 reef fish, 112 seagrass blades,
+  48 coral heads, 66 anemone tentacles, 21 sea stars, 18 crabs,
+  10 lobster-like benthic models, and 25 nudibranch-like sea slugs.
+  These are *stylized low-poly proxies*, not zoologically accurate models.
+- Additional dark-blue southern underwater atmosphere and visibility range.
+  Shore preview is gated by proximity to the southern mountain and does not
+  render all marine scenery during inland exploration.
 
-## Explicitly not completed
-- Full ocean-wide eight-habitat population.
-- Fifteen ray species with individual accurate markings/anatomy (this pass prioritizes a 120-member eagle-ray aggregation).
-- Measured physical FPS/performance with real hardware (the 5-draw-call design is a target, not yet a measured result).
-- True ecology or measured animal-cleaning reactions (the current paths are procedural visual approximations).
-- Qualified in-browser screenshot review and physical phone/desktop performance metrics.
-- Complete coastline marine coverage (the survey intentionally reports gaps).
+## Geometry and runtime
+- SOUTH-only smooth trench displacement, max 17.5 world units, zero on
+  z>=-96. Eastern lagoon and western kelp floor calculations retain their
+  original formulas.
+- The single southern seabed mesh spans z=-96..-166 and matches the precise
+  depth sampler used for swimming and camera clearance; no separate
+  decorative mesh with mismatched physics.
+- Local max dive range blends up to 16 world units, obeying seabed clearance.
+  Standard kelp/lagoon dive limits remain capped at 10 world units.
+- Four instanced eagle-wing draw calls + one instanced tails draw;
+  8 instanced batches for additional fauna. Ray wing vertex/normals updates
+  are throttled to 15 Hz; trajectories move each frame. CPU update is
+  linear in creature count and skipped when the channel is not rendered.
+- Mobile reduces eagle-fever draw population from 120 to 96. Owned geometries
+  and materials have explicit GPU disposal.
 
-Only merge after CI and visual/interaction signoff. Existing real-video catalog remains independently curated: no placeholder snorkeling videos are fabricated.
+## Qualification
+- `npm run typecheck`
+- `node --import tsx --test tests/world-*.test.ts`
+- `npx eslint lib/world/model.ts lib/world/rayPassage.ts lib/world/rayFever.ts
+  lib/world/activities.ts lib/world/biomes.ts components/world/worldRayPassage.ts
+  components/world/worldSouthChannelLife.ts tests/world-ray-passage.test.ts
+  tests/world-eagle-fever.test.ts tests/world-south-channel.test.ts --max-warnings=0`
+- `npm run check:world3d`
+- Browser: kelp reef and lagoon unaffected; swim south from both coasts,
+  descend through fever near lava-window, surface, swim back, resume sports.
+- Inspect actual desktop/mobile GPU FPS, draw calls, water visibility,
+  ocean/land mesh seam, and the arch passage before removing draft status.
+- Independent existing security blocker: issue #125 (Next.js/Zod).
+
+Do not claim that code-level tests prove visual fidelity or that this
+feature is already on the public site. Keep preview and release distinct.
