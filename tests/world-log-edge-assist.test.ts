@@ -8,17 +8,23 @@ test('low cut edges remain solid but cannot attach the skateboard',()=>{
  for(const side of [-1,1] as const){
   const point:V=[side*g.halfLength,2.4,g.center.z+g.innerHalfWidth*.6];
   assert.equal(canRideLogContact({point,t:.5,surface:'rim'},floor),false);
-  assert.equal(canRideLogContact({point:[point[0],3,point[2]],t:.5,surface:'rim'},floor),true);
+  assert.equal(canRideLogContact({point:[point[0],3,point[2]],t:.5,surface:'rim'},floor),false,
+   'even tall mouth end grain is not a grindable rail');
   const result=resolveSkateLogMotion([point[0]+side,point[1],point[2]],[point[0]-side,point[1],point[2]],[-side*8,0,0],floor,[0,1,0],true);
   assert.equal(result.ride,null);assert.ok(result.blocked);assert.ok(result.position[1]>=2);
  }
 });
-test('only the sequoia tube forbids auto-acquiring any skin below Shasta-body height',()=>{
+test('only recessed inner walls may auto-acquire a high wall ride, never outer bark or either mouth',()=>{
  for(const surface of ['inner','outer','rim'] as const){
   const point:V=[0,2+LOG_RIM_MIN_HEIGHT-.02,g.center.z];
   assert.equal(canRideLogContact({point,t:.5,surface},floor),false,surface);
   const high:V=[point[0],2+LOG_RIM_MIN_HEIGHT+.02,point[2]];
-  assert.equal(canRideLogContact({point:high,t:.5,surface},floor),true,surface);
+  assert.equal(canRideLogContact({point:high,t:.5,surface},floor),surface==='inner',surface);
+  for(const side of [-1,1] as const){
+   high[0]=side*(g.halfLength-.1);
+   assert.equal(canRideLogContact({point:high,t:.5,surface:'inner'},floor),false,
+    'a close approach to either mouth must not snap onto the skin');
+  }
  }
 });
 test('interior jumps from floor, sides and ceiling settle onto center with forward motion',()=>{
