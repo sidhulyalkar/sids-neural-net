@@ -9,9 +9,9 @@ import { createRayPassage } from "../components/world/worldRayPassage";
 import { SEA_SURFACE, maxDiveDepth, seaFloorHeight, waterZone, constrainMove, constrainSwimMove, WORLD_BOUNDS, SOUTH_CHANNEL_MIN_Z } from "../lib/world/model";
 import { rayPassageDepth } from "../lib/world/rayPassage";
 
-test("eagle fever fills a large vertical channel with 120 deterministic ray trajectories",()=>{
-  assert.equal(EAGLE_FEVER_COUNT,120);
-  assert.equal(EAGLE_FEVER_MOBILE_COUNT,96);
+test("eagle fever fills a large vertical channel with 96 deterministic ray trajectories",()=>{
+  assert.equal(EAGLE_FEVER_COUNT,96);
+  assert.equal(EAGLE_FEVER_MOBILE_COUNT,72);
   const bands=new Set<number>();
   for(const seconds of [0,1,20,90,240]) {
     const poses=Array.from({length:EAGLE_FEVER_COUNT},(_,i)=>
@@ -32,7 +32,7 @@ test("eagle fever fills a large vertical channel with 120 deterministic ray traj
   }
   assert.equal(bands.size,6);
   assert.throws(()=>sampleEagleFever(-1,0,seaFloorHeight,SEA_SURFACE),RangeError);
-  assert.throws(()=>sampleEagleFever(120,0,seaFloorHeight,SEA_SURFACE),RangeError);
+  assert.throws(()=>sampleEagleFever(96,0,seaFloorHeight,SEA_SURFACE),RangeError);
 });
 
 test("ray fever trench has room for deeper strata but beaches and shore sports stay unchanged",()=>{
@@ -71,21 +71,21 @@ test("southern snorkeling route crosses the old map edge, land sports do not",()
   assert.equal(waterZone({x:65,z:-100}),"south-channel");
 });
 
-test("120 eagle ray bodies use only four instanced draws, tails one, with lifecycle cleanup",()=>{
+test("96 eagle ray bodies use only four instanced draws, tails one, with lifecycle cleanup",()=>{
   const lagoon=new THREE.Group();
   const passage=createRayPassage(lagoon);
-  assert.equal(passage.feverCount,120);
-  assert.equal(passage.visibleFeverCount,120); // Node / desktop setting
+  assert.equal(passage.feverCount,96);
+  assert.equal(passage.visibleFeverCount,96); // Node / desktop setting
   assert.equal(passage.feverDrawCalls,5);
-  assert.equal(passage.count,132);
+  assert.equal(passage.count,108);
   const root=lagoon.getObjectByName("eagle-ray-cleaning-passage")!;
   const bodies=Array.from({length:EAGLE_FEVER_COHORTS},(_,i)=>
     root.getObjectByName(`eagle-fever-bodies-${i}`) as THREE.InstancedMesh);
   assert.ok(bodies.every(b=>b instanceof THREE.InstancedMesh));
-  assert.ok(bodies.every(b=>b.count===30));
+  assert.ok(bodies.every(b=>b.count===24));
   const tails=root.getObjectByName("eagle-fever-tails") as THREE.InstancedMesh;
   assert.ok(tails instanceof THREE.InstancedMesh);
-  assert.equal(tails.count,120);
+  assert.equal(tails.count,96);
   const m=new THREE.Matrix4(),position=new THREE.Vector3(),
     rotation=new THREE.Quaternion(),scale=new THREE.Vector3();
   for(const mesh of [...bodies,tails]){
