@@ -22,6 +22,12 @@ export const idleBigAir=():BigAirState=>({
 export const armBigAir=():BigAirState=>({
  ...idleBigAir(),phase:"armed",
 });
+/** Only the explicit Ski Jump menu command arms the cinematic bird flight.
+ * A skier simply crossing a steep slope or using Space must not enter it.
+ */
+export function bigAirChallengeReady(phase:BigAirPhase,activity:string):boolean {
+ return phase==="armed" && activity==="ski";
+}
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
 const smooth=(a:number,b:number,v:number)=>{
  const t=clamp((v-a)/(b-a),0,1);return t*t*(3-2*t);
