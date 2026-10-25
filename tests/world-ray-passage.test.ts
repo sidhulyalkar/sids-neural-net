@@ -12,20 +12,23 @@ import {
 import { northShoreZ } from "../lib/world/skimboarding";
 import { createRayPassage } from "../components/world/worldRayPassage";
 
-test("lagoon trench is smooth, finite and isolated from shores and existing sports", () => {
-  assert.ok(rayPassageDepth(82,8)>4,"deep centerpiece");
-  for(const [x,z] of [[0,8],[-52,8],[58,8],[64,8],[82,80],[82,-80],[94,90]]) {
-    assert.equal(rayPassageDepth(x,z),0,`unmodified zone ${x},${z}`);
+test("south arch trench is smooth and original snorkeling shores are not carved", () => {
+  assert.ok(rayPassageDepth(17,-127)>17,"deep south-arch centerpiece");
+  for(const [x,z] of [[82,8],[0,8],[-52,8],[58,8],[17,-96],[17,-166],[60,-127],[17,80]]) {
+    assert.equal(rayPassageDepth(x,z),0,`original reef or outside passage: ${x},${z}`);
   }
-  for(let x=60;x<=94;x+=.5)for(let z=-42;z<=58;z+=.5) {
+  for(let x=-15;x<=54;x+=.5)for(let z=-165;z<=-97;z+=.5) {
     const a=rayPassageDepth(x,z),b=rayPassageDepth(x+.1,z+.1);
-    assert.ok(Number.isFinite(a)&&a>=0&&a<=13.5);
+    assert.ok(Number.isFinite(a)&&a>=0&&a<=17.5);
     assert.ok(Math.abs(a-b)<.55,`bathymetry seam at ${x} ${z}`);
   }
-  assert.ok(seaFloorHeight(82,8)<seaFloorHeight(82,65)-2);
+  assert.ok(seaFloorHeight(17,-127)<seaFloorHeight(17,-160)-10);
+  assert.equal(waterZone({x:17,z:-127}),"south-channel");
+  assert.equal(waterZone({x:-52,z:8}),"kelp");
+  assert.equal(waterZone({x:75,z:8}),"lagoon");
 });
 
-test("twelve distinct ray actors stay inside water and above the true seafloor", () => {
+test("southern arch ray visitors remain swimmable and above shared seabed", () => {
   assert.equal(RAY_PASSAGE_CAST.length,12);
   assert.deepEqual([...new Set(RAY_PASSAGE_CAST.map(r=>r.kind))].sort(),["eagle","manta","stingray"]);
   assert.equal(new Set(RAY_PASSAGE_CAST.map(r=>r.id)).size,RAY_PASSAGE_CAST.length);
@@ -34,11 +37,11 @@ test("twelve distinct ray actors stay inside water and above the true seafloor",
     const pose=sampleRayPassage(ray,t,seaFloorHeight,SEA_SURFACE);
     assert.deepEqual(sampleRayPassage(ray,t,seaFloorHeight,SEA_SURFACE),pose);
     assert.ok(Object.values(pose).filter(v=>typeof v==="number").every(Number.isFinite),ray.id);
-    assert.equal(waterZone(pose),"lagoon",ray.id);
+    assert.equal(waterZone(pose),"south-channel",ray.id);
     assert.ok(pose.y>=seaFloorHeight(pose.x,pose.z)+(ray.kind==="stingray"?.39:.84),
       `${ray.id} under floor at ${t}`);
     assert.ok(pose.y<=SEA_SURFACE-.7,ray.id);
-    assert.ok(pose.x<94&&pose.x>64&&pose.z>-60&&pose.z<55,ray.id);
+    assert.ok(pose.x<39&&pose.x>-8&&pose.z>-166&&pose.z<-96,ray.id);
     behaviours.add(pose.activity);
     if (pose.activity==="cleaning") {
       assert.ok(ray.cleaningStation!==null,ray.id);
