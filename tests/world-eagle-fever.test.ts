@@ -104,7 +104,7 @@ test("96 eagle ray bodies use only four instanced draws, tails one, with lifecyc
 });
 
 test("close-up rays gently part to let the snorkeler enter the fever",()=>{
-  for(const i of [0,19,42,77,116]){
+  for(const i of [0,19,42,77,92]){
     const unperturbed=sampleEagleFever(i,14,seaFloorHeight,SEA_SURFACE);
     const near=sampleEagleFever(i,14,seaFloorHeight,SEA_SURFACE,unperturbed);
     const deflection=Math.hypot(near.x-unperturbed.x,near.z-unperturbed.z);
