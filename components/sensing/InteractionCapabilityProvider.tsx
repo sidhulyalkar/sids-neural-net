@@ -16,19 +16,16 @@ const SensingRuntime = dynamic(
 );
 
 /**
- * Lightweight site-wide capability shell. It keeps only user intent and the
- * consent UI resident. Camera, MediaPipe, gesture controllers, and inference
- * code enter the bundle/lifecycle only after the visitor opts in.
- *
- * Game routes are intentionally isolated from the sensing stack so browser
- * pointer, keyboard, touch, and game controls keep uncontested interaction
- * authority inside the runtime.
+ * Lightweight site-wide capability shell. Camera/MediaPipe only enter the
+ * lifecycle after opt-in, and performance-isolated surfaces skip even this
+ * shell so FRONTIER and arcade interactions keep uncontested main-thread/GPU
+ * authority.
  */
 export function InteractionCapabilityProvider() {
   const pathname = usePathname();
   const enabled = useSensingStore((state) => state.enabled);
 
-  if (pathname?.startsWith('/sensing-lab') || isArcadeGamePath(pathname)) return null;
+  if (pathname?.startsWith('/sensing-lab') || pathname?.startsWith('/frontier') || isArcadeGamePath(pathname)) return null;
 
   return (
     <>

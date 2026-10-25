@@ -1,13 +1,12 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { frontierMediaGeometry } from '@/lib/frontier/media/geometry';
 import { isFrontierGithubSocialPreview } from '@/lib/frontier/media/sourceVisuals';
 import type { FrontierItem } from '@/lib/frontier/types';
-import { AdaptiveVideoSurface } from './AdaptiveVideoSurface';
-import { GpuImageSurface } from './GpuImageSurface';
-import { useMediaVisibility } from './useMediaVisibility';
 import styles from './frontier-media.module.css';
+
+type FrontierMediaPriority = 'primary' | 'secondary';
 
 function isHttpUrl(value?: string): value is string {
   if (!value) return false;
@@ -49,9 +48,6 @@ export function frontierMediaKey(item: FrontierItem): string {
 export function canRenderFrontierMedia(item: FrontierItem): boolean {
   const media = item.media;
   if (!media || media.type === 'none' || media.type === 'chart') return false;
-  // Historical GitHub cards carried owner avatars. Keep rejecting those weak
-  // visuals; only repository-level previews derived from the canonical source
-  // may become project media.
   if (item.sourceKind === 'github' && media.type === 'image' && !isFrontierGithubSocialPreview(media.url)) return false;
   if (media.type === 'youtube') return isYouTubeId(media.url);
   if (media.type === 'video') return Boolean(isHttpUrl(media.url) || media.streams?.length);
@@ -62,32 +58,46 @@ function NativeImageSurface({
   src,
   alt,
   aspectRatio,
+  priority,
   onUnavailable,
 }: {
   src: string;
   alt: string;
   aspectRatio: string;
+  priority: FrontierMediaPriority;
   onUnavailable?: () => void;
 }) {
   const [failed, setFailed] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  const finishDecode = (image: HTMLImageElement) => {
+    if (typeof image.decode !== 'function') {
+      setReady(true);
+      return;
+    }
+    void image.decode()
+      .catch(() => undefined)
+      .finally(() => setReady(true));
+  };
+
   return (
     <div
       className={styles.nativeImageSurface}
       style={{ aspectRatio }}
-      data-media-state={failed ? 'fallback' : 'native'}
+      data-media-state={failed ? 'fallback' : ready ? 'ready' : 'loading'}
+      data-media-priority={priority}
     >
       {!failed ? (
-        // Cross-origin publisher imagery outside FRONTIER's trusted proxy set
-        // remains browser-native rather than weakening SSRF/CORS boundaries.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
           alt={alt}
-          className={styles.nativeImage}
-          loading="lazy"
+          className={`${styles.nativeImage} ${ready ? styles.nativeImageReady : ''}`}
+          loading={priority === 'primary' ? 'eager' : 'lazy'}
           decoding="async"
-          fetchPriority="auto"
+          fetchPriority={priority === 'primary' ? 'high' : 'low'}
           referrerPolicy="no-referrer"
+          onLoad={(event) => finishDecode(event.currentTarget)}
           onError={() => {
             setFailed(true);
             onUnavailable?.();
@@ -102,47 +112,24 @@ function NativeImageSurface({
   );
 }
 
-function YouTubeSurface({ item, onUnavailable }: { item: FrontierItem; onUnavailable?: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const visibility = useMediaVisibility(ref);
+function LightweightVideoPlaceholder({ item }: { item: FrontierItem }) {
   const media = item.media;
-  if (!media || media.type !== 'youtube' || !isYouTubeId(media.url)) return null;
+  if (!media || media.type !== 'video') return null;
   const aspectRatio = frontierMediaGeometry(media).cssAspectRatio;
-  const maxResPoster = localProxyUrl(`https://i.ytimg.com/vi/${media.url}/maxresdefault.jpg`);
-  const hqPoster = localProxyUrl(`https://i.ytimg.com/vi/${media.url}/hqdefault.jpg`);
-
   return (
-    <div ref={ref} className={styles.youtubeSurface} style={{ aspectRatio }}>
-      {visibility === 'active' ? (
-        <iframe
-          title={`Video: ${item.title}`}
-          src={`https://www.youtube-nocookie.com/embed/${media.url}?rel=0&modestbranding=1`}
-          className={styles.youtubeFrame}
-          loading="lazy"
-          allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      ) : (
-        <GpuImageSurface
-          id={`${item.id}:youtube`}
-          src={maxResPoster}
-          fallbackSrc={hqPoster}
-          alt={media.alt || item.title}
-          className={styles.posterSurface}
-          placeholderColor={media.averageColor}
-          aspectRatio={aspectRatio}
-          onUnavailable={onUnavailable}
-        />
-      )}
+    <div className={styles.nativeImageSurface} style={{ aspectRatio }} data-media-state="poster-unavailable">
+      <span className={styles.imageUnavailable}>video · open source</span>
     </div>
   );
 }
 
 export function FrontierMediaSurface({
   item,
+  priority = 'secondary',
   onUnavailable,
 }: {
   item: FrontierItem;
+  priority?: FrontierMediaPriority;
   onUnavailable?: () => void;
 }) {
   const media = item.media;
@@ -150,55 +137,46 @@ export function FrontierMediaSurface({
   const aspectRatio = frontierMediaGeometry(media).cssAspectRatio;
 
   if (media.type === 'image') {
-    // Same-origin archive imagery and trusted proxy URLs use the GPU plane. A
-    // browser-native copy of the original source remains underneath so worker,
-    // proxy, context, or texture-cache failure can never leave a black card.
-    const gpuSource = isMediaUrl(media.proxyUrl)
-      ? media.proxyUrl
-      : isSameOriginMediaPath(media.url)
-        ? media.url
-        : undefined;
-    if (gpuSource) {
-      return (
-        <GpuImageSurface
-          id={`${item.id}:image`}
-          src={gpuSource}
-          fallbackSrc={isHttpUrl(media.url) ? media.url : gpuSource}
-          alt={media.alt || item.title}
-          className={styles.primaryImage}
-          placeholderColor={media.averageColor}
-          aspectRatio={aspectRatio}
-          onUnavailable={onUnavailable}
-        />
-      );
-    }
-    if (!isHttpUrl(media.url)) return null;
+    const src = media.proxyUrl ?? media.url;
+    if (!isMediaUrl(src)) return null;
     return (
       <NativeImageSurface
-        src={media.url}
+        src={src}
         alt={media.alt || item.title}
         aspectRatio={aspectRatio}
+        priority={priority}
         onUnavailable={onUnavailable}
       />
     );
   }
 
-  if (media.type === 'youtube') return <YouTubeSurface item={item} onUnavailable={onUnavailable} />;
-
-  if (media.type === 'video') {
-    const poster = media.posterProxyUrl ?? media.poster;
+  if (media.type === 'youtube' && isYouTubeId(media.url)) {
+    const poster = localProxyUrl(`https://i.ytimg.com/vi/${media.url}/hqdefault.jpg`);
     return (
-      <AdaptiveVideoSurface
-        id={`${item.id}:video`}
-        url={isHttpUrl(media.url) ? media.url : undefined}
-        poster={isMediaUrl(poster) ? poster : undefined}
-        posterFallback={isHttpUrl(media.poster) ? media.poster : undefined}
-        streams={media.streams}
+      <NativeImageSurface
+        src={poster}
         alt={media.alt || item.title}
         aspectRatio={aspectRatio}
+        priority={priority}
         onUnavailable={onUnavailable}
       />
     );
+  }
+
+  if (media.type === 'video') {
+    const poster = media.posterProxyUrl ?? media.poster;
+    if (isMediaUrl(poster)) {
+      return (
+        <NativeImageSurface
+          src={poster}
+          alt={media.alt || item.title}
+          aspectRatio={aspectRatio}
+          priority={priority}
+          onUnavailable={onUnavailable}
+        />
+      );
+    }
+    return <LightweightVideoPlaceholder item={item} />;
   }
 
   return null;
