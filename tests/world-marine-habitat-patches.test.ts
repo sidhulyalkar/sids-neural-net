@@ -81,11 +81,17 @@ test("lagoon and kelp geometry reuses instances, paints species differently, sta
         assert.ok([...pos.toArray(),...scale.toArray()].every(Number.isFinite));
         assert.ok(scale.length()>0);
         assert.ok(pos.y<SEA_SURFACE+.05,`${mesh.name} above water`);
+        // Verify the actual highest vertex, not merely the instance origin.
+        if(!mesh.geometry.boundingBox)mesh.geometry.computeBoundingBox();
+        const localTop=mesh.geometry.boundingBox!.max.y;
+        assert.ok(pos.y+localTop*scale.y<=SEA_SURFACE+.08,
+          `${mesh.name} breaks surface at instance ${i}`);
       }
     }
   }
   assert.ok(props.has("branch-coral")&&props.has("kelp")&&props.has("moray")&&props.has("jelly"));
   assert.ok(props.has("lobster")&&props.has("nudibranch")&&props.has("anemone"));
+  assert.ok(props.has("clownfish")&&props.has("angelfish"),"tropical fish must have their own silhouettes");
   assert.ok(geometryRefs.size<=18,`sharing too little geometry: ${geometryRefs.size}`);
   const live=west.getObjectByName("marine-kelp-baitfish") as THREE.InstancedMesh;
   assert.ok(live);
