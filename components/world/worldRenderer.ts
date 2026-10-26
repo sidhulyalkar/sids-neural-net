@@ -584,7 +584,9 @@ export function createWorld(
     const caveApproachMask = arcadeAccessTerrainMask(x, z);
     if (caveApproachMask > 0) {
       const caveApproachColor = new THREE.Color("#626766");
-      groundColor.lerp(caveApproachColor, Math.min(0.62, caveApproachMask * 0.62));
+      // Blend rock pigment into the existing terrain vertices rather than
+      // placing a broad opaque stone sheet over the hillside.
+      groundColor.lerp(caveApproachColor, Math.min(0.36, caveApproachMask * 0.36));
     }
     groundColor.multiplyScalar(0.94 + random() * 0.12);
     colors.push(groundColor.r, groundColor.g, groundColor.b);
@@ -1469,13 +1471,13 @@ export function createWorld(
     ];
   });
   mesh(geo(ringSurface(shellRings)),detailCavernStone(mat("#b5aca0",{side:THREE.DoubleSide,flatShading:false})),[0,0,0],[1,1,1]);
-  for(const side of [-1,1]){
-    const shoulderRings=shellRings.map((ring)=>{
-      const z=ring[0].z,w=caveHalfWidth(z),top=ring[3].y;
-      return [new THREE.Vector3(16,top+.18,z),new THREE.Vector3(16+side*(w+1),Math.max(top+.32,mountainSurfaceHeight(16+side*(w+1),z)),z),new THREE.Vector3(16+side*(w+5),terrainHeight(16+side*(w+5),z),z)];
-    });
-    mesh(geo(ringSurface(shoulderRings)),mat("#969b94",{side:THREE.DoubleSide,flatShading:false}),[0,0,0],[1,1,1]);
-  }
+  // The cave's interior shell is below the mountain heightfield. Do not
+  // bridge its roof to the hillside with separate shoulder sheets. Those
+  // broad polygons cross real terrain on the steep eastern ridge and appear
+  // as pale floating triangles / open gaps from the coastal camera. The
+  // world terrain above is already continuous and is the only exterior
+  // walking, biking, skiing and camera-contact surface.
+  canvas.dataset.arcadeExteriorRoof="native-terrain-no-shoulder-overlay";
   const arcadeFloorRings=shellRings.map(ring=>{
     const z=ring[0].z,w=caveHalfWidth(z)-.14,y=arcadeCaveFloorHeight({x:16,z})-.08;
     return [new THREE.Vector3(16-w,y,z),new THREE.Vector3(16+w,y,z)];
