@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {ARCADE_CAVE,isWater,terrainHeight,caveHalfWidth,
  caveObstacles,regionLanding,arcadeCaveFloorHeight,worldFloorHeight,
- mountainSurfaceHeight,arcadeAccessTerrainMask} from "../lib/world/model";
+ arcadeAccessTerrainMask} from "../lib/world/model";
 import {stepTravel,type Travel} from "../lib/world/activities";
 import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailStage,
  arcadeTrailHint,arcadeTrailFooting,arcadeEntranceCameraPose} from "../lib/world/arcadeWayfinding";
@@ -112,8 +112,8 @@ test("exterior arcade mountain roof is one continuous native terrain surface, no
      const x=ARCADE_CAVE.entrance.x+side*(w+delta);
      const y=worldFloorHeight(x,z);
      assert.ok(Number.isFinite(y),"invalid mountain height at "+JSON.stringify({x,z}));
-     assert.ok(Math.abs(y-mountainSurfaceHeight(x,z))<1e-6,
-       "cavern roof must not flatten or lift surrounding mountain");
+     assert.ok(Math.abs(y-terrainHeight(x,z))<1e-6,
+       "exterior world-floor render and native gameplay terrain must agree");
      const next=worldFloorHeight(x+side*.1,z);
      assert.ok(Math.abs(next-y)<1.1,
        "ridge has a discontinuity at "+JSON.stringify({x,z,y,next}));
