@@ -141,3 +141,27 @@ test("south coast fauna shares GPU geometries, animates and cleans up",()=>{
   assert.notDeepEqual(m0.elements,m1.elements);
   eco.dispose();assert.equal(parent.children.length,0);
 });
+
+test("animated southern animals stay submerged throughout their swimming routes",()=>{
+  const parent=new THREE.Group(),eco=createSouthCoastalEcology(parent);
+  const matrix=new THREE.Matrix4();
+  const swimmers=new Set(["sea-lion","harbor-seal","sea-otter","garibaldi","sheephead","kelp-bass","leopard-shark"]);
+  try {
+    for(let time=0;time<=60;time+=.5){
+      eco.update(time);
+      parent.traverse(object=>{
+        if(!(object instanceof THREE.InstancedMesh))return;
+        const kind=object.name.replace("south-southeast-kelp-","");
+        if(!swimmers.has(kind))return;
+        object.geometry.computeBoundingBox();
+        for(let i=0;i<object.count;i++){
+          object.getMatrixAt(i,matrix);
+          const box=object.geometry.boundingBox!.clone().applyMatrix4(matrix);
+          const center=box.getCenter(new THREE.Vector3());
+          assert.ok(box.max.y<SEA_SURFACE,`${kind} breaches at ${time}`);
+          assert.ok(box.min.y>seaFloorHeight(center.x,center.z),`${kind} clips floor at ${time}`);
+        }
+      });
+    }
+  } finally {eco.dispose();}
+});
