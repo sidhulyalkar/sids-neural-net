@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {ARCADE_CAVE,isWater,terrainHeight,caveHalfWidth,
- caveObstacles,regionLanding,arcadeCaveFloorHeight} from "../lib/world/model";
+ caveObstacles,regionLanding,arcadeCaveFloorHeight,worldFloorHeight,
+ mountainSurfaceHeight,arcadeAccessTerrainMask} from "../lib/world/model";
 import {stepTravel,type Travel} from "../lib/world/activities";
 import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailStage,
  arcadeTrailHint,arcadeTrailFooting,arcadeEntranceCameraPose} from "../lib/world/arcadeWayfinding";
@@ -99,5 +100,31 @@ test("outside portal camera frames the sign from ABOVE the actual approach",()=>
    (pose.look.y-pose.position.y)*t;
   assert.ok(y>terrainHeight(pose.position.x,z)+.20,
    "portal sightline intersects mountain at z="+z.toFixed(2));
+ }
+});
+
+test("exterior arcade mountain roof is one continuous native terrain surface, not a raised overlay",()=>{
+ // Sample the former exterior-shoulder polygon footprints on BOTH ridge
+ // banks. The underground shell must not replace the walkable alpine roof.
+ for(const side of [-1,1])for(let z=-82;z<=-64;z+=.5){
+   const w=caveHalfWidth(z);
+   for(const delta of [0,1,2,3.5,5,7]){
+     const x=ARCADE_CAVE.entrance.x+side*(w+delta);
+     const y=worldFloorHeight(x,z);
+     assert.ok(Number.isFinite(y),"invalid mountain height at "+JSON.stringify({x,z}));
+     assert.ok(Math.abs(y-mountainSurfaceHeight(x,z))<1e-6,
+       "cavern roof must not flatten or lift surrounding mountain");
+     const next=worldFloorHeight(x+side*.1,z);
+     assert.ok(Math.abs(next-y)<1.1,
+       "ridge has a discontinuity at "+JSON.stringify({x,z,y,next}));
+   }
+ }
+ // The existing short entry apron remains a bounded, feathered terrain cut,
+ // without excavating a wide roof terrace in the adjacent hillside.
+ for(const z of [-88,-86.4,-84.5,-83,-82.5,-81]){
+   const central=arcadeAccessTerrainMask(16,z);
+   const outside=arcadeAccessTerrainMask(25,z);
+   assert.ok(central>=0&&central<=1);
+   assert.equal(outside,0);
  }
 });
