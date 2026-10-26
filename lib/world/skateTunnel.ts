@@ -319,6 +319,18 @@ export function advanceSkateTunnelRide(start:SkateTunnelRide,delta:number,
     r.facing=previousFacing+clamp(delta,-6*dt,6*dt);
    }else r.facing=previousFacing;
    const next=skateTunnelSample(r,floor);
+   const mouthX=r.x-GROVE_TUNNEL.center.x;
+   if(r.surface!=="rim"&&mouthX*r.vx>0&&
+      Math.abs(mouthX)>=GROVE_TUNNEL.halfLength-LOG_MOUTH_BLEND&&
+      next.y-floor(next.point)>=LOG_RIM_MIN_HEIGHT){
+    // Leave elevated wood before the cut lip. Preserve tangential momentum
+    // with a small upward pop; never transfer onto the end-grain ring.
+    const velocity=next.motionForward.map(v=>v*r.speed) as V;
+    velocity[1]=Math.max(2,velocity[1]);
+    r.air={position:[next.point.x+next.up[0]*.02,next.y+next.up[1]*.02,
+      next.point.z+next.up[2]*.02],velocity};
+    completed=true;break;
+   }
    if(r.surface!=="rim"&&Math.abs(r.x-GROVE_TUNNEL.center.x)>=GROVE_TUNNEL.halfLength){completed=true;break;}
    // Signed curvature: the outer crown releases at speed instead of gluing
    // the rider to the underside. Low-speed top contact remains stable.

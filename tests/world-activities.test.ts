@@ -1,3 +1,4 @@
+import {GROVE_TUNNEL} from "../lib/world/skatepark";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -188,3 +189,10 @@ test("rail grind style follows landing angle for both skateboard and skis", () =
   assert.equal(grindStyleForApproach(across, log), "boardslide");
   assert.equal(grindStyleForApproach({ x: -across.x, z: -across.z }, log), "boardslide");
 });
+
+ test('hollow log and both exit runouts never offer a proximity grind',()=>{
+  for(const side of [-1,1])for(const offset of [-.5,0,.5,1.4]){
+   const p={x:GROVE_TUNNEL.center.x+side*(GROVE_TUNNEL.halfLength+offset),z:GROVE_TUNNEL.center.z};
+   assert.equal(nearestGrind(p,100),undefined);
+  }
+ });

@@ -151,3 +151,17 @@ test('sustained ground contact with bark neither sinks beneath terrain nor cross
   }
  }
 });
+
+ test('both elevated exits release into flight before the lip without a rim ride',()=>{
+  for(const side of [-1,1] as const)for(const surface of ['inner','outer'] as const){
+   const r={...base(),surface,x:g.center.x+side*(g.halfLength-.56),
+    angle:surface==='inner'?Math.PI/2:Math.PI,vx:side*6,vt:0,speed:6};
+   const result=advanceSkateTunnelRide(r,1/60,{steer:0,push:false,brake:false},floor);
+   assert.equal(result.completed,true);
+   assert.equal(result.ride.surface,surface);
+   assert.ok(result.ride.air);
+   assert.ok(result.ride.air.velocity[0]*side>5);
+   assert.ok(result.ride.air.velocity[1]>=2);
+   assert.ok(Math.abs(result.ride.x-g.center.x)<g.halfLength);
+  }
+ });
