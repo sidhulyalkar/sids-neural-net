@@ -1,3 +1,5 @@
+import {applyLagoonSand} from "./worldLagoonSand";
+import {commandShasta,initialShastaOuting,stepShastaOuting,type ShastaCommand} from "@/lib/world/shastaCommands";
 import {createCoastalNature} from "./worldCoastalNature";
 import {createResearchGallery} from "./worldResearchGallery";
 import {idleOceanObservation,advanceOceanObservation,stopOceanObservation} from "@/lib/world/coastalObservation";
@@ -88,7 +90,7 @@ import {
   skimWaterHeight, skimWaveAt, skimBreakAmountAt, skimBoardContact,
   skimTrickForKey, type SkimHeat, type SkimTrick,
 } from "@/lib/world/skimboarding";
-import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
+import { shastaDetour, initialChaseState, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
 import {idleFetchRunRoute,stepFetchRunRoute,steerFetchRun} from "@/lib/world/shastaFetchRun";
 import {advanceShastaStride,shastaGaitPose,shastaStraightLeg} from "@/lib/world/shastaGait";
 import {shastaCameraShot,stepShastaCameraAnchor,type ShastaCameraAnchor} from "@/lib/world/shastaCamera";
@@ -157,6 +159,8 @@ type Callbacks = {
   onSkimNearby:(board:number|null)=>void;
 };
 type State = {
+  shastaCommand: ShastaCommand;
+  shastaCommandSerial: number;
   activity: Activity;
   actionSerial: number;
   challengeSerial: number;
@@ -597,7 +601,7 @@ export function createWorld(
   terrain.computeVertexNormals();
   const ground = mesh(
     terrain,
-    mat("#ffffff", { vertexColors: true, flatShading: false, roughness: 0.92 }),
+    applyLagoonSand(mat("#ffffff", { vertexColors: true, flatShading: false, roughness: 0.92 })),
     [0, 0, 0],
     [1, 1, 1],
   );
@@ -837,7 +841,7 @@ export function createWorld(
     snow: Instance[] = [];
   for (let i = 0; i < 15; i++) {
     const x = -58 + i * 11,
-      z = -150 - random() * 38,
+      z = -205 - random() * 38,
       h = 28 + random() * 38;
     peaks.push({
       x,
@@ -3229,6 +3233,8 @@ export function createWorld(
   scene.add(snowfall);
 
   let state: State = {
+    shastaCommand: "come",
+    shastaCommandSerial: 0,
     entered: false,
     paused: false,
     command: null,
@@ -3553,6 +3559,8 @@ export function createWorld(
   let dogAnimSpeed = 0;
   let dogInterestCritterIndex: number | null = null;
   let dogChase = initialChaseState();
+  let dogOuting=initialShastaOuting();
+  let pearlNoticeUntil=0;
 
   let dogTargetSwitches = 0;
   let dogMaxYawStep = 0;
@@ -4467,7 +4475,7 @@ export function createWorld(
         travel={point:player,speed:advanced.ride.speed,heading:pose.heading};
         airHeight=advanced.ride.air?.15:0;verticalSpeed=advanced.ride.air?.velocity[1]??0;
         if(advanced.completed){
-          const velocity=advanced.ride.air?.velocity??pose.forward.map(v=>v*advanced.ride.speed);
+          const velocity=advanced.ride.air?.velocity??pose.motionForward.map(v=>v*advanced.ride.speed);
           const planar=Math.hypot(velocity[0],velocity[2]);
           travel={point:player,speed:planar,heading:{x:velocity[0]/(planar||1),z:velocity[2]/(planar||1)}};
           airHeight=Math.max(0,playerY-groundHeight(player));verticalSpeed=velocity[1];
@@ -5006,8 +5014,9 @@ export function createWorld(
       const skimEquipped=skimHeat.phase!=="off"&&skimHeat.phase!=="finished";
       board.visible = !skimEquipped && !swimming && mode === "skate";
       const trickPose=skateTrickPose(skateTrick,elapsed);
-      board.rotation.set(mode==="skate"?trickPose.pitch:0,mode==="skate"?trickPose.yaw:0,mode==="skate"?trickPose.roll:0);
-      board.position.y=mode==="skate"&&skateTrick.phase==="air"?Math.sin(Math.PI*trickPose.progress)*.19:0;
+      const tubeGrounded=!!skateTunnelRide&&!skateTunnelRide.air;
+      board.rotation.set(!tubeGrounded&&mode==="skate"?trickPose.pitch:0,!tubeGrounded&&mode==="skate"?trickPose.yaw:0,!tubeGrounded&&mode==="skate"?trickPose.roll:0);
+      board.position.y=!tubeGrounded&&mode==="skate"&&skateTrick.phase==="air"?Math.sin(Math.PI*trickPose.progress)*.19:0;
       bike.visible = !skimEquipped && !swimming && mode === "bike";
       skis.visible = !skimEquipped && !swimming && mode === "ski";
       chalk.visible = !skimEquipped && !swimming && mode === "boulder";
@@ -6319,8 +6328,27 @@ export function createWorld(
     }
 
     const chaseBefore = dogChase;
-    dogChase = stepChase(dogChase, elapsed, dog, player, critters.map(c => c.point),
-      discGolf.phase==="off" && skimHeat.phase==="off" && aquatic === "land" && caveLayer === "surface");
+    const outingAllowed=state.entered&&!state.paused&&discGolf.phase==="off"&&
+      skimHeat.phase==="off"&&!jetSki&&!jetChoosing&&trial.phase!=="running"&&
+      bigAir.phase==="idle"&&aquatic==="land"&&caveLayer==="surface"&&shastaSnow.stage==="idle";
+    const dryRoute=(a:Point,b:Point)=>{
+      const steps=Math.ceil(distance(a,b)/.7);
+      let lastY=terrainHeight(a.x,a.z);
+      for(let i=1;i<=steps;i++){
+        const p={x:a.x+(b.x-a.x)*i/steps,z:a.z+(b.z-a.z)*i/steps};
+        const y=terrainHeight(p.x,p.z);
+        if(p.x<WORLD_BOUNDS.minX||p.x>WORLD_BOUNDS.maxX||p.z<WORLD_BOUNDS.minZ||
+          p.z>WORLD_BOUNDS.maxZ||discGolfSurfaceIsWater(p)||Math.abs(y-lastY)>1.1)return false;
+        lastY=y;
+      }
+      return true;
+    };
+    dogOuting=stepShastaOuting(dogOuting,elapsed,dog,player,
+      critters.map(c=>c.kind==="squirrel"?c.point:null),outingAllowed,dryRoute);
+    dogChase={mode:dogOuting.mode==="roam"?"follow":dogOuting.mode,
+      target:dogOuting.target,until:dogOuting.until,cooldown:dogOuting.cooldown};
+    canvas.dataset.shastaCommand=dogOuting.command;
+    canvas.dataset.shastaOuting=dogOuting.mode;
     dogInterestCritterIndex = dogChase.target;
     if (dogChase.target !== null && dogChase.target !== chaseBefore.target) dogTargetSwitches++;
     const nearbyCritter = discGolf.phase!=="off"||dogInterestCritterIndex === null ?
@@ -6375,7 +6403,7 @@ export function createWorld(
               discFetch.target
             : nearbyCritter
               ? nearbyCritter.point
-              : { x: player.x - travel.heading.x * 2.2 + travel.heading.z * 1.2, z: player.z - travel.heading.z * 2.2 - travel.heading.x * 1.2 }
+              : dogOuting.goal??{ x: player.x - travel.heading.x * 2.2 + travel.heading.z * 1.2, z: player.z - travel.heading.z * 2.2 - travel.heading.x * 1.2 }
       : { x: 4 + Math.sin(elapsed * 0.13) * 2, z: 12 };
     canvas.dataset.dogFetchStage=discFetch.phase;
     if(snowStagesSeen.at(-1)!==shastaSnow.stage){
@@ -6440,6 +6468,7 @@ export function createWorld(
         dogSmoothedTarget,
         shastaSnow.stage==="zoom"?9.5:
         shastaSnow.stage==="roll"||shastaSnow.stage==="shake"?0:
+        dogOuting.mode==="chase"?9:dogOuting.mode==="roam"?6:
         dogChase.mode==="return"?Math.max(travel.speed,6):travel.speed,
         dogMotionDt);
     }
@@ -6854,8 +6883,12 @@ export function createWorld(
     const namedMarineHabitat=aquatic!=="land" &&
       (currentWaterZone==="kelp" || currentWaterZone==="lagoon")
       ? marineHabitatAt(player,currentWaterZone):null;
-    const marineHabitatText=namedMarineHabitat
-      ? marineHabitatLabel(namedMarineHabitat):"";
+    const pearls=aquatic==="dive"?marinePatches.discoverPearls({x:player.x,y:playerY,z:player.z}):null;
+    if(pearls?.fresh)pearlNoticeUntil=elapsed+5;
+    canvas.dataset.pearlsFound=String(pearls?.found??canvas.dataset.pearlsFound??0);
+    const pearlHint=pearls&&(pearls.found>0||namedMarineHabitat?.id==="east-giant-clam-garden")?` · Pearls ${pearls.found}/${pearls.total}`:"";
+    const marineHabitatText=elapsed<pearlNoticeUntil?`Rare pearl discovered${pearlHint}`:namedMarineHabitat
+      ? marineHabitatLabel(namedMarineHabitat)+pearlHint:"";
     marineDiscoveryHud.style.display=namedMarineHabitat?"block":"none";
     if(namedMarineHabitat && marineDiscoveryHud.textContent!==marineHabitatText)
       marineDiscoveryHud.textContent=marineHabitatText;
@@ -7251,6 +7284,10 @@ export function createWorld(
   schedule();
   return {
     setState(next) {
+      if(next.shastaCommandSerial!==state.shastaCommandSerial){
+        dogOuting=commandShasta(next.shastaCommand);
+        dogSmoothedTarget={...dog};
+      }
       const wasEntered = state.entered,
         wasPaused = state.paused;
       const changedActivity = next.activity !== state.activity;
@@ -7407,6 +7444,7 @@ export function createWorld(
         dogSmoothedTarget = { ...dog };
         dogAnimSpeed = 0;
         dogInterestCritterIndex = null;
+        dogOuting=initialShastaOuting();
         dogChase = { ...initialChaseState(), cooldown: elapsed + 0.8 };
         dogTargetSwitches = 0;
         dogMaxYawStep = 0;
@@ -7564,6 +7602,7 @@ export function createWorld(
         dogMoveBlend = 0;
         dogAnimSpeed = 0;
         dogInterestCritterIndex = null;
+        dogOuting=initialShastaOuting();
         dogChase = { ...initialChaseState(), cooldown: elapsed + 0.8 };
         dogTargetSwitches = 0;
         dogMaxYawStep = 0;

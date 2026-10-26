@@ -12,6 +12,8 @@ import type { DiscGolfState,DiscShot,DiscGolfSwingStage } from "@/lib/world/disc
 import type { SkimHeat } from "@/lib/world/skimboarding";
 
 type Props = {
+  shastaCommand: "go" | "come";
+  shastaCommandSerial: number;
   activity: Activity;
   actionSerial: number;
   challengeSerial: number;

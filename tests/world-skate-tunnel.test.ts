@@ -133,3 +133,17 @@ test('low entrance can be crossed from both ends without grinding, snapping or s
   }
  }
 });
+
+test('reversing on the wall retains a continuous board frame while motion reverses',()=>{
+ let r={...start(),angle:.35,vx:0,vt:.3,speed:.3,facing:Math.PI/2};
+ let previous=skateTunnelSample(r,floor).forward,reversed=false;
+ for(let i=0;i<60;i++){
+  r=advanceSkateTunnelRide(r,1/60,undefined,floor).ride as typeof r;
+  const p=skateTunnelSample(r,floor);
+  const dot=p.forward.reduce((n,v,k)=>n+v*previous[k],0);
+  assert.ok(dot>.98,'no instantaneous 180-degree board flip');
+  if(r.vt<-.2){reversed=true;assert.ok(p.forward.reduce((n,v,k)=>n+v*p.motionForward[k],0)<-.9);}
+  previous=p.forward;
+ }
+ assert.ok(reversed);
+});

@@ -248,6 +248,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [aquatic, setAquatic] = useState<AquaticMode>("land");
   const [waterAction, setWaterAction] = useState<"dive" | "deeper" | "shallower" | "surface">("dive");
   const [waterActionSerial, setWaterActionSerial] = useState(0);
+  const [shastaCommand,setShastaCommand]=useState<"go"|"come">("come");
+  const [shastaCommandSerial,setShastaCommandSerial]=useState(0);
   const [quiet, setQuiet] = useState(false);
   const [region, setRegion] = useState<RegionId>("grove");
   const [nearby, setNearby] = useState<string | null>(null);
@@ -499,6 +501,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
             entered={entered}
             paused={!!panel || quiet}
             command={command}
+            shastaCommand={shastaCommand}
+            shastaCommandSerial={shastaCommandSerial}
             activity={activity}
             actionSerial={actionSerial}
             challengeSerial={challengeSerial}
@@ -602,6 +606,15 @@ export function WorldHome({ content }: { content: WorldContent }) {
                    onClick={() => setActionSerial(n => n + 1)}>
                    {activityConfig(activity).action}
                  </button>
+               </div>
+               <div className={styles.activityButtons} role="group" aria-label="Shasta companion">
+                 {(["go","come"] as const).map(command=>(
+                   <button key={command} type="button" disabled={!ready||quiet||!!panel||worldGameActive}
+                     title={command==="go"?"Run around and chase nearby squirrels":"Return and stay with me"}
+                     onClick={()=>{setShastaCommand(command);setShastaCommandSerial(n=>n+1);}}>
+                     Shasta {command==="go"?"Go":"Come"}
+                   </button>
+                 ))}
                </div>
                <button type="button" className={styles.sportsToggle}
                  aria-controls="world-sport-shortcuts" aria-expanded={sportsOpen}

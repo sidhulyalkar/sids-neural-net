@@ -1,3 +1,4 @@
+import {lagoonAnimalShape} from "./worldLagoonAnimals";
 import * as THREE from "three/src/Three.Core.js";
 import { GeometryBatch } from "./worldGeometry";
 import { createFishGeometry } from "./worldFaunaGeometry";
@@ -8,6 +9,7 @@ import {
 } from "@/lib/world/marineHabitatPatches";
 
 const KINDS: readonly MarineKind[] = [
+  "baby-turtle","whipray","blacktip","giant-clam","pearl-clam","seagrass",
   "boulder","slab","spire","kelp","sand-ripple",
   "branch-coral","table-coral","fan-coral","anemone",
   "sea-star","urchin","crab","lobster","nudibranch",
@@ -18,6 +20,7 @@ const KINDS: readonly MarineKind[] = [
  * decorative and non-colliding. Nothing changes ride or swimming contact.
  */
 export function buildShape(kind: MarineKind): THREE.BufferGeometry {
+  const lagoon=lagoonAnimalShape(kind);if(lagoon)return lagoon;
   if (kind === "reef-fish") return createFishGeometry("rockfish","#ecebca");
   if (kind === "baitfish") return createFishGeometry("anchovy","#b8d5cb");
   const batch = new GeometryBatch();
@@ -168,6 +171,7 @@ const fishCold=["#d6b880","#8a9fa0","#b6c8c0","#a4a584"];
 const fishWarm=["#f6c17f","#e5ccaa","#a8d8ba","#bba5e4"];
 
 function tint(kind:MarineKind,zone:ReefZone,i:number) {
+  if(["baby-turtle","whipray","blacktip","giant-clam","pearl-clam","seagrass"].includes(kind))return new THREE.Color("#ffffff");
   const palette=kind==="clownfish"
     ? ["#fff0c4","#ffd8a0"] :
       kind==="angelfish" ? ["#fff4bf","#efd9a1","#eedcba"] :
@@ -176,6 +180,9 @@ function tint(kind:MarineKind,zone:ReefZone,i:number) {
   return new THREE.Color(palette[(i*7+kind.length)%palette.length]);
 }
 const yOffset=(kind:MarineKind,scale:number)=>{
+  if(kind==="baby-turtle")return .65;
+  if(kind==="whipray")return .24;
+  if(kind==="blacktip")return .9;
   if(kind==="kelp"||kind==="branch-coral"||kind==="table-coral"||kind==="fan-coral")return .09;
   if(kind==="boulder")return .71*scale;
   if(kind==="slab")return .14*scale;
@@ -185,6 +192,7 @@ const yOffset=(kind:MarineKind,scale:number)=>{
   if(kind.endsWith("fish"))return 1.25*scale;
   return .14*scale;
 };
+const isSwimming=(kind:MarineKind)=>kind.endsWith("fish")||["jelly","baby-turtle","whipray","blacktip"].includes(kind);
 type Actor={mesh:THREE.InstancedMesh;kind:MarineKind;poses:HabitatPoint[]};
 
 /** One instanced mesh per geometry family per zone. Visibility stays under
@@ -203,7 +211,7 @@ export function createMarineHabitatPatches(kelpRoot:THREE.Group,lagoonRoot:THREE
   const roots={kelp:kelpRoot,lagoon:lagoonRoot};
   const dummy=new THREE.Object3D();
   const place=(actor:Actor,i:number,t:number)=>{
-    const p=actor.poses[i],kind=actor.kind,active=kind.endsWith("fish")||kind==="jelly";
+    const p=actor.poses[i],kind=actor.kind,active=isSwimming(kind);
     const a=active?t*.32+(i%13)*.37:0;
     const radius=active?(kind==="jelly"?.38:.58):0;
     const x=p.x+Math.cos(a)*radius,z=p.z+Math.sin(a)*radius;
@@ -254,12 +262,22 @@ export function createMarineHabitatPatches(kelpRoot:THREE.Group,lagoonRoot:THREE
     last=t;
     for(const actor of groups) {
       if(!actor.mesh.parent?.parent?.visible)continue;
-      if(!actor.kind.endsWith("fish") && actor.kind!=="jelly")continue;
+      if(!isSwimming(actor.kind))continue;
       for(let i=0;i<actor.poses.length;i++)place(actor,i,reducedMotion?0:t);
       actor.mesh.instanceMatrix.needsUpdate=true;
     }
   }
+  const pearlSites=groups.filter(a=>a.kind==="pearl-clam").flatMap(a=>a.poses);
+  const foundPearls=new Set<number>();
   return {
+    discoverPearls(point:{x:number;y:number;z:number}){
+      let fresh=false;
+      pearlSites.forEach((p,i)=>{
+        if(!foundPearls.has(i)&&Math.hypot(point.x-p.x,point.z-p.z)<1.6&&
+          Math.abs(point.y-(p.y+.53*p.scale))<1.8){foundPearls.add(i);fresh=true;}
+      });
+      return {found:foundPearls.size,total:pearlSites.length,fresh};
+    },
     counts:{kelp:marineHabitatCounts("kelp"),lagoon:marineHabitatCounts("lagoon")},
     patchCount:MARINE_HABITAT_PATCHES.length,
     drawCalls:{

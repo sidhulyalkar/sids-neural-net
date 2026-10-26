@@ -1,3 +1,4 @@
+import {NORTHEAST_SANDBARS} from "./northeastSandbars";
 import { SEA_SURFACE, seaFloorHeight, waterZone } from "./model";
 
 /** Authored ecological neighborhoods layered over the existing water zones.
@@ -5,6 +6,7 @@ import { SEA_SURFACE, seaFloorHeight, waterZone } from "./model";
  */
 export type ReefZone = "kelp" | "lagoon";
 export type MarineKind =
+  | "baby-turtle" | "whipray" | "blacktip" | "giant-clam" | "pearl-clam" | "seagrass"
   | "boulder" | "slab" | "spire" | "kelp" | "sand-ripple"
   | "branch-coral" | "table-coral" | "fan-coral" | "anemone"
   | "sea-star" | "urchin" | "crab" | "lobster" | "nudibranch"
@@ -72,6 +74,47 @@ export const MARINE_HABITAT_PATCHES: readonly MarinePatch[] = [
     x: 85, z: -7, radius: 7,
     population: { "sand-ripple": 25, kelp: 23, "table-coral": 8, anemone: 15, baitfish: 33, lobster: 6 },
   },
+  {
+    id: "west-wild-coast-coral-garden", zone: "kelp", theme: "coral-islets",
+    x: -69, z: 57, radius: 10,
+    population: { boulder: 8, "branch-coral": 24, "table-coral": 18,
+      "fan-coral": 20, anemone: 12, "sea-star": 9, "reef-fish": 18, baitfish: 22 },
+  },
+  // Nearshore stepping stones fill the long gaps north and south of the
+  // established offshore gardens. Keep populations modest and forms shared.
+  {
+    id: "west-kelp-nursery", zone: "kelp", theme: "nearshore-kelp-nursery",
+    x: -49, z: 80, radius: 7,
+    population: { kelp: 16, boulder: 5, anemone: 9, "sea-star": 8,
+      crab: 5, "reef-fish": 10, baitfish: 16 },
+  },
+  {
+    id: "west-anemone-cove", zone: "kelp", theme: "sheltered-anemone-cove",
+    x: -49, z: -76, radius: 7,
+    population: { boulder: 7, slab: 6, anemone: 18, "fan-coral": 9,
+      "sea-star": 8, lobster: 4, nudibranch: 6, "reef-fish": 10 },
+  },
+  {
+    id: "east-shallow-coral-lagoon", zone: "lagoon", theme: "shallow-coral-lagoon",
+    x: 73, z: 76, radius: 8,
+    population: { "branch-coral": 14, "table-coral": 10, anemone: 12,
+      "sand-ripple": 8, clownfish: 8, "reef-fish": 12, "sea-star": 6 },
+  },
+  {
+    id: "east-southern-reef-garden", zone: "lagoon", theme: "southern-fan-garden",
+    x: 73, z: -73, radius: 8,
+    population: { boulder: 6, "fan-coral": 16, "branch-coral": 12,
+      "table-coral": 8, angelfish: 8, baitfish: 14, crab: 5, nudibranch: 6 },
+  },
+  ...NORTHEAST_SANDBARS.map((bank,i):MarinePatch=>({
+    ...bank,zone:"lagoon",theme:bank.id,
+    population:([
+      {whipray:5,"sand-ripple":20,"reef-fish":10,seagrass:8},
+      {blacktip:3,whipray:2,baitfish:16,"sand-ripple":12},
+      {"baby-turtle":7,seagrass:25,"reef-fish":8,"sand-ripple":12},
+      {"giant-clam":12,"pearl-clam":3,seagrass:8,"fan-coral":5,"reef-fish":8},
+    ] as Partial<Record<MarineKind,number>>[])[i],
+  })),
 ] as const;
 
 export type HabitatPoint = {
@@ -100,8 +143,8 @@ export function marineHabitatPoint(patch: MarinePatch, kind: MarineKind, index: 
     throw new RangeError("Marine habitat index outside authored population");
   const next = generator(hash(`${patch.id}:${kind}:${index}`));
   const isTall = kind === "kelp" || kind === "spire";
-  const scale = isTall ? .65 + next() * .52 : .45 + next() * .55;
-  const required = isTall ? 3.4*scale :
+  const scale = kind==="baby-turtle"?.42+next()*.14:kind==="blacktip"?.42+next()*.13:isTall ? .65 + next() * .52 : .45 + next() * .55;
+  const required = ["baby-turtle","whipray","blacktip","giant-clam","pearl-clam","seagrass"].includes(kind)?1.2:isTall ? 3.4*scale :
     kind==="boulder" ? 1.8*scale :
     kind==="angelfish" ? 3.3*scale :
     kind==="clownfish" ? 2.2*scale :
@@ -113,6 +156,8 @@ export function marineHabitatPoint(patch: MarinePatch, kind: MarineKind, index: 
     const x = patch.x + Math.cos(theta) * radius;
     const z = patch.z + Math.sin(theta) * radius;
     const floor = seaFloorHeight(x, z);
+    // Keep vegetation and coral on the bank rims, leaving sandy swim lanes.
+    if(patch.theme.startsWith("east-")&&(kind==="seagrass"||kind.includes("coral"))&&radius<patch.radius*.62)continue;
     if (waterZone({x,z}) !== patch.zone || floor + required >= SEA_SURFACE - .3) continue;
     return {x, y: floor, z, yaw: next() * Math.PI * 2, scale,
       patchId: patch.id, kind};
@@ -131,7 +176,7 @@ export function marineHabitatCounts(zone: ReefZone) {
 }
 
 /** Closest named discovery within its authored boundary. No per-frame heap
- * allocation or spatial tree necessary for only ten patches.
+ * allocation or spatial tree necessary for a small fixed set of patches.
  */
 export function marineHabitatAt(point: {x:number;z:number}, zone: ReefZone): MarinePatch | null {
   let best: MarinePatch | null=null, distance=Infinity;

@@ -1,3 +1,4 @@
+import {northeastSandFloor} from "./northeastSandbars";
 import { desertTrackHeightOffset } from "./desertTrack";
 import { rockGardenHeightOffset } from "./technicalFeatures";
 import { bigAirTerrainOffset } from "./bigAir";
@@ -449,7 +450,7 @@ export function seaFloorHeight(x: number, z: number): number {
     const sandRipples = Math.sin(z * 0.18 + 0.8) * 0.2 + Math.cos(x * 0.14) * 0.16;
     const coralGarden = 1.65 * Math.exp(-((x - 72) ** 2 / 250 + (z - 11) ** 2 / 460));
     // The established tropical snorkeling seafloor is unchanged.
-    return shelf + sandRipples + coralGarden;
+    return northeastSandFloor(x,z,shelf + sandRipples + coralGarden,SEA_SURFACE);
   }
   const offshore = Math.max(0, coastlineX(z) - x);
   const shelf = SEA_SURFACE - 2.1 - Math.min(8.5, offshore * 0.15);
