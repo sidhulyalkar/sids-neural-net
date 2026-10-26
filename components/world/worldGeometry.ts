@@ -68,6 +68,33 @@ export function ringSurface(
   g.computeVertexNormals();
   return g;
 }
+/** Smooth, shared-vertex surface for continuous terrain-like ring grids.
+ * Unlike the flat-shaded triangle soup returned by ringSurface, adjacent
+ * mountain samples share normals. Geometry stays at the exact authored Y.
+ */
+export function indexedRingSurface(
+  rings:readonly (readonly THREE.Vector3[])[],
+):THREE.BufferGeometry {
+  const columns=rings[0]?.length??0;
+  if(rings.length<2||columns<2||rings.some(row=>row.length!==columns))
+    throw new Error("Indexed ring surface requires a rectangular grid");
+  const positions:number[]=[],faces:number[]=[];
+  for(const row of rings)for(const p of row){
+    if(![p.x,p.y,p.z].every(Number.isFinite))
+      throw new Error("Non-finite mountain surface vertex");
+    positions.push(p.x,p.y,p.z);
+  }
+  for(let r=0;r<rings.length-1;r++)for(let c=0;c<columns-1;c++){
+    const a=r*columns+c,b=(r+1)*columns+c;
+    faces.push(a,b,b+1,a,b+1,a+1);
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
+  g.setIndex(faces);
+  g.computeVertexNormals();
+  return g;
+}
+
 export function ribbon(
   points: readonly THREE.Vector3[],
   widths: readonly number[],
