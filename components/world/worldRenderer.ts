@@ -74,7 +74,7 @@ import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
 import { createNorthShoreLife } from "./worldNorthShoreLife";
-import { GeometryBatch, ringSurface, ribbon } from "./worldGeometry";
+import { GeometryBatch, ringSurface, indexedRingSurface, ribbon } from "./worldGeometry";
 import { SNOWMELT_POOL, drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings, waterfallRockWalls, paperCaveShellRings, paperCaveRoofHeight } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
 import { stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
@@ -1417,8 +1417,35 @@ export function createWorld(
   // Close the rock above and beside the mouth without closing the passage.
   // Terrain sections and arch sections have incompatible vertex meanings.
   // Joining them creates crossed triangles, so cap the entrance separately.
-  const paperRockSkin = paperRockRings;
-  mesh(geo(ringSurface(paperRockSkin)),mat("#78867a",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  // Keep the elevated waterproof crown and cave shell exactly where their
+  // collision/support geometry expects them. Render the exterior like native
+  // mountain, not an unrelated flat grey sheet with hard triangle normals.
+  // Indexed adjacent rings give a continuous surface normal across rows.
+  const crownGeometry=geo(indexedRingSurface(paperRockRings));
+  const crownPositions=crownGeometry.getAttribute("position");
+  const crownColors:number[]=[];
+  const crownStone=new THREE.Color("#768577");
+  const crownBiome=new THREE.Color();
+  for(let i=0;i<crownPositions.count;i++){
+    const x=crownPositions.getX(i),z=crownPositions.getZ(i);
+    const center=paperRockRings[Math.floor(i/paperRockRings[0].length)][28].x;
+    const distanceToChannel=Math.abs(x-center);
+    const edge=Math.max(0,Math.min(1,(distanceToChannel-3.0)/4));
+    const fade=edge*edge*(3-2*edge);
+    crownBiome.setRGB(0,0,0);
+    for(const [id,weight] of Object.entries(biomeAt({x,z}).weights))
+      crownBiome.add(new THREE.Color(BIOME_COLORS[id as keyof typeof BIOME_COLORS]).multiplyScalar(weight));
+    crownBiome.lerp(crownStone,1-fade);
+    const l=.96+.03*Math.sin(x*1.73+z*.41);
+    crownColors.push(crownBiome.r*l,crownBiome.g*l,crownBiome.b*l);
+  }
+  crownGeometry.setAttribute("color",new THREE.Float32BufferAttribute(crownColors,3));
+  const crownMesh=mesh(crownGeometry,mat("#ffffff",{
+    vertexColors:true,side:THREE.DoubleSide,roughness:.98,
+    polygonOffset:true,polygonOffsetFactor:-.6,polygonOffsetUnits:-.6,
+  }),[0,0,0],[1,1,1]);
+  crownMesh.name="waterfall-native-ridge-roof";
+  crownMesh.castShadow=false;
   // Seal every exposed crown edge; the front faces preserve the arch opening.
   const rockWalls=new GeometryBatch();
   for(const rings of waterfallRockWalls()){
