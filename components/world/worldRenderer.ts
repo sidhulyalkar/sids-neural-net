@@ -2199,6 +2199,18 @@ export function createWorld(
   );
   shastaTailTip.castShadow=false;
   canvas.dataset.shastaTailTip="closed-white";
+  // Small, stylized squirrel carried beneath the muzzle after a real catch.
+  const carriedPrey=new THREE.Group();
+  carriedPrey.position.set(0,1.19,1.35);carriedPrey.rotation.x=-.47;
+  mesh(shastaBodyGeo,mat("#9a7156",{roughness:1}),[0,-.13,0],[.17,.15,.31],carriedPrey);
+  mesh(shastaBodyGeo,mat("#b49073",{roughness:1}),[0,-.17,.29],[.13,.12,.14],carriedPrey);
+  mesh(shastaBodyGeo,mat("#785443",{roughness:1}),[0,-.10,-.34],[.065,.065,.28],carriedPrey);
+  carriedPrey.visible=false;shastaArt.add(carriedPrey);
+  const bloodDrops=instances(shastaBodyGeo,mat("#8b4239",{roughness:1}),
+    Array.from({length:12},()=>({x:0,y:-100,z:0,sx:.065,sy:.018,sz:.045})),false);
+  bloodDrops.visible=false;
+  const bloodTrail:{x:number;y:number;z:number;born:number}[]=[];
+  let lastBloodDrop=-Infinity;
   shastaTail.rotation.z = SHASTA_CHARACTER.tail.restAngleZ;
   shastaTail.rotation.y = SHASTA_CHARACTER.tail.restAngleY;
 
@@ -3562,6 +3574,8 @@ export function createWorld(
   let dogChase = initialChaseState();
   let dogOuting=initialShastaOuting();
   let dogTrick=idleShastaTrick();
+  let wasCarrying=false;
+  let shastaCatchCount=0;
   let pearlNoticeUntil=0;
 
   let dogTargetSwitches = 0;
@@ -6349,12 +6363,15 @@ export function createWorld(
     const commandedPose=shastaTrickPose(dogTrick,elapsed);
     dogOuting=stepShastaOuting(dogOuting,elapsed,dog,player,
       critters.map(c=>c.kind==="squirrel"?c.point:null),outingAllowed,dryRoute);
-    dogChase={mode:dogOuting.mode==="roam"?"follow":dogOuting.mode,
+    dogChase={mode:dogOuting.mode==="roam"?"follow":
+      dogOuting.mode==="deliver"?"return":dogOuting.mode,
       target:dogOuting.target,until:dogOuting.until,cooldown:dogOuting.cooldown};
     canvas.dataset.shastaCommand=dogOuting.command;
     canvas.dataset.shastaOuting=dogOuting.mode;
     canvas.dataset.shastaTrick=dogTrick.trick??"";
     canvas.dataset.shastaTrickPhase=dogTrick.phase;
+    canvas.dataset.shastaCarrying=String(dogOuting.carrying);
+    canvas.dataset.shastaCatchCount=String(shastaCatchCount);
     dogInterestCritterIndex = dogChase.target;
     if (dogChase.target !== null && dogChase.target !== chaseBefore.target) dogTargetSwitches++;
     const nearbyCritter = discGolf.phase!=="off"||dogInterestCritterIndex === null ?
@@ -6410,7 +6427,9 @@ export function createWorld(
               discFetch.target
             : nearbyCritter
               ? nearbyCritter.point
-              : dogOuting.goal??{ x: player.x - travel.heading.x * 2.2 + travel.heading.z * 1.2, z: player.z - travel.heading.z * 2.2 - travel.heading.x * 1.2 }
+              : dogOuting.mode==="deliver"?dog:
+        dogOuting.carrying?{x:player.x+1.1,z:player.z+1.1}:
+        dogOuting.goal??{ x: player.x - travel.heading.x * 2.2 + travel.heading.z * 1.2, z: player.z - travel.heading.z * 2.2 - travel.heading.x * 1.2 }
       : { x: 4 + Math.sin(elapsed * 0.13) * 2, z: 12 };
     canvas.dataset.dogFetchStage=discFetch.phase;
     if(snowStagesSeen.at(-1)!==shastaSnow.stage){
@@ -6532,6 +6551,25 @@ export function createWorld(
       }
     }
     const dogStep = distance(dogBefore, dog);
+    if(dogOuting.carrying&&!wasCarrying)shastaCatchCount++;
+    wasCarrying=dogOuting.carrying;
+    carriedPrey.visible=dogOuting.carrying;
+    if(dogOuting.carrying&&dogStep>.06&&elapsed-lastBloodDrop>.42){
+      lastBloodDrop=elapsed;
+      bloodTrail.push({x:dog.x,y:dogSupport(dog)+.025,z:dog.z,born:elapsed});
+      if(bloodTrail.length>12)bloodTrail.shift();
+    }
+    while(bloodTrail.length&&elapsed-bloodTrail[0].born>6)bloodTrail.shift();
+    bloodDrops.count=bloodTrail.length;
+    bloodDrops.visible=bloodTrail.length>0;
+    bloodTrail.forEach((mark,i)=>{
+      const fade=Math.max(.1,1-(elapsed-mark.born)/6);
+      dummy.position.set(mark.x,mark.y,mark.z);
+      dummy.rotation.set(0,0,0);
+      dummy.scale.set(.055*fade,.015,.04*fade);
+      dummy.updateMatrix();bloodDrops.setMatrixAt(i,dummy.matrix);
+    });
+    if(bloodTrail.length)bloodDrops.instanceMatrix.needsUpdate=true;
     // Monotone motion evidence for browser QA; the gait *phase* intentionally
     // wraps every cycle and must not be used as a cumulative distance proxy.
     dogDistanceTraveled += dogStep;
