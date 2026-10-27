@@ -34,7 +34,7 @@ test('Stay, sit and down remain in a stationary hold until interrupted',()=>{
 });
 test('left and right paws, rolls and spins have mirror-opposite poses',()=>{
  const pose=(t:'shake-left'|'shake-right'|'roll-left'|'roll-right'|'spin-left'|'spin-right')=>
-  shastaTrickPose(beginShastaTrick(t,0,player,player,heading),.6);
+  shastaTrickPose(beginShastaTrick(t,0,t.startsWith('shake')?{x:0,z:1.5}:player,player,heading),.6);
  const left=pose('shake-left'),right=pose('shake-right');
  assert.ok(left.pawLeft>.05&&left.pawRight===0);
  assert.ok(right.pawRight>.05&&right.pawLeft===0);
