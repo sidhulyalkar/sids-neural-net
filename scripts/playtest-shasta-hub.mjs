@@ -52,6 +52,11 @@ try{
  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTrick==='park-it',
   null,{timeout:15000});
  await record('park it approach');
+ await page.waitForFunction(()=>{
+  const d=document.querySelector('canvas')?.dataset;
+  return d?.shastaTrick==='park-it'&&d.shastaTrickPhase==='hold';
+ },null,{timeout:55000});
+ await record('park it lying down between feet');
  await page.screenshot({path:path.join(out,'02-shasta-park-it.png')});
  await nav.getByRole('button',{name:'Shasta Come'}).click();
  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaCommand==='come'&&
