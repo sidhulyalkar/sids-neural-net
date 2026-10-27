@@ -1,0 +1,80 @@
+name: Shasta Hub and Companion Browser QA
+
+on:
+  pull_request:
+    paths:
+      - 'lib/world/shastaCommands.ts'
+      - 'lib/world/shastaTricks.ts'
+      - 'components/world/WorldHome.tsx'
+      - 'components/world/WorldScene.tsx'
+      - 'components/world/worldRenderer.ts'
+      - 'components/world/world.module.css'
+      - 'tests/world-shasta-commands.test.ts'
+      - 'tests/world-shasta-tricks.test.ts'
+      - 'scripts/playtest-shasta-hub.mjs'
+      - 'scripts/playtest-shasta-commands.mjs'
+      - '.github/workflows/world-shasta-hub-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shasta-hub-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shasta-hub:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    env:
+      PLAYWRIGHT_MODULE_ROOT: /tmp/shasta-playwright/node_modules/playwright
+      WORLD_BASE_URL: http://127.0.0.1:3000
+      WORLD_AUDIT_DIR: artifacts/world/shasta-hub
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked packages
+        run: npm ci
+      - name: Validate types, commands and browser scripts
+        run: |
+          npm run typecheck
+          npx eslint lib/world/shastaCommands.ts lib/world/shastaTricks.ts tests/world-shasta-commands.test.ts tests/world-shasta-tricks.test.ts --max-warnings=0
+          node --import tsx --test tests/world-shasta-commands.test.ts tests/world-shasta-tricks.test.ts
+          node --check scripts/playtest-shasta-hub.mjs
+          node --check scripts/playtest-shasta-commands.mjs
+      - name: Install isolated Chromium
+        run: |
+          mkdir -p /tmp/shasta-playwright
+          npm install --prefix /tmp/shasta-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/shasta-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Run actual site
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/shasta-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 150 /tmp/shasta-next.log
+          exit 1
+      - name: Test Shasta hub and tricks in desktop and mobile
+        run: node scripts/playtest-shasta-hub.mjs
+      - name: Test Go and Come with actual dog locomotion
+        env:
+          WORLD_SCREENSHOT: artifacts/world/shasta-hub/04-go-come.png
+        run: node scripts/playtest-shasta-commands.mjs
+      - name: Show preview failures
+        if: failure()
+        run: tail -n 180 /tmp/shasta-next.log || true
+      - name: Preserve state trace and real screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shasta-hub-${{ github.sha }}
+          path: |
+            artifacts/world/shasta-hub/
+            /tmp/shasta-next.log
+          if-no-files-found: warn
