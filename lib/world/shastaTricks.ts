@@ -6,10 +6,10 @@ export type ShastaAction = 'go'|'come'|ShastaTrick;
 export type ShastaTrickPhase='idle'|'approach'|'perform'|'hold'|'recover';
 export type ShastaTrickState={
   trick:ShastaTrick|null;phase:ShastaTrickPhase;since:number;
-  approachUntil:number;goal:Point|null;
+  approachUntil:number;goal:Point|null;finalGoal:Point|null;
 };
 export const idleShastaTrick=():ShastaTrickState=>({
-  trick:null,phase:'idle',since:0,approachUntil:0,goal:null,
+  trick:null,phase:'idle',since:0,approachUntil:0,goal:null,finalGoal:null,
 });
 const smooth=(x:number)=>{const t=Math.min(1,Math.max(0,x));return t*t*(3-2*t);};
 const distance=(a:Point,b:Point)=>Math.hypot(a.x-b.x,a.z-b.z);
@@ -25,20 +25,30 @@ export function beginShastaTrick(
 ):ShastaTrickState{
  const forward=heading.x*heading.x+heading.z*heading.z>.1?heading:{x:0,z:1};
  // Park-it approaches from behind, then settles between the player's feet.
- const goal=trick==='park-it'?{
+ const finalGoal=trick==='park-it'?{
   x:player.x-forward.x*.38,z:player.z-forward.z*.38,
- }:trick==='shake-left'||trick==='shake-right'?
- {x:player.x+forward.x*1.55,z:player.z+forward.z*1.55}:null;
- const shouldApproach=goal!==null&&distance(dog,goal)>1.1;
+ }:null;
+ // Circle behind the visitor first, then settle into the final lay-down.
+ // The lateral approach keeps him from cutting through the player's body.
+ const side=Math.sign((dog.x-player.x)*forward.z-(dog.z-player.z)*forward.x)||1;
+ const parkVia=finalGoal?{
+  x:player.x-forward.x*1.9+forward.z*side*1.3,
+  z:player.z-forward.z*1.9-forward.x*side*1.3,
+ }:null;
+ const goal=parkVia??(trick==='shake-left'||trick==='shake-right'?
+ {x:player.x+forward.x*1.55,z:player.z+forward.z*1.55}:null);
+ const shouldApproach=goal!==null&&(distance(dog,goal)>1.1||finalGoal!==null);
  return {trick,phase:shouldApproach?'approach':'perform',since:now,
-  approachUntil:now+9,goal};
+  approachUntil:now+12,goal,finalGoal};
 }
 export function stepShastaTrick(
  state:ShastaTrickState,now:number,dog:Point,allowed:boolean,
 ):ShastaTrickState{
  if(!allowed||state.phase==='idle')return idleShastaTrick();
  if(state.phase==='approach'){
-  if(state.goal&&distance(dog,state.goal)>.7&&now<state.approachUntil)return state;
+  if(now>=state.approachUntil)return idleShastaTrick();
+  if(state.goal&&distance(dog,state.goal)>.7)return state;
+  if(state.finalGoal)return {...state,goal:state.finalGoal,finalGoal:null};
   return {...state,phase:'perform',since:now};
  }
  if(state.phase==='perform'&&now-state.since>=duration[state.trick!]){
