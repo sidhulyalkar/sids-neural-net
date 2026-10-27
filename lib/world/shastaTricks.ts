@@ -69,7 +69,7 @@ export function shastaTrickPose(s:ShastaTrickState,now:number){
  return {
   crouch:(down?.72:t==='sit'?.45:0)*sustained,
   roll,spin,jump,pawLeft,pawRight,
-  head:(t==='shake-left'||t==='shake-right'?.13:down?-.06:0)*sustained,
+  head:((t==='shake-left'||t==='shake-right')?.13:down?-.06:0)*sustained,
   still:hold||live,
  };
 }
