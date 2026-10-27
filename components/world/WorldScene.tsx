@@ -6,13 +6,14 @@ import type { RegionId, WorldCommand } from "@/lib/world/model";
 import styles from "./world.module.css";
 
 import type { Activity, AquaticMode } from "@/lib/world/activities";
+import type {ShastaAction} from "@/lib/world/shastaTricks";
 import type { TrialState } from "@/lib/world/trials";
 import type { BigAirState } from "@/lib/world/bigAir";
 import type { DiscGolfState,DiscShot,DiscGolfSwingStage } from "@/lib/world/discGolf";
 import type { SkimHeat } from "@/lib/world/skimboarding";
 
 type Props = {
-  shastaCommand: "go" | "come";
+  shastaCommand: ShastaAction;
   shastaCommandSerial: number;
   activity: Activity;
   actionSerial: number;
