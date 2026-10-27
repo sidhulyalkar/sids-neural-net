@@ -6,12 +6,15 @@ import type { RegionId, WorldCommand } from "@/lib/world/model";
 import styles from "./world.module.css";
 
 import type { Activity, AquaticMode } from "@/lib/world/activities";
+import type {ShastaAction} from "@/lib/world/shastaTricks";
 import type { TrialState } from "@/lib/world/trials";
 import type { BigAirState } from "@/lib/world/bigAir";
 import type { DiscGolfState,DiscShot,DiscGolfSwingStage } from "@/lib/world/discGolf";
 import type { SkimHeat } from "@/lib/world/skimboarding";
 
 type Props = {
+  shastaCommand: ShastaAction;
+  shastaCommandSerial: number;
   activity: Activity;
   actionSerial: number;
   challengeSerial: number;
@@ -74,8 +77,16 @@ export default function WorldScene(props: Props) {
           onSkimNearby:(board)=>callbacks.current.onSkimNearby(board),
         }, WebGLRenderer, callbacks.current.gameTitles);
         runtime.current.setState(callbacks.current);
-      } catch { callbacks.current.onError(); }
-    }).catch(() => { if (!cancelled) callbacks.current.onError(); });
+      } catch (error) {
+        console.error("World 3D initialization failed",error);
+        callbacks.current.onError();
+      }
+    }).catch((error) => {
+      if (!cancelled) {
+        console.error("World WebGL renderer module failed to load",error);
+        callbacks.current.onError();
+      }
+    });
     return () => {
       cancelled = true;
       runtime.current?.dispose();

@@ -1,6 +1,6 @@
 import {waterfallRockHeight,paperCaveRoofHeight} from "./hydrology";
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
-import {insideMeadowConnector,insideSkatePark,skateParkSurface,skateParkLipCrossing,redwoodBowlCarveHeading,SKATE_PARK_RAILS,SKATE_GROVE_FLOW,type SkateRail} from "./skatepark";
+import {GROVE_TUNNEL,insideMeadowConnector,insideSkatePark,skateParkSurface,skateParkLipCrossing,redwoodBowlCarveHeading,SKATE_PARK_RAILS,SKATE_GROVE_FLOW,type SkateRail} from "./skatepark";
 import {skateRollingSpeed} from "./skateDynamics";
 import {isContinuousRideRise} from "./rideSurface";
 import {airborneSupportHeight} from "./rideRecovery";
@@ -9,6 +9,7 @@ import { bigAirClearance } from "./bigAir";
 import {jetSkiPierHeight} from "./jetSkiPier";
 import {
   constrainMove,
+  constrainSwimMove,
   distance,
   isWater,
   terrainHeight,
@@ -441,13 +442,14 @@ export function stepSwim(
     speed * dt,
     destination ? distance(current.point, destination) : Infinity,
   );
-  const point = constrainMove(
+  // Swim through the southern offshore channel without enlarging the
+  // island's land / skate / bike movement bounds or touching rock colliders.
+  const point = constrainSwimMove(
     current.point,
     {
       x: current.point.x + heading.x * step,
       z: current.point.z + heading.z * step,
     },
-    [],
   );
   return {
     point,
@@ -484,6 +486,11 @@ export function terrainContact(
 }
 
 export function nearestGrind(point: Point, maxDistance = 1.45) {
+  // The hollow log and both runouts are free riding space. Proximity to a
+  // separate rail must not turn a jump off the cut end into a grind snap.
+  if (Math.abs(point.x-GROVE_TUNNEL.center.x)<=GROVE_TUNNEL.halfLength+1.5 &&
+      Math.abs(point.z-GROVE_TUNNEL.center.z)<=GROVE_TUNNEL.outerHalfWidth+1.5)
+    return undefined;
   let best:
     | {
         log: GrindRail;

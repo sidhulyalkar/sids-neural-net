@@ -1,5 +1,5 @@
 import * as THREE from "three/src/Three.Core.js";
-import {SEA_SURFACE} from "@/lib/world/model";
+import {SEA_SURFACE,seaFloorHeight} from "@/lib/world/model";
 import type {JetSkiRock,JetSkiArch,JetSkiRockKind} from "@/lib/world/jetSkiCourse";
 
 /** Faceted, strata-aware offshore geology; no model downloads or per-frame
@@ -59,6 +59,13 @@ export function createSeaStackGeometry(rock:JetSkiRock):THREE.BufferGeometry{
  }
  for(let i=1;i<sides-1;i++)
   indices.push((levels-1)*sides,(levels-1)*sides+i+1,(levels-1)*sides+i);
+ // Extend only submerged vertices. The entire visible silhouette is unchanged.
+ for(let i=0;i<vertices.length;i+=3){
+  if(vertices[i+1]>=SEA_SURFACE)continue;
+  const floor=seaFloorHeight(rock.point.x+vertices[i],rock.point.z+vertices[i+2])-.8;
+  vertices[i+1]=i<sides*3?floor:SEA_SURFACE+(vertices[i+1]-SEA_SURFACE)/1.7*
+    Math.max(1.7,SEA_SURFACE-floor);
+ }
  return finish(vertices,colors,indices);
 }
 /** A continuous coastal arch, not a roof draped over two tall sea stacks.
@@ -102,9 +109,13 @@ export function createSeaArchGeometry(arch:JetSkiArch):THREE.BufferGeometry{
   const upper=clamp(y/h,0,1);
   const grain=.085*Math.sin(x*.64+y*.37+seed)+
    .065*Math.sin(x*.24-y*.91+seed*.7);
+  const worldX=arch.center.x+x*Math.cos(arch.heading)+z*Math.sin(arch.heading);
+  const worldZ=arch.center.z-x*Math.sin(arch.heading)+z*Math.cos(arch.heading);
+  const depth=Math.max(1.8,SEA_SURFACE-seaFloorHeight(worldX,worldZ)+.8);
+  const sculptedY=y+.025*Math.sin(x*.72+y*.35+seed);
   return [
    x+.035*Math.sin(y*.43+x*.71+seed)*(y>0?1:.35),
-   y+.025*Math.sin(x*.72+y*.35+seed),
+   sculptedY<0?sculptedY*depth/1.8:sculptedY,
    z*(1-.12*upper)+Math.sign(z)*grain,
   ];
  };

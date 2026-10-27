@@ -178,3 +178,59 @@ test("Moss Canyon terrain ribbon and kinked rail art share physics heights",()=>
   assert.ok(grove.root.children.length<=22);
  }finally{grove.dispose();}
 });
+
+
+test("sequoia interior has seamless normals and refined contact geometry",()=>{
+ const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
+ try{
+  const mesh=grove.root.getObjectByName("sequoia-hollow-inner-roof");
+  assert.ok(mesh instanceof THREE.Mesh);
+  const geo=mesh.geometry;
+  const positions=geo.getAttribute("position");
+  const normals=geo.getAttribute("normal");
+  // 57 axial stations, 113 angular vertices after the smoothness pass.
+  const along=57,around=113;
+  assert.equal(positions.count,along*around);
+  for(let ix=0;ix<along;ix++){
+   const a=ix*around,b=a+around-1;
+   assert.ok(Math.hypot(positions.getX(a)-positions.getX(b),
+     positions.getY(a)-positions.getY(b),positions.getZ(a)-positions.getZ(b))<1e-5);
+   assert.ok(Math.hypot(normals.getX(a)-normals.getX(b),
+     normals.getY(a)-normals.getY(b),normals.getZ(a)-normals.getZ(b))<1e-5,
+     "inner wall must not have a hard shading seam at angle 0/2π");
+  }
+  // Actual analytic shell and mesh agree along both floor entrances.
+  const xLeft=positions.getX(0),xRight=positions.getX((along-1)*around);
+  assert.ok(xLeft<xRight);
+  const at=(i:number)=>({x:positions.getX(i),y:positions.getY(i),z:positions.getZ(i)});
+  const a=at(0),b=at((along-1)*around);
+  assert.ok(Math.abs(a.y-groundHeight({x:a.x,z:a.z}))<.01);
+  assert.ok(Math.abs(b.y-groundHeight({x:b.x,z:b.z}))<.01);
+ }finally{grove.dispose();}
+});
+
+
+test("meadow support mesh stays behind the log's curved inner floor, never a bright flat stripe",()=>{
+ const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
+ try{
+  const meadow=grove.root.getObjectByName("canyon-woodland-flow-surface");
+  assert.ok(meadow instanceof THREE.Mesh);
+  const verts=meadow.geometry.getAttribute("position");
+  const sample=(x:number,z:number)=>{
+   let best=Infinity,index=0;
+   for(let i=0;i<verts.count;i++){
+    const distance=Math.hypot(verts.getX(i)-x,verts.getZ(i)-z);
+    if(distance<best){best=distance;index=i;}
+   }
+   assert.ok(best<.55,"requested actual fine-grid vertex");
+   const point={x:verts.getX(index),z:verts.getZ(index)};
+   return {point,y:verts.getY(index)};
+  };
+  const inside=sample(0,59.1);
+  assert.ok(inside.y<groundHeight(inside.point)-.02,
+   "physical polished log surface must draw over flat meadow underlay");
+  const outside=sample(9.8,59.1);
+  assert.ok(Math.abs(outside.y-groundHeight(outside.point)-.035)<.001,
+   "away from the mouth, visible meadow must still match ride geometry");
+ }finally{grove.dispose();}
+});

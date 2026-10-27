@@ -1,7 +1,8 @@
 "use client";
 import {RESEARCH_GALLERY} from "@/lib/world/researchGallery";
 import {worldGameSession} from "@/lib/world/gameMode";
-import {Bike, ChevronDown, Disc3, MountainSnow, Waves, Trees} from "lucide-react";
+import {Bike, ChevronDown, Disc3, MountainSnow, Waves, Trees, Menu as MenuIcon, PawPrint} from "lucide-react";
+import type {ShastaAction,ShastaTrick} from "@/lib/world/shastaTricks";
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -248,6 +249,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [aquatic, setAquatic] = useState<AquaticMode>("land");
   const [waterAction, setWaterAction] = useState<"dive" | "deeper" | "shallower" | "surface">("dive");
   const [waterActionSerial, setWaterActionSerial] = useState(0);
+  const [shastaCommand,setShastaCommand]=useState<ShastaAction>("come");
+  const [shastaOpen,setShastaOpen]=useState(false);
+  const [shastaCommandSerial,setShastaCommandSerial]=useState(0);
   const [quiet, setQuiet] = useState(false);
   const [region, setRegion] = useState<RegionId>("grove");
   const [nearby, setNearby] = useState<string | null>(null);
@@ -499,6 +503,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
             entered={entered}
             paused={!!panel || quiet}
             command={command}
+            shastaCommand={shastaCommand}
+            shastaCommandSerial={shastaCommandSerial}
             activity={activity}
             actionSerial={actionSerial}
             challengeSerial={challengeSerial}
@@ -536,15 +542,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
         <Link href="/" className={styles.wordmark} prefetch={false}>
           Sid Hulyalkar
         </Link>
-        <button
+        {(!entered||failed||aquatic!=="land"||worldGameActive||skim.phase!=="off")&&<button
           className={styles.menuButton}
           onClick={() => open("menu")}
           aria-label="Open navigation menu"
           aria-haspopup="dialog"
-        >
-          <span>Menu</span>
-          <span aria-hidden="true">☰</span>
-        </button>
+          title="Navigation"
+        ><MenuIcon size={20} aria-hidden="true"/></button>}
       </header>
       {!entered || failed ? (
         <section className={styles.welcome} aria-labelledby="world-title">
@@ -590,6 +594,16 @@ export function WorldHome({ content }: { content: WorldContent }) {
           {aquatic === "land" && (
              <nav className={styles.activityDock} aria-label="World movement and sports"
                style={{display:worldGameActive||skim.phase!=="off"?"none":undefined}}>
+               <div className={styles.hubHeading}>
+                 <button type="button" aria-label="Open navigation menu" aria-haspopup="dialog"
+                   title="Navigation" onClick={()=>open("menu")}><MenuIcon size={19} aria-hidden="true"/></button>
+                 <span>ISLAND HUB</span>
+                 <button type="button" aria-label={shastaOpen?"Hide Shasta tricks":"Show Shasta tricks"}
+                   aria-expanded={shastaOpen} aria-controls="world-shasta-tricks"
+                   title="Shasta commands" onClick={()=>setShastaOpen(open=>!open)}>
+                   <PawPrint size={19} aria-hidden="true"/>
+                 </button>
+               </div>
                <div className={styles.activityButtons} role="group" aria-label="Movement activity">
                  {ACTIVITIES.map(item => (
                    <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
@@ -602,6 +616,31 @@ export function WorldHome({ content }: { content: WorldContent }) {
                    onClick={() => setActionSerial(n => n + 1)}>
                    {activityConfig(activity).action}
                  </button>
+               </div>
+               <div className={styles.activityButtons} role="group" aria-label="Shasta companion">
+                 {(["go","come"] as const).map(command=>(
+                   <button key={command} type="button" disabled={!ready||quiet||!!panel||worldGameActive}
+                     title={command==="go"?"Run around and chase nearby squirrels":"Return and stay with me"}
+                     onClick={()=>{setShastaCommand(command);setShastaCommandSerial(n=>n+1);}}>
+                     Shasta {command==="go"?"Go":"Come"}
+                   </button>
+                 ))}
+               </div>
+               <div id="world-shasta-tricks" className={styles.shastaDrawer} hidden={!shastaOpen}
+                    role="group" aria-label="Shasta training and tricks">
+                 <p>Shasta · Tricks</p>
+                 <div className={styles.shastaTrickGrid}>
+                   {([["sit","Sit"],["down","Down"],["stay","Stay"],["jump","Jump up"],
+                     ["roll-left","Roll left"],["roll-right","Roll right"],
+                     ["shake-left","Shake left paw"],["shake-right","Shake right paw"],
+                     ["spin-left","Spin left"],["spin-right","Spin right"],
+                     ["park-it","Park it"]] as [ShastaTrick,string][]).map(([trick,label])=>(
+                     <button key={trick} type="button" title={label}
+                       disabled={!ready||quiet||!!panel||worldGameActive}
+                       onClick={()=>{setShastaCommand(trick);setShastaCommandSerial(n=>n+1);}}>{label}</button>
+                   ))}
+                 </div>
+                 <p className={styles.shastaHint}>Park it brings Shasta between your feet to lie down. Come calls him back.</p>
                </div>
                <button type="button" className={styles.sportsToggle}
                  aria-controls="world-sport-shortcuts" aria-expanded={sportsOpen}

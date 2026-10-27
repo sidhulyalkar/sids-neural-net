@@ -112,3 +112,27 @@ test("north-shore surfing foreground stays free of race arch supports",()=>{
  assert.ok(jetSkiSegmentClear(arch.center,JET_SKI_GATES[5],1),
   "Northern arch exit remains navigable");
 });
+
+test('submerged stack toes and both arch feet penetrate the sampled seabed',async()=>{
+ const {seaFloorHeight}=await import('../lib/world/model');
+ for(const rock of JET_SKI_ROCKS){
+  const g=createSeaStackGeometry(rock),p=g.getAttribute('position');
+  for(let i=0;i<13;i++)assert.ok(p.getY(i)<seaFloorHeight(rock.point.x+p.getX(i),rock.point.z+p.getZ(i))-.5);
+  g.dispose();
+ }
+ for(const arch of JET_SKI_ARCHES){
+  const g=createSeaArchGeometry(arch),p=g.getAttribute('position');
+  for(const side of [-1,1]){
+   let buried=0;
+   for(let i=0;i<p.count;i++){
+    const x=p.getX(i),z=p.getZ(i);
+    if(x*side<arch.span*.35)continue;
+    const wx=arch.center.x+x*Math.cos(arch.heading)+z*Math.sin(arch.heading);
+    const wz=arch.center.z-x*Math.sin(arch.heading)+z*Math.cos(arch.heading);
+    if(p.getY(i)+SEA_SURFACE<seaFloorHeight(wx,wz)-.3)buried++;
+   }
+   assert.ok(buried>5,`${arch.id} foot ${side} must be buried`);
+  }
+  g.dispose();
+ }
+});

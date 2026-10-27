@@ -27,8 +27,8 @@ try{
  }
  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
   null,{timeout:45000});
- // Pick Skiing, which navigates to mountain terrain. Do not arm the
- // original fixed-lip big-air challenge.
+ // Skiing is free roam, even across an eligible mountain slope.
+ // Selecting it may never silently begin the cinematic bird flight.
  await page.getByRole("button",{name:"Skiing",exact:true}).click();
  await page.waitForFunction(()=>{
   const d=document.querySelector("canvas")?.dataset;
@@ -36,37 +36,50 @@ try{
  },null,{timeout:30000});
  const canvas=page.locator("canvas");
  assert.equal(await canvas.getAttribute("data-big-air-phase"),"idle");
- // A free mountain jump must derive from actual skier momentum. Gain speed
- // through normal input; the downhill lip might auto-launch before Space.
+ await canvas.focus();
+ await page.keyboard.down("w");
+ try {
+  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.speed)>5.3,
+   null,{timeout:35000});
+  assert.equal(await canvas.getAttribute("data-big-air-phase"),"idle",
+   "ordinary downhill skiing must not summon birds or start a scored flight");
+  await page.waitForTimeout(900);
+  assert.equal(await canvas.getAttribute("data-big-air-phase"),"idle");
+ } finally {await page.keyboard.up("w");}
+ await page.screenshot({path:path.join(out,"00-free-ski-no-birds.png")});
+
+ // ONLY the menu selection arms this game.
+ await page.getByRole("button",{name:"Show sport shortcuts",exact:true}).click();
+ await page.getByRole("button",{name:"Ski jump",exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.bigAirPhase==="armed",
+  null,{timeout:15000});
+ assert.equal(await canvas.getAttribute("data-activity"),"ski");
  await canvas.focus();
  let flight;
  await page.keyboard.down("w");
- try{
-   await page.waitForFunction(()=>{
-    const d=document.querySelector("canvas")?.dataset;
-    return d?.bigAirPhase==="flying"||Number(d?.speed)>=6;
-   },null,{timeout:35000});
-   if(await canvas.getAttribute("data-big-air-phase")==="idle")
-    await page.keyboard.press("Space");
-   // Sample the active bird/flight state atomically. A short jump can land
-   // between independent Playwright evaluate requests on 4 FPS SwiftShader.
+ try {
    const sample=await page.waitForFunction(()=>{
     const d=document.querySelector("canvas")?.dataset;
     if(d?.bigAirPhase!=="flying"||d.bigAirBirdsFollowing!=="true")
-     return false;
+      return false;
     return {phase:d.bigAirPhase,distance:Number(d.bigAirDistance),
      altitude:Number(d.bigAirAltitude),birds:d.bigAirBirdsFollowing,
-     outward:Number(d.bigAirOutwardGain),
-     peak:Number(d.bigAirPeakClearance),mode:d.activity};
-   },null,{timeout:35000});
+     outward:Number(d.bigAirOutwardGain),peak:Number(d.bigAirPeakClearance),
+     mode:d.activity};
+   },null,{timeout:45000});
    flight=await sample.jsonValue();
  }finally{await page.keyboard.up("w");}
  assert.equal(flight.mode,"ski");
  assert.equal(flight.birds,"true");
- // Starting another minigame must be unavailable while a ski flight plays.
+ // Starting another minigame must be unavailable while an explicitly armed ski flight plays.
  // Hidden game-dock controls are deliberately absent from the accessible
  // tree. Include hidden only to assert their disabled/visibility contract.
  const disc=page.locator("button").filter({hasText:/^Disc golf/}).first();
+ const ensureSportsVisible=async()=>{
+   const drawerToggle=page.locator('button[aria-controls="world-sport-shortcuts"]');
+   if(await drawerToggle.getAttribute("aria-expanded")!=="true")await drawerToggle.click();
+   await disc.waitFor({state:"visible",timeout:15000});
+ };
  // Result display must release movement; only an actual flight owns it.
  const during=await canvas.evaluate(el=>({phase:el.dataset.bigAirPhase,
   session:document.querySelector("[data-world-session]")?.getAttribute("data-world-session")}));
@@ -99,11 +112,15 @@ try{
  });
  await page.getByRole("button",{name:"Open navigation menu"}).click();
  await page.getByRole("button",{name:/Redwood grove A little about me/}).click();
- await disc.waitFor({state:"visible",timeout:15000});
+ await ensureSportsVisible();
  await page.getByRole("button",{name:"Skiing",exact:true}).click();
- await page.getByRole("button",{name:"Mountain ski jump · summit start",exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.bigAirPhase==="idle");
+ await ensureSportsVisible();
+ await page.getByRole("button",{name:"Ski jump",exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.bigAirPhase==="armed",
+  null,{timeout:15000});
  await page.getByRole("button",{name:"Exit jump",exact:true}).click();
- await disc.waitFor({state:"visible",timeout:15000});
+ await ensureSportsVisible();
  assert.equal(await page.getByRole("button",{name:"Trail running",exact:true}).getAttribute("aria-pressed"),"true");
  await page.screenshot({path:path.join(out,"03-free-roam-restored.png")});
  assert.deepEqual(errors,[],"No browser runtime errors during mountain flight");

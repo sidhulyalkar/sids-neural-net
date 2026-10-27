@@ -1,0 +1,88 @@
+name: South Shore Snorkeling and Ski Jump Isolation QA
+
+on:
+  pull_request:
+    paths:
+      - 'lib/world/southCoastAccess.ts'
+      - 'lib/world/model.ts'
+      - 'lib/world/activities.ts'
+      - 'lib/world/bigAir.ts'
+      - 'components/world/worldRenderer.ts'
+      - 'components/world/WorldHome.tsx'
+      - 'scripts/playtest-south-shore.mjs'
+      - 'scripts/playtest-mountain-jump.mjs'
+      - 'tests/world-big-air.test.ts'
+      - '.github/workflows/world-south-shore-ski-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: south-shore-ski-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  south-shore-and-ski:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        journey: [shore, ski]
+    env:
+      WORLD_BASE_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_MODULE_ROOT: /tmp/south-shore-playwright/node_modules/playwright
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify types, beach and ski physics
+        run: |
+          npm run typecheck
+          node --import tsx --test tests/world-big-air.test.ts tests/world-south-coast-access-ecology.test.ts tests/world-marine-waterfall-integration.test.ts
+      - name: Validate browser script syntax
+        run: |
+          node --check scripts/playtest-south-shore.mjs
+          node --check scripts/playtest-mountain-jump.mjs
+      - name: Install isolated Playwright Chromium
+        run: |
+          mkdir -p /tmp/south-shore-playwright
+          npm install --prefix /tmp/south-shore-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/south-shore-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start website for real browser journeys
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/south-shore-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 160 /tmp/south-shore-next.log
+          exit 1
+      - name: Walk into south shore, dive, surface and return
+        if: matrix.journey == 'shore'
+        env:
+          WORLD_AUDIT_DIR: artifacts/world/south-shore-browser
+        run: node scripts/playtest-south-shore.mjs
+      - name: Verify normal skiing never launches Big Air and menu selection does
+        if: matrix.journey == 'ski'
+        env:
+          WORLD_AUDIT_DIR: artifacts/world/ski-menu-isolation
+        run: node scripts/playtest-mountain-jump.mjs
+      - name: Show website errors
+        if: failure()
+        run: tail -n 200 /tmp/south-shore-next.log || true
+      - name: Upload browser screenshots and state traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: south-shore-ski-browser-${{ matrix.journey }}-${{ github.sha }}
+          path: |
+            artifacts/world/south-shore-browser/
+            artifacts/world/ski-menu-isolation/
+            /tmp/south-shore-next.log
+          if-no-files-found: warn

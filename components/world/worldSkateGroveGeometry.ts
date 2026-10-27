@@ -162,7 +162,16 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   const z=MEADOW_CONNECTOR.minZ+
    iz*(MEADOW_CONNECTOR.maxZ-MEADOW_CONNECTOR.minZ)/flowStepsZ;
   const p={x,z},h=ride(p),lift=canyonFlowRise(p)+meadowConnectorRise(p);
-  flowVertices.push(x,h+.035,z);
+  // The long meadow mesh formerly floated 3.5cm ABOVE the inner tube floor,
+  // painting a bright flat stripe through the bore. Visually recess only the
+  // ground UNDER the physical log's wood skin; keep all collision heights and
+  // the normal outside approach exactly as authored. The fade starts outside
+  // the mouth so neither entrance has a hard-colored step or exposed seam.
+  const mouthOutside=Math.abs(x-GROVE_TUNNEL.center.x)-GROVE_TUNNEL.halfLength;
+  const logUnderlayX=1-graded(0,1.5,mouthOutside);
+  const logUnderlayZ=1-graded(.65,2.35,Math.abs(z-GROVE_TUNNEL.center.z));
+  const underlayDrop=.075*logUnderlayX*logUnderlayZ;
+  flowVertices.push(x,h+.035-underlayDrop,z);
   const mix=THREE.MathUtils.clamp((lift-.02)/.42,0,.85);
   // Low-lying ground is the host biome, not a rectangular olive decal.
   // Only shaped rollers and polished wood surfaces acquire cedar pigments.
@@ -221,7 +230,9 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  const sequoiaInner=material("#ffffff",{side:THREE.DoubleSide,vertexColors:true});
  const sequoiaBark=material("#ffffff",{side:THREE.DoubleSide,vertexColors:true});
  const sequoiaCut=material("#d7ac78",{side:THREE.DoubleSide});
- const archSlices=88,logSlices=44;
+ // More segments across the skating arc and axis eliminate faceted wheel-wall
+ // silhouettes while retaining two batched draw calls for the complete log.
+ const archSlices=112,logSlices=56;
  const treePoint=(x:number,a:number,outer:boolean)=>{
   const base=ride({x,z:GROVE_TUNNEL.center.z});
   const point=sequoiaTubePoint(x,a,base,outer);
@@ -240,7 +251,7 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
     const a=j*TUBE_TAU/archSlices,p=treePoint(x,a,outer);
     vertices.push(p.x,p.y,p.z);
     const detail=outer ? .44+.29*Math.sin(21*a+x)+.13*Math.cos(38*a-x*2) :
-     .78+.075*Math.sin(x*4+a*8);
+     .84+.025*Math.sin(x*1.6+a*2)+.012*Math.sin(x*3.7-a*4);
     shade.copy(dark).lerp(light,THREE.MathUtils.clamp(detail,0,1));
     tints.push(shade.r,shade.g,shade.b);
    }
@@ -253,6 +264,21 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
   g.setAttribute("position",new THREE.Float32BufferAttribute(vertices,3));
   g.setAttribute("color",new THREE.Float32BufferAttribute(tints,3));
   g.setIndex(faces);g.computeVertexNormals();
+  // The duplicated a=0 / a=2π seam has identical positions but would get
+  // independent vertex normals, making a visible longitudinal hard crease on
+  // the otherwise smooth inner wall. Weld the normals without changing UVs,
+  // topology, tangents, or the contact solver's analytic elliptical shape.
+  const normals=g.getAttribute("normal") as THREE.BufferAttribute;
+  for(let ix=0;ix<=logSlices;ix++){
+    const first=ix*(archSlices+1),last=first+archSlices;
+    const nx=normals.getX(first)+normals.getX(last);
+    const ny=normals.getY(first)+normals.getY(last);
+    const nz=normals.getZ(first)+normals.getZ(last);
+    const length=Math.hypot(nx,ny,nz)||1;
+    normals.setXYZ(first,nx/length,ny/length,nz/length);
+    normals.setXYZ(last,nx/length,ny/length,nz/length);
+  }
+  normals.needsUpdate=true;
   const mesh=new THREE.Mesh(g,outer?sequoiaBark:sequoiaInner);
   mesh.name=outer?"sequoia-deep-fluted-bark":"sequoia-hollow-inner-roof";
   mesh.castShadow=true;mesh.receiveShadow=true;group.add(mesh);

@@ -1,3 +1,6 @@
+import {applyLagoonSand} from "./worldLagoonSand";
+import {commandShasta,initialShastaOuting,stepShastaOuting} from "@/lib/world/shastaCommands";
+import {beginShastaTrick,idleShastaTrick,stepShastaTrick,shastaTrickPose,isShastaTrick,type ShastaAction} from "@/lib/world/shastaTricks";
 import {createCoastalNature} from "./worldCoastalNature";
 import {createResearchGallery} from "./worldResearchGallery";
 import {idleOceanObservation,advanceOceanObservation,stopOceanObservation} from "@/lib/world/coastalObservation";
@@ -58,16 +61,23 @@ import {
 } from "@/lib/world/discGolf";
 import {
   BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,mountainJumpEligible,mountainSkiTakeoff,mountainJumpOutwardGain,
-  advanceBigAir,mountainJumpCameraPose,armBigAir,idleBigAir,type BigAirState,
+  advanceBigAir,mountainJumpCameraPose,armBigAir,idleBigAir,bigAirChallengeReady,type BigAirState,
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
+import { createMarineHabitatPatches } from "./worldMarineHabitatPatches";
+import { marineHabitatAt, marineHabitatLabel } from "@/lib/world/marineHabitatPatches";
+import { createRayPassage } from "./worldRayPassage";
+import { createSouthChannelLife } from "./worldSouthChannelLife";
+import { createSouthCoastalEcology } from "./worldSouthCoastalEcology";
+import { southCoastEntry, SOUTH_ENTRY_SURFACE_Y } from "@/lib/world/southCoastAccess";
+import { southCoastDiscoveryAt, southCoastDiscoveryHint } from "@/lib/world/southCoastDiscovery";
 import {nearbyMarineVideo, type MarineCreaturePose} from "@/lib/world/marineVideoEncounters";
 import { createWorldTridents } from "./worldTridents";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
 import { createNorthShoreLife } from "./worldNorthShoreLife";
-import { GeometryBatch, ringSurface, ribbon } from "./worldGeometry";
+import { GeometryBatch, ringSurface, indexedRingSurface, ribbon } from "./worldGeometry";
 import { SNOWMELT_POOL, drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings, waterfallRockWalls, paperCaveShellRings, paperCaveRoofHeight } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
 import { stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
@@ -81,7 +91,7 @@ import {
   skimWaterHeight, skimWaveAt, skimBreakAmountAt, skimBoardContact,
   skimTrickForKey, type SkimHeat, type SkimTrick,
 } from "@/lib/world/skimboarding";
-import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
+import { shastaDetour, initialChaseState, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
 import {idleFetchRunRoute,stepFetchRunRoute,steerFetchRun} from "@/lib/world/shastaFetchRun";
 import {advanceShastaStride,shastaGaitPose,shastaStraightLeg} from "@/lib/world/shastaGait";
 import {shastaCameraShot,stepShastaCameraAnchor,type ShastaCameraAnchor} from "@/lib/world/shastaCamera";
@@ -123,6 +133,7 @@ import {
   SECRET,
   SPAWN,
   seaFloorHeight,
+  southernChannelFloorHeight,
   terrainHeight,
   waterZone,
   worldFloorHeight,
@@ -149,6 +160,8 @@ type Callbacks = {
   onSkimNearby:(board:number|null)=>void;
 };
 type State = {
+  shastaCommand: ShastaAction;
+  shastaCommandSerial: number;
   activity: Activity;
   actionSerial: number;
   challengeSerial: number;
@@ -221,6 +234,16 @@ export function createWorld(
   arcadeTrailHud.setAttribute("aria-label","Arcade Cavern trail guidance");
   arcadeTrailHud.style.cssText="display:none;position:absolute;left:24px;top:91px;max-width:min(350px,calc(100% - 48px));z-index:6;pointer-events:none;padding:8px 13px;border-radius:10px;background:#17252add;color:#f4d29d;border:1px solid #ecb56a8a;box-shadow:0 6px 20px #0d181c55;text-align:center;font:650 11px/1.4 system-ui,sans-serif;letter-spacing:.055em";
   host.appendChild(arcadeTrailHud);
+  const southPassageHud=document.createElement("div");
+  southPassageHud.setAttribute("role","status");
+  southPassageHud.setAttribute("aria-label","Southern arch snorkeling guidance");
+  southPassageHud.style.cssText="display:none;position:absolute;top:74px;left:16px;max-width:min(340px,calc(100% - 32px));z-index:6;pointer-events:none;padding:8px 12px;border:1px solid #9ecbd37a;border-radius:10px;background:#12353dc7;color:#e4f7f4;font:650 11px/1.45 system-ui,sans-serif;letter-spacing:.035em";
+  host.appendChild(southPassageHud);
+  const marineDiscoveryHud=document.createElement("div");
+  marineDiscoveryHud.setAttribute("role","status");
+  marineDiscoveryHud.setAttribute("aria-label","Underwater habitat discovery");
+  marineDiscoveryHud.style.cssText="display:none;position:absolute;left:16px;top:76px;z-index:6;pointer-events:none;padding:7px 12px;border:1px solid #a3d3c47a;border-radius:10px;background:#122f36cb;color:#eff6eb;font:650 11px/1.4 system-ui,sans-serif;letter-spacing:.045em";
+  host.appendChild(marineDiscoveryHud);
   // A brief, non-blocking landing card is more rewarding than a permanent
   // dashboard. The island stays visible while the completed move is named.
   const skateResult=document.createElement("div");
@@ -566,7 +589,9 @@ export function createWorld(
     const caveApproachMask = arcadeAccessTerrainMask(x, z);
     if (caveApproachMask > 0) {
       const caveApproachColor = new THREE.Color("#626766");
-      groundColor.lerp(caveApproachColor, Math.min(0.62, caveApproachMask * 0.62));
+      // Blend rock pigment into the existing terrain vertices rather than
+      // placing a broad opaque stone sheet over the hillside.
+      groundColor.lerp(caveApproachColor, Math.min(0.36, caveApproachMask * 0.36));
     }
     groundColor.multiplyScalar(0.94 + random() * 0.12);
     colors.push(groundColor.r, groundColor.g, groundColor.b);
@@ -577,33 +602,40 @@ export function createWorld(
   terrain.computeVertexNormals();
   const ground = mesh(
     terrain,
-    mat("#ffffff", { vertexColors: true, flatShading: false, roughness: 0.92 }),
+    applyLagoonSand(mat("#ffffff", { vertexColors: true, flatShading: false, roughness: 0.92 })),
     [0, 0, 0],
     [1, 1, 1],
   );
   ground.castShadow = false;
-  // Soft north/south shoreline aprons join the finite island terrain to the
-  // existing ocean plane. The outside racing channel starts beyond these
-  // slopes; no exploration bounds, caves or ecology rules are expanded.
+  // Northern jet-ski apron remains unchanged. The SOUTH apron now extends
+  // to the authored volcanic arch and uses the identical floor as snorkeling
+  // and camera clearance. No island heightfield or sports terrain is altered.
   for(const side of [-1,1]){
     const edgeZ=side>0?WORLD_BOUNDS.maxZ:WORLD_BOUNDS.minZ;
-    const depth=20;
-    const apron=geo(new THREE.PlaneGeometry(102,depth,64,18));
+    const depth=side<0?70:20;
+    const apron=geo(new THREE.PlaneGeometry(
+      side<0?terrainWidth:102,depth,side<0?128:64,side<0?70:18));
     apron.rotateX(-Math.PI/2);
-    apron.translate(12,0,edgeZ+side*depth/2);
+    apron.translate(side<0?(WORLD_BOUNDS.minX+WORLD_BOUNDS.maxX)/2:12,
+      0,edgeZ+side*depth/2);
     const vertices=apron.attributes.position;
     for(let i=0;i<vertices.count;i++){
       const x=vertices.getX(i),z=vertices.getZ(i);
-      const u=THREE.MathUtils.clamp(side*(z-edgeZ)/depth,0,1);
-      const blend=u*u*(3-2*u);
-      const shoreY=worldFloorHeight(x,edgeZ);
-      const seabed=SEA_SURFACE-3.7+Math.sin(x*.12)*.2;
-      vertices.setY(i,shoreY*(1-blend)+seabed*blend);
+      if(side<0){
+        vertices.setY(i,southernChannelFloorHeight(x,z));
+      }else{
+        const u=THREE.MathUtils.clamp(side*(z-edgeZ)/depth,0,1);
+        const blend=u*u*(3-2*u);
+        const shoreY=worldFloorHeight(x,edgeZ);
+        const seabed=SEA_SURFACE-3.7+Math.sin(x*.12)*.2;
+        vertices.setY(i,shoreY*(1-blend)+seabed*blend);
+      }
     }
     apron.computeVertexNormals();
     const cap=mesh(apron,mat("#7b8272",{roughness:.98}),
       [0,0,0],[1,1,1]);
     cap.castShadow=false;
+    if(side<0)cap.name="southern-swimmable-seabed";
   }
 
   // Fine-grained shore skin masks the ~1m polygonal edge of the island grid.
@@ -810,7 +842,7 @@ export function createWorld(
     snow: Instance[] = [];
   for (let i = 0; i < 15; i++) {
     const x = -58 + i * 11,
-      z = -150 - random() * 38,
+      z = -205 - random() * 38,
       h = 28 + random() * 38;
     peaks.push({
       x,
@@ -1390,8 +1422,35 @@ export function createWorld(
   // Close the rock above and beside the mouth without closing the passage.
   // Terrain sections and arch sections have incompatible vertex meanings.
   // Joining them creates crossed triangles, so cap the entrance separately.
-  const paperRockSkin = paperRockRings;
-  mesh(geo(ringSurface(paperRockSkin)),mat("#78867a",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  // Keep the elevated waterproof crown and cave shell exactly where their
+  // collision/support geometry expects them. Render the exterior like native
+  // mountain, not an unrelated flat grey sheet with hard triangle normals.
+  // Indexed adjacent rings give a continuous surface normal across rows.
+  const crownGeometry=geo(indexedRingSurface(paperRockRings));
+  const crownPositions=crownGeometry.getAttribute("position");
+  const crownColors:number[]=[];
+  const crownStone=new THREE.Color("#768577");
+  const crownBiome=new THREE.Color();
+  for(let i=0;i<crownPositions.count;i++){
+    const x=crownPositions.getX(i),z=crownPositions.getZ(i);
+    const center=paperRockRings[Math.floor(i/paperRockRings[0].length)][28].x;
+    const distanceToChannel=Math.abs(x-center);
+    const edge=Math.max(0,Math.min(1,(distanceToChannel-3.0)/4));
+    const fade=edge*edge*(3-2*edge);
+    crownBiome.setRGB(0,0,0);
+    for(const [id,weight] of Object.entries(biomeAt({x,z}).weights))
+      crownBiome.add(new THREE.Color(BIOME_COLORS[id as keyof typeof BIOME_COLORS]).multiplyScalar(weight));
+    crownBiome.lerp(crownStone,1-fade);
+    const l=.96+.03*Math.sin(x*1.73+z*.41);
+    crownColors.push(crownBiome.r*l,crownBiome.g*l,crownBiome.b*l);
+  }
+  crownGeometry.setAttribute("color",new THREE.Float32BufferAttribute(crownColors,3));
+  const crownMesh=mesh(crownGeometry,mat("#ffffff",{
+    vertexColors:true,side:THREE.DoubleSide,roughness:.98,
+    polygonOffset:true,polygonOffsetFactor:-.6,polygonOffsetUnits:-.6,
+  }),[0,0,0],[1,1,1]);
+  crownMesh.name="waterfall-native-ridge-roof";
+  crownMesh.castShadow=false;
   // Seal every exposed crown edge; the front faces preserve the arch opening.
   const rockWalls=new GeometryBatch();
   for(const rings of waterfallRockWalls()){
@@ -1444,13 +1503,13 @@ export function createWorld(
     ];
   });
   mesh(geo(ringSurface(shellRings)),detailCavernStone(mat("#b5aca0",{side:THREE.DoubleSide,flatShading:false})),[0,0,0],[1,1,1]);
-  for(const side of [-1,1]){
-    const shoulderRings=shellRings.map((ring)=>{
-      const z=ring[0].z,w=caveHalfWidth(z),top=ring[3].y;
-      return [new THREE.Vector3(16,top+.18,z),new THREE.Vector3(16+side*(w+1),Math.max(top+.32,mountainSurfaceHeight(16+side*(w+1),z)),z),new THREE.Vector3(16+side*(w+5),terrainHeight(16+side*(w+5),z),z)];
-    });
-    mesh(geo(ringSurface(shoulderRings)),mat("#969b94",{side:THREE.DoubleSide,flatShading:false}),[0,0,0],[1,1,1]);
-  }
+  // The cave's interior shell is below the mountain heightfield. Do not
+  // bridge its roof to the hillside with separate shoulder sheets. Those
+  // broad polygons cross real terrain on the steep eastern ridge and appear
+  // as pale floating triangles / open gaps from the coastal camera. The
+  // world terrain above is already continuous and is the only exterior
+  // walking, biking, skiing and camera-contact surface.
+  canvas.dataset.arcadeExteriorRoof="native-terrain-no-shoulder-overlay";
   const arcadeFloorRings=shellRings.map(ring=>{
     const z=ring[0].z,w=caveHalfWidth(z)-.14,y=arcadeCaveFloorHeight({x:16,z})-.08;
     return [new THREE.Vector3(16-w,y,z),new THREE.Vector3(16+w,y,z)];
@@ -2140,6 +2199,18 @@ export function createWorld(
   );
   shastaTailTip.castShadow=false;
   canvas.dataset.shastaTailTip="closed-white";
+  // Small, stylized squirrel carried beneath the muzzle after a real catch.
+  const carriedPrey=new THREE.Group();
+  carriedPrey.position.set(0,1.19,1.35);carriedPrey.rotation.x=-.47;
+  mesh(shastaBodyGeo,mat("#9a7156",{roughness:1}),[0,-.13,0],[.17,.15,.31],carriedPrey);
+  mesh(shastaBodyGeo,mat("#b49073",{roughness:1}),[0,-.17,.29],[.13,.12,.14],carriedPrey);
+  mesh(shastaBodyGeo,mat("#785443",{roughness:1}),[0,-.10,-.34],[.065,.065,.28],carriedPrey);
+  carriedPrey.visible=false;shastaArt.add(carriedPrey);
+  const bloodDrops=instances(shastaBodyGeo,mat("#8b4239",{roughness:1}),
+    Array.from({length:12},()=>({x:0,y:-100,z:0,sx:.065,sy:.018,sz:.045})),false);
+  bloodDrops.visible=false;
+  const bloodTrail:{x:number;y:number;z:number;born:number}[]=[];
+  let lastBloodDrop=-Infinity;
   shastaTail.rotation.z = SHASTA_CHARACTER.tail.restAngleZ;
   shastaTail.rotation.y = SHASTA_CHARACTER.tail.restAngleY;
 
@@ -2820,8 +2891,29 @@ export function createWorld(
 
   const reefGarden = createReefGarden(tropicalReefRoot);
   const marineSchools = createMarineSchools(reefRoot,tropicalReefRoot);
+  const marinePatches = createMarineHabitatPatches(reefRoot,tropicalReefRoot);
+  // The south-channel biome is distinct from BOTH original snorkeling reefs.
+  const southPassageRoot = new THREE.Group();
+  southPassageRoot.visible = false;
+  southPassageRoot.name = "southern-volcanic-arch-snorkeling";
+  scene.add(southPassageRoot);
+  const rayPassage = createRayPassage(southPassageRoot);
+  const southChannelLife = createSouthChannelLife(southPassageRoot);
+  const southEcology = createSouthCoastalEcology(southPassageRoot);
   const goldenTridents = createWorldTridents(reefRoot,tropicalReefRoot);
   canvas.dataset.schoolingFish = String(marineSchools.count);
+  canvas.dataset.marineHabitatPatches = String(marinePatches.patchCount);
+  canvas.dataset.westHabitatDrawCalls = String(marinePatches.drawCalls.kelp);
+  canvas.dataset.eastHabitatDrawCalls = String(marinePatches.drawCalls.lagoon);
+  canvas.dataset.rayPassage = String(rayPassage.count);
+  canvas.dataset.eagleFever = String(rayPassage.feverCount);
+  canvas.dataset.eagleFeverVisible = String(rayPassage.visibleFeverCount);
+  canvas.dataset.eagleFeverDrawCalls = String(rayPassage.feverDrawCalls);
+  canvas.dataset.southReefFish = String(southChannelLife.counts.fish);
+  canvas.dataset.southReefCorals = String(southChannelLife.counts.coral);
+  canvas.dataset.southCoastalDrawCalls = String(southEcology.draws);
+  canvas.dataset.southwestReefPatches = "7";
+  canvas.dataset.southeastKelpPatches = "5";
   canvas.dataset.goldenTridents = String(goldenTridents.count);
 
 
@@ -3154,6 +3246,8 @@ export function createWorld(
   scene.add(snowfall);
 
   let state: State = {
+    shastaCommand: "come",
+    shastaCommandSerial: 0,
     entered: false,
     paused: false,
     command: null,
@@ -3478,6 +3572,11 @@ export function createWorld(
   let dogAnimSpeed = 0;
   let dogInterestCritterIndex: number | null = null;
   let dogChase = initialChaseState();
+  let dogOuting=initialShastaOuting();
+  let dogTrick=idleShastaTrick();
+  let wasCarrying=false;
+  let shastaCatchCount=0;
+  let pearlNoticeUntil=0;
 
   let dogTargetSwitches = 0;
   let dogMaxYawStep = 0;
@@ -3931,7 +4030,7 @@ export function createWorld(
       bigAir.phase==="flying"||
       climb||(grind&&state.activity!=="skate")||
       (airHeight>0.01&&!(state.activity==="skate"&&verticalSpeed>0.1)))return;
-    if(state.activity==="ski"&&!nearestGrind(player,1.45)&&
+    if(bigAirChallengeReady(bigAir.phase,state.activity)&&!nearestGrind(player,1.45)&&
       mountainJumpEligible(player,supportHeight(player),travel.speed)){
       const ahead={x:player.x+travel.heading.x*2.1,
         z:player.z+travel.heading.z*2.1};
@@ -4392,7 +4491,7 @@ export function createWorld(
         travel={point:player,speed:advanced.ride.speed,heading:pose.heading};
         airHeight=advanced.ride.air?.15:0;verticalSpeed=advanced.ride.air?.velocity[1]??0;
         if(advanced.completed){
-          const velocity=advanced.ride.air?.velocity??pose.forward.map(v=>v*advanced.ride.speed);
+          const velocity=advanced.ride.air?.velocity??pose.motionForward.map(v=>v*advanced.ride.speed);
           const planar=Math.hypot(velocity[0],velocity[2]);
           travel={point:player,speed:planar,heading:{x:velocity[0]/(planar||1),z:velocity[2]/(planar||1)}};
           airHeight=Math.max(0,playerY-groundHeight(player));verticalSpeed=velocity[1];
@@ -4737,6 +4836,28 @@ export function createWorld(
         }
       }
 
+      // Ordinary land travel clamps at z=-96, so the offshore water could not
+      // be reached by running forward. Convert a grounded, outward movement
+      // at any southern beach cell into a real surface swim. No change to land
+      // collision, cave navigation, or movement bounds is necessary.
+      if(aquatic==="land" && caveLayer==="surface" && !jetSki && !jetChoosing &&
+         discGolf.phase==="off" && skimHeat.phase==="off" &&
+         !skateLoopRide && !skateTunnelRide && !skateRailGapRide &&
+         bigAir.phase!=="flying") {
+        const entry=southCoastEntry(player,{x:dx,z:dz},true,
+          airHeight<.15 && Math.abs(verticalSpeed)<.25);
+        if(entry){
+          player=entry;
+          travel={...travel,point:entry,speed:Math.min(travel.speed,3.2)};
+          swimDepth=targetDepth=0;
+          airHeight=verticalSpeed=0;
+          setAquaticMode("surface");
+          playerY=SOUTH_ENTRY_SURFACE_Y;
+          destination=null;
+          canvas.dataset.southShoreEntry="true";
+        }
+      }
+
       if(skimHeat.phase!=="off"&&skimHeat.phase!=="riding"&&skimHeat.phase!=="finished"){
         const previousPhase=skimHeat.phase;
         const activeDelta=Math.max(0,Math.min(rawDelta,.5));
@@ -4776,8 +4897,8 @@ export function createWorld(
         skateBowlFlightActive=false;
       }
 
-      // Skiing may launch from any steep downhill edge on the mountain.
-      // The original marked kicker remains as a deliberate easy starting point.
+      // Ordinary skiing never triggers the cinematic bird-assisted flight.
+      // Only a deliberately selected Ski Jump game may launch from a slope or lip.
       // A sustained attempted ride with no translation signals a bad
       // obstacle/terrain contact. Intentional grinds, loops and airborne tricks
       // are exempt; the recovery is strictly local and uses safe support.
@@ -4822,8 +4943,8 @@ export function createWorld(
       }else rideRecovery={...rideRecovery,blockedFor:0};
       if(rideFlightContinuity&&airHeight<=.001&&verticalSpeed===0)
         rideFlightContinuity=false;
-      const skiEligible=state.activity==="ski"&&
-        bigAir.phase!=="flying"&&elapsed-lastRampAt>1.1&&
+      const skiEligible=bigAirChallengeReady(bigAir.phase,state.activity)&&
+        elapsed-lastRampAt>1.1&&
         discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
         trial.phase!=="running"&&trial.phase!=="armed"&&
         !climb&&!grind&&aquatic==="land"&&airHeight<.1&&
@@ -4909,8 +5030,9 @@ export function createWorld(
       const skimEquipped=skimHeat.phase!=="off"&&skimHeat.phase!=="finished";
       board.visible = !skimEquipped && !swimming && mode === "skate";
       const trickPose=skateTrickPose(skateTrick,elapsed);
-      board.rotation.set(mode==="skate"?trickPose.pitch:0,mode==="skate"?trickPose.yaw:0,mode==="skate"?trickPose.roll:0);
-      board.position.y=mode==="skate"&&skateTrick.phase==="air"?Math.sin(Math.PI*trickPose.progress)*.19:0;
+      const tubeGrounded=!!skateTunnelRide&&!skateTunnelRide.air;
+      board.rotation.set(!tubeGrounded&&mode==="skate"?trickPose.pitch:0,!tubeGrounded&&mode==="skate"?trickPose.yaw:0,!tubeGrounded&&mode==="skate"?trickPose.roll:0);
+      board.position.y=!tubeGrounded&&mode==="skate"&&skateTrick.phase==="air"?Math.sin(Math.PI*trickPose.progress)*.19:0;
       bike.visible = !skimEquipped && !swimming && mode === "bike";
       skis.visible = !skimEquipped && !swimming && mode === "ski";
       chalk.visible = !skimEquipped && !swimming && mode === "boulder";
@@ -5233,10 +5355,17 @@ export function createWorld(
       canvas.dataset.skateLoopEntries=String(skateLoopEntries);
       canvas.dataset.skateLoopCompletions=String(skateLoopCompletions);
       canvas.dataset.skateLoopSpeed=(skateLoopRide?.speed??0).toFixed(2);
-      canvas.dataset.skateTunnelPhase=skateTunnelRide?"wall-ride":"free";
+      // A centered floor entry is ordinary wheel-supported traversal, not a
+      // mouth grind. Only climbing the inner curve is called a wall ride.
+      canvas.dataset.skateTunnelPhase=skateTunnelRide?
+        (skateTunnelRide.surface==="inner"&&!skateTunnelRide.air&&
+          Math.cos(skateTunnelRide.angle)>.92?"roll-through":"wall-ride"):"free";
       canvas.dataset.skateTunnelSurface=skateTunnelRide?.surface??(skateTunnelRide?"inner":"");
       canvas.dataset.skateTunnelAngle=(skateTunnelRide?.angle??0).toFixed(4);
       canvas.dataset.skateTunnelAir=String(!!skateTunnelRide?.air);
+      canvas.dataset.skateLogBlocked=String(skateLogBlocked);
+      canvas.dataset.skateTunnelWheelLift=skateTunnelRide?
+        skateTunnelSample(skateTunnelRide,groundHeight).wheelLift.toFixed(4):"";
       canvas.dataset.skateTunnelAlongSpeed=(skateTunnelRide?.vx??0).toFixed(3);
       canvas.dataset.skateTunnelCircumSpeed=(skateTunnelRide?.vt??0).toFixed(3);
       canvas.dataset.skateTunnelEntries=String(skateTunnelEntries);
@@ -5349,7 +5478,7 @@ export function createWorld(
       const grindCandidate =
         aquatic === "land" &&
         (mode === "skate" || mode === "ski") &&
-        !grind &&
+        !grind && !skateTunnelRide &&
         airHeight < 0.1 &&
         travel.speed > 2.2
           ? nearestGrind(player)
@@ -6215,8 +6344,34 @@ export function createWorld(
     }
 
     const chaseBefore = dogChase;
-    dogChase = stepChase(dogChase, elapsed, dog, player, critters.map(c => c.point),
-      discGolf.phase==="off" && skimHeat.phase==="off" && aquatic === "land" && caveLayer === "surface");
+    const outingAllowed=state.entered&&!state.paused&&discGolf.phase==="off"&&
+      skimHeat.phase==="off"&&!jetSki&&!jetChoosing&&trial.phase!=="running"&&
+      bigAir.phase==="idle"&&aquatic==="land"&&caveLayer==="surface"&&shastaSnow.stage==="idle";
+    const dryRoute=(a:Point,b:Point)=>{
+      const steps=Math.ceil(distance(a,b)/.7);
+      let lastY=terrainHeight(a.x,a.z);
+      for(let i=1;i<=steps;i++){
+        const p={x:a.x+(b.x-a.x)*i/steps,z:a.z+(b.z-a.z)*i/steps};
+        const y=terrainHeight(p.x,p.z);
+        if(p.x<WORLD_BOUNDS.minX||p.x>WORLD_BOUNDS.maxX||p.z<WORLD_BOUNDS.minZ||
+          p.z>WORLD_BOUNDS.maxZ||discGolfSurfaceIsWater(p)||Math.abs(y-lastY)>1.1)return false;
+        lastY=y;
+      }
+      return true;
+    };
+    dogTrick=stepShastaTrick(dogTrick,elapsed,dog,outingAllowed);
+    const commandedPose=shastaTrickPose(dogTrick,elapsed);
+    dogOuting=stepShastaOuting(dogOuting,elapsed,dog,player,
+      critters.map(c=>c.kind==="squirrel"?c.point:null),outingAllowed,dryRoute);
+    dogChase={mode:dogOuting.mode==="roam"?"follow":
+      dogOuting.mode==="deliver"?"return":dogOuting.mode,
+      target:dogOuting.target,until:dogOuting.until,cooldown:dogOuting.cooldown};
+    canvas.dataset.shastaCommand=dogOuting.command;
+    canvas.dataset.shastaOuting=dogOuting.mode;
+    canvas.dataset.shastaTrick=dogTrick.trick??"";
+    canvas.dataset.shastaTrickPhase=dogTrick.phase;
+    canvas.dataset.shastaCarrying=String(dogOuting.carrying);
+    canvas.dataset.shastaCatchCount=String(shastaCatchCount);
     dogInterestCritterIndex = dogChase.target;
     if (dogChase.target !== null && dogChase.target !== chaseBefore.target) dogTargetSwitches++;
     const nearbyCritter = discGolf.phase!=="off"||dogInterestCritterIndex === null ?
@@ -6253,7 +6408,8 @@ export function createWorld(
     const snowNow=now*.001;
     shastaSnow=stepShastaSnowPlay(shastaSnow,snowNow,snowHere,snowAllowed);
     const snowPose=shastaSnowPose(shastaSnow,snowNow);
-    const dogTarget = state.entered
+    const dogTarget = dogTrick.phase==="approach"&&dogTrick.goal?
+      dogTrick.goal:commandedPose.still?dog:state.entered
       ? aquatic !== "land" || discGolfSurfaceIsWater(player)
         ? shoreWait
         : dogWaitsAtCaveEntrance
@@ -6271,7 +6427,9 @@ export function createWorld(
               discFetch.target
             : nearbyCritter
               ? nearbyCritter.point
-              : { x: player.x - travel.heading.x * 2.2 + travel.heading.z * 1.2, z: player.z - travel.heading.z * 2.2 - travel.heading.x * 1.2 }
+              : dogOuting.mode==="deliver"?dog:
+        dogOuting.carrying?{x:player.x+1.1,z:player.z+1.1}:
+        dogOuting.goal??{ x: player.x - travel.heading.x * 2.2 + travel.heading.z * 1.2, z: player.z - travel.heading.z * 2.2 - travel.heading.x * 1.2 }
       : { x: 4 + Math.sin(elapsed * 0.13) * 2, z: 12 };
     canvas.dataset.dogFetchStage=discFetch.phase;
     if(snowStagesSeen.at(-1)!==shastaSnow.stage){
@@ -6336,6 +6494,8 @@ export function createWorld(
         dogSmoothedTarget,
         shastaSnow.stage==="zoom"?9.5:
         shastaSnow.stage==="roll"||shastaSnow.stage==="shake"?0:
+        dogTrick.phase==="approach"?5.1:commandedPose.still?0:
+        dogOuting.mode==="chase"?9:dogOuting.mode==="roam"?6:
         dogChase.mode==="return"?Math.max(travel.speed,6):travel.speed,
         dogMotionDt);
     }
@@ -6391,6 +6551,25 @@ export function createWorld(
       }
     }
     const dogStep = distance(dogBefore, dog);
+    if(dogOuting.carrying&&!wasCarrying)shastaCatchCount++;
+    wasCarrying=dogOuting.carrying;
+    carriedPrey.visible=dogOuting.carrying;
+    if(dogOuting.carrying&&dogStep>.06&&elapsed-lastBloodDrop>.42){
+      lastBloodDrop=elapsed;
+      bloodTrail.push({x:dog.x,y:dogSupport(dog)+.025,z:dog.z,born:elapsed});
+      if(bloodTrail.length>12)bloodTrail.shift();
+    }
+    while(bloodTrail.length&&elapsed-bloodTrail[0].born>6)bloodTrail.shift();
+    bloodDrops.count=bloodTrail.length;
+    bloodDrops.visible=bloodTrail.length>0;
+    bloodTrail.forEach((mark,i)=>{
+      const fade=Math.max(.1,1-(elapsed-mark.born)/6);
+      dummy.position.set(mark.x,mark.y,mark.z);
+      dummy.rotation.set(0,0,0);
+      dummy.scale.set(.055*fade,.015,.04*fade);
+      dummy.updateMatrix();bloodDrops.setMatrixAt(i,dummy.matrix);
+    });
+    if(bloodTrail.length)bloodDrops.instanceMatrix.needsUpdate=true;
     // Monotone motion evidence for browser QA; the gait *phase* intentionally
     // wraps every cycle and must not be used as a cumulative distance proxy.
     dogDistanceTraveled += dogStep;
@@ -6449,23 +6628,23 @@ export function createWorld(
     const dogGait=shastaGaitPose(
       activelyFetching?Math.min(7.4,dogAnimSpeed):dogAnimSpeed,
       dogGaitPhase,dogMoveBlend);
-    const dogBob=activelyFetching?0:dogGait.bodyBob;
-    const dogRenderY=dogGroundY+dogBob;
+    const dogBob=activelyFetching||commandedPose.still?0:dogGait.bodyBob;
+    const dogRenderY=dogGroundY+dogBob+commandedPose.jump;
     dogMaxYStep = Math.max(dogMaxYStep, Math.abs(dogRenderY - lastDogRenderY));
     lastDogRenderY = dogRenderY;
     shasta.position.set(dog.x, dogRenderY, dog.z);
     shasta.rotation.set(
       dogPitch+(activelyFetching?0:dogGait.bodyPitch)+
         (discFetch.phase==="found"?.02:0),
-      dogYaw+(shastaSnow.stage==="shake"?snowPose.headTilt:0),
+      dogYaw+commandedPose.spin+(shastaSnow.stage==="shake"?snowPose.headTilt:0),
       dogRoll+(activelyFetching?0:
         Math.sin(dogGaitPhase)*.008*dogMoveBlend),
     );
     // Mass-centered full-body roll with gradually lowered back-on-snow pose.
-    shastaPose.rotation.z=snowPose.roll;
-    shastaPose.rotation.x=snowPose.crouch*.33;
-    shastaPose.position.y=.79-.37*Math.sin(snowPose.roll*.5)**2-
-      snowPose.crouch*.19;
+    shastaPose.rotation.z=snowPose.roll+commandedPose.roll;
+    shastaPose.rotation.x=snowPose.crouch*.33-commandedPose.crouch*.19;
+    shastaPose.position.y=.79-.37*Math.sin((snowPose.roll+commandedPose.roll)*.5)**2-
+      snowPose.crouch*.19-commandedPose.crouch*.42;
     canvas.dataset.dogGait=dogGait.gait;
     canvas.dataset.dogFootLiftMax=Math.max(
       ...dogGait.feet.map(p=>p.y-.055)).toFixed(3);
@@ -6507,8 +6686,9 @@ export function createWorld(
         dogSupport({x:worldX,z:worldZ})-dogGroundY,-.075,.075);
       dogFootGround[i]+=(groundDelta-dogFootGround[i])*
         smoothingAlpha(dogMotionDt,7);
+      const raised=leg.z>0?(leg.x<0?commandedPose.pawLeft:commandedPose.pawRight):0;
       const pose=shastaStraightLeg(
-        leg.z,foot.z,foot.y+dogFootGround[i],leg.z>0);
+        leg.z,foot.z,foot.y+dogFootGround[i]+raised,leg.z>0);
       const part=shastaCylinderParts[leg.legIndex];
       dummy.position.set(leg.x,
         (pose.hip.y+pose.paw.y)*.5,(pose.hip.z+pose.paw.z)*.5);
@@ -6543,8 +6723,8 @@ export function createWorld(
     // single instanced mesh draw calls as the original character.
     const headYaw=Math.sin(elapsed*.76)*.06+
       (shastaSnow.stage==="perk"?.07:0);
-    const headPitch=discFetch.phase==="found"?.17:
-      shastaSnow.stage==="roll"?.07:dogAnimSpeed<.4?.035:-.025;
+    const headPitch=commandedPose.head+(discFetch.phase==="found"?.17:
+      shastaSnow.stage==="roll"?.07:dogAnimSpeed<.4?.035:-.025);
     shastaHeadQuat.setFromEuler(new THREE.Euler(headPitch,headYaw,0));
     for(const index of shastaHeadIndices){
       const part=shastaRockParts[index];
@@ -6699,26 +6879,67 @@ export function createWorld(
     const currentWaterZone = waterZone(player);
     reefRoot.visible = aquatic !== "land" && currentWaterZone === "kelp";
     tropicalReefRoot.visible = aquatic !== "land" && currentWaterZone === "lagoon";
+    // The migration route appears on entering southern water; also allow
+    // glimpses from the nearby mountain shore without forcing reef rendering
+    // on the rest of the island.
+    southPassageRoot.visible =
+      (aquatic !== "land" && currentWaterZone === "south-channel") ||
+      (aquatic === "land" && player.z < -86 && Math.abs(player.x-17) < 39);
     bubbles.visible = aquatic !== "land";
     shasta.visible = !underwater;
     dogContact.visible = !underwater;
     waterMaterial.opacity = underwater ? 0.48 : aquatic === "surface" ? 0.58 : 0.76;
     const underwaterColor =
-      currentWaterZone === "lagoon" ? "#167f91" : "#0b6170";
+      currentWaterZone === "lagoon" ? "#167f91" :
+      currentWaterZone === "south-channel" ? "#145c7a" : "#0b6170";
     const underwaterFog =
-      currentWaterZone === "lagoon" ? "#2f8f91" : "#196b72";
+      currentWaterZone === "lagoon" ? "#2f8f91" :
+      currentWaterZone === "south-channel" ? "#266989" : "#196b72";
     if (scene.background instanceof THREE.Color)
       scene.background.set(underwater ? underwaterColor : "#67b7ef");
     if (scene.fog instanceof THREE.Fog) {
       if (underwater) scene.fog.color.set(underwaterFog);
       scene.fog.near = underwater ? 7 : 85;
-      scene.fog.far = underwater ? (currentWaterZone === "lagoon" ? 70 : 58) : 270;
+      scene.fog.far = underwater ?
+        (currentWaterZone === "south-channel" ? 85 :
+          currentWaterZone === "lagoon" ? 70 : 58) : 270;
     }
 
     // Ski-mode snowfall follows the player anywhere in the world.
     snowfall.visible = state.activity === "ski" && aquatic !== "dive";
     canvas.dataset.snowing = String(snowfall.visible);
-    canvas.dataset.reef = String(reefRoot.visible || tropicalReefRoot.visible);
+    canvas.dataset.reef = String(reefRoot.visible || tropicalReefRoot.visible || southPassageRoot.visible);
+    canvas.dataset.southPassage = String(southPassageRoot.visible);
+    canvas.dataset.southPassageSwimmable = String(currentWaterZone==="south-channel" && aquatic!=="land");
+    const southHintVisible = state.entered && !state.paused &&
+      (currentWaterZone==="south-channel" && aquatic!=="land" ||
+       aquatic==="land" && caveLayer==="surface" && player.z<-87 &&
+       Math.abs(player.x-17)<43 && playerY<SEA_SURFACE+7);
+    const southDiscovery=currentWaterZone==="south-channel"&&aquatic!=="land"
+      ? southCoastDiscoveryAt(player):null;
+    canvas.dataset.southDiscovery=southDiscovery?.id??"";
+    southPassageHud.style.display=southHintVisible?"block":"none";
+    if(southHintVisible){
+      const hint=aquatic==="land"
+        ?"South Coast · Walk into the water to snorkel"
+        :southCoastDiscoveryHint(southDiscovery,rayPassage.visibleFeverCount);
+      if(southPassageHud.textContent!==hint)southPassageHud.textContent=hint;
+    }
+    // Underwater field-guide label for authored kelp and lagoon neighborhoods.
+    // Does not appear on land or in the independent southern ray passage.
+    const namedMarineHabitat=aquatic!=="land" &&
+      (currentWaterZone==="kelp" || currentWaterZone==="lagoon")
+      ? marineHabitatAt(player,currentWaterZone):null;
+    const pearls=aquatic==="dive"?marinePatches.discoverPearls({x:player.x,y:playerY,z:player.z}):null;
+    if(pearls?.fresh)pearlNoticeUntil=elapsed+5;
+    canvas.dataset.pearlsFound=String(pearls?.found??canvas.dataset.pearlsFound??0);
+    const pearlHint=pearls&&(pearls.found>0||namedMarineHabitat?.id==="east-giant-clam-garden")?` · Pearls ${pearls.found}/${pearls.total}`:"";
+    const marineHabitatText=elapsed<pearlNoticeUntil?`Rare pearl discovered${pearlHint}`:namedMarineHabitat
+      ? marineHabitatLabel(namedMarineHabitat)+pearlHint:"";
+    marineDiscoveryHud.style.display=namedMarineHabitat?"block":"none";
+    if(namedMarineHabitat && marineDiscoveryHud.textContent!==marineHabitatText)
+      marineDiscoveryHud.textContent=marineHabitatText;
+    canvas.dataset.marineHabitat=namedMarineHabitat?.id??"";
     canvas.dataset.reefZone = currentWaterZone ?? "";
     if (snowfall.visible) {
       snowfall.position.set(player.x, playerY - 4, player.z);
@@ -7000,7 +7221,7 @@ export function createWorld(
     if(seated){const whaleScreen=new THREE.Vector3(COAST_WHALE.x,SEA_SURFACE+4,COAST_WHALE.z).project(camera);canvas.dataset.whaleOnScreen=String(Math.abs(whaleScreen.x)<1&&Math.abs(whaleScreen.y)<1&&whaleScreen.z<1);}else canvas.dataset.whaleOnScreen="false";
     canvas.dataset.waterfallRockHeight=String(waterfallRockHeight(player)??"");canvas.dataset.playerSurfaceGap=(playerY-supportHeight(player)).toFixed(4);
     canvas.dataset.paperFigureScreens=caveLayer!=="paper"?"[]":JSON.stringify(researchGallery.targets.filter((_,i)=>i%2===0).map(o=>{const p=o.getWorldPosition(new THREE.Vector3()).project(camera);return {x:p.x,y:p.y,z:p.z};}));
-    if (reefRoot.visible || tropicalReefRoot.visible) {
+    if (reefRoot.visible || tropicalReefRoot.visible || southPassageRoot.visible) {
       const rp=rayGeo.attributes.position;
       for(let i=0;i<rp.count;i++)rp.setZ(i,rayOriginal[i*3+2]+Math.sin(elapsed*1.6+Math.abs(rayOriginal[i*3])*1.2)*.09*Math.abs(rayOriginal[i*3]));
       rp.needsUpdate=true;
@@ -7009,6 +7230,10 @@ export function createWorld(
     reefGarden.update(elapsed);
     const reducedFlightMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     marineSchools.update(elapsed,reducedFlightMotion);
+    marinePatches.update(elapsed,reducedFlightMotion);
+    rayPassage.update(elapsed,reducedFlightMotion,{x:player.x,y:playerY,z:player.z});
+    southChannelLife.update(elapsed,reducedFlightMotion);
+    southEcology.update(elapsed,{x:player.x,z:player.z},reducedFlightMotion);
     discGolfObjects.update(discGolf);
     // Bound prediction to ~2 Hz while a disc is being aimed. The preview
     // runs the same solver as the throw, but intentionally assumes a
@@ -7106,6 +7331,16 @@ export function createWorld(
   schedule();
   return {
     setState(next) {
+      if(next.shastaCommandSerial!==state.shastaCommandSerial){
+        if(isShastaTrick(next.shastaCommand)){
+          dogOuting=commandShasta("come");
+          dogTrick=beginShastaTrick(next.shastaCommand,elapsed,dog,player,travel.heading);
+        }else{
+          dogTrick=idleShastaTrick();
+          dogOuting=commandShasta(next.shastaCommand);
+        }
+        dogSmoothedTarget={...dog};
+      }
       const wasEntered = state.entered,
         wasPaused = state.paused;
       const changedActivity = next.activity !== state.activity;
@@ -7262,6 +7497,8 @@ export function createWorld(
         dogSmoothedTarget = { ...dog };
         dogAnimSpeed = 0;
         dogInterestCritterIndex = null;
+        dogOuting=initialShastaOuting();
+        dogTrick=idleShastaTrick();
         dogChase = { ...initialChaseState(), cooldown: elapsed + 0.8 };
         dogTargetSwitches = 0;
         dogMaxYawStep = 0;
@@ -7419,6 +7656,7 @@ export function createWorld(
         dogMoveBlend = 0;
         dogAnimSpeed = 0;
         dogInterestCritterIndex = null;
+        dogOuting=initialShastaOuting();
         dogChase = { ...initialChaseState(), cooldown: elapsed + 0.8 };
         dogTargetSwitches = 0;
         dogMaxYawStep = 0;
@@ -7509,7 +7747,7 @@ export function createWorld(
       discGolfObjects.dispose();
       jetskiCoast.dispose();
       rideVisual.dispose();rideHud.remove();rideReticle.remove();rideAnnounce.remove();
-      skateHud.remove();skateTouch.remove();skateResult.remove();arcadeTrailHud.remove();
+      skateHud.remove();skateTouch.remove();skateResult.remove();arcadeTrailHud.remove();southPassageHud.remove();marineDiscoveryHud.remove();
       jetHud.remove();jetAnnounce.remove();jetTouch.remove();jetNotice.remove();jetChooser.remove();
       jetskiVisual.root.traverse(object=>{
         if(object instanceof THREE.Mesh){object.geometry.dispose();
@@ -7523,6 +7761,10 @@ export function createWorld(
       habitats.dispose();
       reefGarden.dispose();
       marineSchools.dispose();
+      marinePatches.dispose();
+      rayPassage.dispose();
+      southChannelLife.dispose();
+      southEcology.dispose();
       goldenTridents.dispose();
       disposed = true;
       cancelAnimationFrame(raf);

@@ -38,6 +38,9 @@ try{
    throw new Error("Cavern wayfinding never initialized: "+JSON.stringify(debug),
     {cause:err});
   }
+  assert.equal(await canvas.getAttribute("data-arcade-exterior-roof"),
+   "native-terrain-no-shoulder-overlay",
+   "the broad floating roof shoulder sheets must never return");
   assert.equal(await canvas.getAttribute("data-arcade-trail-markers"),"4");
   assert.equal(await canvas.getAttribute("data-arcade-wayfinding-sign"),"ARCADE");
   assert.equal(await canvas.getAttribute("data-arcade-portal-visual"),"open-dark-arch");
@@ -64,6 +67,19 @@ try{
   // to finish drawing the *actual* exterior camera pose before signoff.
   await page.waitForTimeout(900);
   await page.screenshot({path:path.join(out,"02-amber-portal-and-arcade-sign.png")});
+  // Preserve an additional oblique camera view of the previously exposed
+  // coastal-side mountain seam. Camera inspection is independent of cave
+  // collision tests and must not alter the player position.
+  await page.mouse.move(660,440);
+  await page.mouse.down();
+  await page.mouse.move(810,448,{steps:6});
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  await page.screenshot({path:path.join(out,"02b-native-mountain-ridge-oblique.png")});
+  await page.mouse.move(810,448);
+  await page.mouse.down();
+  await page.mouse.move(660,440,{steps:6});
+  await page.mouse.up();
   await canvas.focus();
   await page.keyboard.down("w");
   try{

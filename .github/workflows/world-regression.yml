@@ -146,6 +146,28 @@ jobs:
           tests/world-occupancy.test.ts
           lib/world/skimboarding.ts
           tests/world-skimboarding.test.ts
+          lib/world/rayPassage.ts
+          lib/world/rayFever.ts
+          components/world/worldRayPassage.ts
+          components/world/worldSouthChannelLife.ts
+          lib/world/biomes.ts
+          tests/world-ray-passage.test.ts
+          tests/world-eagle-fever.test.ts
+          tests/world-south-channel.test.ts
+          lib/world/marineHabitatPatches.ts
+          components/world/worldMarineHabitatPatches.ts
+          tests/world-marine-habitat-patches.test.ts
+          lib/world/southCoastAccess.ts
+          lib/world/southCoastHabitats.ts
+          lib/world/southCoastDiscovery.ts
+          components/world/worldSouthCoastalEcology.ts
+          tests/world-south-coast-access-ecology.test.ts
+          lib/world/hydrology.ts
+          lib/world/researchGallery.ts
+          tests/world-caves-hydrology.test.ts
+          tests/world-waterfall-rock-seams.test.ts
+          tests/world-research-museum.test.ts
+          tests/world-marine-waterfall-integration.test.ts
           --max-warnings=0
       - name: Verify manual browser playtest script syntax
         run: |
@@ -156,6 +178,7 @@ jobs:
           node --check scripts/playtest-jet-ski.mjs
           node --check scripts/playtest-ride-ghost.mjs
           node --check scripts/playtest-mountain-jump.mjs
+          node --check scripts/playtest-south-shore.mjs
           node --check scripts/playtest-shasta-snow.mjs
           node --check scripts/playtest-skatepark.mjs
           node --check scripts/playtest-skimboarding.mjs

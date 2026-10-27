@@ -4,7 +4,7 @@ import * as THREE from "three/src/Three.Core.js";
 import { isWater,terrainHeight,distance,ARCADE_CAVE,PAPER_CAVE } from "../lib/world/model";
 import {
  BIG_AIR,BIG_AIR_BIRDS,advanceBigAir,armBigAir,bigAirBirdCallout,
- bigAirBirdPositions,bigAirClearance,bigAirCrossedLip,bigAirTerrainOffset,
+ bigAirBirdPositions,bigAirChallengeReady,bigAirClearance,bigAirCrossedLip,bigAirTerrainOffset,
  launchBigAir,idleBigAir,mountainJumpEligible,mountainSkiTakeoff,mountainJumpOutwardGain,mountainJumpCameraPose,MOUNTAIN_JUMP_CENTER,type BigAirState,
 } from "../lib/world/bigAir";
 import { createBigAirBirds } from "../components/world/worldBigAirBirds";
@@ -42,6 +42,20 @@ test("Big Air cannot trigger without arming, ski mode, speed, forward oriented s
  assert.ok(!bigAirCrossedLip({x:.3,z:-49.2},{x:.3,z:-48.8},h,"ski",14,true));
  assert.equal(armBigAir().phase,"armed");
  assert.equal(idleBigAir().phase,"idle");
+});
+test("ordinary skiing never opts into Big Air, only explicit menu arming does",()=>{
+ for(const phase of ["idle","landed","missed","flying"] as const){
+  assert.equal(bigAirChallengeReady(phase,"ski"),false,phase);
+ }
+ assert.equal(bigAirChallengeReady("armed","run"),false);
+ assert.equal(bigAirChallengeReady("armed","bike"),false);
+ assert.equal(bigAirChallengeReady("armed","skate"),false);
+ assert.equal(bigAirChallengeReady("armed","ski"),true);
+ // The mountain slope may be physically jumpable without granting game ownership.
+ const slope={x:8,z:-54};
+ assert.ok(mountainJumpEligible(slope,18,12));
+ assert.equal(bigAirChallengeReady(idleBigAir().phase,"ski"),false);
+ assert.equal(bigAirChallengeReady(armBigAir().phase,"ski"),true);
 });
 test("flight travels across open valley and lands on ground, with real distance",()=>{
  const state=simulate(15,.05);
@@ -142,7 +156,7 @@ test("flock positions stay alongside skier even when jumping across slope",()=>{
  assert.ok(birds.every(p=>Math.abs(p.yaw-Math.PI/2)<.001));
 });
 
-test("mountain slope and authored ramps both initiate tracked flights without arming",()=>{
+test("mountain slope physics can detect takeoffs without granting challenge ownership",()=>{
  const point={x:24,z:-62};
  assert.equal(mountainSkiTakeoff(point,16,11,16.1,14.5),true);
  assert.equal(mountainSkiTakeoff(point,16,11,16,16,6),true);
