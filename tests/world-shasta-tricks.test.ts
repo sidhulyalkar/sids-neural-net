@@ -11,13 +11,20 @@ test('trick commands are distinct and never include chase/recall',()=>{
 test('Park it approaches behind the player and lays down without teleporting',()=>{
  for(const hz of [10,30,60]){
   let state=beginShastaTrick('park-it',0,dog,player,heading);
-  assert.deepEqual(state.goal,{x:0,z:-.38});
+  assert.deepEqual(state.goal,{x:1.3,z:-1.9});
+  assert.deepEqual(state.finalGoal,{x:0,z:-.38});
   assert.equal(state.phase,'approach');
-  for(let i=0;i<hz*3;i++){
-   state=stepShastaTrick(state,i/hz,{x:0,z:-.42},true);
-  }
+  // Stage one circles behind the legs without cutting through the player.
+  state=stepShastaTrick(state,1,{x:1.3,z:-1.9},true);
+  assert.equal(state.phase,'approach');
+  assert.deepEqual(state.goal,{x:0,z:-.38});
+  // Stage two settles into the center, then the down animation completes.
+  state=stepShastaTrick(state,1.3,{x:0,z:-.42},true);
+  assert.equal(state.phase,'perform');
+  for(let i=0;i<hz*3;i++)
+   state=stepShastaTrick(state,1.3+i/hz,{x:0,z:-.42},true);
   assert.equal(state.phase,'hold');
-  const pose=shastaTrickPose(state,3);
+  const pose=shastaTrickPose(state,4.3);
   assert.ok(pose.crouch>.7);
   assert.equal(pose.jump,0);
   assert.ok(pose.still);
@@ -52,4 +59,10 @@ test('new commands interrupt the prior trick without leaving queued animations',
  assert.equal(s.phase,'recover');
  s=stepShastaTrick(s,2.9,player,true);
  assert.deepEqual(s,idleShastaTrick());
+});
+
+test('park-it abandons blocked approach instead of teleporting through obstacles',()=>{
+ let s=beginShastaTrick('park-it',0,dog,player,heading);
+ s=stepShastaTrick(s,13,dog,true);
+ assert.equal(s.phase,'idle');
 });
