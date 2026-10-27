@@ -1,5 +1,6 @@
 import {applyLagoonSand} from "./worldLagoonSand";
-import {commandShasta,initialShastaOuting,stepShastaOuting,type ShastaCommand} from "@/lib/world/shastaCommands";
+import {commandShasta,initialShastaOuting,stepShastaOuting} from "@/lib/world/shastaCommands";
+import {beginShastaTrick,idleShastaTrick,stepShastaTrick,shastaTrickPose,isShastaTrick,type ShastaAction} from "@/lib/world/shastaTricks";
 import {createCoastalNature} from "./worldCoastalNature";
 import {createResearchGallery} from "./worldResearchGallery";
 import {idleOceanObservation,advanceOceanObservation,stopOceanObservation} from "@/lib/world/coastalObservation";
@@ -159,7 +160,7 @@ type Callbacks = {
   onSkimNearby:(board:number|null)=>void;
 };
 type State = {
-  shastaCommand: ShastaCommand;
+  shastaCommand: ShastaAction;
   shastaCommandSerial: number;
   activity: Activity;
   actionSerial: number;
@@ -3560,6 +3561,7 @@ export function createWorld(
   let dogInterestCritterIndex: number | null = null;
   let dogChase = initialChaseState();
   let dogOuting=initialShastaOuting();
+  let dogTrick=idleShastaTrick();
   let pearlNoticeUntil=0;
 
   let dogTargetSwitches = 0;
@@ -6343,12 +6345,16 @@ export function createWorld(
       }
       return true;
     };
+    dogTrick=stepShastaTrick(dogTrick,elapsed,dog,outingAllowed);
+    const commandedPose=shastaTrickPose(dogTrick,elapsed);
     dogOuting=stepShastaOuting(dogOuting,elapsed,dog,player,
       critters.map(c=>c.kind==="squirrel"?c.point:null),outingAllowed,dryRoute);
     dogChase={mode:dogOuting.mode==="roam"?"follow":dogOuting.mode,
       target:dogOuting.target,until:dogOuting.until,cooldown:dogOuting.cooldown};
     canvas.dataset.shastaCommand=dogOuting.command;
     canvas.dataset.shastaOuting=dogOuting.mode;
+    canvas.dataset.shastaTrick=dogTrick.trick??"";
+    canvas.dataset.shastaTrickPhase=dogTrick.phase;
     dogInterestCritterIndex = dogChase.target;
     if (dogChase.target !== null && dogChase.target !== chaseBefore.target) dogTargetSwitches++;
     const nearbyCritter = discGolf.phase!=="off"||dogInterestCritterIndex === null ?
@@ -6385,7 +6391,8 @@ export function createWorld(
     const snowNow=now*.001;
     shastaSnow=stepShastaSnowPlay(shastaSnow,snowNow,snowHere,snowAllowed);
     const snowPose=shastaSnowPose(shastaSnow,snowNow);
-    const dogTarget = state.entered
+    const dogTarget = dogTrick.phase==="approach"&&dogTrick.goal?
+      dogTrick.goal:commandedPose.still?dog:state.entered
       ? aquatic !== "land" || discGolfSurfaceIsWater(player)
         ? shoreWait
         : dogWaitsAtCaveEntrance
@@ -6468,6 +6475,7 @@ export function createWorld(
         dogSmoothedTarget,
         shastaSnow.stage==="zoom"?9.5:
         shastaSnow.stage==="roll"||shastaSnow.stage==="shake"?0:
+        dogTrick.phase==="approach"?5.1:commandedPose.still?0:
         dogOuting.mode==="chase"?9:dogOuting.mode==="roam"?6:
         dogChase.mode==="return"?Math.max(travel.speed,6):travel.speed,
         dogMotionDt);
@@ -6582,23 +6590,23 @@ export function createWorld(
     const dogGait=shastaGaitPose(
       activelyFetching?Math.min(7.4,dogAnimSpeed):dogAnimSpeed,
       dogGaitPhase,dogMoveBlend);
-    const dogBob=activelyFetching?0:dogGait.bodyBob;
-    const dogRenderY=dogGroundY+dogBob;
+    const dogBob=activelyFetching||commandedPose.still?0:dogGait.bodyBob;
+    const dogRenderY=dogGroundY+dogBob+commandedPose.jump;
     dogMaxYStep = Math.max(dogMaxYStep, Math.abs(dogRenderY - lastDogRenderY));
     lastDogRenderY = dogRenderY;
     shasta.position.set(dog.x, dogRenderY, dog.z);
     shasta.rotation.set(
       dogPitch+(activelyFetching?0:dogGait.bodyPitch)+
         (discFetch.phase==="found"?.02:0),
-      dogYaw+(shastaSnow.stage==="shake"?snowPose.headTilt:0),
+      dogYaw+commandedPose.spin+(shastaSnow.stage==="shake"?snowPose.headTilt:0),
       dogRoll+(activelyFetching?0:
         Math.sin(dogGaitPhase)*.008*dogMoveBlend),
     );
     // Mass-centered full-body roll with gradually lowered back-on-snow pose.
-    shastaPose.rotation.z=snowPose.roll;
-    shastaPose.rotation.x=snowPose.crouch*.33;
-    shastaPose.position.y=.79-.37*Math.sin(snowPose.roll*.5)**2-
-      snowPose.crouch*.19;
+    shastaPose.rotation.z=snowPose.roll+commandedPose.roll;
+    shastaPose.rotation.x=snowPose.crouch*.33-commandedPose.crouch*.19;
+    shastaPose.position.y=.79-.37*Math.sin((snowPose.roll+commandedPose.roll)*.5)**2-
+      snowPose.crouch*.19-commandedPose.crouch*.42;
     canvas.dataset.dogGait=dogGait.gait;
     canvas.dataset.dogFootLiftMax=Math.max(
       ...dogGait.feet.map(p=>p.y-.055)).toFixed(3);
@@ -6640,8 +6648,9 @@ export function createWorld(
         dogSupport({x:worldX,z:worldZ})-dogGroundY,-.075,.075);
       dogFootGround[i]+=(groundDelta-dogFootGround[i])*
         smoothingAlpha(dogMotionDt,7);
+      const raised=leg.z>0?(leg.x<0?commandedPose.pawLeft:commandedPose.pawRight):0;
       const pose=shastaStraightLeg(
-        leg.z,foot.z,foot.y+dogFootGround[i],leg.z>0);
+        leg.z,foot.z,foot.y+dogFootGround[i]+raised,leg.z>0);
       const part=shastaCylinderParts[leg.legIndex];
       dummy.position.set(leg.x,
         (pose.hip.y+pose.paw.y)*.5,(pose.hip.z+pose.paw.z)*.5);
@@ -6676,8 +6685,8 @@ export function createWorld(
     // single instanced mesh draw calls as the original character.
     const headYaw=Math.sin(elapsed*.76)*.06+
       (shastaSnow.stage==="perk"?.07:0);
-    const headPitch=discFetch.phase==="found"?.17:
-      shastaSnow.stage==="roll"?.07:dogAnimSpeed<.4?.035:-.025;
+    const headPitch=commandedPose.head+(discFetch.phase==="found"?.17:
+      shastaSnow.stage==="roll"?.07:dogAnimSpeed<.4?.035:-.025);
     shastaHeadQuat.setFromEuler(new THREE.Euler(headPitch,headYaw,0));
     for(const index of shastaHeadIndices){
       const part=shastaRockParts[index];
@@ -7285,7 +7294,13 @@ export function createWorld(
   return {
     setState(next) {
       if(next.shastaCommandSerial!==state.shastaCommandSerial){
-        dogOuting=commandShasta(next.shastaCommand);
+        if(isShastaTrick(next.shastaCommand)){
+          dogOuting=commandShasta("come");
+          dogTrick=beginShastaTrick(next.shastaCommand,elapsed,dog,player,travel.heading);
+        }else{
+          dogTrick=idleShastaTrick();
+          dogOuting=commandShasta(next.shastaCommand);
+        }
         dogSmoothedTarget={...dog};
       }
       const wasEntered = state.entered,
@@ -7445,6 +7460,7 @@ export function createWorld(
         dogAnimSpeed = 0;
         dogInterestCritterIndex = null;
         dogOuting=initialShastaOuting();
+        dogTrick=idleShastaTrick();
         dogChase = { ...initialChaseState(), cooldown: elapsed + 0.8 };
         dogTargetSwitches = 0;
         dogMaxYawStep = 0;
