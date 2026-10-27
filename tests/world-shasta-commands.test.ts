@@ -44,3 +44,25 @@ test('recall converges from a moving chase at multiple frame rates without telep
   assert.equal(state.mode,'follow');assert.ok(Math.hypot(dog.x,dog.z)<1.5);
  }
 });
+
+test('a close squirrel becomes carried prey, returns for a delivery, then fades out',()=>{
+ let chase=stepShastaOuting(commandShasta('go'),0,origin,origin,[{x:6,z:0}],true,clear);
+ assert.equal(chase.mode,'chase');
+ chase=stepShastaOuting(chase,.6,{x:5.25,z:0},origin,[{x:6,z:0}],true,clear);
+ assert.equal(chase.mode,'return');assert.equal(chase.carrying,true);
+ assert.equal(chase.target,null);
+ let delivering=stepShastaOuting(chase,2,{x:1.4,z:0},origin,[],true,clear);
+ assert.equal(delivering.mode,'deliver');assert.equal(delivering.carrying,true);
+ assert.equal(stepShastaOuting(delivering,2.4,{x:1,z:0},origin,[],true,clear).mode,'deliver');
+ delivering=stepShastaOuting(delivering,3.4,{x:1,z:0},origin,[],true,clear);
+ assert.equal(delivering.mode,'follow');assert.equal(delivering.carrying,false);
+ assert.ok(delivering.cooldown>3.4);
+});
+test('Come immediately interrupts and clears carried prey',()=>{
+ const caught=stepShastaOuting(
+  stepShastaOuting(commandShasta('go'),0,origin,origin,[{x:1,z:0}],true,clear),
+  .1,origin,origin,[{x:1,z:0}],true,clear);
+ assert.equal(caught.carrying,true);
+ assert.equal(commandShasta('come').carrying,false);
+ assert.deepEqual(stepShastaOuting(caught,1,origin,origin,[],false,clear),initialShastaOuting());
+});
