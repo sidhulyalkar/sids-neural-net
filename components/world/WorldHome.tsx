@@ -542,7 +542,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
         <Link href="/" className={styles.wordmark} prefetch={false}>
           Sid Hulyalkar
         </Link>
-        {(!entered||failed||aquatic!=="land")&&<button
+        {(!entered||failed||aquatic!=="land"||worldGameActive||skim.phase!=="off")&&<button
           className={styles.menuButton}
           onClick={() => open("menu")}
           aria-label="Open navigation menu"
