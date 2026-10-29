@@ -605,7 +605,10 @@ export function WorldHome({ content }: { content: WorldContent }) {
                  <span className={styles.mobileHubTitle}>{ACTIVITIES.find(item=>item.id===activity)?.label ?? "Explore"}</span>
                  <button type="button" aria-label={shastaOpen?"Hide Shasta tricks":"Show Shasta tricks"}
                    aria-expanded={shastaOpen} aria-controls="world-shasta-tricks"
-                   title="Shasta commands" onClick={()=>{setShastaOpen(open=>!open);setMobileHubOpen(true);}}>
+                   title="Shasta commands" onClick={()=>{
+                     setShastaOpen(open=>window.matchMedia("(pointer: coarse)").matches&&!mobileHubOpen?true:!open);
+                     setMobileHubOpen(true);
+                   }}>
                    <PawPrint size={19} aria-hidden="true"/>
                  </button>
                  <button type="button" className={styles.mobileHubToggle}
