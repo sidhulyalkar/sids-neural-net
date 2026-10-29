@@ -602,7 +602,6 @@ export function WorldHome({ content }: { content: WorldContent }) {
                <div className={styles.hubHeading}>
                  <button type="button" aria-label="Open navigation menu" aria-haspopup="dialog"
                    title="Navigation" onClick={()=>open("menu")}><MenuIcon size={19} aria-hidden="true"/></button>
-                 <span className={styles.desktopHubTitle}>ISLAND HUB</span>
                  <span className={styles.mobileHubTitle}>{ACTIVITIES.find(item=>item.id===activity)?.label ?? "Explore"}</span>
                  <button type="button" aria-label={shastaOpen?"Hide Shasta tricks":"Show Shasta tricks"}
                    aria-expanded={shastaOpen} aria-controls="world-shasta-tricks"
