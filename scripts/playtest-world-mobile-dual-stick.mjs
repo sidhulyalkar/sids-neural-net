@@ -54,11 +54,12 @@ try{
   trace.push({stage:"two thumb input",move:moving.mobileMove,look:moving.mobileLook,
     vector:moving.rideInputVector});
   await page.screenshot({path:path.join(out,"02-both-thumbs.png")});
-  await send("touchEnd",[camera]);
+  // CDP touchEnd takes the contact that ends (not the contacts remaining).
+  await send("touchEnd",[movement]);
   await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.mobileMove==="0.00,0.00",
     null,{timeout:10000});
   assert.ok(Number((await canvas.getAttribute("data-mobile-look")).split(",")[0])>.3);
-  await send("touchEnd",[]);
+  await send("touchEnd",[camera]);
   await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.mobileLook==="0.00,0.00",
     null,{timeout:10000});
   await nav.getByRole("button",{name:"Expand island controls"}).click();
