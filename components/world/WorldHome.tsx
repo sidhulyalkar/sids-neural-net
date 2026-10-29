@@ -636,7 +636,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
                  {(["go","come"] as const).map(command=>(
                    <button key={command} type="button" disabled={!ready||quiet||!!panel||worldGameActive}
                      title={command==="go"?"Run around and chase nearby squirrels":"Return and stay with me"}
-                     onClick={()=>{setShastaCommand(command);setShastaCommandSerial(n=>n+1);setMobileHubOpen(false);}}>
+                     onClick={()=>{setShastaCommand(command);setShastaCommandSerial(n=>n+1);setMobileHubOpen(false);
+                       if(window.matchMedia("(pointer: coarse)").matches)setShastaOpen(false);}}>
                      Shasta {command==="go"?"Go":"Come"}
                    </button>
                  ))}
@@ -652,7 +653,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
                      ["park-it","Park it"]] as [ShastaTrick,string][]).map(([trick,label])=>(
                      <button key={trick} type="button" title={label}
                        disabled={!ready||quiet||!!panel||worldGameActive}
-                       onClick={()=>{setShastaCommand(trick);setShastaCommandSerial(n=>n+1);setMobileHubOpen(false);}}>{label}</button>
+                       onClick={()=>{setShastaCommand(trick);setShastaCommandSerial(n=>n+1);setMobileHubOpen(false);
+                       if(window.matchMedia("(pointer: coarse)").matches)setShastaOpen(false);}}>{label}</button>
                    ))}
                  </div>
                  <p className={styles.shastaHint}>Park it brings Shasta between your feet to lie down. Come calls him back.</p>
