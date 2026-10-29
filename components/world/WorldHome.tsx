@@ -495,6 +495,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
     <div
       ref={worldRoot}
       className={styles.world}
+      data-mobile-hub-open={mobileHubOpen ? "true" : "false"}
       data-world-session={session.phase}
       data-world-game={session.active??"none"}
       data-world-state={failed ? "fallback" : entered ? "exploring" : "welcome"}
