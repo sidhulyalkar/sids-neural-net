@@ -36,12 +36,29 @@ async function enter(page){
       break;
     }catch(error){if(attempt===4)throw error;}
   }
-  // Software WebGL may need a long first frame on a cold Actions runner.
-  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
-    null,{timeout:110000});
+  // Preserve failures with enough diagnostics to distinguish WebGL stalls
+  // from a game startup bug or transient hydration delay.
+  try{
+    await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
+      null,{timeout:110000});
+  }catch(error){
+    const diagnostic=await page.evaluate(()=>{
+      const c=document.querySelector("canvas");
+      return {
+        world:document.querySelector("[data-world-state]")?.getAttribute("data-world-state"),
+        canvas:c?{dataset:{...c.dataset},width:c.width,height:c.height}:null,
+      };
+    });
+    fs.writeFileSync(path.join(out,"entry-failure.json"),
+      JSON.stringify({diagnostic,errors},null,2)+"\n");
+    await page.screenshot({path:path.join(out,"entry-failure.png")}).catch(()=>{});
+    throw error;
+  }
 }
 try{
-  const desktop=await browser.newPage({viewport:{width:1440,height:900}});
+  // CI uses software WebGL. A 1024px viewport still exercises desktop layout
+  // without spending rendering time on a massive initial framebuffer.
+  const desktop=await browser.newPage({viewport:{width:1024,height:720}});
   await enter(desktop);
   const dock=desktop.getByRole("navigation",{name:"World movement and sports"});
   const dimensions=await dock.boundingBox();
@@ -96,7 +113,7 @@ try{
         null,{timeout:15000});
     }],
   ]){
-    const page=await browser.newPage({viewport:{width:1280,height:800}});
+    const page=await browser.newPage({viewport:{width:1024,height:720}});
     await enter(page);
     await launch(page,name);
     await check(page);
