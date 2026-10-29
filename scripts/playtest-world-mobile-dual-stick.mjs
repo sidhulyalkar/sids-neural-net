@@ -34,6 +34,24 @@ try{
   assert.equal(await nav.locator("#world-hub-contents").isVisible(),false);
   const hub=await nav.boundingBox();
   assert.ok(hub&&hub.width<=220,"collapsed hub does not cover the world");
+  // Save the raw canvas separately from the page to detect cases where the
+  // photographic welcome backdrop obscures an otherwise healthy WebGL frame.
+  const paint=await page.evaluate(()=>{
+    const c=document.querySelector("canvas");
+    const scene=c?.parentElement;
+    const backdrop=document.querySelector('div[class*="backdrop"]');
+    const details=(el)=>el?{
+      display:getComputedStyle(el).display,
+      visibility:getComputedStyle(el).visibility,
+      opacity:getComputedStyle(el).opacity,
+      zIndex:getComputedStyle(el).zIndex,
+      rect:el.getBoundingClientRect().toJSON(),
+    }:null;
+    return {canvas:details(c),scene:details(scene),backdrop:details(backdrop),
+      frame:c?{drawCalls:c.dataset.drawCalls,triangles:c.dataset.triangles}:null};
+  });
+  fs.writeFileSync(path.join(out,"first-paint.json"),JSON.stringify(paint,null,2)+"\n");
+  await canvas.screenshot({path:path.join(out,"01-canvas.png")});
   await page.screenshot({path:path.join(out,"01-portrait.png")});
   const lb=await move.boundingBox(),rb=await look.boundingBox();
   assert.ok(lb&&rb&&lb.x+lb.width<rb.x);
