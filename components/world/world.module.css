@@ -635,6 +635,7 @@
   width:38px;height:33px;display:grid;place-items:center;
   border-radius:9px;color:#f4ead4;transition:background 150ms ease;
 }
+.hubHeading button[aria-controls="world-shasta-tricks"]{margin-left:auto}
 .hubHeading button:hover,.hubHeading button[aria-expanded="true"]{
   background:#f6e4ba25;
 }
@@ -1552,7 +1553,6 @@
   .world[data-mobile-hub-open="true"] .location{visibility:hidden}
   .hubHeading{margin-bottom:0;min-height:36px;border:0;gap:1px;letter-spacing:.025em}
   .hubHeading button{width:38px;min-width:38px;height:38px}
-  .desktopHubTitle{display:none}
   .mobileHubTitle{display:block;flex:1;text-align:center;font-size:11px;letter-spacing:.065em}
   .mobileHubToggle{display:grid!important}
   .activityDock[data-mobile-open="false"] .hubContents{display:none}
