@@ -34,8 +34,11 @@ try{
   await enter(desktop);
   const dock=desktop.getByRole("navigation",{name:"World movement and sports"});
   const dimensions=await dock.boundingBox();
-  assert.ok(dimensions&&dimensions.height<105&&dimensions.width<410,
-    "Collapsed HUD must be substantially smaller than the old tall sidebar");
+  // Desktop retains its complete activity HUD; compact collapse is touch-only.
+  assert.ok(dimensions&&dimensions.height<230&&dimensions.width<410,
+    "Desktop HUD must remain bounded with activity controls available");
+  assert.equal(await dock.getByRole("button",{name:"Run"}).isVisible(),true);
+  assert.equal(await dock.getByRole("button",{name:"Show sport shortcuts"}).isVisible(),true);
   assert.equal(await dock.getByRole("group",{name:"Sport shortcuts"}).isVisible(),false);
   assert.equal(await dock.getByRole("button",{name:"Skateboarding"}).getAttribute("aria-pressed"),"false");
   await desktop.screenshot({path:path.join(out,"01-desktop-collapsed.png")});
@@ -97,12 +100,18 @@ try{
   const mobileDock=mobile.getByRole("navigation",{name:"World movement and sports"});
   const box=await mobileDock.boundingBox();
   assert.ok(box&&box.x>=0&&box.x+box.width<=376,"Mobile dock must fit the viewport");
+  assert.equal(await mobileDock.getAttribute("data-mobile-open"),"false");
+  assert.equal(await mobileDock.getByRole("button",{name:"Show sport shortcuts"}).isVisible(),false);
+  await mobileDock.getByRole("button",{name:"Expand island controls"}).tap();
+  assert.equal(await mobileDock.getAttribute("data-mobile-open"),"true");
   await mobileDock.getByRole("button",{name:"Show sport shortcuts"}).tap();
   const expanded=await mobileDock.boundingBox();
-  assert.ok(expanded&&expanded.height<320,"Expanded mobile hub must not cover the full game view");
+  assert.ok(expanded&&expanded.height<=400,"Expanded mobile hub must be bounded and scrollable");
   assert.equal(await mobileDock.getByRole("group",{name:"Sport shortcuts"}).getByRole("button").count(),5);
   await mobile.screenshot({path:path.join(out,"03-mobile-expanded.png")});
   await mobileDock.getByRole("button",{name:"Hide sport shortcuts"}).tap();
+  await mobileDock.getByRole("button",{name:"Collapse island controls"}).tap();
+  assert.equal(await mobileDock.getAttribute("data-mobile-open"),"false");
   await mobile.screenshot({path:path.join(out,"04-mobile-collapsed.png")});
   assert.deepEqual(errors,[],"No browser or renderer errors during sport shortcuts");
   fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({dimensions,observations,errors},null,2)+"\n");
