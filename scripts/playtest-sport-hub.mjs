@@ -25,9 +25,20 @@ async function enter(page){
   page.on("pageerror",e=>errors.push(e.message));
   page.on("console",m=>{if(m.type()==="error")errors.push(m.text());});
   await page.goto(base);
-  await page.getByRole("button",{name:"Explore world",exact:true}).click();
+  // Cold Next development builds can render the welcome button before hydration.
+  // Verify entry rather than assuming the first click was handled.
+  for(let attempt=0;attempt<5;attempt++){
+    await page.getByRole("button",{name:"Explore world",exact:true}).click();
+    try{
+      await page.waitForFunction(()=>
+        document.querySelector("[data-world-state]")?.getAttribute("data-world-state")==="exploring",
+        null,{timeout:6000});
+      break;
+    }catch(error){if(attempt===4)throw error;}
+  }
+  // Software WebGL may need a long first frame on a cold Actions runner.
   await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
-    null,{timeout:45000});
+    null,{timeout:110000});
 }
 try{
   const desktop=await browser.newPage({viewport:{width:1440,height:900}});
