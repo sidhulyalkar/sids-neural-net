@@ -18,8 +18,11 @@ try{
   page.on("pageerror",e=>errors.push(e.message));
   await page.goto(process.env.WORLD_BASE_URL??"http://127.0.0.1:3000");
   await page.getByRole("button",{name:"Explore world",exact:true}).click();
-  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
-    null,{timeout:110000});
+  // Ensure the Three.js scene has completed its first meaningful paint.
+  await page.waitForFunction(()=>{
+    const d=document.querySelector("canvas")?.dataset;
+    return Boolean(d?.player)&&Number(d?.drawCalls)>=25&&Number(d?.triangles)>=30000;
+  },null,{timeout:110000});
   const canvas=page.locator("canvas").first();
   const nav=page.getByRole("navigation",{name:"World movement and sports"});
   const move=page.locator("button[data-axis=movement]");
@@ -70,6 +73,8 @@ try{
     null,{timeout:10000});
   await nav.getByRole("button",{name:"Expand island controls"}).click();
   assert.equal(await nav.locator("#world-hub-contents").isVisible(),true);
+  assert.equal(await page.locator('div[class*="location"]').isVisible(),false,
+    "Expanded island hub must not overlap a clipped region heading");
   await page.screenshot({path:path.join(out,"03-expanded.png")});
   await nav.getByRole("button",{name:"Collapse island controls"}).click();
   assert.equal(await nav.getAttribute("data-mobile-open"),"false");
@@ -82,6 +87,8 @@ try{
   const landscape=await nav.boundingBox();
   assert.ok(landscape&&landscape.x>=0&&landscape.y+landscape.height<=390);
   assert.equal(await move.isVisible(),true);
+  assert.equal(await page.locator('p[class*="controls"]').isVisible(),false,
+    "Desktop keyboard instructions must not overlap mobile joysticks");
   await page.screenshot({path:path.join(out,"04-landscape.png")});
   assert.deepEqual(errors,[]);
   fs.writeFileSync(path.join(out,"trace.json"),JSON.stringify({trace,errors},null,2)+"\n");
