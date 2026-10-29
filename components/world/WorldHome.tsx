@@ -106,6 +106,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [failed, setFailed] = useState(false);
   const [activity, setActivity] = useState<Activity>("run");
   const [sportsOpen, setSportsOpen] = useState(false);
+  const [mobileHubOpen, setMobileHubOpen] = useState(false);
   const [skim, setSkim] = useState<SkimHeat>(idleSkimHeat);
   const [skimNearby, setSkimNearby] = useState<number|null>(null);
   const [skimCommand, setSkimCommand] = useState<"pickup"|"drop"|"pop"|"shuvit"|"big-spin"|"three-sixty"|"wrap"|"exit"|"restart">("pickup");
@@ -380,6 +381,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       trial:trial.phase,skim:skim.phase}).canChangeMovement)return;
     setSessionExitSerial(n=>n+1);
     setActivity(next);
+    setMobileHubOpen(false);
     // A selected mode can be activated again without a React state change.
     // Restore movement focus on every activation, including that case.
     requestAnimationFrame(() => worldRoot.current?.querySelector("canvas")?.focus({ preventScroll: true }));
@@ -391,6 +393,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
     // Game sessions retain movement ownership until a safe free-roam state.
     if (!ready || quiet || aquatic !== "land" || !session.canChangeMovement) return;
     setSportsOpen(false);
+    setMobileHubOpen(false);
     if (sport === "disc") {
       const next = nextUnplayedDiscGolfHole(discGolfRound);
       startDiscHole(next ?? 0);
@@ -593,17 +596,26 @@ export function WorldHome({ content }: { content: WorldContent }) {
           )}
           {aquatic === "land" && (
              <nav className={styles.activityDock} aria-label="World movement and sports"
+               data-mobile-open={mobileHubOpen ? "true" : "false"}
                style={{display:worldGameActive||skim.phase!=="off"?"none":undefined}}>
                <div className={styles.hubHeading}>
                  <button type="button" aria-label="Open navigation menu" aria-haspopup="dialog"
                    title="Navigation" onClick={()=>open("menu")}><MenuIcon size={19} aria-hidden="true"/></button>
-                 <span>ISLAND HUB</span>
+                 <span className={styles.desktopHubTitle}>ISLAND HUB</span>
+                 <span className={styles.mobileHubTitle}>{ACTIVITIES.find(item=>item.id===activity)?.label ?? "Explore"}</span>
                  <button type="button" aria-label={shastaOpen?"Hide Shasta tricks":"Show Shasta tricks"}
                    aria-expanded={shastaOpen} aria-controls="world-shasta-tricks"
-                   title="Shasta commands" onClick={()=>setShastaOpen(open=>!open)}>
+                   title="Shasta commands" onClick={()=>{setShastaOpen(open=>!open);setMobileHubOpen(true);}}>
                    <PawPrint size={19} aria-hidden="true"/>
                  </button>
+                 <button type="button" className={styles.mobileHubToggle}
+                   aria-controls="world-hub-contents" aria-expanded={mobileHubOpen}
+                   aria-label={mobileHubOpen ? "Collapse island controls" : "Expand island controls"}
+                   onClick={()=>setMobileHubOpen(open=>!open)}>
+                   <ChevronDown size={20} className={mobileHubOpen ? styles.sportsChevronOpen : styles.sportsChevron} aria-hidden="true"/>
+                 </button>
                </div>
+               <div id="world-hub-contents" className={styles.hubContents}>
                <div className={styles.activityButtons} role="group" aria-label="Movement activity">
                  {ACTIVITIES.map(item => (
                    <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
@@ -621,7 +633,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                  {(["go","come"] as const).map(command=>(
                    <button key={command} type="button" disabled={!ready||quiet||!!panel||worldGameActive}
                      title={command==="go"?"Run around and chase nearby squirrels":"Return and stay with me"}
-                     onClick={()=>{setShastaCommand(command);setShastaCommandSerial(n=>n+1);}}>
+                     onClick={()=>{setShastaCommand(command);setShastaCommandSerial(n=>n+1);setMobileHubOpen(false);}}>
                      Shasta {command==="go"?"Go":"Come"}
                    </button>
                  ))}
@@ -637,7 +649,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                      ["park-it","Park it"]] as [ShastaTrick,string][]).map(([trick,label])=>(
                      <button key={trick} type="button" title={label}
                        disabled={!ready||quiet||!!panel||worldGameActive}
-                       onClick={()=>{setShastaCommand(trick);setShastaCommandSerial(n=>n+1);}}>{label}</button>
+                       onClick={()=>{setShastaCommand(trick);setShastaCommandSerial(n=>n+1);setMobileHubOpen(false);}}>{label}</button>
                    ))}
                  </div>
                  <p className={styles.shastaHint}>Park it brings Shasta between your feet to lie down. Come calls him back.</p>
@@ -673,7 +685,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
                    <Trees aria-hidden="true"/><span>Skatepark</span>
                  </button>
                </div>
+               </div>
              </nav>
+           )}
+           {aquatic === "land" && skim.phase === "off" && !worldGameActive && (
+             <button type="button" className={styles.mobileActionButton}
+               disabled={!ready || quiet} aria-label={activityConfig(activity).action}
+               onClick={()=>setActionSerial(n=>n+1)}>{activityConfig(activity).action}</button>
            )}
            {skim.phase==="off" && skimNearby!==null && aquatic==="land" &&
             discGolf.phase==="off" && bigAir.phase!=="armed" && bigAir.phase!=="flying" &&
@@ -813,7 +831,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             )}
           </p>
           <div className={styles.touchHelp} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
-            {aquatic === "land" ? "Tap ground to move · Drag to look" : "Tap water to swim · Drag to look"}
+            Left stick to move · Right stick to look
           </div>
         </>
       )}
