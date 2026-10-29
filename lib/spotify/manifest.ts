@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 export const trackSchema = z.object({
   spotifyId: z.string().regex(/^[A-Za-z0-9]+$/),
