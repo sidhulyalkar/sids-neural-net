@@ -1535,3 +1535,101 @@
 @media(max-height:650px){.shastaDrawer{max-height:28svh}}
 @media(max-width:420px){.shastaTrickGrid button{min-height:44px;font-size:10px}}
 @media(prefers-reduced-motion:reduce){.hubHeading button{transition:none}}
+
+
+/* Touch-primary layout: world stays visible, hub expands only on demand. */
+.mobileHubToggle,.mobileHubTitle,.mobileActionButton,.mobileJoysticks {display:none}
+@media (pointer:coarse) {
+  .header{padding:calc(14px + env(safe-area-inset-top,0px)) 14px 10px}
+  .activityDock{
+    top:calc(60px + env(safe-area-inset-top,0px));
+    right:calc(10px + env(safe-area-inset-right,0px));
+    width:min(320px,calc(100vw - 20px));
+    max-height:min(55svh,400px);
+    overflow:hidden;padding:5px 6px;border-radius:14px;
+  }
+  .activityDock[data-mobile-open="false"]{width:min(205px,calc(100vw - 22px))}
+  .hubHeading{margin-bottom:0;min-height:36px;border:0;gap:1px;letter-spacing:.025em}
+  .hubHeading button{width:38px;min-width:38px;height:38px}
+  .desktopHubTitle{display:none}
+  .mobileHubTitle{display:block;flex:1;text-align:center;font-size:11px;letter-spacing:.065em}
+  .mobileHubToggle{display:grid!important}
+  .activityDock[data-mobile-open="false"] .hubContents{display:none}
+  .activityDock[data-mobile-open="true"] .hubContents{
+    display:block;overflow-y:auto;overscroll-behavior:contain;
+    max-height:min(43svh,330px);padding:6px 1px 2px;
+  }
+  .activityDock .activityButtons{flex-wrap:wrap}
+  .activityDock .activityButtons button{min-width:54px;min-height:42px;font-size:11px;padding:8px 4px}
+  .activityDock .sportsToggle{min-height:38px}
+  .shastaDrawer{max-height:min(26svh,190px)}
+  .mobileActionButton{
+    display:block;position:absolute;
+    right:calc(17px + env(safe-area-inset-right,0px));
+    bottom:calc(139px + env(safe-area-inset-bottom,0px));
+    z-index:4;max-width:102px;min-width:60px;min-height:46px;
+    padding:8px 11px;border-radius:14px;background:#f3dfbce8;
+    border:1px solid #ffffff80;color:#16363e;
+    box-shadow:0 5px 16px #0b273e66;
+    font-size:11px;font-weight:750;line-height:1.2;
+  }
+  .mobileActionButton:disabled{opacity:.48}
+  .mobileJoysticks:not([hidden]){
+    display:flex;position:absolute;
+    left:calc(14px + env(safe-area-inset-left,0px));
+    right:calc(14px + env(safe-area-inset-right,0px));
+    bottom:calc(31px + env(safe-area-inset-bottom,0px));
+    align-items:flex-end;justify-content:space-between;
+    z-index:11;pointer-events:none;touch-action:none;
+  }
+  .mobileJoystick{
+    display:block;position:relative;
+    width:clamp(88px,25vw,108px);height:clamp(88px,25vw,108px);
+    padding:0;border-radius:50%;border:1.5px solid #e0f8ef8a;
+    background:radial-gradient(circle,#c5e4df1f 12%,#102f3f85 100%);
+    box-shadow:inset 0 0 0 5px #fff2c10d,0 4px 20px #071f3366;
+    backdrop-filter:blur(5px);
+    pointer-events:auto;touch-action:none;user-select:none;
+    -webkit-user-select:none;cursor:grab;
+  }
+  .mobileJoystick:active{cursor:grabbing;border-color:#fff1c6}
+  .mobileJoystick::after{
+    content:attr(data-label);position:absolute;bottom:-20px;
+    left:0;right:0;color:#f7f2dd;
+    font:700 10px/1 system-ui,sans-serif;text-align:center;
+    letter-spacing:.13em;text-shadow:0 2px 5px #092c37;
+    pointer-events:none;
+  }
+  .mobileJoystickThumb{
+    position:absolute;left:50%;top:50%;
+    width:42%;height:42%;border-radius:50%;
+    background:#f2e9d0d9;border:1px solid #ffffffb8;
+    box-shadow:0 3px 12px #09232b88;
+    transform:translate(-50%,-50%);pointer-events:none;will-change:transform;
+  }
+  .touchHelp{display:none}
+  .location{
+    top:calc(74px + env(safe-area-inset-top,0px));
+    left:13px;bottom:auto;max-width:min(38vw,170px);pointer-events:none;
+  }
+  .location p{font-size:16px;line-height:1.15}
+  .discovery{
+    bottom:calc(154px + env(safe-area-inset-bottom,0px));
+    max-width:42vw;gap:7px;padding:9px 11px;
+    font-size:11px;white-space:normal;line-height:1.3;
+  }
+  .waterDock{
+    top:calc(123px + env(safe-area-inset-top,0px));
+    left:10px;right:auto;max-width:min(140px,42vw);
+    padding:7px;gap:4px;
+  }
+  .waterDock button{min-height:34px}
+}
+@media (pointer:coarse) and (max-height:570px) {
+  .activityDock{top:calc(49px + env(safe-area-inset-top,0px))}
+  .activityDock[data-mobile-open="true"] .hubContents{max-height:35svh}
+  .mobileJoysticks:not([hidden]){bottom:calc(22px + env(safe-area-inset-bottom,0px))}
+  .mobileJoystick{width:82px;height:82px}
+  .mobileActionButton{bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+  .discovery{bottom:calc(116px + env(safe-area-inset-bottom,0px))}
+}
