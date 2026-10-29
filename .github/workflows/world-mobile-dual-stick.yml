@@ -1,0 +1,65 @@
+name: World Mobile Dual-Stick Browser QA
+on:
+  pull_request:
+    paths:
+      - 'components/world/WorldHome.tsx'
+      - 'components/world/world.module.css'
+      - 'components/world/worldRenderer.ts'
+      - 'components/world/worldMobileJoysticks.ts'
+      - 'lib/world/mobileJoystick.ts'
+      - 'tests/world-mobile-joystick.test.ts'
+      - 'scripts/playtest-world-mobile-dual-stick.mjs'
+      - '.github/workflows/world-mobile-dual-stick.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mobile-controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 27
+    env:
+      PLAYWRIGHT_MODULE_ROOT: /tmp/world-mobile-playwright/node_modules/playwright
+      WORLD_BASE_URL: http://127.0.0.1:3000
+      WORLD_AUDIT_DIR: artifacts/world/mobile-dual-stick
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install exact dependencies
+        run: npm ci
+      - name: Check types, lint and analog stick geometry
+        run: |
+          npm run typecheck
+          npx eslint components/world/WorldHome.tsx components/world/worldMobileJoysticks.ts components/world/worldRenderer.ts lib/world/mobileJoystick.ts tests/world-mobile-joystick.test.ts --max-warnings=0
+          node --import tsx --test tests/world-mobile-joystick.test.ts
+          node --check scripts/playtest-world-mobile-dual-stick.mjs
+      - name: Install Chromium
+        run: |
+          mkdir -p /tmp/world-mobile-playwright
+          npm install --prefix /tmp/world-mobile-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/world-mobile-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start world
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/world-mobile-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 160 /tmp/world-mobile-next.log
+          exit 1
+      - name: Exercise dual-pointer mobile navigation
+        run: node scripts/playtest-world-mobile-dual-stick.mjs
+      - name: Show diagnostics
+        if: failure()
+        run: tail -n 160 /tmp/world-mobile-next.log || true
+      - name: Upload screenshots and trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-mobile-dual-stick
+          path: |
+            artifacts/world/mobile-dual-stick/
+            /tmp/world-mobile-next.log
+          if-no-files-found: warn
