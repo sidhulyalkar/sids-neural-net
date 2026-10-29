@@ -86,7 +86,10 @@ export function createMobileJoysticks(host:HTMLElement):MobileJoysticks {
     button.addEventListener("keyup",e=>{
       if(e.key.startsWith("Arrow")){e.preventDefault();center();}
     });
-    button.addEventListener("blur",reset);
+    // A second thumb can focus an action button while this pointer is held.
+    // Only a keyboard-operated stick resets on focus loss. Touch resets when
+    // its captured pointer ends, cancels, or the world/window pauses.
+    button.addEventListener("blur",()=>{if(pointerId===null)center();});
     buttons.push({reset});
   }
   makeStick("movement","MOVE","Movement joystick, drag to move in any direction");
