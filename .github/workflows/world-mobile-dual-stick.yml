@@ -8,6 +8,8 @@ on:
       - 'components/world/worldMobileJoysticks.ts'
       - 'lib/world/mobileJoystick.ts'
       - 'tests/world-mobile-joystick.test.ts'
+      - 'tests/world-analog-travel.test.ts'
+      - 'lib/world/activities.ts'
       - 'scripts/playtest-world-mobile-dual-stick.mjs'
       - '.github/workflows/world-mobile-dual-stick.yml'
   workflow_dispatch:
@@ -32,8 +34,8 @@ jobs:
       - name: Check types, lint and analog stick geometry
         run: |
           npm run typecheck
-          npx eslint components/world/WorldHome.tsx components/world/worldMobileJoysticks.ts components/world/worldRenderer.ts lib/world/mobileJoystick.ts tests/world-mobile-joystick.test.ts --max-warnings=0
-          node --import tsx --test tests/world-mobile-joystick.test.ts
+          npx eslint components/world/WorldHome.tsx components/world/worldMobileJoysticks.ts components/world/worldRenderer.ts lib/world/mobileJoystick.ts lib/world/activities.ts tests/world-mobile-joystick.test.ts tests/world-analog-travel.test.ts --max-warnings=0
+          node --import tsx --test tests/world-mobile-joystick.test.ts tests/world-analog-travel.test.ts
           node --check scripts/playtest-world-mobile-dual-stick.mjs
       - name: Install Chromium
         run: |
