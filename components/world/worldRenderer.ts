@@ -4160,8 +4160,9 @@ export function createWorld(
     const dt = Math.min(rawDelta,.05);
     last = now;
     elapsed += dt;
+    // Skimboarding still uses the ordinary movement engine, even during a heat.
     mobileJoysticks.setVisible(state.entered&&!state.paused&&!jetSki&&!jetChoosing&&
-      discGolf.phase==="off"&&skimHeat.phase==="off");
+      discGolf.phase==="off");
     if(mobileJoysticks.enabled){
       yaw-=mobileJoysticks.look.x*dt*1.8;
       pitch=THREE.MathUtils.clamp(pitch-mobileJoysticks.look.y*dt*.9,.22,.95);
