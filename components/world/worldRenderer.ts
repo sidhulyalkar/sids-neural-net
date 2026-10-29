@@ -4114,6 +4114,16 @@ export function createWorld(
     drag = null;
     destination = null;
   }
+  function onCanvasBlur(){
+    // Touching Jump, Shasta or the other in-world HUD elements moves focus off
+    // the WebGL canvas, but must not cancel a still-held analog thumbstick.
+    // Explicit pause, visibility loss and window blur always reset both sticks.
+    if(mobileJoysticks.enabled&&state.entered&&!state.paused&&!document.hidden){
+      keys.clear();drag=null;destination=null;
+      return;
+    }
+    clearInput();
+  }
   function clearHeldJetControls(){
     clearInput();
     jetTouchInput.throttle=0;jetTouchInput.steer=0;jetTouchInput.brake=false;
@@ -4136,7 +4146,7 @@ export function createWorld(
   canvas.addEventListener("pointercancel", cancelPointer);
   canvas.addEventListener("wheel", onWheel, { passive: false });
   window.addEventListener("keydown", onKey);
-  canvas.addEventListener("blur", clearInput);
+  canvas.addEventListener("blur", onCanvasBlur);
   window.addEventListener("keyup", keyUp);
   window.addEventListener("blur", clearHeldJetControls);
   document.addEventListener("visibilitychange", visibility);
@@ -7795,7 +7805,7 @@ export function createWorld(
       canvas.removeEventListener("pointercancel", cancelPointer);
       canvas.removeEventListener("wheel", onWheel);
       window.removeEventListener("keydown", onKey);
-      canvas.removeEventListener("blur", clearInput);
+      canvas.removeEventListener("blur", onCanvasBlur);
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("blur", clearHeldJetControls);
       document.removeEventListener("visibilitychange", visibility);
