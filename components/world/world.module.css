@@ -1633,3 +1633,38 @@
   .mobileActionButton{bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   .discovery{bottom:calc(116px + env(safe-area-inset-bottom,0px))}
 }
+
+
+/* Game HUD ownership: two virtual thumbs must never sit on top of action menus.
+   Skim actions become a compact top strip, while ski/race metrics move above. */
+@media (pointer:coarse) {
+  .world[data-world-game="skim"] .skimHud {
+    top:calc(66px + env(safe-area-inset-top,0px));
+    bottom:auto;
+    left:50%;
+    width:min(520px,calc(100% - 24px));
+    max-height:min(29svh,166px);
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    padding:7px 10px;
+  }
+  .world[data-world-game="skim"] .skimReadout strong {font-size:18px}
+  .world[data-world-game="skim"] .skimActions {margin:5px 0 2px;gap:4px}
+  .world[data-world-game="skim"] .skimActions button {min-height:34px;padding:5px 8px}
+  .world[data-world-game="ski"] .bigAirHud,
+  .world[data-world-game="trial"] .trialHud {
+    top:calc(70px + env(safe-area-inset-top,0px));
+    bottom:auto;
+    left:12px;
+    max-height:min(39svh,270px);
+    overflow-y:auto;
+    overscroll-behavior:contain;
+  }
+}
+@media (pointer:coarse) and (max-height:570px) {
+  .world[data-world-game="skim"] .skimHud {max-height:34svh;padding:5px 9px}
+  .world[data-world-game="skim"] .skimHud p,
+  .world[data-world-game="skim"] .skimHud > small {display:none}
+  .world[data-world-game="ski"] .bigAirHud,
+  .world[data-world-game="trial"] .trialHud {max-height:38svh}
+}
