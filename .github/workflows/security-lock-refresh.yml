@@ -1,0 +1,41 @@
+name: Temporary patched dependency lock regeneration
+on:
+  push:
+    branches:
+      - security/next-react-zod-20261028
+    paths:
+      - package.json
+      - .github/workflows/security-lock-refresh.yml
+permissions:
+  contents: write
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Resolve exact patched dependency tree
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Check production advisories
+        run: npm audit --omit=dev --audit-level=high
+      - name: Verify pinned dependency graph and TypeScript
+        run: |
+          npm ci --ignore-scripts --no-fund
+          npm run typecheck
+          npx eslint lib/data/schemas.ts lib/physiology/schema.ts lib/spotify/manifest.ts lib/content/load-timeline.ts lib/content/load-case-studies.ts --max-warnings=0
+      - name: Commit generated lockfile after qualification
+        run: |
+          test -f package-lock.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json
+          if git diff --cached --quiet; then
+            echo 'Lockfile was already current.'
+          else
+            git commit -m 'security(lock): regenerate audited pinned dependencies'
+            git push origin HEAD:security/next-react-zod-20261028
+          fi
