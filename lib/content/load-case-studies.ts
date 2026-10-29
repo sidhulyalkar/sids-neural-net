@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { parseFrontmatter } from './frontmatter';
 
 export const CaseStudyFrontmatterSchema = z.object({
