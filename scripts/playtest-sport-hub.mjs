@@ -61,6 +61,10 @@ try{
   const desktop=await browser.newPage({viewport:{width:1024,height:720}});
   await enter(desktop);
   const dock=desktop.getByRole("navigation",{name:"World movement and sports"});
+  assert.equal(await dock.getByText("ISLAND HUB").count(),0,
+    "Navigation icon and Shasta paw replace the redundant Island Hub title");
+  assert.equal(await dock.getByRole("button",{name:"Open navigation menu"}).isVisible(),true);
+  assert.equal(await dock.getByRole("button",{name:"Show Shasta tricks"}).isVisible(),true);
   const dimensions=await dock.boundingBox();
   // Desktop retains its complete activity HUD; compact collapse is touch-only.
   assert.ok(dimensions&&dimensions.height<230&&dimensions.width<410,
