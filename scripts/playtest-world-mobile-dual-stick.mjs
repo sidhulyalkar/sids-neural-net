@@ -45,6 +45,12 @@ try{
   await send("touchMove",[movement]);
   await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.mobileMove?.split(",")[1])>.3,
     null,{timeout:10000});
+  // A finger may be holding Move while the other taps Jump: focus transfer
+  // must preserve the analog movement vector, not clear both pointers.
+  await canvas.evaluate(el=>el.focus({preventScroll:true}));
+  await page.locator('button[class*="mobileActionButton"]').evaluate(el=>el.focus({preventScroll:true}));
+  assert.ok(Number((await canvas.getAttribute("data-mobile-move")).split(",")[1])>.3,
+    "Touch action focus must preserve the held movement stick");
   await send("touchStart",[movement,touch(2,rc.x,rc.y)]);
   await send("touchMove",[movement,camera]);
   await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.mobileLook?.split(",")[0])>.3,
