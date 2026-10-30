@@ -16,7 +16,11 @@ const record=async label=>{
  const data=await page.locator('canvas').evaluate(c=>({...c.dataset}));
  const item={label,action:data.shastaTrick,phase:data.shastaTrickPhase,
   outing:data.shastaOuting,carrying:data.shastaCarrying,
-  catches:data.shastaCatchCount,drawCalls:data.drawCalls};
+  catches:data.shastaCatchCount,drawCalls:data.drawCalls,
+  legRig:data.shastaLegRig,segments:data.shastaLimbSegmentCount,
+  poseSit:data.shastaPoseSit,poseDown:data.shastaPoseDown,
+  poseRoll:data.shastaPoseRoll,posePawLift:data.shastaPosePawLift,
+  goalDistance:data.shastaTrickGoalDistance};
  snapshots.push(item);return item;
 };
 try{
@@ -39,15 +43,27 @@ try{
  await nav.getByRole('button',{name:'Sit',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTrickPhase==='hold'&&
  document.querySelector('canvas')?.dataset.shastaTrick==='sit',null,{timeout:25000});
- await record('sit held');
+ const seated=await record('sit held');
+ assert.equal(seated.legRig,'articulated-eight-segment');
+ assert.equal(seated.segments,'8');
+ assert.ok(Number(seated.poseSit)>.95,'sitting must actually fold the hindquarters');
  await page.screenshot({path:path.join(out,'01-shasta-sit.png')});
  await nav.getByRole('button',{name:'Roll left'}).click();
  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTrick==='roll-left',null,{timeout:15000});
- await record('left roll');
+ await page.waitForFunction(()=>{
+  const d=document.querySelector('canvas')?.dataset;
+  return d?.shastaTrick==='roll-left'&&Number(d.shastaPoseDown)>.15;
+ },null,{timeout:25000});
+ await record('left roll, chest lowering');
+ await page.screenshot({path:path.join(out,'01b-shasta-roll-transition.png')});
  await nav.getByRole('button',{name:'Shake right paw'}).click();
  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTrick==='shake-right',
   null,{timeout:15000});
- await record('right paw interrupts roll');
+ await page.waitForFunction(()=>{
+  const d=document.querySelector('canvas')?.dataset;
+  return d?.shastaTrick==='shake-right'&&Number(d.shastaPosePawLift)>.09;
+ },null,{timeout:25000});
+ await record('right paw lifts after weight transfer');
  await nav.getByRole('button',{name:'Park it'}).click();
  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTrick==='park-it',
   null,{timeout:15000});
@@ -73,6 +89,9 @@ try{
  console.log('SHASTA HUB BROWSER PASS',JSON.stringify({snapshots,errors}));
 }catch(e){
  try{await page?.screenshot({path:path.join(out,'failure.png')});}catch{}
- fs.writeFileSync(path.join(out,'trace.json'),JSON.stringify({snapshots,errors,error:String(e)},null,2)+'\n');
+ const diagnostic=await page?.evaluate(()=>{
+  const c=document.querySelector('canvas');return c?{...c.dataset}:null;
+ }).catch(()=>null);
+ fs.writeFileSync(path.join(out,'trace.json'),JSON.stringify({snapshots,errors,error:String(e),diagnostic},null,2)+'\n');
  throw e;
 }finally{await browser.close();}
