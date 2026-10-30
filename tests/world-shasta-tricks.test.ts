@@ -126,3 +126,22 @@ test('trick pose samples are deterministic and finite across browser frame inter
   }
  }
 });
+
+test('Park it chooses reachable ground when the exact heel position is blocked',()=>{
+ const blocked=(p:{x:number;z:number})=>Math.hypot(p.x,p.z+.38)>.42;
+ const state=beginShastaTrick('park-it',0,dog,player,heading,blocked);
+ assert.equal(state.phase,'approach');
+ assert.ok(state.finalGoal);
+ assert.ok(blocked(state.finalGoal!));
+ assert.notDeepEqual(state.finalGoal,{x:0,z:-.38});
+ assert.ok(state.goal&&blocked(state.goal));
+});
+test('fully blocked Park it settles safely at the existing dog location',()=>{
+ const state=beginShastaTrick('park-it',0,dog,player,heading,()=>false);
+ assert.equal(state.phase,'perform');
+ assert.equal(state.goal,null);
+ assert.equal(state.finalGoal,null);
+ const held=stepShastaTrick(state,2,dog,true);
+ assert.equal(held.phase,'hold');
+ assert.ok(shastaTrickPose(held,2).down>.8);
+});
