@@ -103,8 +103,10 @@ export function shastaArticulatedLeg(
  hipZ:number,footZ:number,footY:number,fore:boolean,
  bodyDrop=0,footSlide=0,
 ):ShastaArticulatedLeg{
- const hip={y:(fore?.77:.82)-clamp(bodyDrop,0,.46),z:hipZ};
- const paw={y:clamp(footY,-.04,.38),
+ const hip={y:fore?.77:.82,z:hipZ};
+ // Body root drops in world space. Raise the paw in rig-local coordinates by
+ // the same amount so it stays planted rather than penetrating the ground.
+ const paw={y:clamp(footY+clamp(bodyDrop,0,.46),-.04,.58),
   z:hipZ+clamp(footZ-hipZ+footSlide,-.42,.42)};
  // A real canine knee/hock has more than one bending joint. With only two
  // bone pieces, preserve their recognizable fore/hind flexion directions.
