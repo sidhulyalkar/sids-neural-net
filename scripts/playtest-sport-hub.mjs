@@ -25,17 +25,52 @@ async function enter(page){
   page.on("pageerror",e=>errors.push(e.message));
   page.on("console",m=>{if(m.type()==="error")errors.push(m.text());});
   await page.goto(base);
-  await page.getByRole("button",{name:"Explore world",exact:true}).click();
-  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
-    null,{timeout:45000});
+  // Cold Next development builds can render the welcome button before hydration.
+  // Verify entry rather than assuming the first click was handled.
+  for(let attempt=0;attempt<5;attempt++){
+    await page.getByRole("button",{name:"Explore world",exact:true}).click();
+    try{
+      await page.waitForFunction(()=>
+        document.querySelector("[data-world-state]")?.getAttribute("data-world-state")==="exploring",
+        null,{timeout:6000});
+      break;
+    }catch(error){if(attempt===4)throw error;}
+  }
+  // Preserve failures with enough diagnostics to distinguish WebGL stalls
+  // from a game startup bug or transient hydration delay.
+  try{
+    await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
+      null,{timeout:110000});
+  }catch(error){
+    const diagnostic=await page.evaluate(()=>{
+      const c=document.querySelector("canvas");
+      return {
+        world:document.querySelector("[data-world-state]")?.getAttribute("data-world-state"),
+        canvas:c?{dataset:{...c.dataset},width:c.width,height:c.height}:null,
+      };
+    });
+    fs.writeFileSync(path.join(out,"entry-failure.json"),
+      JSON.stringify({diagnostic,errors},null,2)+"\n");
+    await page.screenshot({path:path.join(out,"entry-failure.png")}).catch(()=>{});
+    throw error;
+  }
 }
 try{
-  const desktop=await browser.newPage({viewport:{width:1440,height:900}});
+  // CI uses software WebGL. A 1024px viewport still exercises desktop layout
+  // without spending rendering time on a massive initial framebuffer.
+  const desktop=await browser.newPage({viewport:{width:1024,height:720}});
   await enter(desktop);
   const dock=desktop.getByRole("navigation",{name:"World movement and sports"});
+  assert.equal(await dock.getByText("ISLAND HUB").count(),0,
+    "Navigation icon and Shasta paw replace the redundant Island Hub title");
+  assert.equal(await dock.getByRole("button",{name:"Open navigation menu"}).isVisible(),true);
+  assert.equal(await dock.getByRole("button",{name:"Show Shasta tricks"}).isVisible(),true);
   const dimensions=await dock.boundingBox();
-  assert.ok(dimensions&&dimensions.height<105&&dimensions.width<410,
-    "Collapsed HUD must be substantially smaller than the old tall sidebar");
+  // Desktop retains its complete activity HUD; compact collapse is touch-only.
+  assert.ok(dimensions&&dimensions.height<230&&dimensions.width<410,
+    "Desktop HUD must remain bounded with activity controls available");
+  assert.equal(await dock.getByRole("button",{name:"Run"}).isVisible(),true);
+  assert.equal(await dock.getByRole("button",{name:"Show sport shortcuts"}).isVisible(),true);
   assert.equal(await dock.getByRole("group",{name:"Sport shortcuts"}).isVisible(),false);
   assert.equal(await dock.getByRole("button",{name:"Skateboarding"}).getAttribute("aria-pressed"),"false");
   await desktop.screenshot({path:path.join(out,"01-desktop-collapsed.png")});
@@ -82,7 +117,7 @@ try{
         null,{timeout:15000});
     }],
   ]){
-    const page=await browser.newPage({viewport:{width:1280,height:800}});
+    const page=await browser.newPage({viewport:{width:1024,height:720}});
     await enter(page);
     await launch(page,name);
     await check(page);
@@ -97,12 +132,18 @@ try{
   const mobileDock=mobile.getByRole("navigation",{name:"World movement and sports"});
   const box=await mobileDock.boundingBox();
   assert.ok(box&&box.x>=0&&box.x+box.width<=376,"Mobile dock must fit the viewport");
+  assert.equal(await mobileDock.getAttribute("data-mobile-open"),"false");
+  assert.equal(await mobileDock.getByRole("button",{name:"Show sport shortcuts"}).isVisible(),false);
+  await mobileDock.getByRole("button",{name:"Expand island controls"}).tap();
+  assert.equal(await mobileDock.getAttribute("data-mobile-open"),"true");
   await mobileDock.getByRole("button",{name:"Show sport shortcuts"}).tap();
   const expanded=await mobileDock.boundingBox();
-  assert.ok(expanded&&expanded.height<320,"Expanded mobile hub must not cover the full game view");
+  assert.ok(expanded&&expanded.height<=400,"Expanded mobile hub must be bounded and scrollable");
   assert.equal(await mobileDock.getByRole("group",{name:"Sport shortcuts"}).getByRole("button").count(),5);
   await mobile.screenshot({path:path.join(out,"03-mobile-expanded.png")});
   await mobileDock.getByRole("button",{name:"Hide sport shortcuts"}).tap();
+  await mobileDock.getByRole("button",{name:"Collapse island controls"}).tap();
+  assert.equal(await mobileDock.getAttribute("data-mobile-open"),"false");
   await mobile.screenshot({path:path.join(out,"04-mobile-collapsed.png")});
   assert.deepEqual(errors,[],"No browser or renderer errors during sport shortcuts");
   fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({dimensions,observations,errors},null,2)+"\n");

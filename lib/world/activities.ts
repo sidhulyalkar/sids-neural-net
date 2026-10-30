@@ -342,6 +342,7 @@ export function stepTravel(
   const mode = effectiveActivity(selected, current.point);
   const config = activityConfig(mode);
   const length = Math.hypot(input.x, input.z);
+  const effort = Math.min(1, length); // Analog magnitude, with diagonals capped at one.
   const moving = length > 0.001;
   const desired = moving
     ? { x: input.x / length, z: input.z / length }
@@ -372,7 +373,7 @@ export function stepTravel(
     config.speed *
     (mode === "run" && sprint ? 1.45 : 1) *
     (mode === "ski" ? Math.max(0.42, Math.min(1.45, 1 - slope * 0.38)) : 1) *
-    (boostEligible ? 1.6 : 1);
+    (boostEligible ? 1.6 : 1) * effort;
   // When the skill-shot expires, retain momentum briefly instead of snapping
   // immediately to normal cruise speed. Normal braking still takes over.
   const speed = mode==="skate"
@@ -382,7 +383,7 @@ export function stepTravel(
     })
     : moving
     ? Math.min(Math.max(maxSpeed,current.speed-config.braking*dt*.75),
-      current.speed+config.acceleration*dt*(boostEligible?2.35:1))
+      current.speed+config.acceleration*dt*(boostEligible?2.35:1)*Math.max(.25,effort))
     : Math.max(0,current.speed-config.braking*dt);
   const step = Math.min(
     speed * dt,
@@ -431,12 +432,16 @@ export function stepSwim(
   // locomotion. This prevents low-FPS devices from turning the ocean into slow motion.
   dt = Math.max(0, Math.min(dt, 0.12));
   const length = Math.hypot(input.x, input.z);
+  const effort = Math.min(1, length);
   const moving = length > 0.001;
   const heading = moving
     ? { x: input.x / length, z: input.z / length }
     : current.heading;
+  const desiredSpeed = SWIM_SPEED * effort;
   const speed = moving
-    ? Math.min(SWIM_SPEED, current.speed + 6.5 * dt)
+    ? current.speed < desiredSpeed
+      ? Math.min(desiredSpeed, current.speed + 6.5 * dt * Math.max(.25, effort))
+      : Math.max(desiredSpeed, current.speed - 7 * dt)
     : Math.max(0, current.speed - 7 * dt);
   const step = Math.min(
     speed * dt,
