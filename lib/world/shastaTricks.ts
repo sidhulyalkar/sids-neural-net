@@ -34,21 +34,36 @@ const REST:ShastaTrickPose={
 /** The approach is path-based and bounded, never a teleport to the player. */
 export function beginShastaTrick(
  trick:ShastaTrick,now:number,dog:Point,player:Point,heading:Point,
+ isReachable:(p:Point)=>boolean=()=>true,
 ):ShastaTrickState{
- const forward=heading.x*heading.x+heading.z*heading.z>.1?heading:{x:0,z:1};
- const finalGoal=trick==='park-it'?{
-  x:player.x-forward.x*.38,z:player.z-forward.z*.38,
- }:null;
+ const norm=Math.hypot(heading.x,heading.z);
+ const forward=norm>.3?{x:heading.x/norm,z:heading.z/norm}:{x:0,z:1};
  const side=Math.sign((dog.x-player.x)*forward.z-(dog.z-player.z)*forward.x)||1;
- const parkVia=finalGoal?{
-  x:player.x-forward.x*1.9+forward.z*side*1.3,
-  z:player.z-forward.z*1.9-forward.x*side*1.3,
- }:null;
- const goal=parkVia??(trick==='shake-left'||trick==='shake-right'?
+ const behind=(distance:number,lateral:number):Point=>({
+  x:player.x-forward.x*distance+forward.z*lateral,
+  z:player.z-forward.z*distance-forward.x*lateral,
+ });
+ // A tree trunk, rock or water edge may physically occupy the space between
+ // the player's heels. Choose the closest dry and walkable landing instead
+ // of sending Shasta into an unreachable obstacle for the full timeout.
+ const parkCandidates=[
+  behind(.38,0),behind(.7,0),behind(.85,side*.6),
+  behind(.85,-side*.6),behind(1.25,side*.8),
+  behind(1.25,-side*.8),behind(1.7,side),
+  behind(1.7,-side),
+ ];
+ const finalGoal=trick==='park-it'?
+  parkCandidates.find(isReachable)??null:null;
+ const viaCandidates=[
+  behind(1.9,side*1.3),behind(1.9,-side*1.3),
+  behind(1.45,side*.9),behind(1.45,-side*.9),
+ ];
+ const parkVia=finalGoal?viaCandidates.find(isReachable)??null:null;
+ const goal=parkVia??finalGoal??(trick==='shake-left'||trick==='shake-right'?
   {x:player.x+forward.x*1.55,z:player.z+forward.z*1.55}:null);
  const shouldApproach=goal!==null&&(distance(dog,goal)>1.1||finalGoal!==null);
  return {trick,phase:shouldApproach?'approach':'perform',since:now,
-  approachUntil:now+12,goal,finalGoal};
+  approachUntil:now+12,goal,finalGoal:parkVia?finalGoal:null};
 }
 /** Interruptible, one-shot actions with persistent held postures. */
 export function stepShastaTrick(
