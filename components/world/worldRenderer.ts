@@ -6403,6 +6403,10 @@ export function createWorld(
     canvas.dataset.shastaOuting=dogOuting.mode;
     canvas.dataset.shastaTrick=dogTrick.trick??"";
     canvas.dataset.shastaTrickPhase=dogTrick.phase;
+    canvas.dataset.shastaTrickGoalDistance=dogTrick.goal?
+      distance(dog,dogTrick.goal).toFixed(3):"";
+    canvas.dataset.shastaTrickApproachRemaining=dogTrick.phase==="approach"?
+      Math.max(0,dogTrick.approachUntil-elapsed).toFixed(2):"";
     canvas.dataset.shastaCarrying=String(dogOuting.carrying);
     canvas.dataset.shastaCatchCount=String(shastaCatchCount);
     dogInterestCritterIndex = dogChase.target;
@@ -6685,6 +6689,9 @@ export function createWorld(
     canvas.dataset.shastaPoseDown=commandedPose.down.toFixed(3);
     canvas.dataset.shastaPosePawLift=Math.max(
       commandedPose.pawLeft,commandedPose.pawRight).toFixed(3);
+    canvas.dataset.shastaPoseRoll=commandedPose.roll.toFixed(3);
+    canvas.dataset.shastaPoseSpin=commandedPose.spin.toFixed(3);
+    canvas.dataset.shastaPoseJump=commandedPose.jump.toFixed(3);
     canvas.dataset.dogGait=dogGait.gait;
     canvas.dataset.dogFootLiftMax=Math.max(
       ...dogGait.feet.map(p=>p.y-.055)).toFixed(3);
