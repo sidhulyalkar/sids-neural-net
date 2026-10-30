@@ -89,3 +89,29 @@ export function shastaStraightLeg(
  const length=Math.hypot(hip.y-paw.y,hip.z-paw.z);
  return {hip,paw,length};
 }
+
+/** Two-part limb path between shoulder/hip and planted paw. The foreleg
+ * flexes at the elbow toward the rear; the hind stifle flexes forward.
+ * A stylized 2D sagittal approximation, not a calibrated veterinary IK rig.
+ * Keep paw position independent of the torso for contact during sit/down.
+ */
+export type ShastaArticulatedLeg={
+ hip:{y:number;z:number};joint:{y:number;z:number};paw:{y:number;z:number};
+ upperLength:number;lowerLength:number;
+};
+export function shastaArticulatedLeg(
+ hipZ:number,footZ:number,footY:number,fore:boolean,
+ bodyDrop=0,footSlide=0,
+):ShastaArticulatedLeg{
+ const hip={y:(fore?.77:.82)-clamp(bodyDrop,0,.46),z:hipZ};
+ const paw={y:clamp(footY,-.04,.38),
+  z:hipZ+clamp(footZ-hipZ+footSlide,-.42,.42)};
+ // A real canine knee/hock has more than one bending joint. With only two
+ // bone pieces, preserve their recognizable fore/hind flexion directions.
+ const span=Math.max(.10,hip.y-paw.y);
+ const joint={y:paw.y+span*(fore?.47:.54),
+  z:hipZ+(paw.z-hipZ)*.52+(fore?-.075:.13)*smoothstep(.10,.7,span)};
+ return {hip,joint,paw,
+  upperLength:Math.hypot(hip.y-joint.y,hip.z-joint.z),
+  lowerLength:Math.hypot(joint.y-paw.y,joint.z-paw.z)};
+}
