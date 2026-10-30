@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import yaml from 'yaml';
 import { TimelineEvent, TimelineEventSchema } from '@/lib/data/schemas';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 const TimelineFileSchema = z.object({
   events: z.array(TimelineEventSchema),
