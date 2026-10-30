@@ -7393,7 +7393,15 @@ export function createWorld(
       if(next.shastaCommandSerial!==state.shastaCommandSerial){
         if(isShastaTrick(next.shastaCommand)){
           dogOuting=commandShasta("come");
-          dogTrick=beginShastaTrick(next.shastaCommand,elapsed,dog,player,travel.heading);
+          dogTrick=beginShastaTrick(next.shastaCommand,elapsed,dog,player,
+            travel.heading,(candidate)=>{
+              if(discGolfSurfaceIsWater(candidate))return false;
+              if(Math.abs(terrainHeight(candidate.x,candidate.z)-
+                  terrainHeight(player.x,player.z))>1.15)return false;
+              return obstacles.every(o=>
+                Math.hypot(candidate.x-o.x,candidate.z-o.z)>
+                o.radius+.30);
+            });
         }else{
           dogTrick=idleShastaTrick();
           dogOuting=commandShasta(next.shastaCommand);
