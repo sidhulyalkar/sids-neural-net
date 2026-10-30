@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {advanceShastaStride,shastaGaitForSpeed,shastaGaitPose,
- shastaStraightLeg,shastaArticulatedLeg} from "../lib/world/shastaGait";
+ shastaArticulatedLeg} from "../lib/world/shastaGait";
 import {idleShastaSnowPlay,queueShastaSnowPlay,stepShastaSnowPlay,
  shastaSnowPose} from "../lib/world/shastaPersonality";
 
@@ -45,37 +45,34 @@ test("Shasta's diagonal trot is phase-synchronized and paw swing is local",()=>{
   "Standing dogs must have stable paws");
 });
 
-test("Shasta has one uninterrupted straight leg per paw in all gaits",()=>{
+test("Shasta's four articulated limbs track bounded foot contact in every gait",()=>{
  for(const speed of [0,1,2.9,3.25,6,8.5,11,17]){
   for(let frame=0;frame<100;frame++){
    const gait=shastaGaitPose(speed,Math.PI*2*frame/100,speed?1:0);
    for(let i=0;i<4;i++){
     const foot=gait.feet[i];
     const hipZ=i%2===1?.44:-.44;
-    const leg=shastaStraightLeg(hipZ,foot.z,foot.y,hipZ>0);
-    assert.ok(leg.length>.45&&leg.length<1.05,
-      "leg is a single, finite solid column between hip and paw");
-    assert.ok(Number.isFinite(leg.hip.y)&&Number.isFinite(leg.paw.z));
-    assert.ok(Math.abs(leg.paw.z-leg.hip.z)<=.28000001,
-      "feet stay beneath the body even at fast canter");
-    assert.equal(Object.keys(leg).sort().join(","),"hip,length,paw",
-      "no invisible IK joints or hock state remain in the rig");
+    const leg=shastaArticulatedLeg(hipZ,foot.z,foot.y,hipZ>0);
+    assert.ok(leg.upperLength>.08&&leg.lowerLength>.08);
+    assert.ok(Number.isFinite(leg.joint.z)&&Number.isFinite(leg.paw.y));
+    assert.ok(Math.abs(leg.paw.z-leg.hip.z)<=.42000001,
+      "paws stay beneath Shasta even at canter");
+    assert.equal(Object.keys(leg).sort().join(","),
+      "hip,joint,lowerLength,paw,upperLength");
    }
   }
  }
 });
 
-test("each straight paw adapts to bounded terrain without moving its hip",()=>{
- const offsets=[-.2,-.08,-.055,0,.075,.15,.3];
+test("each articulated paw adapts to bounded terrain with stable hip anchors",()=>{
  for(const fore of [false,true]){
-  for(const offset of offsets){
+  for(const offset of [-.2,-.08,-.055,0,.075,.15,.3]){
    const hipZ=fore?.44:-.44;
-   const leg=shastaStraightLeg(hipZ,hipZ+.19,.055+offset,fore);
+   const leg=shastaArticulatedLeg(hipZ,hipZ+.19,.055+offset,fore);
    assert.equal(leg.hip.z,hipZ);
    assert.equal(leg.hip.y,fore?.77:.82);
-   assert.ok(leg.paw.y>=-.04&&leg.paw.y<=.28,
-     "terrain must not drag paw far above or below the body");
-   assert.ok(leg.length>.4&&Number.isFinite(leg.length));
+   assert.ok(leg.paw.y>=-.04&&leg.paw.y<=.38);
+   assert.ok(Number.isFinite(leg.upperLength+leg.lowerLength));
   }
  }
 });
