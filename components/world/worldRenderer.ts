@@ -93,7 +93,7 @@ import {
 } from "@/lib/world/skimboarding";
 import { shastaDetour, initialChaseState, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
 import {idleFetchRunRoute,stepFetchRunRoute,steerFetchRun} from "@/lib/world/shastaFetchRun";
-import {advanceShastaStride,shastaGaitPose,shastaStraightLeg} from "@/lib/world/shastaGait";
+import {advanceShastaStride,shastaGaitPose,shastaArticulatedLeg} from "@/lib/world/shastaGait";
 import {shastaCameraShot,stepShastaCameraAnchor,type ShastaCameraAnchor} from "@/lib/world/shastaCamera";
 import {idleShastaSnowPlay,queueShastaSnowPlay,stepShastaSnowPlay,shastaSnowPose} from "@/lib/world/shastaPersonality";
 import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,discGolfHandoffTarget} from "@/lib/world/discGolfFetch";
@@ -2076,19 +2076,24 @@ export function createWorld(
 
   const shastaCylinderParts:Instance[]=[];
   const shastaLegs:{
-    x:number;z:number;legIndex:number;pawIndex:number;
+    x:number;z:number;legIndex:number;lowerIndex:number;pawIndex:number;
   }[]=[];
   let legIndex=0;
   for(const side of [-1,1])for(const fore of [-1,1]){
     const index=shastaCylinderParts.length;
-    // Same lateral scale as the compact paw, visually one continuous limb.
+    // Keep two tapered bone sections per leg in one instanced draw call.
+    // The elbow flexes backward, and the hind stifle articulates forward.
     shastaCylinderParts.push({
-      x:side*.2,y:.4,z:fore*.44,
-      sx:p.paw.x,sy:.75,sz:.086,
+      x:side*.2,y:.55,z:fore*.44,
+      sx:p.paw.x*.92,sy:.38,sz:.078,
       color:fore>0?shastaPalette.creamWhite:shastaPalette.brightWhite,
+    },{
+      x:side*.2,y:.2,z:fore*.44,
+      sx:p.paw.x*.78,sy:.38,sz:.073,
+      color:shastaPalette.brightWhite,
     });
     shastaLegs.push({
-      x:side*.2,z:fore*.44,legIndex:index,
+      x:side*.2,z:fore*.44,legIndex:index,lowerIndex:index+1,
       pawIndex:pawInstanceIndices[legIndex],
     });
     legIndex++;
@@ -6668,11 +6673,18 @@ export function createWorld(
       dogRoll+(activelyFetching?0:
         Math.sin(dogGaitPhase)*.008*dogMoveBlend),
     );
-    // Mass-centered full-body roll with gradually lowered back-on-snow pose.
-    shastaPose.rotation.z=snowPose.roll+commandedPose.roll;
-    shastaPose.rotation.x=snowPose.crouch*.33-commandedPose.crouch*.19;
-    shastaPose.position.y=.79-.37*Math.sin((snowPose.roll+commandedPose.roll)*.5)**2-
-      snowPose.crouch*.19-commandedPose.crouch*.42;
+    // Center-of-mass motion is authored separately from paw contact.
+    // Sit folds the hips, down lowers the chest, and roll settles onto a
+    // shoulder before turning, instead of spinning rigidly in mid-air.
+    shastaPose.rotation.z=snowPose.roll+commandedPose.roll+commandedPose.weightShift;
+    shastaPose.rotation.x=snowPose.crouch*.33-commandedPose.sit*.055-
+      commandedPose.down*.085;
+    shastaPose.position.y=.79-.34*Math.sin((snowPose.roll+commandedPose.roll)*.5)**2-
+      snowPose.crouch*.19-commandedPose.crouch*.41;
+    canvas.dataset.shastaPoseSit=commandedPose.sit.toFixed(3);
+    canvas.dataset.shastaPoseDown=commandedPose.down.toFixed(3);
+    canvas.dataset.shastaPosePawLift=Math.max(
+      commandedPose.pawLeft,commandedPose.pawRight).toFixed(3);
     canvas.dataset.dogGait=dogGait.gait;
     canvas.dataset.dogFootLiftMax=Math.max(
       ...dogGait.feet.map(p=>p.y-.055)).toFixed(3);
@@ -6699,12 +6711,12 @@ export function createWorld(
     );
     dogContact.position.set(dog.x, discGolfSurfaceHeight(dog) + 0.04, dog.z);
 
-    // Simple straight legs, deliberately no inverse kinematics or knee
-    // articulation. Each paw follows its own lightly filtered terrain
-    // sample while the leg connects directly to its stable body anchor.
-    // These scratch vectors are allocated once with the character mesh.
+    // Eight articulated limb segments share one draw call. Ground contact
+    // remains stable as the torso settles; lifted paws are independently
+    // controlled for shakes, spins and jumps. No per-frame geometry allocations.
     const limbUp=shastaLimbUp;
     const limbDir=shastaLimbDir;
+    const bodyDrop=THREE.MathUtils.clamp(.79-shastaPose.position.y,0,.46);
     shastaLegs.forEach((leg,i)=>{
       const foot=dogGait.feet[i];
       const cosYaw=Math.cos(dogYaw),sinYaw=Math.sin(dogYaw);
@@ -6714,26 +6726,37 @@ export function createWorld(
         dogSupport({x:worldX,z:worldZ})-dogGroundY,-.075,.075);
       dogFootGround[i]+=(groundDelta-dogFootGround[i])*
         smoothingAlpha(dogMotionDt,7);
-      const raised=leg.z>0?(leg.x<0?commandedPose.pawLeft:commandedPose.pawRight):0;
-      const pose=shastaStraightLeg(
-        leg.z,foot.z,foot.y+dogFootGround[i]+raised,leg.z>0);
-      const part=shastaCylinderParts[leg.legIndex];
+      const fore=leg.z>0;
+      const raised=fore?(leg.x<0?commandedPose.pawLeft:commandedPose.pawRight):0;
+      const turnLift=commandedPose.turnStep*(i%2===0?1:-1);
+      const lift=Math.max(0,raised+turnLift)+commandedPose.tuck;
+      const slide=fore?commandedPose.down*.15+raised*.22:
+        commandedPose.sit*.065;
+      const pose=shastaArticulatedLeg(
+        leg.z,foot.z,foot.y+dogFootGround[i]+lift,fore,bodyDrop,slide);
+      const upper=shastaCylinderParts[leg.legIndex];
       dummy.position.set(leg.x,
-        (pose.hip.y+pose.paw.y)*.5,(pose.hip.z+pose.paw.z)*.5);
-      limbDir.set(0,pose.hip.y-pose.paw.y,
-        pose.hip.z-pose.paw.z).normalize();
+        (pose.hip.y+pose.joint.y)*.5,(pose.hip.z+pose.joint.z)*.5);
+      limbDir.set(0,pose.hip.y-pose.joint.y,
+        pose.hip.z-pose.joint.z).normalize();
       dummy.quaternion.setFromUnitVectors(limbUp,limbDir);
-      dummy.scale.set(part.sx,pose.length,part.sz);
+      dummy.scale.set(upper.sx,pose.upperLength,upper.sz);
       dummy.updateMatrix();
       shastaCylinderMesh.setMatrixAt(leg.legIndex,dummy.matrix);
 
-      // The paw is one small oval, not three cartoon toes. The pitch is
-      // nearly flat with only a little slope compensation during stance.
+      const lower=shastaCylinderParts[leg.lowerIndex];
+      dummy.position.set(leg.x,
+        (pose.joint.y+pose.paw.y)*.5,(pose.joint.z+pose.paw.z)*.5);
+      limbDir.set(0,pose.joint.y-pose.paw.y,
+        pose.joint.z-pose.paw.z).normalize();
+      dummy.quaternion.setFromUnitVectors(limbUp,limbDir);
+      dummy.scale.set(lower.sx,pose.lowerLength,lower.sz);
+      dummy.updateMatrix();
+      shastaCylinderMesh.setMatrixAt(leg.lowerIndex,dummy.matrix);
+
       const pawPart=shastaRockParts[leg.pawIndex];
       const front=dogSupport({x:worldX+sinYaw*.12,z:worldZ+cosYaw*.12});
       const back=dogSupport({x:worldX-sinYaw*.12,z:worldZ-cosYaw*.12});
-      // During fetch keep all paws nearly level rather than feeding
-      // per-step micro-slope noise into tiny geometry rotations.
       const slopePitch=activelyFetching?0:foot.stance?
         THREE.MathUtils.clamp(Math.atan2(front-back,.24),-.045,.045):-.025;
       dummy.position.set(leg.x,pose.paw.y+.012,pose.paw.z+.018);
@@ -6742,14 +6765,15 @@ export function createWorld(
       dummy.updateMatrix();
       shastaRockMesh.setMatrixAt(leg.pawIndex,dummy.matrix);
     });
-    canvas.dataset.shastaLegRig="straight-four";
+    canvas.dataset.shastaLegRig="articulated-eight-segment";
     canvas.dataset.shastaLegCount=String(shastaLegs.length);
+    canvas.dataset.shastaLimbSegmentCount=String(shastaLegs.length*2);
     canvas.dataset.shastaPawWidth=p.paw.x.toFixed(3);
     canvas.dataset.shastaLegWidth=shastaCylinderParts[0].sx.toFixed(3);
     // A tiny articulated head/ear rig: curious side-glances while following,
     // nose-down sniff at the disc, alert ears for snow play. Keep the same
     // single instanced mesh draw calls as the original character.
-    const headYaw=Math.sin(elapsed*.76)*.06+
+    const headYaw=Math.sin(elapsed*.76)*.06+commandedPose.headYaw+
       (shastaSnow.stage==="perk"?.07:0);
     const headPitch=commandedPose.head+(discFetch.phase==="found"?.17:
       shastaSnow.stage==="roll"?.07:dogAnimSpeed<.4?.035:-.025);
