@@ -66,3 +66,63 @@ test('park-it abandons blocked approach instead of teleporting through obstacles
  s=stepShastaTrick(s,13,dog,true);
  assert.equal(s.phase,'idle');
 });
+
+test('roll lowers onto a shoulder before rotating and recovers upright',()=>{
+ for(const trick of ['roll-left','roll-right'] as const){
+  const s=beginShastaTrick(trick,0,player,player,heading);
+  const start=shastaTrickPose(s,.18);
+  assert.ok(start.down>.01,'must first lower onto the ground');
+  assert.equal(start.roll,0,'must not barrel-roll while standing');
+  const side=shastaTrickPose(s,.9);
+  assert.ok(Math.abs(side.roll)>.1&&Math.abs(side.roll)<Math.PI*2);
+  const end=shastaTrickPose(s,2.34);
+  assert.ok(Math.abs(Math.abs(end.roll)-Math.PI*2)<.001,
+   'return upright before starting recovery');
+  const recovering=stepShastaTrick(s,2.35,player,true);
+  const recoveryPose=shastaTrickPose(recovering,2.7);
+  assert.ok(recoveryPose.down<.8&&Number.isFinite(recoveryPose.roll));
+ }
+});
+test('one paw lifts after a visible supporting weight shift and the other stays planted',()=>{
+ for(const trick of ['shake-left','shake-right'] as const){
+  const s=beginShastaTrick(trick,0,{x:0,z:1.55},player,heading);
+  assert.equal(s.phase,'perform');
+  const initial=shastaTrickPose(s,.1);
+  assert.equal(initial.pawLeft+initial.pawRight,0);
+  const lifted=shastaTrickPose(s,.7);
+  assert.ok(Math.abs(lifted.weightShift)>.01);
+  assert.ok(lifted.sit>0,'sit and transfer weight while paw is lifted');
+  assert.ok((trick==='shake-left'?lifted.pawLeft:lifted.pawRight)>.15);
+  assert.equal(trick==='shake-left'?lifted.pawRight:lifted.pawLeft,0);
+ }
+});
+test('spin steps, jump compresses before takeoff and held poses do not drift',()=>{
+ const spin=beginShastaTrick('spin-right',0,player,player,heading);
+ assert.ok(Math.abs(shastaTrickPose(spin,.7).turnStep)>.001);
+ const jump=beginShastaTrick('jump',0,player,player,heading);
+ const loading=shastaTrickPose(jump,.13);
+ const air=shastaTrickPose(jump,.75);
+ assert.ok(loading.crouch>.05&&loading.jump===0);
+ assert.ok(air.jump>.25&&air.tuck>.03);
+ for(const trick of ['sit','down','park-it','stay'] as const){
+  const s=beginShastaTrick(trick,0,player,player,heading);
+  const state={...s,phase:'hold' as const,since:1};
+  assert.deepEqual(shastaTrickPose(state,100),shastaTrickPose(state,1),
+   'held postures cannot accumulate oscillator drift');
+ }
+});
+test('trick pose samples are deterministic and finite across browser frame intervals',()=>{
+ for(const trick of ['sit','down','stay','roll-left','roll-right',
+  'spin-left','spin-right','shake-left','shake-right','jump','park-it'] as const){
+  const s=beginShastaTrick(trick,0,player,player,heading);
+  for(const hz of [15,30,60,120]){
+   for(let i=0;i<Math.floor(hz*2.5);i++){
+    const pose=shastaTrickPose(s,i/hz);
+    for(const [k,v] of Object.entries(pose))
+     if(typeof v==='number')assert.ok(Number.isFinite(v),k+' nonfinite');
+    assert.ok(pose.jump>=0&&pose.jump<=.66);
+    assert.ok(pose.crouch>=0&&pose.crouch<=.95);
+   }
+  }
+ }
+});
