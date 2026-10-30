@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {advanceShastaStride,shastaGaitForSpeed,shastaGaitPose,
- shastaStraightLeg} from "../lib/world/shastaGait";
+ shastaStraightLeg,shastaArticulatedLeg} from "../lib/world/shastaGait";
 import {idleShastaSnowPlay,queueShastaSnowPlay,stepShastaSnowPlay,
  shastaSnowPose} from "../lib/world/shastaPersonality";
 
@@ -129,4 +129,34 @@ test("Shasta gait phase wraps while actual ground displacement remains positive"
     assert.ok(phase>=0&&phase<Math.PI*2);
   }
   assert.ok(distance>.6,"physical ground displacement is monotone across wrap");
+});
+
+test('Shasta articulates elbows and hind stifles without moving the stance paws',()=>{
+ for(const speed of [0,1,3,5,9,14]){
+  for(let i=0;i<48;i++){
+   const gait=shastaGaitPose(speed,Math.PI*2*i/48,speed?1:0);
+   for(let pawIndex=0;pawIndex<4;pawIndex++){
+    const fore=pawIndex%2===1,hipZ=fore?.44:-.44;
+    const paw=gait.feet[pawIndex];
+    const pose=shastaArticulatedLeg(hipZ,paw.z,paw.y,fore);
+    assert.ok(Number.isFinite(pose.upperLength)&&pose.upperLength>.08);
+    assert.ok(Number.isFinite(pose.lowerLength)&&pose.lowerLength>.08);
+    const straight=(pose.hip.z+pose.paw.z)/2;
+    assert.ok(fore?pose.joint.z<straight:pose.joint.z>straight,
+      'elbow bends rearward, stifle bends forward');
+   }
+  }
+ }
+});
+test('sitting and lying lower the trunk while the feet stay in contact',()=>{
+ for(const drop of [0,.08,.18,.29,.38]){
+  for(const fore of [false,true]){
+   const footY=.055,hipZ=fore?.44:-.44;
+   const pose=shastaArticulatedLeg(hipZ,hipZ,footY,fore,drop,fore?.12:0);
+   assert.ok(Math.abs((pose.paw.y-drop)-footY)<1e-9,
+     'world paw must remain planted when body root drops');
+   assert.ok(pose.hip.y-drop>pose.paw.y-drop,
+     'articulated shoulder or hip must stay above the paw');
+  }
+ }
 });
