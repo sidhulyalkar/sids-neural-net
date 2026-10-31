@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {beginShastaTrick,stepShastaTrick,shastaTrickPose,idleShastaTrick,isShastaTrick} from '../lib/world/shastaTricks';
+import {beginShastaTrick,stepShastaTrick,shastaTrickPose,idleShastaTrick,isShastaTrick,advanceShastaTrickClock} from '../lib/world/shastaTricks';
 const dog={x:8,z:6},player={x:0,z:0},heading={x:0,z:1};
 test('trick commands are distinct and never include chase/recall',()=>{
  for(const action of ['roll-left','roll-right','shake-left','shake-right','spin-left','spin-right','park-it','sit','down','stay','jump'] as const)
@@ -145,4 +145,27 @@ test('fully blocked Park it settles safely at the existing dog location',()=>{
  const held=stepShastaTrick(state,2,dog,true);
  assert.equal(held.phase,'hold');
  assert.ok(shastaTrickPose(held,2).down>.8);
+});
+
+test('trick choreography finishes on wall-time instead of slowing at 10 FPS',()=>{
+ const simulate=(hz:number)=>{
+  const dt=1/hz;
+  let now=0;
+  let state=beginShastaTrick('roll-left',now,player,player,heading);
+  for(let i=0;i<Math.ceil(3*hz);i++){
+   now=advanceShastaTrickClock(now,dt);
+   state=stepShastaTrick(state,now,player,true);
+  }
+  return {now,state};
+ };
+ for(const hz of [10,15,30,60,120]){
+  const {now,state}=simulate(hz);
+  assert.ok(Math.abs(now-3)<.00001);
+  assert.equal(state.phase,'idle',
+   'roll and recovery should finish equally at desktop and low mobile FPS');
+ }
+ assert.equal(advanceShastaTrickClock(4,0),4,'paused simulation time stays frozen');
+ assert.equal(advanceShastaTrickClock(4,-1),4,'corrupt negative RAF delta is ignored');
+ assert.equal(advanceShastaTrickClock(4,.9),4.5,
+   'long tab stalls are capped rather than skipping multiple motions');
 });
