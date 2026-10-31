@@ -349,8 +349,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
           <span className={styles.notice} role="status" aria-live="polite">{notice}</span>
         </div>
         <div className={styles.navigation}>
-          <button type="button" onClick={() => move(-1)} disabled={position === 0 || loading} aria-label="Previous article"><ArrowLeft size={19} /><span>Back</span></button>
-          <button type="button" onClick={() => hasNext ? move(1) : void retrieve(activeQuery, true)} disabled={!item || loading} className={styles.next}><span>{hasNext ? 'Next' : 'New edition'}</span><ArrowRight size={20} /></button>
+          <button type="button" data-frontier-previous="true" onClick={() => move(-1)} disabled={position === 0 || loading} aria-label="Previous article"><ArrowLeft size={19} /><span>Back</span></button>
+          <button type="button" data-frontier-next="true" aria-label={hasNext ? 'Next article' : 'Get fresh edition'} onClick={() => hasNext ? move(1) : void retrieve(activeQuery, true)} disabled={!item || loading} className={styles.next}><span>{hasNext ? 'Next' : 'New edition'}</span><ArrowRight size={20} /></button>
         </div>
       </footer>
       <span className={styles.editionFooter}>Edition {sourceDate(editionAt)} · Use ← → to navigate · No automatic feed loading</span>
