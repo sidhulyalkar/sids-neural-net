@@ -1,6 +1,6 @@
 import {applyLagoonSand} from "./worldLagoonSand";
 import {commandShasta,initialShastaOuting,stepShastaOuting} from "@/lib/world/shastaCommands";
-import {makeTreatFlight,sampleTreatFlight,planTreatCatchGoal,stepTreatFlight,scoreTreatFlight,type TreatFlight,type TreatCatchResult,type TreatVector,type TreatMissReason} from "@/lib/world/shastaTreatCatch";
+import {makeTreatFlight,sampleTreatFlight,planTreatCatchGoal,stepTreatFlight,treatCatchupBudget,scoreTreatFlight,type TreatFlight,type TreatCatchResult,type TreatVector,type TreatMissReason} from "@/lib/world/shastaTreatCatch";
 import {beginShastaTrick,idleShastaTrick,stepShastaTrick,shastaTrickPose,advanceShastaTrickClock,shastaSpinPawLift,shastaHeadingAfterTrickInterrupt,isShastaTrick,type ShastaAction} from "@/lib/world/shastaTricks";
 import {createCoastalNature} from "./worldCoastalNature";
 import {createResearchGallery} from "./worldResearchGallery";
@@ -6696,6 +6696,30 @@ export function createWorld(
         remaining-=step;
       }
     }
+    // Mirror the disc-fetch catch-up on software WebGL: both the dog and
+    // projectile advance on wall time. Short <=100ms steps preserve finite
+    // acceleration, obstacle collision and dry-terrain constraints.
+    if(treatFlight&&treatCatchGoal&&outingAllowed){
+      let remaining=treatCatchupBudget(rawDelta,dogMotionDt);
+      let steps=0;
+      while(remaining>1e-8&&steps++<5){
+        const step=Math.min(.1,remaining);
+        const detour=shastaDetour(dog,treatCatchGoal,dogLocalObstacles,1);
+        dogSmoothedTarget=smoothPoint(dogSmoothedTarget,
+          discGolfSurfaceIsWater(detour)?treatCatchGoal:detour,step);
+        const nextVelocity=steerShastaVelocity(dogVelocity,dog,
+          dogSmoothedTarget,10.2,step);
+        const advanced=constrainMove(dog,{
+          x:dog.x+nextVelocity.x*step,
+          z:dog.z+nextVelocity.z*step,
+        },dogLocalObstacles);
+        if(discGolfSurfaceIsWater(advanced)){dogVelocity={x:0,z:0};break;}
+        const moved=distance(dog,advanced);
+        dogVelocity=moved<.001?{x:0,z:0}:nextVelocity;
+        dog=advanced;
+        remaining-=step;
+      }
+    }
     const dogStep = distance(dogBefore, dog);
     if(dogOuting.carrying&&!wasCarrying)shastaCatchCount++;
     wasCarrying=dogOuting.carrying;
@@ -6720,7 +6744,7 @@ export function createWorld(
     // wraps every cycle and must not be used as a cumulative distance proxy.
     dogDistanceTraveled += dogStep;
     const dogActualSpeed = dogStep / Math.max(0.001,
-      activelyFetching?Math.min(rawDelta,.5):dogMotionDt);
+      activelyFetching||!!treatFlight?Math.min(rawDelta,.5):dogMotionDt);
     dogAnimSpeed +=
       (dogActualSpeed - dogAnimSpeed) * smoothingAlpha(dogMotionDt, 9.5);
     const dogAcceleration =

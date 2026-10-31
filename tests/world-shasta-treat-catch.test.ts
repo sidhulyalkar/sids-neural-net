@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
  makeTreatFlight,sampleTreatFlight,treatWithinMouth,scoreTreatFlight,
- planTreatCatchGoal,descendingTreatTime,stepTreatFlight,
+ planTreatCatchGoal,descendingTreatTime,stepTreatFlight,treatCatchupBudget,
  type TreatVector,
 } from "../lib/world/shastaTreatCatch";
 
@@ -88,4 +88,17 @@ test("successful long angled catches get more points than short catches; misses 
    scoreTreatFlight(short,short.duration,true).score);
  assert.equal(scoreTreatFlight(long,long.duration,true).label,"Long-range trickshot");
  assert.equal(scoreTreatFlight(long,long.duration,false).score,0);
+});
+
+test("low FPS treat chase catches up using bounded collision-safe time steps",()=>{
+ const delta=[0,1/120,1/60,1/30,1/10,.25,.5,2,Infinity,NaN];
+ for(const dt of delta){
+  const base=Math.min(Number.isFinite(dt)?Math.max(0,dt):0,.1);
+  const extra=treatCatchupBudget(dt,base);
+  assert.ok(extra>=0&&extra<=.401);
+  assert.ok(base+extra<=.501);
+ }
+ assert.equal(treatCatchupBudget(.5,.1),.4);
+ assert.equal(treatCatchupBudget(1/60,1/60),0);
+ assert.equal(treatCatchupBudget(-1,0),0);
 });

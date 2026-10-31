@@ -111,6 +111,16 @@ export function stepTreatFlight(
   return end>=flight.duration?{kind:"landed",time:flight.duration}:
     {kind:"flying",time:end};
 }
+/** Fixed per-frame CPU budget: advance physical motion in short collision-safe
+ * steps on slow renderers rather than letting the wall-clock treat outrun Shasta.
+ * Never simulate more than half a second of chase in a single rendered frame.
+ */
+export function treatCatchupBudget(rawDelta:number,alreadyAdvanced:number):number{
+  if(!Number.isFinite(rawDelta)||rawDelta<=0)return 0;
+  const bounded=Math.min(rawDelta,.5);
+  const done=Number.isFinite(alreadyAdvanced)?Math.max(0,alreadyAdvanced):0;
+  return Math.max(0,bounded-done);
+}
 export function scoreTreatFlight(
   flight:TreatFlight,t:number,caught:boolean,reason?:TreatMissReason,
 ):TreatCatchResult{
