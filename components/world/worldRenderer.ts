@@ -6664,9 +6664,13 @@ export function createWorld(
     canvas.dataset.dogSupportGap=(dogGroundY-targetDogY).toFixed(4);
     // Use a low-amplitude diagonal trot on the fetch, avoiding the
     // very rapid walk->trot->canter pose changes seen in the screenshots.
+    // Trick poses own the legs: a residual locomotion blend must not
+    // animate planted paws through a sit, hand shake or roll. Let the dog
+    // finish its bounded physical braking while the pose feet are stationary.
     const dogGait=shastaGaitPose(
-      activelyFetching?Math.min(7.4,dogAnimSpeed):dogAnimSpeed,
-      dogGaitPhase,dogMoveBlend);
+      commandedPose.still?0:
+        activelyFetching?Math.min(7.4,dogAnimSpeed):dogAnimSpeed,
+      dogGaitPhase,commandedPose.still?0:dogMoveBlend);
     const dogBob=activelyFetching||commandedPose.still?0:dogGait.bodyBob;
     const dogRenderY=dogGroundY+dogBob+commandedPose.jump;
     dogMaxYStep = Math.max(dogMaxYStep, Math.abs(dogRenderY - lastDogRenderY));
