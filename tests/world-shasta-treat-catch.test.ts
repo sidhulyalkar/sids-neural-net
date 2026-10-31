@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {makeTreatFlight,sampleTreatFlight,treatWithinMouth,scoreTreatFlight} from "../lib/world/shastaTreatCatch";
+import {makeTreatFlight,sampleTreatFlight,treatWithinMouth,scoreTreatFlight,planTreatCatchGoal} from "../lib/world/shastaTreatCatch";
 test("flight arc deterministic and bounded",()=>{
  const a=makeTreatFlight({x:0,z:0},{x:12,z:0},0,70,0);
  assert.deepEqual(a,makeTreatFlight({x:0,z:0},{x:12,z:0},0,70,0));
@@ -26,4 +26,14 @@ test("angle increases difficulty and long catches score more",()=>{
  assert.ok(scoreTreatFlight(long,long.duration,true).score>
    scoreTreatFlight(short,short.duration,true).score);
  assert.equal(scoreTreatFlight(long,long.duration,true).label,"Long-range trickshot");
+});
+
+test("pursuit aims root behind or ahead so muzzle reaches descending projectile",()=>{
+ const f=makeTreatFlight({x:0,z:0},{x:18,z:0},0,70,0);
+ const p=sampleTreatFlight(f,f.duration-.11);
+ const fromBehind=planTreatCatchGoal(f,{x:0,z:0});
+ const fromAhead=planTreatCatchGoal(f,{x:45,z:0});
+ assert.ok(Math.abs(fromBehind.x+1.16-p.x)<1e-9);
+ assert.ok(Math.abs(fromAhead.x-1.16-p.x)<1e-9);
+ assert.ok(Math.abs(fromBehind.z)<1e-9);
 });

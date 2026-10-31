@@ -43,6 +43,19 @@ export function sampleTreatFlight(flight:TreatFlight,t:number){
     z:flight.origin.z+flight.velocity.z*time,
   };
 }
+/** Station Shasta's root so his actual muzzle meets the descending treat.
+ * If he starts beyond the intercept, he runs back facing the incoming treat.
+ * Computed once per throw: movement still uses real obstacle-safe steering.
+ */
+export function planTreatCatchGoal(flight:TreatFlight,dog:Point):Point{
+  const time=Math.max(.2,flight.duration-.11);
+  const catchPoint=sampleTreatFlight(flight,time);
+  const length=Math.hypot(flight.velocity.x,flight.velocity.z)||1;
+  const dx=flight.velocity.x/length,dz=flight.velocity.z/length;
+  const ahead=(dog.x-catchPoint.x)*dx+(dog.z-catchPoint.z)*dz>0;
+  const side=ahead?1:-1;
+  return {x:catchPoint.x+dx*side*1.16,z:catchPoint.z+dz*side*1.16};
+}
 export function treatWithinMouth(
   flight:TreatFlight,t:number,dog:Point,mouthY:number,
 ){

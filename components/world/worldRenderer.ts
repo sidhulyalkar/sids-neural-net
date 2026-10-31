@@ -1,6 +1,6 @@
 import {applyLagoonSand} from "./worldLagoonSand";
 import {commandShasta,initialShastaOuting,stepShastaOuting} from "@/lib/world/shastaCommands";
-import {makeTreatFlight,sampleTreatFlight,treatWithinMouth,scoreTreatFlight,type TreatFlight,type TreatCatchResult} from "@/lib/world/shastaTreatCatch";
+import {makeTreatFlight,sampleTreatFlight,planTreatCatchGoal,treatWithinMouth,scoreTreatFlight,type TreatFlight,type TreatCatchResult} from "@/lib/world/shastaTreatCatch";
 import {beginShastaTrick,idleShastaTrick,stepShastaTrick,shastaTrickPose,advanceShastaTrickClock,shastaSpinPawLift,shastaHeadingAfterTrickInterrupt,isShastaTrick,type ShastaAction} from "@/lib/world/shastaTricks";
 import {createCoastalNature} from "./worldCoastalNature";
 import {createResearchGallery} from "./worldResearchGallery";
@@ -3620,13 +3620,14 @@ export function createWorld(
   const treatMesh=new THREE.Mesh(treatGeometry,treatMaterial);
   treatMesh.visible=false;scene.add(treatMesh);
   let treatFlight:TreatFlight|null=null;
+  let treatCatchGoal:Point|null=null;
   let treatStartedAt=0;
   let lastTreatThrowSerial=0;
   let shastaTreatCatchCount=0;
   function finishTreat(t:number,caught:boolean){
     if(!treatFlight)return;
     const result=scoreTreatFlight(treatFlight,t,caught);
-    treatFlight=null;treatMesh.visible=false;
+    treatFlight=null;treatCatchGoal=null;treatMesh.visible=false;
     canvas.dataset.shastaTreatResult=caught?"caught":"missed";
     canvas.dataset.shastaTreatDistance=result.distance.toFixed(2);
     canvas.dataset.shastaTreatScore=String(result.score);
@@ -6441,7 +6442,7 @@ export function createWorld(
       }
       return true;
     };
-    if(!outingAllowed&&treatFlight){treatFlight=null;treatMesh.visible=false;}
+    if(!outingAllowed&&treatFlight){treatFlight=null;treatCatchGoal=null;treatMesh.visible=false;}
     dogTrick=stepShastaTrick(dogTrick,dogTrickClock,dog,outingAllowed);
     const commandedPose=shastaTrickPose(dogTrick,dogTrickClock);
     // Maxima survive the short active window until the next user command.
@@ -6518,7 +6519,7 @@ export function createWorld(
     const snowNow=now*.001;
     shastaSnow=stepShastaSnowPlay(shastaSnow,snowNow,snowHere,snowAllowed);
     const snowPose=shastaSnowPose(shastaSnow,snowNow);
-    const dogTarget = treatFlight&&outingAllowed?treatFlight.landing:
+    const dogTarget = treatFlight&&treatCatchGoal&&outingAllowed?treatCatchGoal:
       dogTrick.phase==="approach"&&dogTrick.goal?
       dogTrick.goal:commandedPose.still?dog:state.entered
       ? aquatic !== "land" || discGolfSurfaceIsWater(player)
@@ -7549,7 +7550,7 @@ export function createWorld(
     setState(next) {
       if(next.shastaCommandSerial!==state.shastaCommandSerial){
         // A newer explicit command always interrupts an outstanding treat chase.
-        treatFlight=null;treatMesh.visible=false;
+        treatFlight=null;treatCatchGoal=null;treatMesh.visible=false;
         // Commit the partial turn to world heading before clearing the
         // authored spin offset. A mid-spin Sit/Come must never snap yaw.
         if(dogTrick.trick==="spin-left"||dogTrick.trick==="spin-right"){
@@ -7646,6 +7647,7 @@ export function createWorld(
             destination.z>=WORLD_BOUNDS.minZ&&destination.z<=WORLD_BOUNDS.maxZ&&
             !discGolfSurfaceIsWater(destination)){
             treatFlight=flight;
+            treatCatchGoal=planTreatCatchGoal(flight,dog);
             treatStartedAt=performance.now()*.001;
             treatMesh.visible=true;
             dogOuting=commandShasta("come");
