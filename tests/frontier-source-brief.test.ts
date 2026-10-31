@@ -45,6 +45,7 @@ test('source figures are deduplicated, attributed and capped without generating 
       { url: 'https://example.org/hero.png', alt: 'duplicate' },
       { url: 'https://example.org/figure-2.png', alt: 'Actual figure two', caption: 'Measured values', credit: 'Original authors' },
       { url: 'https://localhost/private.png', alt: 'Blocked' },
+      { url: 'https://192.168.1.2/private.png', alt: 'Blocked private IP' },
       { url: 'javascript:alert(1)', alt: 'Blocked script' },
     ],
   });
