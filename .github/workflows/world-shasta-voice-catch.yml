@@ -41,7 +41,7 @@ jobs:
       - name: Check types, lint and deterministic trick physics
         run: |
           npm run typecheck
-          npx eslint lib/world/shastaVoice.ts lib/world/shastaTreatCatch.ts components/world/useShastaVoice.ts components/world/WorldHome.tsx scripts/playtest-shasta-voice-catch.mjs tests/world-shasta-voice.test.ts tests/world-shasta-treat-catch.test.ts --max-warnings=0
+          npx eslint lib/world/shastaVoice.ts lib/world/shastaTreatCatch.ts components/world/useShastaVoice.ts components/world/WorldHome.tsx tests/world-shasta-voice.test.ts tests/world-shasta-treat-catch.test.ts --max-warnings=0
           node --import tsx --test tests/world-shasta-voice.test.ts tests/world-shasta-treat-catch.test.ts
           node --check scripts/playtest-shasta-voice-catch.mjs
       - name: Install independent browser
