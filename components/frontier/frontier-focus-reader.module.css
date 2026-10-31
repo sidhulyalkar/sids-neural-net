@@ -290,3 +290,9 @@
   .latestChip { min-height:31px; padding:0 7px; font-size:10px; gap:3px; }
   .checkingLatest { display:none; }
 }
+
+@media (max-width:520px) {
+  .topActions { flex-wrap:wrap; max-width:100%; min-width:0; }
+  .latestChip { order:-1; }
+  .search { min-width:0; }
+}
