@@ -56,6 +56,12 @@ export function useShastaVoice(available:boolean,onAction:(action:ShastaVoiceAct
     recognizer.current=null;if(active){active.onstart=null;active.onresult=null;active.onerror=null;active.onend=null;
       try{active.abort();}catch{/* Browser shutdown. */}}
   },[]);
+  // A hidden tab must never keep its microphone session open.
+  useEffect(()=>{
+    const cancelOnHide=()=>{if(document.hidden)stop();};
+    document.addEventListener("visibilitychange",cancelOnHide);
+    return ()=>document.removeEventListener("visibilitychange",cancelOnHide);
+  },[stop]);
   useEffect(()=>{
     if(available)return;
     const timeout=window.setTimeout(()=>setStatus("off"),0);

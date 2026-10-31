@@ -7669,6 +7669,8 @@ export function createWorld(
         skateBowlLastLanding="";skateBowlLastLandingSpeed=0;
         }
       }
+      if(next.paused&&!state.paused&&treatFlight)
+        finishTreat(treatPreviousTime,false,"interrupted");
       state = next;
       if(next.treatThrowSerial!==lastTreatThrowSerial){
         lastTreatThrowSerial=next.treatThrowSerial;
@@ -7683,7 +7685,9 @@ export function createWorld(
           if(destination.x>=WORLD_BOUNDS.minX&&destination.x<=WORLD_BOUNDS.maxX&&
             destination.z>=WORLD_BOUNDS.minZ&&destination.z<=WORLD_BOUNDS.maxZ&&
             !discGolfSurfaceIsWater(destination)){
-            if(treatFlight)finishTreat(treatPreviousTime,false,"interrupted");
+            // A rapid re-throw simply replaces the previous projectile.
+            // Do not flash an "interrupted" result over the newly aimed shot.
+            if(treatFlight)hideTreat();
             treatFlight=flight;
             treatCatchGoal=planTreatCatchGoal(flight,dog,
               terrainHeight(flight.landing.x,flight.landing.z)+1.267);
@@ -8093,6 +8097,7 @@ export function createWorld(
       window.removeEventListener("blur", clearHeldJetControls);
       document.removeEventListener("visibilitychange", visibility);
       canvas.removeEventListener("webglcontextlost", contextLost);
+      hideTreat();
       scene.remove(treatMesh);scene.remove(treatTrail);
       treatGeometry.dispose();treatMaterial.dispose();
       treatTrailGeometry.dispose();treatTrailMaterial.dispose();
