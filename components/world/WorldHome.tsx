@@ -649,15 +649,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
                    {([["sit","Sit"],["down","Down"],["stay","Stay"],["jump","Jump up"],
                      ["roll-left","Roll left"],["roll-right","Roll right"],
                      ["shake-left","Shake left paw"],["shake-right","Shake right paw"],
-                     ["spin-left","Spin left"],["spin-right","Spin right"],
-                     ["park-it","Park it"]] as [ShastaTrick,string][]).map(([trick,label])=>(
+                     ["spin-left","Spin left"],["spin-right","Spin right"]] as [ShastaTrick,string][]).map(([trick,label])=>(
                      <button key={trick} type="button" title={label}
                        disabled={!ready||quiet||!!panel||worldGameActive}
                        onClick={()=>{setShastaCommand(trick);setShastaCommandSerial(n=>n+1);setMobileHubOpen(false);
                        if(window.matchMedia("(pointer: coarse)").matches)setShastaOpen(false);}}>{label}</button>
                    ))}
                  </div>
-                 <p className={styles.shastaHint}>Park it brings Shasta between your feet to lie down. Come calls him back.</p>
                </div>
                <button type="button" className={styles.sportsToggle}
                  aria-controls="world-sport-shortcuts" aria-expanded={sportsOpen}

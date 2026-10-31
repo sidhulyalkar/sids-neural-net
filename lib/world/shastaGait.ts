@@ -89,3 +89,40 @@ export function shastaStraightLeg(
  const length=Math.hypot(hip.y-paw.y,hip.z-paw.z);
  return {hip,paw,length};
 }
+
+/** Two-part limb path between shoulder/hip and planted paw. The foreleg
+ * flexes at the elbow toward the rear; the hind stifle flexes forward.
+ * A stylized 2D sagittal approximation, not a calibrated veterinary IK rig.
+ * Keep paw position independent of the torso for contact during sit/down.
+ */
+export type ShastaArticulatedLeg={
+ hip:{y:number;z:number};joint:{y:number;z:number};paw:{y:number;z:number};
+ upperLength:number;lowerLength:number;
+};
+export function shastaArticulatedLeg(
+ hipZ:number,footZ:number,footY:number,fore:boolean,
+ bodyDrop=0,footSlide=0,
+ out?:ShastaArticulatedLeg,
+):ShastaArticulatedLeg{
+ // The renderer passes a reusable pose per foot, avoiding twelve new nested
+ // objects for the four legs in every frame. Tests may omit out.
+ const result=out??{
+  hip:{y:0,z:0},joint:{y:0,z:0},paw:{y:0,z:0},
+  upperLength:0,lowerLength:0,
+ };
+ result.hip.y=fore?.77:.82;
+ result.hip.z=hipZ;
+ // Body root drops in world space. Raise the paw in rig-local coordinates by
+ // the same amount so it stays planted rather than penetrating the ground.
+ result.paw.y=clamp(footY+clamp(bodyDrop,0,.46),-.04,.58);
+ result.paw.z=hipZ+clamp(footZ-hipZ+footSlide,-.42,.42);
+ const span=Math.max(.10,result.hip.y-result.paw.y);
+ result.joint.y=result.paw.y+span*(fore?.47:.54);
+ result.joint.z=hipZ+(result.paw.z-hipZ)*.52+
+  (fore?-.075:.13)*smoothstep(.10,.7,span);
+ result.upperLength=Math.hypot(
+  result.hip.y-result.joint.y,result.hip.z-result.joint.z);
+ result.lowerLength=Math.hypot(
+  result.joint.y-result.paw.y,result.joint.z-result.paw.z);
+ return result;
+}
