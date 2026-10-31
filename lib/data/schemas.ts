@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 // Node types
 export const NodeTypeEnum = z.enum([
