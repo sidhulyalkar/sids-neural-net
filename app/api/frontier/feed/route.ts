@@ -119,23 +119,27 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const dependencies = await loadLiveDependencies();
-    const focusTopics = requestedFocus.length ? requestedFocus : defaultPersonalFocus(dependencies);
+    const isCachedFocus = requestedFocus.length > 0 && !forceFresh;
+    // A warm focused cache hit must not initialize the full adapter graph.
+    const dependencies = isCachedFocus ? null : await loadLiveDependencies();
+    const focusTopics = requestedFocus.length ? requestedFocus : defaultPersonalFocus(dependencies!);
     const mode = forceFresh ? 'fresh-live' : 'focused-live';
     // The integrated mesh still owns recommendation discovery. Sports state is
     // fetched in parallel from the independently proven CDN transport, so the
     // failing Site API path cannot erase team utility from a manual refresh and
     // cannot lengthen the existing discovery budget.
     const [integratedFeed, requestSports] = await Promise.all([
-      !forceFresh && requestedFocus.length
+      isCachedFocus
         ? import('@/lib/frontier/liveFeedCache').then((cache) => cache.getCachedFrontierFocusedFeed(focusTopics))
-        : dependencies.getIntegratedFrontierFeed({
+        : dependencies!.getIntegratedFrontierFeed({
           focusTopics,
           includeSnapshot: false,
           pipelineMode: mode,
           adapterDeadlineMs: forceFresh ? MANUAL_REFRESH_BUDGET_MS : FOCUSED_LIVE_BUDGET_MS,
         }),
-      dependencies.getCdnSportsStateFeed(),
+      isCachedFocus
+        ? import('@/lib/frontier/sportsStateCdnRequest').then((sports) => sports.getCdnSportsStateFeed())
+        : dependencies!.getCdnSportsStateFeed(),
     ]);
     const decorated = decorateFeedMedia(mergeRequestSportsState(integratedFeed, requestSports));
     // Media/sports decorators intentionally operate on the historical base feed
