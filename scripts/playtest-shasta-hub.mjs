@@ -20,6 +20,9 @@ const record=async label=>{
   legRig:data.shastaLegRig,segments:data.shastaLimbSegmentCount,
   poseSit:data.shastaPoseSit,poseDown:data.shastaPoseDown,
   poseRoll:data.shastaPoseRoll,posePawLift:data.shastaPosePawLift,
+  peakDown:data.shastaTrickPeakDown,peakPawLift:data.shastaTrickPeakPawLift,
+  trickFrames:data.shastaTrickFramesSeen,contactCount:data.shastaPawsAnchored,
+  contactResets:data.shastaContactResets,maxContactError:data.shastaMaxContactError,
   goalDistance:data.shastaTrickGoalDistance};
  snapshots.push(item);return item;
 };
@@ -52,18 +55,20 @@ try{
  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTrick==='roll-left',null,{timeout:15000});
  await page.waitForFunction(()=>{
   const d=document.querySelector('canvas')?.dataset;
-  return d?.shastaTrick==='roll-left'&&Number(d.shastaPoseDown)>.15;
+  return Number(d?.shastaTrickPeakDown)>.15&&Number(d?.shastaTrickFramesSeen)>=1;
  },null,{timeout:25000});
- await record('left roll, chest lowering');
+ const rolled=await record('left roll, lowered shoulder sampled');
+ assert.ok(Number(rolled.peakDown)>.15);
  await page.screenshot({path:path.join(out,'01b-shasta-roll-transition.png')});
  await nav.getByRole('button',{name:'Shake right paw'}).click();
  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTrick==='shake-right',
   null,{timeout:15000});
  await page.waitForFunction(()=>{
   const d=document.querySelector('canvas')?.dataset;
-  return d?.shastaTrick==='shake-right'&&Number(d.shastaPosePawLift)>.09;
+  return Number(d?.shastaTrickPeakPawLift)>.09&&Number(d?.shastaTrickFramesSeen)>=1;
  },null,{timeout:25000});
- await record('right paw lifts after weight transfer');
+ const shake=await record('right paw peak sampled');
+ assert.ok(Number(shake.peakPawLift)>.09);
  await nav.getByRole('button',{name:'Park it'}).click();
  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTrick==='park-it',
   null,{timeout:15000});
