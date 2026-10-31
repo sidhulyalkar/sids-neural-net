@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { decodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
 import { decorateFeedMedia } from '@/lib/frontier/media/proxySecurity';
 import type { FrontierObservableFeedResponse } from '@/lib/frontier/pipelineDiagnostics';
+import { frontierIsSharedPublicFocus } from '@/lib/frontier/liveFeedPolicy';
 import { getFrontierColdSnapshotFeed } from '@/lib/frontier/snapshotFeed';
 import type { FrontierFeedResponse } from '@/lib/frontier/types';
 
@@ -78,13 +79,14 @@ function mergeRequestSportsState(
 export async function GET(request: NextRequest) {
   const requestedFocus = decodeDiscoveryFocus(request.nextUrl.searchParams.get('focus'));
   const forceFresh = request.nextUrl.searchParams.get('fresh') === '1';
+  const wantsLatest = request.nextUrl.searchParams.get('latest') === '1';
 
   try {
     // Cold navigation is snapshot-first so useful cards paint immediately. The
     // snapshot module is intentionally independent of every live adapter. A
     // refresh or focused query has a separate contract and lazy-loads the full
     // Internet discovery graph only after the request has opted into it.
-    if (!requestedFocus.length && !forceFresh) {
+    if (!requestedFocus.length && !forceFresh && !wantsLatest) {
       return NextResponse.json(decorateFeedMedia(getFrontierColdSnapshotFeed()), {
         headers: {
           'Cache-Control': 'private, max-age=60, stale-while-revalidate=120',
@@ -93,21 +95,52 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const dependencies = await loadLiveDependencies();
-    const focusTopics = requestedFocus.length ? requestedFocus : defaultPersonalFocus(dependencies);
+    // Public, query-independent discovery reuses Next's shared Runtime Cache.
+    // A cache miss only costs this background request, never the server-rendered
+    // first article. An upstream outage does not replace the last valid edition
+    // with an empty "fresh" result.
+    if (wantsLatest && !requestedFocus.length && !forceFresh) {
+      try {
+        const { getCachedFrontierLatestFeed } = await import('@/lib/frontier/liveFeedCache');
+        const feed = decorateFeedMedia(await getCachedFrontierLatestFeed());
+        return NextResponse.json(feed, {
+          headers: {
+            'Cache-Control': 'public, max-age=0, s-maxage=30, stale-while-revalidate=120',
+            'X-Frontier-Live': 'cached-latest',
+            'X-Frontier-Result-Count': String(feed.items.length),
+          },
+        });
+      } catch {
+        return NextResponse.json(decorateFeedMedia(getFrontierColdSnapshotFeed()), {
+          headers: {
+            'Cache-Control': 'private, no-store',
+            'X-Frontier-Live': 'snapshot-fallback',
+          },
+        });
+      }
+    }
+
+    const isCachedFocus = !forceFresh && frontierIsSharedPublicFocus(requestedFocus);
+    // A warm focused cache hit must not initialize the full adapter graph.
+    const dependencies = isCachedFocus ? null : await loadLiveDependencies();
+    const focusTopics = requestedFocus.length ? requestedFocus : defaultPersonalFocus(dependencies!);
     const mode = forceFresh ? 'fresh-live' : 'focused-live';
     // The integrated mesh still owns recommendation discovery. Sports state is
     // fetched in parallel from the independently proven CDN transport, so the
     // failing Site API path cannot erase team utility from a manual refresh and
     // cannot lengthen the existing discovery budget.
     const [integratedFeed, requestSports] = await Promise.all([
-      dependencies.getIntegratedFrontierFeed({
-        focusTopics,
-        includeSnapshot: false,
-        pipelineMode: mode,
-        adapterDeadlineMs: forceFresh ? MANUAL_REFRESH_BUDGET_MS : FOCUSED_LIVE_BUDGET_MS,
-      }),
-      dependencies.getCdnSportsStateFeed(),
+      isCachedFocus
+        ? import('@/lib/frontier/liveFeedCache').then((cache) => cache.getCachedFrontierFocusedFeed(focusTopics))
+        : dependencies!.getIntegratedFrontierFeed({
+          focusTopics,
+          includeSnapshot: false,
+          pipelineMode: mode,
+          adapterDeadlineMs: forceFresh ? MANUAL_REFRESH_BUDGET_MS : FOCUSED_LIVE_BUDGET_MS,
+        }),
+      isCachedFocus
+        ? import('@/lib/frontier/sportsStateCdnRequest').then((sports) => sports.getCdnSportsStateFeed())
+        : dependencies!.getCdnSportsStateFeed(),
     ]);
     const decorated = decorateFeedMedia(mergeRequestSportsState(integratedFeed, requestSports));
     // Media/sports decorators intentionally operate on the historical base feed
@@ -120,7 +153,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(feed, {
       headers: {
         'Cache-Control': 'no-store',
-        'X-Frontier-Live': mode,
+        'X-Frontier-Live': !forceFresh && requestedFocus.length ? 'focused-cache' : mode,
         'X-Frontier-Result-Count': String(feed.items.length),
       },
     });

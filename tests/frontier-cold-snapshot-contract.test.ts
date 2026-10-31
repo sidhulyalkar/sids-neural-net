@@ -31,11 +31,15 @@ test('passive FRONTIER feed does not statically import the live discovery graph'
 
   assert.match(route, /getFrontierColdSnapshotFeed/, 'passive route lost its lightweight snapshot authority');
   assert.match(route, /import\(['"]@\/lib\/frontier\/aggregate['"]\)/, 'focused/live path must still lazy-load integrated discovery');
-  assert.match(route, /if \(!requestedFocus\.length && !forceFresh\)/, 'snapshot branch must remain before live dependency loading');
+  assert.match(route, /if \(!requestedFocus\.length && !forceFresh && !wantsLatest\)/,
+    'passive snapshot branch must remain before both explicit live and latest discovery');
 
-  const snapshotBranch = route.indexOf('if (!requestedFocus.length && !forceFresh)');
-  const liveLoad = route.indexOf('const dependencies = await loadLiveDependencies()');
-  assert.ok(snapshotBranch >= 0 && liveLoad > snapshotBranch, 'live graph can initialize before the passive snapshot branch returns');
+  const snapshotBranch = route.indexOf('if (!requestedFocus.length && !forceFresh && !wantsLatest)');
+  const liveLoad = route.indexOf('await loadLiveDependencies()');
+  assert.ok(snapshotBranch >= 0 && liveLoad > snapshotBranch,
+    'live graph can initialize before the passive snapshot branch returns');
+  assert.match(route, /import\(['"]@\/lib\/frontier\/liveFeedCache['"]\)/,
+    'recent discovery must lazy-load the shared cache only after an explicit latest or focus request');
 });
 
 test('cold snapshot module contains no live adapters or network discovery imports', () => {
