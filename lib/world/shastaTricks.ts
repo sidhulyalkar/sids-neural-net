@@ -149,3 +149,15 @@ export function shastaSpinPawLift(pose:ShastaTrickPose,pawIndex:number):number{
  const active=order[step%4];
  return active===pawIndex?.082*Math.sin(Math.PI*fraction)**2:0;
 }
+
+/** Preserve physical world facing when a spin is interrupted mid-pivot.
+ * Without this, clearing the procedural spin offset snaps the dog straight
+ * back to the original heading while the paws are still on the ground.
+ */
+export function shastaHeadingAfterTrickInterrupt(
+ baseYaw:number,state:ShastaTrickState,now:number,
+):number{
+ const offset=shastaTrickPose(state,now).spin;
+ const facing=baseYaw+offset;
+ return Math.atan2(Math.sin(facing),Math.cos(facing));
+}
