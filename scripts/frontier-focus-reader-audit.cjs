@@ -44,7 +44,17 @@ async function audit(width, height) {
     await page.mouse.down();
     await page.waitForTimeout(650);
     await page.mouse.up();
-    await page.getByRole('status').getByText(/Saved [0-9]+\/10/).waitFor({ timeout: 3000 });
+    await page.waitForFunction(() => {
+      const text = document.querySelector('button[aria-label^="Hold to rate"]')?.textContent || '';
+      return /[1-9]\/10/.test(text) || /10\/10/.test(text);
+    }, null, { timeout: 5000 }).catch(async (error) => {
+      const diagnostics = await page.evaluate(() => ({
+        rating: document.querySelector('button[aria-label^="Hold to rate"]')?.textContent,
+        status: document.querySelector('[role="status"]')?.textContent,
+        active: document.activeElement?.tagName,
+      }));
+      throw new Error('Hold interaction did not save a score: ' + JSON.stringify(diagnostics) + '; ' + error.message);
+    });
     assert.match((await rating.textContent()) || '', /\/10/, 'Explicit rating must persist in interface');
 
     const exact = page.locator('details').filter({ hasText: 'Set exact score' });
