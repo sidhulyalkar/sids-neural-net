@@ -6761,13 +6761,15 @@ export function createWorld(
     const limbUp=shastaLimbUp;
     const limbDir=shastaLimbDir;
     const bodyDrop=THREE.MathUtils.clamp(.79-shastaPose.position.y,0,.46);
+    let anchoredPawsThisFrame=0;
+    let contactResetsThisFrame=0;
     shastaLegs.forEach((leg,i)=>{
       const foot=dogGait.feet[i];
       const cosYaw=Math.cos(dogYaw),sinYaw=Math.sin(dogYaw);
       const worldX=dog.x+leg.x*cosYaw+foot.z*sinYaw;
       const worldZ=dog.z+foot.z*cosYaw-leg.x*sinYaw;
       const groundDelta=THREE.MathUtils.clamp(
-        dogSupport({x:worldX,z:worldZ})-dogGroundY,-.075,.075);
+        shastaTerrainAt(worldX,worldZ)-dogGroundY,-.075,.075);
       dogFootGround[i]+=(groundDelta-dogFootGround[i])*
         smoothingAlpha(dogMotionDt,7);
       const fore=leg.z>0;
@@ -6836,8 +6838,8 @@ export function createWorld(
       dummy.updateMatrix();
       shastaCylinderMesh.setMatrixAt(leg.lowerIndex,dummy.matrix);
 
-      const front=dogSupport({x:worldX+sinYaw*.12,z:worldZ+cosYaw*.12});
-      const back=dogSupport({x:worldX-sinYaw*.12,z:worldZ-cosYaw*.12});
+      const front=shastaTerrainAt(worldX+sinYaw*.12,worldZ+cosYaw*.12);
+      const back=shastaTerrainAt(worldX-sinYaw*.12,worldZ-cosYaw*.12);
       const slopePitch=activelyFetching?0:foot.stance?
         THREE.MathUtils.clamp(Math.atan2(front-back,.24),-.045,.045):-.025;
       dummy.position.set(pawX,pose.paw.y+.012,pose.paw.z+.018);
@@ -6845,12 +6847,12 @@ export function createWorld(
       dummy.scale.set(pawPart.sx,pawPart.sy,pawPart.sz);
       dummy.updateMatrix();
       shastaRockMesh.setMatrixAt(leg.pawIndex,dummy.matrix);
+      if(shastaFootAnchors[i].active)anchoredPawsThisFrame++;
+      contactResetsThisFrame+=shastaFootAnchors[i].resets;
     });
-    canvas.dataset.shastaPawsAnchored=String(
-      shastaFootAnchors.filter(anchor=>anchor.active).length);
+    canvas.dataset.shastaPawsAnchored=String(anchoredPawsThisFrame);
     canvas.dataset.shastaMaxContactError=shastaMaxContactError.toFixed(4);
-    canvas.dataset.shastaContactResets=String(
-      shastaFootAnchors.reduce((sum,anchor)=>sum+anchor.resets,0));
+    canvas.dataset.shastaContactResets=String(contactResetsThisFrame);
     canvas.dataset.shastaLegRig="articulated-eight-segment";
     canvas.dataset.shastaLegCount=String(shastaLegs.length);
     canvas.dataset.shastaLimbSegmentCount=String(shastaLegs.length*2);
