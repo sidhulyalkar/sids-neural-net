@@ -526,6 +526,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
       setLastTreat(null);
       setTreatToast(false);
       setTreatThrowSerial(serial=>serial+1);
+      // Let the player see the full 3D arc rather than a 300px command drawer.
+      setShastaOpen(false);
     }else{
       setShastaCommand(action);
       setShastaCommandSerial(serial=>serial+1);

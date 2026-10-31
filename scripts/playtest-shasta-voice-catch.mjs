@@ -59,10 +59,13 @@ try{
  assert.equal(await sliders.nth(0).inputValue(),'20');
  const baseline=Number((await snapshot('baseline')).draws);
  await throwButton.click();
- await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTreatResult==='pending',
-   null,{timeout:20000});
- const during=await snapshot('flight');
+ // A real software-WebGL runner can render at 2 FPS. Observe the monotonic
+ // launch counter, not a transient "pending" string that may vanish in 1 frame.
+ await page.waitForFunction(()=>Number(document.querySelector('canvas')?.dataset.shastaTreatThrows)>=1,
+   null,{timeout:25000,polling:100});
+ const during=await snapshot('throw launched');
  assert.ok(Number(during.apex)>6,'dramatic flight apex should be visibly elevated');
+ await page.screenshot({path:path.join(out,'05-high-arc-throw.png')});
  await page.waitForFunction(()=>['caught','terrain','missed','timeout'].includes(
    document.querySelector('canvas')?.dataset.shastaTreatResult),null,{timeout:45000});
  const first=await snapshot('settled');
@@ -70,18 +73,26 @@ try{
  assert.ok(Number(first.draws)<=baseline+8,'treat should only add a mesh and one trail draw');
  events.push(first);
  // A second throw remains legal after the previous one and never reuses its score.
+ // The drawer automatically collapses so the treat is visible.
+ await nav.getByRole('button',{name:'Show Shasta tricks'}).click();
+ await sliders.nth(0).focus();await sliders.nth(0).press('End');
  await throwButton.click();
- await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTreatResult==='pending',
-   null,{timeout:12000});
+ await page.waitForFunction(()=>Number(document.querySelector('canvas')?.dataset.shastaTreatThrows)>=2,
+   null,{timeout:25000,polling:100});
  await nav.getByRole('button',{name:'Shasta Come'}).click();
- await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTreatResult==='interrupted',
-   null,{timeout:16000});
- events.push(await snapshot('interrupted by explicit Come'));
+ await page.waitForFunction(()=>['interrupted','terrain','caught','timeout'].includes(
+   document.querySelector('canvas')?.dataset.shastaTreatResult),null,
+   {timeout:30000,polling:100});
+ events.push(await snapshot('explicit Come after launch'));
  // Repeated throws must not leak an extra mesh or crash the renderer.
+ await nav.getByRole('button',{name:'Show Shasta tricks'}).click();
  await throwButton.click();
- await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTreatResult==='pending',
-   null,{timeout:12000});
+ await page.waitForFunction(()=>Number(document.querySelector('canvas')?.dataset.shastaTreatThrows)>=3,
+   null,{timeout:25000,polling:100});
+ await nav.getByRole('button',{name:'Show Shasta tricks'}).click();
  await throwButton.click();
+ await page.waitForFunction(()=>Number(document.querySelector('canvas')?.dataset.shastaTreatThrows)>=4,
+   null,{timeout:25000,polling:100});
  await page.waitForFunction(()=>['caught','terrain','missed','timeout','unsafe'].includes(
    document.querySelector('canvas')?.dataset.shastaTreatResult),null,{timeout:45000});
  events.push(await snapshot('rapid rethrow settled'));

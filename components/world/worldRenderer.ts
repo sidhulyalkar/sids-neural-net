@@ -3638,6 +3638,7 @@ export function createWorld(
   let treatPreviousTime=0;
   let treatPreviousMouth:TreatVector={x:0,y:0,z:0};
   let lastTreatThrowSerial=0;
+  let treatThrowsStarted=0;
   let shastaTreatCatchCount=0;
   const hideTreat=()=>{
     treatFlight=null;treatCatchGoal=null;
@@ -7689,6 +7690,8 @@ export function createWorld(
             // Do not flash an "interrupted" result over the newly aimed shot.
             if(treatFlight)hideTreat();
             treatFlight=flight;
+            treatThrowsStarted++;
+            canvas.dataset.shastaTreatThrows=String(treatThrowsStarted);
             treatCatchGoal=planTreatCatchGoal(flight,dog,
               terrainHeight(flight.landing.x,flight.landing.z)+1.267);
             treatStartedAt=performance.now()*.001;
