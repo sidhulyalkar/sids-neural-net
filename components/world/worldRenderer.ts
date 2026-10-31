@@ -6772,7 +6772,8 @@ export function createWorld(
     let contactResetsThisFrame=0;
     shastaLegs.forEach((leg,i)=>{
       const foot=dogGait.feet[i];
-      const cosYaw=Math.cos(dogYaw),sinYaw=Math.sin(dogYaw);
+      const cosYaw=Math.cos(dogYaw+commandedPose.spin),
+        sinYaw=Math.sin(dogYaw+commandedPose.spin);
       const worldX=dog.x+leg.x*cosYaw+foot.z*sinYaw;
       const worldZ=dog.z+foot.z*cosYaw-leg.x*sinYaw;
       const groundDelta=THREE.MathUtils.clamp(
