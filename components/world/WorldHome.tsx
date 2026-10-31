@@ -715,16 +715,6 @@ export function WorldHome({ content }: { content: WorldContent }) {
                      voice.status==="error"?"Speech recognition failed. Try again or use the buttons.":
                      voice.lastHeard?`Heard: ${voice.lastHeard}`:"Tap the mic to speak one command. Audio may be processed by your browser provider."}
                  </div>
-                 <div className={styles.shastaTrickGrid}>
-                   {([["sit","Sit"],["down","Down"],["stay","Stay"],["jump","Jump up"],
-                     ["roll-left","Roll left"],["roll-right","Roll right"],
-                     ["shake-left","Shake left paw"],["shake-right","Shake right paw"],
-                     ["spin-left","Spin left"],["spin-right","Spin right"]] as [ShastaTrick,string][]).map(([trick,label])=>(
-                     <button key={trick} type="button" title={label}
-                       disabled={!ready||quiet||!!panel||worldGameActive}
-                       onClick={()=>dispatchShastaAction(trick)}>{label}</button>
-                   ))}
-                 </div>
                  <div className={styles.shastaCatchPanel}>
                    <div className={styles.shastaCatchHeading}>
                      <span>Catch · Trickshots</span>
@@ -747,6 +737,16 @@ export function WorldHome({ content }: { content: WorldContent }) {
                      "Distance and score appear after the throw."}
                      {bestTreat>0&&` · Best ${bestTreat} pts`}
                    </p>
+                 </div>
+                 <div className={styles.shastaTrickGrid}>
+                   {([["sit","Sit"],["down","Down"],["stay","Stay"],["jump","Jump up"],
+                     ["roll-left","Roll left"],["roll-right","Roll right"],
+                     ["shake-left","Shake left paw"],["shake-right","Shake right paw"],
+                     ["spin-left","Spin left"],["spin-right","Spin right"]] as [ShastaTrick,string][]).map(([trick,label])=>(
+                     <button key={trick} type="button" title={label}
+                       disabled={!ready||quiet||!!panel||worldGameActive}
+                       onClick={()=>dispatchShastaAction(trick)}>{label}</button>
+                   ))}
                  </div>
                </div>
                <button type="button" className={styles.sportsToggle}
