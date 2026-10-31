@@ -51,6 +51,8 @@ test('non-finite terrain or corrupted coordinates cannot contaminate the stance 
  const bad={x:Infinity,y:0,z:0};
  assert.equal(updateShastaFootContact(anchor,bad,true,slope,out),false);
  assert.equal(anchor.active,false);
+ assert.ok(Number.isFinite(out.x)&&Number.isFinite(out.y)&&Number.isFinite(out.z),
+  'corrupt target must not propagate to Three.js transforms');
 });
 test('all four paws can be independently anchored on uneven terrain',()=>{
  const paws=Array.from({length:4},createShastaFootAnchor);
