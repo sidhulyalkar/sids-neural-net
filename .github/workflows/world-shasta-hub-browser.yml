@@ -17,6 +17,12 @@ on:
       - 'tests/world-shasta-tricks.test.ts'
       - 'scripts/playtest-shasta-hub.mjs'
       - 'scripts/playtest-shasta-commands.mjs'
+      - 'scripts/playtest-shasta-voice-catch.mjs'
+      - 'lib/world/shastaVoice.ts'
+      - 'lib/world/shastaTreatCatch.ts'
+      - 'components/world/useShastaVoice.ts'
+      - 'tests/world-shasta-voice.test.ts'
+      - 'tests/world-shasta-treat-catch.test.ts'
       - '.github/workflows/world-shasta-hub-browser.yml'
   workflow_dispatch:
 
@@ -50,6 +56,8 @@ jobs:
           node --import tsx --test tests/world-shasta-commands.test.ts tests/world-shasta-tricks.test.ts tests/world-shasta-gait-personality.test.ts tests/world-shasta-foot-contact.test.ts
           node --check scripts/playtest-shasta-hub.mjs
           node --check scripts/playtest-shasta-commands.mjs
+          node --check scripts/playtest-shasta-voice-catch.mjs
+          node --import tsx --test tests/world-shasta-voice.test.ts tests/world-shasta-treat-catch.test.ts
       - name: Install isolated Chromium
         run: |
           mkdir -p /tmp/shasta-playwright
@@ -70,6 +78,8 @@ jobs:
         env:
           WORLD_SCREENSHOT: artifacts/world/shasta-hub/04-go-come.png
         run: node scripts/playtest-shasta-commands.mjs
+      - name: Test voice and catch in actual WebGL world
+        run: node scripts/playtest-shasta-voice-catch.mjs
       - name: Show preview failures
         if: failure()
         run: tail -n 180 /tmp/shasta-next.log || true

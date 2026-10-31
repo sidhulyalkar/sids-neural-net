@@ -1,5 +1,6 @@
 import {applyLagoonSand} from "./worldLagoonSand";
 import {commandShasta,initialShastaOuting,stepShastaOuting} from "@/lib/world/shastaCommands";
+import {makeTreatFlight,sampleTreatFlight,planTreatCatchGoal,treatWithinMouth,scoreTreatFlight,type TreatFlight,type TreatCatchResult} from "@/lib/world/shastaTreatCatch";
 import {beginShastaTrick,idleShastaTrick,stepShastaTrick,shastaTrickPose,advanceShastaTrickClock,shastaSpinPawLift,shastaHeadingAfterTrickInterrupt,isShastaTrick,type ShastaAction} from "@/lib/world/shastaTricks";
 import {createCoastalNature} from "./worldCoastalNature";
 import {createResearchGallery} from "./worldResearchGallery";
@@ -150,6 +151,7 @@ import {
 type Callbacks = {
   onReady: () => void;
   onError: () => void;
+  onTreatCatch:(result:TreatCatchResult)=>void;
   onAquatic: (mode: AquaticMode) => void;
   onLocation: (r: RegionId, d: string | null) => void;
   onInteract: (d: string) => void;
@@ -164,6 +166,9 @@ type Callbacks = {
 type State = {
   shastaCommand: ShastaAction;
   shastaCommandSerial: number;
+  treatThrowSerial:number;
+  treatPower:number;
+  treatAngle:number;
   activity: Activity;
   actionSerial: number;
   challengeSerial: number;
@@ -3266,6 +3271,9 @@ export function createWorld(
   let state: State = {
     shastaCommand: "come",
     shastaCommandSerial: 0,
+    treatThrowSerial:0,
+    treatPower:65,
+    treatAngle:0,
     entered: false,
     paused: false,
     command: null,
@@ -3606,6 +3614,25 @@ export function createWorld(
   let shastaSpinPeakRootLift=0;
   let wasCarrying=false;
   let shastaCatchCount=0;
+  // Single reusable projectile: no runtime model loading or extra physics loop.
+  const treatGeometry=new THREE.IcosahedronGeometry(.13,1);
+  const treatMaterial=new THREE.MeshStandardMaterial({color:"#d68f5e",roughness:.87});
+  const treatMesh=new THREE.Mesh(treatGeometry,treatMaterial);
+  treatMesh.visible=false;scene.add(treatMesh);
+  let treatFlight:TreatFlight|null=null;
+  let treatCatchGoal:Point|null=null;
+  let treatStartedAt=0;
+  let lastTreatThrowSerial=0;
+  let shastaTreatCatchCount=0;
+  function finishTreat(t:number,caught:boolean){
+    if(!treatFlight)return;
+    const result=scoreTreatFlight(treatFlight,t,caught);
+    treatFlight=null;treatCatchGoal=null;treatMesh.visible=false;
+    canvas.dataset.shastaTreatResult=caught?"caught":"missed";
+    canvas.dataset.shastaTreatDistance=result.distance.toFixed(2);
+    canvas.dataset.shastaTreatScore=String(result.score);
+    callbacks.onTreatCatch(result);
+  }
   let pearlNoticeUntil=0;
 
   let dogTargetSwitches = 0;
@@ -6415,6 +6442,7 @@ export function createWorld(
       }
       return true;
     };
+    if(!outingAllowed&&treatFlight){treatFlight=null;treatCatchGoal=null;treatMesh.visible=false;}
     dogTrick=stepShastaTrick(dogTrick,dogTrickClock,dog,outingAllowed);
     const commandedPose=shastaTrickPose(dogTrick,dogTrickClock);
     // Maxima survive the short active window until the next user command.
@@ -6491,7 +6519,8 @@ export function createWorld(
     const snowNow=now*.001;
     shastaSnow=stepShastaSnowPlay(shastaSnow,snowNow,snowHere,snowAllowed);
     const snowPose=shastaSnowPose(shastaSnow,snowNow);
-    const dogTarget = dogTrick.phase==="approach"&&dogTrick.goal?
+    const dogTarget = treatFlight&&treatCatchGoal&&outingAllowed?treatCatchGoal:
+      dogTrick.phase==="approach"&&dogTrick.goal?
       dogTrick.goal:commandedPose.still?dog:state.entered
       ? aquatic !== "land" || discGolfSurfaceIsWater(player)
         ? shoreWait
@@ -6578,6 +6607,7 @@ export function createWorld(
         shastaSnow.stage==="zoom"?9.5:
         shastaSnow.stage==="roll"||shastaSnow.stage==="shake"?0:
         dogTrick.phase==="approach"?5.1:commandedPose.still?0:
+        treatFlight?10.2:
         dogOuting.mode==="chase"?9:dogOuting.mode==="roam"?6:
         dogChase.mode==="return"?Math.max(travel.speed,6):travel.speed,
         dogMotionDt);
@@ -6716,6 +6746,28 @@ export function createWorld(
         activelyFetching?Math.min(7.4,dogAnimSpeed):dogAnimSpeed,
       dogGaitPhase,commandedPose.still?0:dogMoveBlend);
     const dogBob=activelyFetching||commandedPose.still?0:dogGait.bodyBob;
+    // Analytic flight: real wall time prevents low-FPS throws floating for minutes.
+    if(treatFlight){
+      const t=Math.max(0,now*.001-treatStartedAt);
+      const pos=sampleTreatFlight(treatFlight,t);
+      treatMesh.position.set(pos.x,pos.y,pos.z);
+      treatMesh.visible=true;
+      canvas.dataset.shastaTreatPhase="flying";
+      // Husky muzzle center (local z=1.16, y=1.267), facing dogYaw.
+      // Contact is measured at the snout, never at the torso/root.
+      const mouth={x:dog.x+Math.sin(dogYaw)*1.16,
+        z:dog.z+Math.cos(dogYaw)*1.16};
+      if(treatWithinMouth(treatFlight,t,mouth,dogGroundY+1.267)){
+        shastaTreatCatchCount++;
+        canvas.dataset.shastaTreatCatchCount=String(shastaTreatCatchCount);
+        finishTreat(t,true);
+      }else if(t>=treatFlight.duration||pos.y<=terrainHeight(pos.x,pos.z)+.08){
+        finishTreat(Math.min(t,treatFlight.duration),false);
+      }
+    }else{
+      treatMesh.visible=false;
+      canvas.dataset.shastaTreatPhase="idle";
+    }
     const dogRenderY=dogGroundY+dogBob+commandedPose.jump;
     dogMaxYStep = Math.max(dogMaxYStep, Math.abs(dogRenderY - lastDogRenderY));
     lastDogRenderY = dogRenderY;
@@ -7497,6 +7549,8 @@ export function createWorld(
   return {
     setState(next) {
       if(next.shastaCommandSerial!==state.shastaCommandSerial){
+        // A newer explicit command always interrupts an outstanding treat chase.
+        treatFlight=null;treatCatchGoal=null;treatMesh.visible=false;
         // Commit the partial turn to world heading before clearing the
         // authored spin offset. A mid-spin Sit/Come must never snap yaw.
         if(dogTrick.trick==="spin-left"||dogTrick.trick==="spin-right"){
@@ -7579,6 +7633,30 @@ export function createWorld(
         }
       }
       state = next;
+      if(next.treatThrowSerial!==lastTreatThrowSerial){
+        lastTreatThrowSerial=next.treatThrowSerial;
+        const allowed=next.entered&&!next.paused&&aquatic==="land"&&
+          discGolf.phase==="off"&&skimHeat.phase==="off"&&
+          trial.phase!=="running"&&bigAir.phase==="idle"&&
+          !jetSki&&!jetChoosing&&caveLayer==="surface";
+        if(allowed){
+          const flight=makeTreatFlight(player,dog,groundHeight(player),
+            next.treatPower,next.treatAngle);
+          const destination=flight.landing;
+          if(destination.x>=WORLD_BOUNDS.minX&&destination.x<=WORLD_BOUNDS.maxX&&
+            destination.z>=WORLD_BOUNDS.minZ&&destination.z<=WORLD_BOUNDS.maxZ&&
+            !discGolfSurfaceIsWater(destination)){
+            treatFlight=flight;
+            treatCatchGoal=planTreatCatchGoal(flight,dog);
+            treatStartedAt=performance.now()*.001;
+            treatMesh.visible=true;
+            dogOuting=commandShasta("come");
+            dogTrick=idleShastaTrick();
+            shastaSnow=idleShastaSnowPlay();
+            canvas.dataset.shastaTreatResult="pending";
+          }
+        }
+      }
       if(next.sessionExitSerial!==lastSessionExit){
         lastSessionExit=next.sessionExitSerial;leaveWorldGames();
       }
@@ -7968,6 +8046,8 @@ export function createWorld(
       window.removeEventListener("blur", clearHeldJetControls);
       document.removeEventListener("visibilitychange", visibility);
       canvas.removeEventListener("webglcontextlost", contextLost);
+      scene.remove(treatMesh);
+      treatGeometry.dispose();treatMaterial.dispose();
       scene.traverse((o) => {
         if (o instanceof THREE.InstancedMesh) o.dispose();
       });
