@@ -656,7 +656,6 @@ export function WorldHome({ content }: { content: WorldContent }) {
                        if(window.matchMedia("(pointer: coarse)").matches)setShastaOpen(false);}}>{label}</button>
                    ))}
                  </div>
-                 <p className={styles.shastaHint}>Spin uses four grounded paws; Come calls Shasta back.</p>
                </div>
                <button type="button" className={styles.sportsToggle}
                  aria-controls="world-sport-shortcuts" aria-expanded={sportsOpen}
