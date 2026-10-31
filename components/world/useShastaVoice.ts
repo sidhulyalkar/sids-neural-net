@@ -38,7 +38,7 @@ export function useShastaVoice(available:boolean,onAction:(action:ShastaVoiceAct
     epoch.current++;
     const active=recognizer.current;
     recognizer.current=null;
-    if(active){active.onresult=null;active.onerror=null;active.onend=null;
+    if(active){active.onstart=null;active.onresult=null;active.onerror=null;active.onend=null;
       try{active.abort();}catch{/* Browser may have already stopped. */}}
     setStatus("off");
   },[]);
@@ -48,12 +48,12 @@ export function useShastaVoice(available:boolean,onAction:(action:ShastaVoiceAct
     if(!available)return;
     return ()=>{
       const active=recognizer.current;recognizer.current=null;
-      if(active){active.onresult=null;active.onerror=null;active.onend=null;
+      if(active){active.onstart=null;active.onresult=null;active.onerror=null;active.onend=null;
         try{active.abort();}catch{/* Already stopped. */}}
     };
   },[available]);
   useEffect(()=>()=>{const active=recognizer.current;
-    recognizer.current=null;if(active){active.onresult=null;active.onerror=null;active.onend=null;
+    recognizer.current=null;if(active){active.onstart=null;active.onresult=null;active.onerror=null;active.onend=null;
       try{active.abort();}catch{/* Browser shutdown. */}}
   },[]);
   useEffect(()=>{
