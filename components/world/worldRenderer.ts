@@ -1,6 +1,6 @@
 import {applyLagoonSand} from "./worldLagoonSand";
 import {commandShasta,initialShastaOuting,stepShastaOuting} from "@/lib/world/shastaCommands";
-import {beginShastaTrick,idleShastaTrick,stepShastaTrick,shastaTrickPose,advanceShastaTrickClock,isShastaTrick,type ShastaAction} from "@/lib/world/shastaTricks";
+import {beginShastaTrick,idleShastaTrick,stepShastaTrick,shastaTrickPose,advanceShastaTrickClock,shastaSpinPawLift,isShastaTrick,type ShastaAction} from "@/lib/world/shastaTricks";
 import {createCoastalNature} from "./worldCoastalNature";
 import {createResearchGallery} from "./worldResearchGallery";
 import {idleOceanObservation,advanceOceanObservation,stopOceanObservation} from "@/lib/world/coastalObservation";
@@ -6730,6 +6730,11 @@ export function createWorld(
       commandedPose.pawLeft,commandedPose.pawRight).toFixed(3);
     canvas.dataset.shastaPoseRoll=commandedPose.roll.toFixed(3);
     canvas.dataset.shastaPoseSpin=commandedPose.spin.toFixed(3);
+    canvas.dataset.shastaSpinStep=commandedPose.spinStep.toFixed(3);
+    canvas.dataset.shastaSpinPawLiftMax=Math.max(
+      shastaSpinPawLift(commandedPose,0),shastaSpinPawLift(commandedPose,1),
+      shastaSpinPawLift(commandedPose,2),shastaSpinPawLift(commandedPose,3)
+    ).toFixed(4);
     canvas.dataset.shastaPoseJump=commandedPose.jump.toFixed(3);
     canvas.dataset.dogGait=dogGait.gait;
     canvas.dataset.dogFootLiftMax=Math.max(
@@ -6776,8 +6781,10 @@ export function createWorld(
         smoothingAlpha(dogMotionDt,7);
       const fore=leg.z>0;
       const raised=fore?(leg.x<0?commandedPose.pawLeft:commandedPose.pawRight):0;
-      const turnLift=commandedPose.turnStep*(i%2===0?1:-1);
-      const lift=Math.max(0,raised+turnLift)+commandedPose.tuck;
+      // Each spin advances one paw at a time, with a low swing arc and
+      // three grounded supports. Never give a spin a root jump impulse.
+      const spinLift=shastaSpinPawLift(commandedPose,i);
+      const lift=raised+spinLift+commandedPose.tuck;
       const slide=fore?commandedPose.down*.15+raised*.22:
         commandedPose.sit*.065;
       const pose=shastaArticulatedLeg(
@@ -6786,11 +6793,11 @@ export function createWorld(
       const pawPart=shastaRockParts[leg.pawIndex];
       shastaNominalPaw.set(leg.x,pose.paw.y+.012,pose.paw.z+.018);
       shastaArt.localToWorld(shastaNominalPaw);
-      // Contact is intentionally limited to idle/held actions. During a
-      // genuine run, turn, leap or shoulder-roll the gait owns paw motion.
+      // Grounded spin supports stay anchored where reach permits. Only
+      // the foot currently swinging is released; the whole dog never hops.
       const planted=(commandedPose.still||dogAnimSpeed<.14)&&
-        dogActualSpeed<1.4&&lift<.035&&commandedPose.jump<.015&&
-        Math.abs(commandedPose.roll)<.025&&Math.abs(commandedPose.spin)<.025&&
+        dogActualSpeed<1.4&&lift<.025&&commandedPose.jump<.015&&
+        Math.abs(commandedPose.roll)<.025&&
         Math.abs(snowPose.roll)<.025;
       const anchored=updateShastaFootContact(shastaFootAnchors[i],
         shastaNominalPaw,planted,shastaTerrainAt,shastaContactPaw);
@@ -7481,14 +7488,15 @@ export function createWorld(
         if(isShastaTrick(next.shastaCommand)){
           dogOuting=commandShasta("come");
           dogTrick=beginShastaTrick(next.shastaCommand,dogTrickClock,dog,player,
-            travel.heading,(candidate)=>{
-              if(discGolfSurfaceIsWater(candidate))return false;
-              if(Math.abs(terrainHeight(candidate.x,candidate.z)-
-                  terrainHeight(player.x,player.z))>1.15)return false;
-              return obstacles.every(o=>
-                Math.hypot(candidate.x-o.x,candidate.z-o.z)>
-                o.radius+.30);
-            });
+            travel.heading);
+          if(next.shastaCommand==="spin-left"||next.shastaCommand==="spin-right"){
+            // Finish momentum before the first paw takes a pivot step.
+            // Prevent a command arriving at a sprint from turning into
+            // a drifting mid-air-looking pirouette.
+            dogVelocity={x:0,z:0};
+            dogAnimSpeed=0;
+            dogMoveBlend=0;
+          }
         }else{
           dogTrick=idleShastaTrick();
           dogOuting=commandShasta(next.shastaCommand);
