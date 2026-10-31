@@ -34,17 +34,18 @@ photorealism.
 - Trick actions were previously coupled to a 50 ms-per-frame physics step.
   v2 adds a bounded, pause-aware action clock and suppresses residual
   running gait during stationary poses. Verify these in real browsers.
-- The companion browser test has previously failed while approaching
-  `park-it` in obstructed terrain; v2 uses a fallback target and must
-  prove that the dog never teleports or clips through rocks and redwoods.
+- The retired Park it action, its approach planner, UI control, and browser
+  contract have been deleted. Browser QA now focuses on grounded spins and
+  the remaining tricks. A stationary full-body pirouette or simultaneous
+  four-paw hop is a failure.
 
 ## Quality ladder and required evidence
 
 | Priority | Capability | Acceptance evidence | Release criterion |
 | --- | --- | --- | --- |
-| P0 | Correct state machine, sign-safe angles and finite poses | Unit tests at 10/15/30/60/120 Hz, left/right mirror, interrupt/restart/hold, pause/unpause and blocked `park-it` | No failing focused unit or TypeScript/ESLint checks |
+| P0 | Correct state machine, sign-safe angles and finite poses | Unit tests at 10/15/30/60/120 Hz, left/right mirror, interrupt/restart/hold, pause/unpause and grounded sequential spins | No failing focused unit or TypeScript/ESLint checks |
 | P0 | Regression-safe integration | Actual Shasta Hub, dual-stick, sports hub, world landscape, full website unit and build gates | Shasta changes do not introduce new red checks relative to the qualified base |
-| P0 | Visible posture transitions | Time-labeled 6-frame contact sheets for sit, down, both paw shakes, both rolls, jump, spins, Park it and snow zooms | No obvious rigid standing-cartwheel, floating paw, sudden root jump or ankle-through-ground pose |
+| P0 | Visible posture transitions | Time-labeled 6-frame contact sheets for sit, down, both paw shakes, both rolls, jump, both spin directions and snow zooms | No obvious rigid standing-cartwheel, floating paw, sudden root jump or ankle-through-ground pose |
 | P1 | Stable 3D feet and COM | Measure each planted foot's world-space displacement vs support plane; capture contact state, center of mass and support polygon | Target: stationary paw slide <= 0.06 world units over any 0.25 sec stance interval on level ground |
 | P1 | Consistent timing / orientation | Replayed scripted action trace at 15/30/60 FPS, both device orientations, interrupt during each trick | Target: active trick duration within 0.12 s of authored duration; no unplanned 180-degree orientation snap |
 | P1 | Lightweight rendering | Shasta-only instanced mesh counts, draw calls, average CPU update cost and garbage collection samples | Target: <= 0.35 ms typical companion pose update on target desktop; no per-frame heap allocations in leg/head loop; avoid extra draw calls |
@@ -70,13 +71,12 @@ Define a small motion graph instead of unrelated whole-body rotations:
 - **roll (left/right)**: settle from down -> head/yaw cues direction -> shift
   onto shoulder -> rotate thorax/spine over back -> replant legs -> stand or
   lie. An upright rigid 360-degree barrel roll is forbidden.
-- **spin**: turn in short arcs with outside-paw stepping and coordinated
-  shoulders/hips; keep feet beneath COM; no stationary ice-skating turn.
+- **spin (left/right)**: brake into four-paw stance -> eight sequential
+  45-degree turning footfalls -> recover on the ground. Only one paw swings
+  per interval while the other three can remain supporting; body jump
+  remains exactly zero. The pivot is currently procedural, not mocap-fitted.
 - **jump**: compress hindquarters -> push-off -> flight with flexed joints ->
   fore/hind landing sequence -> absorb impact.
-- **Park it**: select a collision-free dry landing behind the player; route
-  around obstacles; brake; down; stay. If no place is reachable, stop safely
-  and do not teleport.
 - **snow/sand zoom**: short excited runs and direction changes that do not
   trigger amid a held trick, water, cave, active sport, or menu interruption.
 - **speak/howl** (future): sit or stand, chest/neck extension, muzzle opening,
@@ -142,7 +142,7 @@ Capture these in **opt-in local QA traces only**, not persistent analytics.
 1. **P0.0 Baseline diagnosis:** read exact failing CI logs and annotate
    pre-existing vs introduced regressions; preserve artifacts.
 2. **P0.1 Fix deterministic failures:** neutral signed-zero, stable timebase,
-   residual gait during tricks, bounded reachable target choices; run focused
+   residual gait during tricks, grounded spin footfalls; run focused
    tests and integration contracts.
 3. **P0.2 Visual evidence:** browser script captures actual pose intervals
    and full-frame screenshots in portrait/landscape, including before/after
@@ -166,3 +166,17 @@ Do not merge on a green TypeScript build alone. Do not raise a failing
 performance threshold merely to make CI pass. Do not claim "exactly like
 Shasta" without comparison to Shasta-specific captured motion. Do not ship
 external motion files with unverified redistribution or commercial rights.
+
+## 2026-10-30: spin behavior scope and retired command
+
+- **Removed:** Park it is not part of the Shasta command type, action
+  duration table, menu, browser sequence or motion-state logic.
+- **Grounded spin:** eight alternating individual paw lifts over 2.7 s,
+  body rotation synchronized with footfall phases, no `jump` channel and
+  no forced upward body position. The normal support anchor may reset when
+  a stance foot reaches its safe IK tether; such resets are observable.
+- **Minimum qualification:** at 10/15/30/60/120 Hz, spin angle advances
+  monotonically to 360 degrees; exactly one paw at a time is lifted, all
+  four are eventually repositioned, the root stays at ground height and
+  interruption by Sit/Recall cancels spin. Visual browser QA must inspect
+  peak yaw, per-paw lift and root jump diagnostics.
