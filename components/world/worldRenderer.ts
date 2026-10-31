@@ -6717,8 +6717,13 @@ export function createWorld(
         const moved=distance(dog,advanced);
         dogVelocity=moved<.001?{x:0,z:0}:nextVelocity;
         dog=advanced;
+        // On software renderers the physical dog turns during substeps too.
+        // Without this his root reaches the treat with a backward-facing muzzle.
+        if(moved>.001&&Math.hypot(dogVelocity.x,dogVelocity.z)>.3)
+          dogYaw=smoothAngle(dogYaw,Math.atan2(dogVelocity.x,dogVelocity.z),step);
         remaining-=step;
       }
+      canvas.dataset.shastaTreatCatchupSteps=String(steps);
     }
     const dogStep = distance(dogBefore, dog);
     if(dogOuting.carrying&&!wasCarrying)shastaCatchCount++;
