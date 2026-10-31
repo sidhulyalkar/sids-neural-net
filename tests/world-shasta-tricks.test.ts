@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {beginShastaTrick,stepShastaTrick,shastaTrickPose,idleShastaTrick,isShastaTrick,advanceShastaTrickClock,shastaSpinPawLift,SHASTA_TRICK_DURATION} from '../lib/world/shastaTricks';
+import {beginShastaTrick,stepShastaTrick,shastaTrickPose,idleShastaTrick,isShastaTrick,advanceShastaTrickClock,shastaSpinPawLift,SHASTA_TRICK_DURATION,shastaHeadingAfterTrickInterrupt} from '../lib/world/shastaTricks';
 const player={x:0,z:0},heading={x:0,z:1};
 test('trick commands are distinct and never include chase/recall',()=>{
  for(const action of ['roll-left','roll-right','shake-left','shake-right','spin-left','spin-right','sit','down','stay','jump'] as const)
@@ -187,4 +187,19 @@ test('spin ends upright at 10-120 FPS and can be interrupted by Sit',()=>{
  const sit=beginShastaTrick('sit',1,player,player,heading);
  assert.equal(shastaTrickPose(sit,1).spin,0);
  assert.equal(shastaTrickPose(sit,1).jump,0);
+});
+
+test('interrupting spin never snaps facing back to pre-spin heading',()=>{
+ for(const trick of ['spin-left','spin-right'] as const){
+  const state=beginShastaTrick(trick,0,player,player,heading);
+  const initial=.72;
+  for(const sample of [.52,1.12,1.76,2.35]){
+   const displayed=initial+shastaTrickPose(state,sample).spin;
+   const rebased=shastaHeadingAfterTrickInterrupt(initial,state,sample);
+   const delta=Math.atan2(Math.sin(displayed-rebased),Math.cos(displayed-rebased));
+   assert.ok(Math.abs(delta)<1e-10,'interrupt preserves rendered facing');
+   const next=beginShastaTrick('sit',sample,player,player,heading);
+   assert.equal(shastaTrickPose(next,sample).spin,0);
+  }
+ }
 });
