@@ -261,15 +261,15 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [treatAngle,setTreatAngle]=useState(0);
   const [lastTreat,setLastTreat]=useState<TreatCatchResult|null>(null);
   const [treatToast,setTreatToast]=useState(false);
-  const [bestTreat,setBestTreat]=useState(0);
+  const [bestTreat,setBestTreat]=useState(()=>{
+    if(typeof window==="undefined")return 0;
+    try{return Math.max(0,Number(window.localStorage.getItem("sid-world:shasta-catch-best-v1"))||0);}
+    catch{return 0;}
+  });
   const onTreatCatch=useCallback((result:TreatCatchResult)=>{
     setLastTreat(result);
     setTreatToast(true);
     if(result.caught)setBestTreat(previous=>Math.max(previous,result.score));
-  },[]);
-  useEffect(()=>{
-    try{setBestTreat(Math.max(0,Number(window.localStorage.getItem("sid-world:shasta-catch-best-v1"))||0));}
-    catch{/* Optional storage. */}
   },[]);
   useEffect(()=>{
     if(bestTreat<=0)return;
