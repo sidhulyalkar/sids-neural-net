@@ -138,12 +138,14 @@ export const isShastaTrick=(c:ShastaAction):c is ShastaTrick=>
  * leaving the other three available as support. Left turns reverse order.
  * The lift is shallow and has no effect on Shasta's root/body height.
  */
+const SPIN_LEFT_ORDER=[3,0,1,2] as const;
+const SPIN_RIGHT_ORDER=[1,2,3,0] as const;
 export function shastaSpinPawLift(pose:ShastaTrickPose,pawIndex:number):number{
  if(pose.spinStep<0||pawIndex<0||pawIndex>3)return 0;
  const step=Math.min(7,Math.floor(pose.spinStep));
  const fraction=pose.spinStep-step;
  const left=pose.spin<0;
- const order=left?[3,0,1,2]:[1,2,3,0];
+ const order=left?SPIN_LEFT_ORDER:SPIN_RIGHT_ORDER;
  const active=order[step%4];
  return active===pawIndex?.082*Math.sin(Math.PI*fraction)**2:0;
 }
