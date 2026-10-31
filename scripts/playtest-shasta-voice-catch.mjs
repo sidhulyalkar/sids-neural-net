@@ -48,7 +48,7 @@ try{
  await nav.getByRole('button',{name:'Show Shasta tricks'}).click();
  const controls=nav.getByRole('group',{name:'Shasta training and tricks'});
  assert.equal(await controls.getByRole('button',{name:'Throw treat'}).isVisible(),true);
- await controls.getByRole('slider').first().fill('40');
+ assert.equal(await controls.getByRole('slider').count(),2);
  await controls.getByRole('button',{name:'Throw treat'}).click();
  await page.waitForFunction(()=>['pending','caught','missed'].includes(
    document.querySelector('canvas')?.dataset.shastaTreatResult),null,{timeout:10000});
