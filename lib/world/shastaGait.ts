@@ -102,18 +102,27 @@ export type ShastaArticulatedLeg={
 export function shastaArticulatedLeg(
  hipZ:number,footZ:number,footY:number,fore:boolean,
  bodyDrop=0,footSlide=0,
+ out?:ShastaArticulatedLeg,
 ):ShastaArticulatedLeg{
- const hip={y:fore?.77:.82,z:hipZ};
+ // The renderer passes a reusable pose per foot, avoiding twelve new nested
+ // objects for the four legs in every frame. Tests may omit out.
+ const result=out??{
+  hip:{y:0,z:0},joint:{y:0,z:0},paw:{y:0,z:0},
+  upperLength:0,lowerLength:0,
+ };
+ result.hip.y=fore?.77:.82;
+ result.hip.z=hipZ;
  // Body root drops in world space. Raise the paw in rig-local coordinates by
  // the same amount so it stays planted rather than penetrating the ground.
- const paw={y:clamp(footY+clamp(bodyDrop,0,.46),-.04,.58),
-  z:hipZ+clamp(footZ-hipZ+footSlide,-.42,.42)};
- // A real canine knee/hock has more than one bending joint. With only two
- // bone pieces, preserve their recognizable fore/hind flexion directions.
- const span=Math.max(.10,hip.y-paw.y);
- const joint={y:paw.y+span*(fore?.47:.54),
-  z:hipZ+(paw.z-hipZ)*.52+(fore?-.075:.13)*smoothstep(.10,.7,span)};
- return {hip,joint,paw,
-  upperLength:Math.hypot(hip.y-joint.y,hip.z-joint.z),
-  lowerLength:Math.hypot(joint.y-paw.y,joint.z-paw.z)};
+ result.paw.y=clamp(footY+clamp(bodyDrop,0,.46),-.04,.58);
+ result.paw.z=hipZ+clamp(footZ-hipZ+footSlide,-.42,.42);
+ const span=Math.max(.10,result.hip.y-result.paw.y);
+ result.joint.y=result.paw.y+span*(fore?.47:.54);
+ result.joint.z=hipZ+(result.paw.z-hipZ)*.52+
+  (fore?-.075:.13)*smoothstep(.10,.7,span);
+ result.upperLength=Math.hypot(
+  result.hip.y-result.joint.y,result.hip.z-result.joint.z);
+ result.lowerLength=Math.hypot(
+  result.joint.y-result.paw.y,result.joint.z-result.paw.z);
+ return result;
 }
