@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, RefreshCw, Search } from 'lucide-react';
 import { holdToInterestScore } from '@/lib/frontier/interestRating';
+import { frontierHasNewStories, frontierShouldCheckLatest } from '@/lib/frontier/liveFeedPolicy';
 import { buildFrontierSourceBrief, frontierRatingDescription, frontierSourceFigures } from '@/lib/frontier/sourceBrief';
 import { rankFrontierItems } from '@/lib/frontier/scoring';
 import { useFrontierStore } from '@/lib/frontier/store';
@@ -38,6 +39,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const [searchDraft, setSearchDraft] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [latestChecking, setLatestChecking] = useState(false);
+  const [latestReady, setLatestReady] = useState<{ items: FrontierItem[]; generatedAt: string } | null>(null);
   const [error, setError] = useState('');
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const [figureIndex, setFigureIndex] = useState(0);
@@ -46,6 +49,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const [notice, setNotice] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<AbortController | null>(null);
+  const backgroundRef = useRef<AbortController | null>(null);
+  const readerInteractedRef = useRef(false);
   const holdStartedRef = useRef<number | null>(null);
   const holdFrameRef = useRef<number | null>(null);
 
@@ -86,6 +91,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
   const beginHold = useCallback(() => {
     if (holdStartedRef.current !== null || !item) return;
+    readerInteractedRef.current = true;
     holdStartedRef.current = performance.now();
     setHoldValue(1);
     const tick = () => {
@@ -130,6 +136,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   };
 
   const move = useCallback((delta: number) => {
+    readerInteractedRef.current = true;
     cancelHold();
     setNotice('');
     setBrokenMediaUrl(null);
@@ -180,11 +187,82 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
   useEffect(() => () => {
     requestRef.current?.abort();
+    backgroundRef.current?.abort();
     if (holdFrameRef.current !== null) cancelAnimationFrame(holdFrameRef.current);
   }, []);
 
+  const applyLatest = useCallback((edition: { items: FrontierItem[]; generatedAt: string }) => {
+    cancelHold();
+    setItems(edition.items.slice(0, EDITION_LIMIT));
+    setPosition(0);
+    setEditionAt(edition.generatedAt);
+    setActiveQuery('');
+    setBrokenMediaUrl(null);
+    setFigureIndex(0);
+    setLatestReady(null);
+    setNotice('');
+    contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [cancelHold]);
+
+  // First paint remains the server snapshot. Once idle, request the shared
+  // recent-source cache in the background. Never poll, and never swap an active
+  // reader's article: show a small "latest ready" chip instead.
+  useEffect(() => {
+    if (!frontierShouldCheckLatest(generatedAt)) return;
+    const controller = new AbortController();
+    let tried = false;
+    let disposed = false;
+    backgroundRef.current = controller;
+    const check = async () => {
+      if (tried || document.visibilityState !== 'visible' || disposed) return;
+      tried = true;
+      setLatestChecking(true);
+      try {
+        const response = await fetch('/api/frontier/feed?latest=1', {
+          signal: controller.signal,
+          cache: 'no-store',
+        });
+        if (!response.ok || response.headers.get('X-Frontier-Live') === 'snapshot-fallback') return;
+        const payload = await response.json() as FrontierFeedResponse;
+        if (controller.signal.aborted || !Array.isArray(payload.items) || !payload.items.length) return;
+        const store = useFrontierStore.getState();
+        const ranked = rankFrontierItems(payload.items, store.profile, store.history, new Date(), store.behavior);
+        const next = (ranked.length ? ranked : payload.items).slice(0, EDITION_LIMIT);
+        if (!frontierHasNewStories(initialItems.map((entry) => entry.id), next.map((entry) => entry.id))) return;
+        const edition = { items: next, generatedAt: payload.generatedAt };
+        // A saved rating indicates an existing reading session even if this
+        // particular tab was just reloaded. Don't reset that reader's place.
+        const alreadyReading = initialItems[0] &&
+          Boolean(store.history[initialItems[0].id]?.interestScore);
+        if (!readerInteractedRef.current && !alreadyReading) {
+          applyLatest(edition);
+        } else {
+          setLatestReady(edition);
+        }
+      } catch {
+        // A valid snapshot is still on screen. No noisy errors on a background
+        // fetch failure; manual refresh remains available.
+      } finally {
+        if (!disposed) setLatestChecking(false);
+      }
+    };
+    const timer = window.setTimeout(() => { void check(); }, 1_400);
+    const onVisible = () => { if (document.visibilityState === 'visible') void check(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      controller.abort();
+      document.removeEventListener('visibilitychange', onVisible);
+      if (backgroundRef.current === controller) backgroundRef.current = null;
+    };
+  }, [generatedAt, initialItems, applyLatest]);
+
   const retrieve = useCallback(async (query: string, fresh: boolean) => {
+    readerInteractedRef.current = true;
     requestRef.current?.abort();
+    backgroundRef.current?.abort();
+    setLatestReady(null);
     cancelHold();
     const controller = new AbortController();
     requestRef.current = controller;
@@ -193,7 +271,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     try {
       const params = new URLSearchParams();
       if (query) params.set('focus', query);
-      if (fresh) params.set('fresh', '1');
+      if (fresh && query) params.set('fresh', '1');
+      if (fresh && !query) params.set('latest', '1');
       const response = await fetch('/api/frontier/feed?' + params.toString(), {
         signal: controller.signal,
         cache: 'no-store',
@@ -245,8 +324,16 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
         <div className={styles.topActions}>
           <form role="search" onSubmit={onSearch} className={styles.search}>
             <Search aria-hidden="true" size={17} />
-            <input aria-label="Search live topics" placeholder="Find a topic" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} maxLength={64} />
+            <input aria-label="Search live topics" placeholder="Find a topic" value={searchDraft} onFocus={() => { readerInteractedRef.current = true; }} onChange={(event) => setSearchDraft(event.target.value)} maxLength={64} />
           </form>
+          {latestReady ? (
+            <button type="button" className={styles.latestChip} onClick={() => {
+              readerInteractedRef.current = true;
+              applyLatest(latestReady);
+            }} aria-label="Open latest discovered articles">
+              Latest ready <span aria-hidden="true">↗</span>
+            </button>
+          ) : latestChecking ? <span className={styles.checkingLatest} aria-label="Checking recent articles">Checking latest…</span> : null}
           <button type="button" className={styles.iconButton} title="Refresh live edition" aria-label="Refresh live edition" disabled={loading} onClick={() => void retrieve(activeQuery, true)}>
             <RefreshCw size={18} aria-hidden="true" className={loading ? styles.spinning : ''} />
           </button>
@@ -288,7 +375,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
               <nav className={styles.figureRail} aria-label="Source figures">
                 {figures.map((figure, index) => (
                   <button key={figure.url} type="button" aria-label={'View source figure ' + (index + 1)}
-                    aria-pressed={index === figureIndex} onClick={() => setFigureIndex(index)}>
+                    aria-pressed={index === figureIndex} onClick={() => { readerInteractedRef.current = true; setFigureIndex(index); }}>
                     {String(index + 1).padStart(2, '0')}
                   </button>
                 ))}
@@ -300,7 +387,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
             </figcaption>
           </figure>
 
-          <div ref={contentRef} className={styles.content}>
+          <div ref={contentRef} className={styles.content} onScroll={() => { readerInteractedRef.current = true; }} onTouchStart={() => { readerInteractedRef.current = true; }}>
             <div className={styles.contentTop}>
               <span className={styles.kicker}>{item.lane.replace(/_/g, ' ')} <span className={styles.separator}>/</span> {item.sourceLabel}</span>
               <span className={styles.counter}>{String(position + 1).padStart(2, '0')} / {String(items.length).padStart(2, '0')}</span>
@@ -371,8 +458,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
               </p>
               {item.tags?.length ? <p className={styles.tags}>{item.tags.slice(0, 7).join('  ·  ')}</p> : null}
               <div className={styles.articleActions}>
-                <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={() => recordOpen(item)} className={styles.sourceLink}>Read original <ExternalLink size={15} aria-hidden="true" /></a>
-                <button type="button" onClick={() => toggleSave(item)} className={styles.saveButton} aria-pressed={isSaved}><Bookmark size={16} fill={isSaved ? 'currentColor' : 'none'} aria-hidden="true" />{isSaved ? 'Saved' : 'Save'}</button>
+                <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={() => { readerInteractedRef.current = true; recordOpen(item); }} className={styles.sourceLink}>Read original <ExternalLink size={15} aria-hidden="true" /></a>
+                <button type="button" onClick={() => { readerInteractedRef.current = true; toggleSave(item); }} className={styles.saveButton} aria-pressed={isSaved}><Bookmark size={16} fill={isSaved ? 'currentColor' : 'none'} aria-hidden="true" />{isSaved ? 'Saved' : 'Save'}</button>
               </div>
             </article>
           </div>
