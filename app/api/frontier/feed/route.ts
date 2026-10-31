@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { decodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
 import { decorateFeedMedia } from '@/lib/frontier/media/proxySecurity';
 import type { FrontierObservableFeedResponse } from '@/lib/frontier/pipelineDiagnostics';
+import { frontierIsSharedPublicFocus } from '@/lib/frontier/liveFeedPolicy';
 import { getFrontierColdSnapshotFeed } from '@/lib/frontier/snapshotFeed';
 import type { FrontierFeedResponse } from '@/lib/frontier/types';
 
@@ -119,7 +120,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const isCachedFocus = requestedFocus.length > 0 && !forceFresh;
+    const isCachedFocus = !forceFresh && frontierIsSharedPublicFocus(requestedFocus);
     // A warm focused cache hit must not initialize the full adapter graph.
     const dependencies = isCachedFocus ? null : await loadLiveDependencies();
     const focusTopics = requestedFocus.length ? requestedFocus : defaultPersonalFocus(dependencies!);
