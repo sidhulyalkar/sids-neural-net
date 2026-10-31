@@ -136,3 +136,112 @@
   .progressTrack span { transition:none; }
   .spinning { animation:none; }
 }
+
+
+/* Focus reader v2: source evidence lives in the article, never in extra cards. */
+.visualViewport { display:flex; flex:1; min-height:0; width:100%; overflow:hidden; }
+.visualViewport .heroImage { min-width:0; width:100%; height:auto; min-height:0; max-height:100%; flex:1; object-fit:contain; }
+.visualViewport .editorial { width:100%; min-height:0; }
+.figureRail { display:flex; justify-content:center; align-items:center; gap:7px; padding:11px 14px; background:#0d1721; border-top:1px solid #273340; }
+.figureRail button { border:1px solid #344455; border-radius:6px; background:transparent; color:#98a8b7; min-width:34px; min-height:30px; font-size:11px; cursor:pointer; }
+.figureRail button[aria-pressed="true"] { background:#293744; border-color:#e1a49b; color:#f0ddd7; }
+.briefSection { margin:30px 0 26px; }
+.sectionHeading { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:15px; padding-bottom:9px; border-bottom:1px solid #283745; }
+.sectionHeading h2 { margin:0; color:#eab0a4; font-size:11px; letter-spacing:.16em; text-transform:uppercase; font-weight:650; }
+.sectionHeading span { color:#8f9eac; font-size:10px; text-align:right; }
+.briefSection .summary { margin:0; font-size:clamp(16px,1.15vw,18px); line-height:1.62; color:#e0e4e7; }
+.sourceDetail { margin-top:16px; border-top:1px solid #273541; }
+.sourceDetail summary { padding:13px 0; color:#ccd3da; font-size:12px; cursor:pointer; list-style-position:inside; }
+.sourceDetail summary span { margin-left:9px; color:#8899a8; font-size:10px; }
+.detailBody { padding:0 0 3px; }
+.detailBody p { margin:0 0 11px; color:#b7c2cb; font-size:14px; line-height:1.65; }
+.evidenceSection { margin:24px 0; }
+.metricGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin:0; }
+.metricCard { min-width:0; border:1px solid #293847; border-radius:9px; padding:13px 12px 14px; background:#0d1823; }
+.metricCard dt { color:#95a4b3; font-size:10px; line-height:1.35; letter-spacing:.04em; text-transform:uppercase; }
+.metricCard dd { margin:9px 0 0; color:#f5f0ec; font-size:clamp(18px,1.65vw,26px); line-height:1.1; font-weight:570; letter-spacing:-.035em; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.metricCard p { margin:9px 0 0; color:#91a0af; font-size:11px; line-height:1.5; }
+.gameRows { border:1px solid #2a3947; border-radius:9px; overflow:hidden; }
+.gameRow { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:14px; align-items:center; padding:10px 14px; border-bottom:1px solid #273543; font-size:12px; color:#d8e0e5; }
+.gameRow:last-child { border-bottom:0; }
+.gameRow strong { font-size:13px; font-weight:650; font-variant-numeric:tabular-nums; }
+.gameRow small { color:#8fa0ad; font-size:10px; }
+.artifactGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+.artifact { display:flex; flex-direction:column; gap:7px; padding:14px; border:1px solid #2a3947; border-radius:9px; overflow-wrap:anywhere; }
+.artifact span { color:#a6b5bf; font-size:10px; text-transform:uppercase; letter-spacing:.12em; }
+.artifact strong, .artifact a { color:#e3e9ed; font-size:13px; font-weight:570; }
+.artifact a { text-decoration:none; }
+.artifact a:hover { color:var(--accent); }
+.artifact small { color:#99a8b5; font-size:11px; }
+.sourceFootnote { color:#8998a6; margin:21px 0 4px; font-size:11px; line-height:1.55; }
+.rationale { margin-top:22px; padding-top:5px; }
+.rationale h2 { margin:20px 0 10px; }
+
+/* A single lightweight transform animates the balloon. Numeric labels change
+   at most ten times during the hold; no canvas, physics, or React frame loop
+   updates of the balloon geometry are required. */
+.holdButton {
+  display:flex; justify-content:flex-start; align-items:center; gap:13px;
+  min-width:218px; min-height:68px; padding:4px 16px 3px 10px;
+  border:1px solid #526373; border-radius:12px; text-align:left;
+  background:#13202b; color:#f8f5f2; transition:border-color .16s ease;
+  touch-action:none; user-select:none; -webkit-user-select:none;
+}
+.holdButton[data-frontier-balloon="inflating"] { border-color:#ffb09f; }
+.holdButton[data-frontier-balloon="rated"] { border-color:#567081; }
+.balloonWrap { width:62px; height:65px; flex:0 0 62px; position:relative; display:grid; justify-items:center; align-items:start; }
+.balloonBubble {
+  position:absolute; top:3px; left:8px; display:grid; place-items:center;
+  width:46px; height:47px; transform-origin:50% 85%;
+  transform:scale(var(--balloon-scale));
+  border:1.5px solid #ffb3a5;
+  border-radius:49% 50% 47% 48%;
+  background:linear-gradient(145deg,#bd6f69,#b3615b);
+  color:#fff9f4; box-shadow:inset -5px -6px 10px #773e3c37;
+  font-size:18px; font-weight:680; line-height:1;
+  transition:transform .2s ease-out;
+  will-change:transform;
+}
+.balloonKnot { position:absolute; top:54px; left:28px; width:7px; height:7px; background:#d38a7f; clip-path:polygon(50% 100%,0 0,100% 0); }
+.balloonString { position:absolute; top:59px; left:31px; width:1px; height:7px; background:#91a2af; }
+.holdButton[data-frontier-balloon="inflating"] .balloonBubble {
+  animation:frontierBalloonInflate 3s linear both; transition:none;
+}
+@keyframes frontierBalloonInflate {
+  from { transform:scale(.68); }
+  to { transform:scale(1.12); }
+}
+.balloonCopy { display:flex; flex-direction:column; justify-content:center; gap:4px; min-width:0; }
+.balloonCopy strong { color:#f3f0ef; font-size:12px; line-height:1.3; white-space:nowrap; }
+.balloonCopy small { color:#a9b7c2; font-size:10px; line-height:1.3; font-weight:450; }
+.ratingZone { gap:12px; }
+.footer { min-height:96px; }
+@media (max-width:900px) {
+  .visualViewport { height:clamp(200px,37svh,480px); flex:none; }
+  .visualViewport .heroImage { height:100%; max-height:100%; min-height:0; }
+  .visualViewport .editorial { height:100%; min-height:0; }
+  .metricGrid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .footer { padding-top:8px; padding-bottom:max(8px,env(safe-area-inset-bottom)); }
+  .holdButton { min-width:186px; min-height:60px; padding:2px 7px; gap:7px; }
+  .balloonWrap { width:52px; height:61px; flex-basis:52px; }
+  .balloonBubble { left:4px; top:3px; }
+  .balloonKnot { left:24px; }
+  .balloonString { left:27px; }
+  .balloonCopy strong { font-size:11px; }
+}
+@media (max-width:520px) {
+  .metricGrid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .gameRow { grid-template-columns:minmax(0,1fr) auto; }
+  .gameRow small { grid-column:1/-1; }
+  .holdButton { min-width:176px; }
+  .balloonCopy { gap:2px; }
+  .precision summary { margin:0; }
+  .sectionHeading { align-items:flex-start; }
+  .sectionHeading span { max-width:45%; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .holdButton, .balloonBubble { transition:none; }
+  .holdButton[data-frontier-balloon="inflating"] .balloonBubble {
+    animation:none; transform:scale(var(--balloon-scale));
+  }
+}
