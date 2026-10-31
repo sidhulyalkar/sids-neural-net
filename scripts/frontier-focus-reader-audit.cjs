@@ -93,11 +93,69 @@ async function audit(width, height) {
   }
 }
 
+async function auditBackgroundLatest() {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  try {
+    const base = new URL(TARGET);
+    const snapshotResponse = await page.request.get(base.origin + '/api/frontier/feed');
+    assert(snapshotResponse.ok(), 'Snapshot fixture must be available for cached edition test');
+    const snapshot = await snapshotResponse.json();
+    if (Date.now() - Date.parse(snapshot.generatedAt) <= 30 * 60_000) {
+      return { skipped: true, reason: 'Snapshot is still fresh: background update correctly not required' };
+    }
+    assert(snapshot.items.length > 2, 'Needs at least three credible source fixtures');
+    const updatedAt = new Date().toISOString();
+    const newItem = {
+      ...snapshot.items[0],
+      id: 'frontier-cache-audit-new-article',
+      title: 'Newly discovered article from verified source',
+      publishedAt: updatedAt,
+      url: 'https://github.com/allenai/olmo',
+      sourceKind: 'github',
+      source: 'github.com',
+      sourceLabel: 'GitHub',
+    };
+    let hits = 0;
+    await page.route('**/api/frontier/feed?latest=1', async (route) => {
+      hits += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'X-Frontier-Live': 'cached-latest' },
+        body: JSON.stringify({
+          generatedAt: updatedAt,
+          items: [newItem, ...snapshot.items.slice(0, 30)],
+          sources: snapshot.sources,
+        }),
+      });
+    });
+    await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
+    await page.locator('article h1').waitFor();
+    const initial = await page.locator('article h1').textContent();
+    await page.locator('[data-frontier-next="true"]').click();
+    await page.locator('[data-frontier-previous="true"]').click();
+    await page.getByRole('button', { name: 'Open latest discovered articles' }).waitFor({ timeout: 8000 });
+    assert.equal(await page.locator('article h1').textContent(), initial,
+      'Background revalidation may not replace an article after interaction');
+    assert.equal(hits, 1, 'At most one cache lookup per visit; no polling');
+    await page.getByRole('button', { name: 'Open latest discovered articles' }).click();
+    assert.equal(await page.locator('section[data-frontier-edition-at]').getAttribute('data-frontier-edition-at'), updatedAt,
+      'Applying cached edition must update provenance timestamp');
+    assert.equal(await page.locator('article').count(), 1, 'Cached edition must still mount one article');
+    return { cachedLatestLookups: hits, preservesActiveArticle: true, appliesOnRequest: true };
+  } finally {
+    await page.close();
+    await browser.close();
+  }
+}
+
 async function main() {
   const results = [];
   results.push(await audit(1440, 900));
   results.push(await audit(390, 844));
   results.push(await audit(320, 700));
+  results.push(await auditBackgroundLatest());
   console.log('FRONTIER focus reader audit:', JSON.stringify(results));
 }
 
