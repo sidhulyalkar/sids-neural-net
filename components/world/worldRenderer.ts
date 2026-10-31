@@ -1,6 +1,6 @@
 import {applyLagoonSand} from "./worldLagoonSand";
 import {commandShasta,initialShastaOuting,stepShastaOuting} from "@/lib/world/shastaCommands";
-import {beginShastaTrick,idleShastaTrick,stepShastaTrick,shastaTrickPose,isShastaTrick,type ShastaAction} from "@/lib/world/shastaTricks";
+import {beginShastaTrick,idleShastaTrick,stepShastaTrick,shastaTrickPose,advanceShastaTrickClock,isShastaTrick,type ShastaAction} from "@/lib/world/shastaTricks";
 import {createCoastalNature} from "./worldCoastalNature";
 import {createResearchGallery} from "./worldResearchGallery";
 import {idleOceanObservation,advanceOceanObservation,stopOceanObservation} from "@/lib/world/coastalObservation";
@@ -3582,6 +3582,7 @@ export function createWorld(
   let dogChase = initialChaseState();
   let dogOuting=initialShastaOuting();
   let dogTrick=idleShastaTrick();
+  let dogTrickClock=0;
   let wasCarrying=false;
   let shastaCatchCount=0;
   let pearlNoticeUntil=0;
@@ -4175,6 +4176,7 @@ export function createWorld(
     const dt = Math.min(rawDelta,.05);
     last = now;
     elapsed += dt;
+    dogTrickClock=advanceShastaTrickClock(dogTrickClock,rawDelta);
     // Skimboarding still uses the ordinary movement engine, even during a heat.
     mobileJoysticks.setVisible(state.entered&&!state.paused&&!jetSki&&!jetChoosing&&
       discGolf.phase==="off");
@@ -6392,8 +6394,8 @@ export function createWorld(
       }
       return true;
     };
-    dogTrick=stepShastaTrick(dogTrick,elapsed,dog,outingAllowed);
-    const commandedPose=shastaTrickPose(dogTrick,elapsed);
+    dogTrick=stepShastaTrick(dogTrick,dogTrickClock,dog,outingAllowed);
+    const commandedPose=shastaTrickPose(dogTrick,dogTrickClock);
     dogOuting=stepShastaOuting(dogOuting,elapsed,dog,player,
       critters.map(c=>c.kind==="squirrel"?c.point:null),outingAllowed,dryRoute);
     dogChase={mode:dogOuting.mode==="roam"?"follow":
@@ -6406,7 +6408,7 @@ export function createWorld(
     canvas.dataset.shastaTrickGoalDistance=dogTrick.goal?
       distance(dog,dogTrick.goal).toFixed(3):"";
     canvas.dataset.shastaTrickApproachRemaining=dogTrick.phase==="approach"?
-      Math.max(0,dogTrick.approachUntil-elapsed).toFixed(2):"";
+      Math.max(0,dogTrick.approachUntil-dogTrickClock).toFixed(2):"";
     canvas.dataset.shastaCarrying=String(dogOuting.carrying);
     canvas.dataset.shastaCatchCount=String(shastaCatchCount);
     dogInterestCritterIndex = dogChase.target;
@@ -7393,7 +7395,7 @@ export function createWorld(
       if(next.shastaCommandSerial!==state.shastaCommandSerial){
         if(isShastaTrick(next.shastaCommand)){
           dogOuting=commandShasta("come");
-          dogTrick=beginShastaTrick(next.shastaCommand,elapsed,dog,player,
+          dogTrick=beginShastaTrick(next.shastaCommand,dogTrickClock,dog,player,
             travel.heading,(candidate)=>{
               if(discGolfSurfaceIsWater(candidate))return false;
               if(Math.abs(terrainHeight(candidate.x,candidate.z)-
