@@ -3596,6 +3596,9 @@ export function createWorld(
   let dogOuting=initialShastaOuting();
   let dogTrick=idleShastaTrick();
   let dogTrickClock=0;
+  let shastaTrickPeakDown=0;
+  let shastaTrickPeakPawLift=0;
+  let shastaTrickFramesSeen=0;
   let wasCarrying=false;
   let shastaCatchCount=0;
   let pearlNoticeUntil=0;
@@ -6409,6 +6412,18 @@ export function createWorld(
     };
     dogTrick=stepShastaTrick(dogTrick,dogTrickClock,dog,outingAllowed);
     const commandedPose=shastaTrickPose(dogTrick,dogTrickClock);
+    // Maxima survive the short active window until the next user command.
+    // This lets 2 FPS software-WebGL CI confirm actual intermediate poses
+    // without relying on a Playwright poll coinciding with one RAF frame.
+    if(dogTrick.trick&&dogTrick.phase==="perform"){
+      shastaTrickFramesSeen++;
+      shastaTrickPeakDown=Math.max(shastaTrickPeakDown,commandedPose.down);
+      shastaTrickPeakPawLift=Math.max(shastaTrickPeakPawLift,
+        commandedPose.pawLeft,commandedPose.pawRight);
+    }
+    canvas.dataset.shastaTrickPeakDown=shastaTrickPeakDown.toFixed(3);
+    canvas.dataset.shastaTrickPeakPawLift=shastaTrickPeakPawLift.toFixed(3);
+    canvas.dataset.shastaTrickFramesSeen=String(shastaTrickFramesSeen);
     dogOuting=stepShastaOuting(dogOuting,elapsed,dog,player,
       critters.map(c=>c.kind==="squirrel"?c.point:null),outingAllowed,dryRoute);
     dogChase={mode:dogOuting.mode==="roam"?"follow":
@@ -7455,6 +7470,9 @@ export function createWorld(
   return {
     setState(next) {
       if(next.shastaCommandSerial!==state.shastaCommandSerial){
+        shastaTrickPeakDown=0;
+        shastaTrickPeakPawLift=0;
+        shastaTrickFramesSeen=0;
         if(isShastaTrick(next.shastaCommand)){
           dogOuting=commandShasta("come");
           dogTrick=beginShastaTrick(next.shastaCommand,dogTrickClock,dog,player,
