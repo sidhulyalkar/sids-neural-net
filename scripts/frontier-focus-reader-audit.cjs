@@ -28,7 +28,6 @@ async function audit(width, height) {
     assert.equal(await page.locator('canvas').count(), 0, 'Default reader must not initialize WebGL/canvas');
     assert.equal(feedRequests.length, 0, 'Initial navigation must use server snapshot, not passive live discovery');
 
-    const next = page.getByRole('button', { name: 'Next article' });
     // Nav labels differ visually across sizes; use the stable accessible name.
     const nextButton = page.getByRole('button', { name: 'Next' });
     assert(await nextButton.isEnabled(), 'Daily edition should contain multiple navigable articles');
@@ -49,7 +48,9 @@ async function audit(width, height) {
 
     const exact = page.locator('details').filter({ hasText: 'Set exact score' });
     await exact.locator('summary').click();
-    await exact.locator('input[type="range"]').fill('9');
+    await exact.locator('input[type="range"]').focus();
+    await page.keyboard.press('End');
+    await page.keyboard.press('ArrowLeft');
     await exact.getByRole('button', { name: 'Save' }).click();
     assert.match((await rating.textContent()) || '', /9\/10/, 'Slider fallback must save exact score');
 
