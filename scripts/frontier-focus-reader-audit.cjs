@@ -29,12 +29,13 @@ async function audit(width, height) {
     assert.equal(feedRequests.length, 0, 'Initial navigation must use server snapshot, not passive live discovery');
 
     // Nav labels differ visually across sizes; use the stable accessible name.
-    const nextButton = page.getByRole('button', { name: 'Next' });
+    const nextButton = page.locator('[data-frontier-next="true"]');
+    assert((await nextButton.textContent())?.trim() === 'Next', 'Snapshot should include multiple articles, got: ' + (await nextButton.textContent()));
     assert(await nextButton.isEnabled(), 'Daily edition should contain multiple navigable articles');
     await nextButton.click();
     await page.waitForFunction((prior) => document.querySelector('article h1')?.textContent !== prior, heading);
     assert.equal(await page.locator('article').count(), 1, 'Navigation must replace, not append, articles');
-    const back = page.getByRole('button', { name: 'Previous article' });
+    const back = page.locator('[data-frontier-previous="true"]');
     await back.click();
     assert.equal(await page.locator('article h1').first().textContent(), heading);
 
