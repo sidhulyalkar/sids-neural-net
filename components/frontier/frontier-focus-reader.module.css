@@ -245,3 +245,18 @@
     animation:none; transform:scale(var(--balloon-scale));
   }
 }
+
+@media (max-width:360px) {
+  .footer { gap:5px; padding-left:8px; padding-right:8px; }
+  .ratingZone { gap:3px; }
+  .holdButton { min-width:151px; padding:2px 3px; gap:3px; }
+  .balloonWrap { width:45px; flex-basis:45px; }
+  .balloonBubble { left:1px; width:43px; height:45px; }
+  .balloonKnot { left:19px; top:51px; }
+  .balloonString { left:22px; top:56px; }
+  .balloonCopy strong { font-size:10px; }
+  .balloonCopy small { font-size:9px; }
+  .navigation { gap:3px; }
+  .navigation button { min-width:37px; padding:5px; }
+  .precision summary { width:18px; padding:4px; }
+}
