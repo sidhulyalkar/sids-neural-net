@@ -1,6 +1,6 @@
 import {applyLagoonSand} from "./worldLagoonSand";
 import {commandShasta,initialShastaOuting,stepShastaOuting} from "@/lib/world/shastaCommands";
-import {beginShastaTrick,idleShastaTrick,stepShastaTrick,shastaTrickPose,advanceShastaTrickClock,shastaSpinPawLift,isShastaTrick,type ShastaAction} from "@/lib/world/shastaTricks";
+import {beginShastaTrick,idleShastaTrick,stepShastaTrick,shastaTrickPose,advanceShastaTrickClock,shastaSpinPawLift,shastaHeadingAfterTrickInterrupt,isShastaTrick,type ShastaAction} from "@/lib/world/shastaTricks";
 import {createCoastalNature} from "./worldCoastalNature";
 import {createResearchGallery} from "./worldResearchGallery";
 import {idleOceanObservation,advanceOceanObservation,stopOceanObservation} from "@/lib/world/coastalObservation";
@@ -7497,6 +7497,12 @@ export function createWorld(
   return {
     setState(next) {
       if(next.shastaCommandSerial!==state.shastaCommandSerial){
+        // Commit the partial turn to world heading before clearing the
+        // authored spin offset. A mid-spin Sit/Come must never snap yaw.
+        if(dogTrick.trick==="spin-left"||dogTrick.trick==="spin-right"){
+          dogYaw=shastaHeadingAfterTrickInterrupt(
+            dogYaw,dogTrick,dogTrickClock);
+        }
         shastaTrickPeakDown=0;
         shastaTrickPeakPawLift=0;
         shastaTrickFramesSeen=0;
