@@ -6,6 +6,8 @@ on:
       - 'lib/world/shastaCommands.ts'
       - 'lib/world/shastaTricks.ts'
       - 'lib/world/shastaGait.ts'
+      - 'lib/world/shastaFootContact.ts'
+      - 'tests/world-shasta-foot-contact.test.ts'
       - 'tests/world-shasta-gait-personality.test.ts'
       - 'components/world/WorldHome.tsx'
       - 'components/world/WorldScene.tsx'
@@ -44,8 +46,8 @@ jobs:
       - name: Validate types, commands and browser scripts
         run: |
           npm run typecheck
-          npx eslint lib/world/shastaCommands.ts lib/world/shastaTricks.ts lib/world/shastaGait.ts tests/world-shasta-commands.test.ts tests/world-shasta-tricks.test.ts tests/world-shasta-gait-personality.test.ts --max-warnings=0
-          node --import tsx --test tests/world-shasta-commands.test.ts tests/world-shasta-tricks.test.ts tests/world-shasta-gait-personality.test.ts
+          npx eslint lib/world/shastaCommands.ts lib/world/shastaTricks.ts lib/world/shastaGait.ts lib/world/shastaFootContact.ts tests/world-shasta-commands.test.ts tests/world-shasta-tricks.test.ts tests/world-shasta-gait-personality.test.ts tests/world-shasta-foot-contact.test.ts --max-warnings=0
+          node --import tsx --test tests/world-shasta-commands.test.ts tests/world-shasta-tricks.test.ts tests/world-shasta-gait-personality.test.ts tests/world-shasta-foot-contact.test.ts
           node --check scripts/playtest-shasta-hub.mjs
           node --check scripts/playtest-shasta-commands.mjs
       - name: Install isolated Chromium
