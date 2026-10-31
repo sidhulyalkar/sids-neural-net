@@ -42,21 +42,25 @@ export function useShastaVoice(available:boolean,onAction:(action:ShastaVoiceAct
       try{active.abort();}catch{/* Browser may have already stopped. */}}
     setStatus("off");
   },[]);
-  // Cancelling the resource belongs in the effect cleanup. Deriving the
-  // exposed status from the active resource avoids effect-driven state updates.
+  // The inactive state aborts capture and resets status without effect-driven
+  // synchronous setState. Cleanup never exposes the browser's recognizer.
   useEffect(()=>{
     if(!available)return;
     return ()=>{
-      epoch.current++;
       const active=recognizer.current;recognizer.current=null;
       if(active){active.onresult=null;active.onerror=null;active.onend=null;
         try{active.abort();}catch{/* Already stopped. */}}
     };
   },[available]);
-  useEffect(()=>()=>{epoch.current++;const active=recognizer.current;
+  useEffect(()=>()=>{const active=recognizer.current;
     recognizer.current=null;if(active){active.onresult=null;active.onerror=null;active.onend=null;
       try{active.abort();}catch{/* Browser shutdown. */}}
   },[]);
+  useEffect(()=>{
+    if(available)return;
+    const timeout=window.setTimeout(()=>setStatus("off"),0);
+    return ()=>window.clearTimeout(timeout);
+  },[available]);
   const toggle=useCallback(()=>{
     if(recognizer.current){stop();return;}
     if(!availableRef.current)return;
@@ -103,7 +107,7 @@ export function useShastaVoice(available:boolean,onAction:(action:ShastaVoiceAct
       setStatus("error");
     }
   },[stop]);
-  const effectiveStatus=available&&recognizer.current?status:
+  const effectiveStatus=available?status:
     status==="listening"||status==="starting"?"off":status;
   return {status:effectiveStatus,lastHeard,toggle,stop};
 }
