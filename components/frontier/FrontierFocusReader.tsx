@@ -4,7 +4,6 @@ import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, RefreshCw, Search } from 'lucide-react';
-import { encodeDiscoveryFocus } from '@/lib/frontier/discoveryFocus';
 import { holdToInterestScore } from '@/lib/frontier/interestRating';
 import { rankFrontierItems } from '@/lib/frontier/scoring';
 import { useFrontierStore } from '@/lib/frontier/store';
@@ -195,7 +194,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     setError('');
     try {
       const params = new URLSearchParams();
-      if (query) params.set('focus', encodeDiscoveryFocus([query]));
+      if (query) params.set('focus', query);
       if (fresh) params.set('fresh', '1');
       const response = await fetch('/api/frontier/feed?' + params.toString(), {
         signal: controller.signal,
