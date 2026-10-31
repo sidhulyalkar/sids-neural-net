@@ -27,7 +27,11 @@ export function updateShastaFootContact(
   if(!canPlant||!Number.isFinite(nominal.x)||!Number.isFinite(nominal.y)||
       !Number.isFinite(nominal.z)){
     anchor.active=false;
-    out.x=nominal.x;out.y=nominal.y;out.z=nominal.z;
+    // Do not forward non-finite inputs into Three.js geometry matrices.
+    // In normal airborne movement nominal is valid and remains unchanged.
+    out.x=Number.isFinite(nominal.x)?nominal.x:anchor.x;
+    out.y=Number.isFinite(nominal.y)?nominal.y:anchor.y;
+    out.z=Number.isFinite(nominal.z)?nominal.z:anchor.z;
     return false;
   }
   const distance=Math.hypot(nominal.x-anchor.x,nominal.z-anchor.z);
