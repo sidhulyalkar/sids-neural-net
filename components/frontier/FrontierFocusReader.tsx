@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, RefreshCw, Search } from 'lucide-react';
@@ -47,7 +48,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const [error, setError] = useState('');
   const [brokenMediaId, setBrokenMediaId] = useState<string | null>(null);
   const [holdValue, setHoldValue] = useState<number | null>(null);
-  const [sliderScore, setSliderScore] = useState(5);
+  const [sliderDraft, setSliderDraft] = useState<{ id: string; value: number } | null>(null);
   const [notice, setNotice] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<AbortController | null>(null);
@@ -65,6 +66,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
   const item = items[position];
   const rating = item ? history[item.id]?.interestScore : undefined;
+  const sliderScore = sliderDraft?.id === item?.id ? sliderDraft.value : (rating ?? 5);
   const isSaved = Boolean(item && saved[item.id]);
   const image = item ? mediaUrl(item) : null;
   const canShowImage = Boolean(image && brokenMediaId !== item?.id);
@@ -79,7 +81,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const commitRating = useCallback((score: number, method: 'hold' | 'slider', duration = 0) => {
     if (!item) return;
     rateInterest(item, score, method, duration);
-    setSliderScore(score);
+    setSliderDraft({ id: item.id, value: score });
     setNotice('Saved ' + score + '/10');
   }, [item, rateInterest]);
 
@@ -128,6 +130,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
   const move = useCallback((delta: number) => {
     cancelHold();
+    setNotice('');
+    setBrokenMediaId(null);
     setPosition((current) => Math.max(0, Math.min(items.length - 1, current + delta)));
     contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
   }, [cancelHold, items.length]);
@@ -143,17 +147,6 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [move]);
-
-  useEffect(() => {
-    cancelHold();
-    setBrokenMediaId(null);
-    setNotice('');
-  }, [item?.id, cancelHold]);
-
-  // Restore an existing exact score after browser-local history hydrates.
-  useEffect(() => {
-    setSliderScore(rating ?? 5);
-  }, [item?.id, rating]);
 
   useEffect(() => {
     if (!item || !hydrated) return;
@@ -190,6 +183,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
   const retrieve = useCallback(async (query: string, fresh: boolean) => {
     requestRef.current?.abort();
+    cancelHold();
     const controller = new AbortController();
     requestRef.current = controller;
     setLoading(true);
@@ -226,7 +220,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
         setLoading(false);
       }
     }
-  }, []);
+  }, [cancelHold]);
 
   const onSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -245,7 +239,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     <section className={styles.reader} aria-label="Frontier focused reader">
       <header className={styles.masthead}>
         <div className={styles.brandRow}>
-          <a href="/" className={styles.brand}>FRONTIER<span className={styles.brandDot}>.</span></a>
+          <Link href="/" className={styles.brand}>FRONTIER<span className={styles.brandDot}>.</span></Link>
           <span className={styles.edition}>A quiet space for what is new</span>
         </div>
         <div className={styles.topActions}>
@@ -348,7 +342,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
             <summary>Set exact score</summary>
             <div className={styles.precisionContent}>
               <label htmlFor="frontier-interest-slider">Interest: {sliderScore}/10</label>
-              <input id="frontier-interest-slider" type="range" min={1} max={10} step={1} value={sliderScore} onChange={(event) => setSliderScore(Number(event.target.value))} />
+              <input id="frontier-interest-slider" type="range" min={1} max={10} step={1} value={sliderScore} onChange={(event) => { if (item) setSliderDraft({ id: item.id, value: Number(event.target.value) }); }} />
               <button type="button" onClick={() => commitRating(sliderScore, 'slider')}>Save</button>
             </div>
           </details>
