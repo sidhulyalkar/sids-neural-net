@@ -16,6 +16,15 @@ const smooth=(x:number)=>{const t=clamp(x);return t*t*(3-2*t);};
 const pulse=(x:number,a:number,b:number,c:number,d:number)=>
   smooth((x-a)/(b-a))*(1-smooth((x-c)/(d-c)));
 const distance=(a:Point,b:Point)=>Math.hypot(a.x-b.x,a.z-b.z);
+/** Dedicated companion action clock. Physics may cap each movement step at
+ * 50 ms to prevent tunneling, but trick choreography should not run at half
+ * speed on a 10 FPS software renderer. Pauses supply zero elapsed time.
+ */
+export function advanceShastaTrickClock(now:number,frameDelta:number):number{
+ if(!Number.isFinite(now)||now<0)return 0;
+ if(!Number.isFinite(frameDelta)||frameDelta<=0)return now;
+ return now+Math.min(.5,frameDelta);
+}
 export const SHASTA_TRICK_DURATION:Readonly<Record<ShastaTrick,number>>={
   sit:.85,down:1.1,stay:.4,'spin-left':1.65,'spin-right':1.65,
   'roll-left':2.35,'roll-right':2.35,'shake-left':1.55,
