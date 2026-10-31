@@ -6699,16 +6699,19 @@ export function createWorld(
     // Mirror the disc-fetch catch-up on software WebGL: both the dog and
     // projectile advance on wall time. Short <=100ms steps preserve finite
     // acceleration, obstacle collision and dry-terrain constraints.
-    if(treatFlight&&treatCatchGoal&&outingAllowed){
+    const catchupGoal=treatFlight&&treatCatchGoal&&outingAllowed?
+      treatCatchGoal:dogTrick.phase==="approach"&&dogTrick.goal&&outingAllowed?
+      dogTrick.goal:null;
+    if(catchupGoal){
       let remaining=treatCatchupBudget(rawDelta,dogMotionDt);
       let steps=0;
       while(remaining>1e-8&&steps++<5){
         const step=Math.min(.1,remaining);
-        const detour=shastaDetour(dog,treatCatchGoal,dogLocalObstacles,1);
+        const detour=shastaDetour(dog,catchupGoal,dogLocalObstacles,1);
         dogSmoothedTarget=smoothPoint(dogSmoothedTarget,
-          discGolfSurfaceIsWater(detour)?treatCatchGoal:detour,step);
+          discGolfSurfaceIsWater(detour)?catchupGoal:detour,step);
         const nextVelocity=steerShastaVelocity(dogVelocity,dog,
-          dogSmoothedTarget,10.2,step);
+          dogSmoothedTarget,treatFlight?10.2:5.1,step);
         const advanced=constrainMove(dog,{
           x:dog.x+nextVelocity.x*step,
           z:dog.z+nextVelocity.z*step,
@@ -6723,7 +6726,8 @@ export function createWorld(
           dogYaw=smoothAngle(dogYaw,Math.atan2(dogVelocity.x,dogVelocity.z),step);
         remaining-=step;
       }
-      canvas.dataset.shastaTreatCatchupSteps=String(steps);
+      if(treatFlight)canvas.dataset.shastaTreatCatchupSteps=String(steps);
+      else canvas.dataset.shastaTrickApproachCatchupSteps=String(steps);
     }
     const dogStep = distance(dogBefore, dog);
     if(dogOuting.carrying&&!wasCarrying)shastaCatchCount++;
@@ -6749,7 +6753,8 @@ export function createWorld(
     // wraps every cycle and must not be used as a cumulative distance proxy.
     dogDistanceTraveled += dogStep;
     const dogActualSpeed = dogStep / Math.max(0.001,
-      activelyFetching||!!treatFlight?Math.min(rawDelta,.5):dogMotionDt);
+      activelyFetching||!!treatFlight||dogTrick.phase==="approach"?
+        Math.min(rawDelta,.5):dogMotionDt);
     dogAnimSpeed +=
       (dogActualSpeed - dogAnimSpeed) * smoothingAlpha(dogMotionDt, 9.5);
     const dogAcceleration =

@@ -102,3 +102,14 @@ test("low FPS treat chase catches up using bounded collision-safe time steps",()
  assert.equal(treatCatchupBudget(1/60,1/60),0);
  assert.equal(treatCatchupBudget(-1,0),0);
 });
+
+test("approach catch-up budget preserves physical simulation time at 2 FPS",()=>{
+ const times=[1/120,1/60,1/30,1/10,.25,.5];
+ for(const dt of times){
+  const regular=Math.min(dt,.1);
+  const extra=treatCatchupBudget(dt,regular);
+  assert.ok(regular+extra>=Math.min(dt,.5)-1e-9);
+  assert.ok(regular+extra<=.5+1e-9);
+ }
+ assert.equal(treatCatchupBudget(.5,.1),.4);
+});

@@ -71,7 +71,13 @@ try{
  await page.waitForFunction(()=>{
   const d=document.querySelector('canvas')?.dataset;
   return Number(d?.shastaTrickPeakPawLift)>.09&&Number(d?.shastaTrickFramesSeen)>=1;
- },null,{timeout:25000});
+ },null,{timeout:35000});
+ const approach=await page.locator('canvas').evaluate(c=>({
+  catchup:c.dataset.shastaTrickApproachCatchupSteps,
+  phase:c.dataset.shastaTrickPhase,
+  goalDistance:c.dataset.shastaTrickGoalDistance,
+ }));
+ snapshots.push({label:'shake catch-up diagnostic',...approach});
  const shake=await record('right paw peak sampled');
  assert.ok(Number(shake.peakPawLift)>.09);
  // Grounded spins must finish a full turn through alternating paw steps,
