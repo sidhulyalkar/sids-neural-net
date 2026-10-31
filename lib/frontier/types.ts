@@ -276,6 +276,11 @@ export type FrontierHistoryEntry = {
   openedAt?: string;
   reaction?: FrontierReaction;
   reactedAt?: string;
+  /** Explicit numeric signal retained separately from coarse reaction semantics. */
+  interestScore?: number;
+  interestRatedAt?: string;
+  interestRatingMethod?: 'hold' | 'slider';
+  interestRatingDurationMs?: number;
   resurfacedCount: number;
   rewarded: boolean;
 };

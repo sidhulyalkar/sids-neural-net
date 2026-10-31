@@ -1,7 +1,10 @@
 const fs = require('node:fs');
 const { chromium } = require('playwright');
 
-const url = process.env.FRONTIER_SENSOR_QC_AUDIT_URL || 'http://127.0.0.1:3000/frontier';
+const configuredUrl = process.env.FRONTIER_SENSOR_QC_AUDIT_URL || 'http://127.0.0.1:3000/frontier/advanced';
+// Existing pull-request-target workflow definitions may supply the old root URL.
+// Sensor QC is a legacy radar control, retained under the advanced route.
+const url = configuredUrl.replace(/\/frontier\/?$/, '/frontier/advanced');
 const TIMEOUT_MS = 12_000;
 
 function invariant(condition, message) {

@@ -78,7 +78,7 @@ jobs:
           npx next start -p 3000 > /tmp/frontier-sensor-qc-site.log 2>&1 &
           echo $! > /tmp/frontier-sensor-qc-site.pid
           for attempt in {1..40}; do
-            if curl -fsS http://127.0.0.1:3000/frontier >/dev/null; then
+            if curl -fsS http://127.0.0.1:3000/frontier/advanced >/dev/null; then
               exit 0
             fi
             sleep 1
