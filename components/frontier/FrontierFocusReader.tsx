@@ -113,8 +113,10 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
   const onHoldPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
     beginHold();
+    // Pointer capture is best-effort: some synthetic/embedded pointer contexts
+    // reject it, but a normal press must still start the intentional rating.
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* release is still handled on pointerup */ }
   };
   const onHoldKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
     if (event.key !== ' ' && event.key !== 'Enter') return;
