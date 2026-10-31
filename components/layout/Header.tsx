@@ -7,7 +7,7 @@ import { FractalThemeEcho } from '@/components/neural-atlas/FractalThemeEcho';
 export function Header() {
   const pathname = usePathname();
 
-  if (pathname === '/') return null;
+  if (pathname === '/' || pathname === '/frontier') return null;
 
   return (
     <Link
