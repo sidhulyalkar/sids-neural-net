@@ -6752,7 +6752,11 @@ export function createWorld(
       treatMesh.position.set(pos.x,pos.y,pos.z);
       treatMesh.visible=true;
       canvas.dataset.shastaTreatPhase="flying";
-      if(treatWithinMouth(treatFlight,t,dog,dogGroundY+1.3)){
+      // Husky muzzle center (local z=1.16, y=1.267), facing dogYaw.
+      // Contact is measured at the snout, never at the torso/root.
+      const mouth={x:dog.x+Math.sin(dogYaw)*1.16,
+        z:dog.z+Math.cos(dogYaw)*1.16};
+      if(treatWithinMouth(treatFlight,t,mouth,dogGroundY+1.267)){
         shastaTreatCatchCount++;
         canvas.dataset.shastaTreatCatchCount=String(shastaTreatCatchCount);
         finishTreat(t,true);

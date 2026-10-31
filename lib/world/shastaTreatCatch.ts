@@ -48,7 +48,7 @@ export function treatWithinMouth(
 ){
   if(t<.15||t>flight.duration)return false;
   const treat=sampleTreatFlight(flight,t);
-  return Math.hypot(treat.x-dog.x,treat.z-dog.z)<1.12 &&
+  return Math.hypot(treat.x-dog.x,treat.z-dog.z)<.78 &&
     Math.abs(treat.y-mouthY)<.8;
 }
 export function scoreTreatFlight(flight:TreatFlight,t:number,caught:boolean):TreatCatchResult{
