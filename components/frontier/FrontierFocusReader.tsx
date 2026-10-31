@@ -148,10 +148,12 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     cancelHold();
     setBrokenMediaId(null);
     setNotice('');
-    setSliderScore(rating ?? 5);
-    // Only reset on a new article; the store's incoming rating is not a new article.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id, cancelHold]);
+
+  // Restore an existing exact score after browser-local history hydrates.
+  useEffect(() => {
+    setSliderScore(rating ?? 5);
+  }, [item?.id, rating]);
 
   useEffect(() => {
     if (!item || !hydrated) return;
