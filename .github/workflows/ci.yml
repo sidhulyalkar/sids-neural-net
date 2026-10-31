@@ -160,10 +160,16 @@ jobs:
           /tmp/frontier-playwright/node_modules/.bin/playwright install --with-deps chromium firefox webkit
           /tmp/frontier-playwright/node_modules/.bin/playwright install chrome
 
-      - name: Audit FRONTIER bounded first useful paint
+      - name: Audit FRONTIER focused reader first paint and intentional labeling
         env:
           NODE_PATH: /tmp/frontier-playwright/node_modules
-          FRONTIER_ROUTE_AUDIT_URL: http://127.0.0.1:3000/frontier
+          FRONTIER_FOCUS_AUDIT_URL: http://127.0.0.1:3000/frontier
+        run: node scripts/frontier-focus-reader-audit.cjs
+
+      - name: Audit advanced FRONTIER bounded first useful paint
+        env:
+          NODE_PATH: /tmp/frontier-playwright/node_modules
+          FRONTIER_ROUTE_AUDIT_URL: http://127.0.0.1:3000/frontier/advanced
         run: node scripts/frontier-route-readiness-audit.cjs
 
       - name: Choreograph FRONTIER Phase 8 interactions
