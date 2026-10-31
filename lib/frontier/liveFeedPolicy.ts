@@ -55,3 +55,20 @@ export function frontierHasNewStories(currentIds: readonly string[], candidateId
   const old = new Set(currentIds);
   return candidateIds.some((id) => !old.has(id));
 }
+
+
+// Only stable, generic public subjects can become shared-cache keys. Arbitrary
+// user-entered phrases stay uncached to avoid persisting sensitive search text
+// and to bound cache cardinality on an unauthenticated public site.
+const SHARED_PUBLIC_TOPICS = new Set([
+  'ai', 'artificial intelligence', 'machine learning', 'large language models',
+  'neuroscience', 'neuroai', 'neuroai neuroscience', 'bci', 'brain computer interface',
+  'brain-computer interface', 'computer vision', 'robotics', 'bioengineering',
+  'open source', 'open source machine learning', 'research', 'scientific visualization',
+  'sports analytics', 'soccer', 'football', 'nfl', 'nba', 'gaming', 'music',
+  'skateboarding', 'mountain biking', 'rock climbing', 'wearables',
+]);
+
+export function frontierIsSharedPublicFocus(topics: readonly string[]): boolean {
+  return topics.length === 1 && SHARED_PUBLIC_TOPICS.has(topics[0]?.trim().toLowerCase() || '');
+}
