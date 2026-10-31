@@ -84,6 +84,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
   const commitRating = useCallback((score: number, method: 'hold' | 'slider', duration = 0) => {
     if (!item) return;
+    readerInteractedRef.current = true;
     rateInterest(item, score, method, duration);
     setSliderDraft({ id: item.id, value: score });
     setNotice('Saved ' + score + '/10');
@@ -278,6 +279,9 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
         cache: 'no-store',
       });
       if (!response.ok) throw new Error('Feed unavailable (' + response.status + ')');
+      if (response.headers.get('X-Frontier-Live') === 'snapshot-fallback') {
+        throw new Error('Recent source search is temporarily unavailable; the saved edition remains available.');
+      }
       const payload = await response.json() as FrontierFeedResponse & { error?: string };
       if (controller.signal.aborted) return;
       if (!Array.isArray(payload.items) || payload.items.length === 0) {
@@ -500,7 +504,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
               <small>{gradeDescription}</small>
             </span>
           </button>
-          <details className={styles.precision}>
+          <details className={styles.precision} onToggle={() => { readerInteractedRef.current = true; }}>
             <summary>Set exact score</summary>
             <div className={styles.precisionContent}>
               <label htmlFor="frontier-interest-slider">Interest: {sliderScore}/10</label>
