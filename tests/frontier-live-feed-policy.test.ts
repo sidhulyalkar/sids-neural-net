@@ -4,6 +4,7 @@ import {
   FRONTIER_MAX_LATEST_ITEMS,
   FRONTIER_RECHECK_AFTER_MS,
   frontierHasNewStories,
+  frontierIsSharedPublicFocus,
   frontierHasUsableRecentFeed,
   frontierRecentItems,
   frontierShouldCheckLatest,
@@ -64,4 +65,12 @@ test('oversized editions are capped and latest notification needs a genuinely ne
   assert.equal(frontierRecentItems(rows, now).length, FRONTIER_MAX_LATEST_ITEMS);
   assert.equal(frontierHasNewStories(['a', 'b'], ['b', 'a']), false);
   assert.equal(frontierHasNewStories(['a', 'b'], ['b', 'c']), true);
+});
+
+
+test('the shared search cache accepts bounded public subjects but not arbitrary personal queries', () => {
+  assert.equal(frontierIsSharedPublicFocus(['neuroscience']), true);
+  assert.equal(frontierIsSharedPublicFocus(['AI']), true);
+  assert.equal(frontierIsSharedPublicFocus(['my confidential lab project']), false);
+  assert.equal(frontierIsSharedPublicFocus(['neuroscience', 'my private research']), false);
 });
