@@ -24,6 +24,7 @@ async function audit(width, height) {
     const heading = await page.locator('article h1').first().textContent();
     assert(heading?.trim(), 'The first article must have a real title on initial navigation');
     assert.equal(await page.locator('article').count(), 1, 'Never mount a whole off-screen feed');
+    assert((await page.locator('figure img').count()) <= 1, 'Figure tabs cannot mount every source image');
     assert((await page.locator('figure img').count()) <= 1, 'Only the current source image is mounted');
     assert.equal(await page.locator('canvas').count(), 0, 'Default reader must not initialize WebGL/canvas');
     assert.equal(feedRequests.length, 0, 'Initial navigation must use server snapshot, not passive live discovery');
@@ -40,9 +41,16 @@ async function audit(width, height) {
     assert.equal(await page.locator('article h1').first().textContent(), heading);
 
     const rating = page.getByRole('button', { name: /Hold to rate interest/i });
+    const balloon = page.locator('[data-frontier-balloon]');
+    assert.equal(await balloon.count(), 1, 'Exactly one interest balloon is mounted');
+    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'idle');
+    assert.equal(await page.locator('[aria-label="Source-grounded summary"]').count(), 1);
+    assert((await page.locator('[aria-label="Source metrics"]').count()) <= 1,
+      'No duplicate metric panel should be mounted');
     await rating.hover();
     await page.mouse.down();
     await page.waitForTimeout(650);
+    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'inflating', 'Holding must inflate the balloon');
     await page.mouse.up();
     await page.waitForFunction(() => {
       const text = document.querySelector('button[aria-label^="Hold to rate"]')?.textContent || '';
@@ -56,6 +64,15 @@ async function audit(width, height) {
       throw new Error('Hold interaction did not save a score: ' + JSON.stringify(diagnostics) + '; ' + error.message);
     });
     assert.match((await rating.textContent()) || '', /\/10/, 'Explicit rating must persist in interface');
+    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'rated', 'Balloon returns to saved state on release');
+    if (width <= 390) {
+      const geometry = await page.evaluate(() => ({
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: innerWidth,
+      }));
+      assert(geometry.documentWidth <= geometry.viewportWidth + 2,
+        'Mobile focus reader must not require sideways scrolling: ' + JSON.stringify(geometry));
+    }
 
     const exact = page.locator('details').filter({ hasText: 'Set exact score' });
     await exact.locator('summary').click();
@@ -80,6 +97,7 @@ async function main() {
   const results = [];
   results.push(await audit(1440, 900));
   results.push(await audit(390, 844));
+  results.push(await audit(320, 700));
   console.log('FRONTIER focus reader audit:', JSON.stringify(results));
 }
 
