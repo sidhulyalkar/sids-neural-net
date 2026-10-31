@@ -43,8 +43,16 @@ function allowedImageUrl(value: string): boolean {
     const url = new URL(value);
     if (url.protocol !== 'https:' || url.username || url.password) return false;
     const host = url.hostname.toLowerCase();
-    return Boolean(host && host.includes('.') && !host.endsWith('.local') && !host.endsWith('.localhost')
-      && !/^(127|10|0)\./.test(host) && host !== 'localhost' && host !== '::1');
+    if (!host || host === 'localhost' || host.endsWith('.local') || host.endsWith('.localhost')) return false;
+    if (host.includes(':')) return false; // Do not expose local IPv6 literals.
+    const parts = host.split('.').map((part) => Number(part));
+    if (parts.length === 4 && parts.every((part) => Number.isInteger(part) && part >= 0 && part <= 255)) {
+      const [a, b] = parts;
+      if (a === 0 || a === 10 || a === 127 || (a === 169 && b === 254)
+        || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)
+        || (a === 100 && b >= 64 && b <= 127)) return false;
+    }
+    return host.includes('.');
   } catch {
     return false;
   }
