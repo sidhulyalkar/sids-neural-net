@@ -16,6 +16,6 @@ const NeuronCursor = dynamic(
  */
 export function SiteNeuronCursor() {
   const pathname = usePathname();
-  if (isArcadeGamePath(pathname)) return null;
+  if (pathname === '/frontier' || isArcadeGamePath(pathname)) return null;
   return <NeuronCursor />;
 }
