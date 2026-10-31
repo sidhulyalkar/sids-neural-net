@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 export const PersonaSignalSchema = z.object({
   key: z.string().min(1),
