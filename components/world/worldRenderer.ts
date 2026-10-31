@@ -2115,6 +2115,8 @@ export function createWorld(
   const shastaLimbDir=new THREE.Vector3();
   // World-space stance targets reuse these buffers on every animation frame.
   const shastaFootAnchors=Array.from({length:4},createShastaFootAnchor);
+  const shastaLegPoseCache=Array.from({length:4},
+    ()=>shastaArticulatedLeg(.44,.44,.055,true));
   const shastaNominalPaw=new THREE.Vector3();
   const shastaContactPaw=new THREE.Vector3();
   const shastaLocalPaw=new THREE.Vector3();
@@ -6779,7 +6781,8 @@ export function createWorld(
       const slide=fore?commandedPose.down*.15+raised*.22:
         commandedPose.sit*.065;
       const pose=shastaArticulatedLeg(
-        leg.z,foot.z,foot.y+dogFootGround[i]+lift,fore,bodyDrop,slide);
+        leg.z,foot.z,foot.y+dogFootGround[i]+lift,fore,bodyDrop,slide,
+        shastaLegPoseCache[i]);
       const pawPart=shastaRockParts[leg.pawIndex];
       shastaNominalPaw.set(leg.x,pose.paw.y+.012,pose.paw.z+.018);
       shastaArt.localToWorld(shastaNominalPaw);
