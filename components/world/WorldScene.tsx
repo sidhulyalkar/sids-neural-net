@@ -7,6 +7,7 @@ import styles from "./world.module.css";
 
 import type { Activity, AquaticMode } from "@/lib/world/activities";
 import type {ShastaAction} from "@/lib/world/shastaTricks";
+import type {TreatCatchResult} from "@/lib/world/shastaTreatCatch";
 import type { TrialState } from "@/lib/world/trials";
 import type { BigAirState } from "@/lib/world/bigAir";
 import type { DiscGolfState,DiscShot,DiscGolfSwingStage } from "@/lib/world/discGolf";
@@ -15,6 +16,10 @@ import type { SkimHeat } from "@/lib/world/skimboarding";
 type Props = {
   shastaCommand: ShastaAction;
   shastaCommandSerial: number;
+  treatThrowSerial:number;
+  treatPower:number;
+  treatAngle:number;
+  onTreatCatch:(result:TreatCatchResult)=>void;
   activity: Activity;
   actionSerial: number;
   challengeSerial: number;
@@ -65,6 +70,7 @@ export default function WorldScene(props: Props) {
       try {
         runtime.current = createWorld(host.current, {
           onReady: () => callbacks.current.onReady(),
+          onTreatCatch:(result)=>callbacks.current.onTreatCatch(result),
           onError: () => callbacks.current.onError(),
           onAquatic: (mode) => callbacks.current.onAquatic(mode),
           onLocation: (r, d) => callbacks.current.onLocation(r, d),

@@ -1669,3 +1669,20 @@
   .world[data-world-game="ski"] .bigAirHud,
   .world[data-world-game="trial"] .trialHud {max-height:38svh}
 }
+
+/* Opt-in voice and catch controls stay inside Shasta's existing small drawer. */
+.shastaMicButton[aria-pressed="true"]{color:#f1a99b;background:#f1a99b22}
+.shastaVoiceFeedback{padding:5px 2px 9px;font-size:10px;line-height:1.45;color:#e8c5ba}
+.shastaCatchPanel{margin-top:9px;padding-top:9px;border-top:1px solid #ffffff27}
+.shastaCatchHeading{display:flex;justify-content:space-between;align-items:center;gap:7px;
+  font-size:10px;color:#f8e5dd;letter-spacing:.04em}
+.shastaCatchHeading button{min-height:37px;padding:5px 10px;background:#e9aa93;
+  color:#18353d;font-size:11px;font-weight:700;border-radius:8px}
+.shastaCatchHeading button:disabled{opacity:.45}
+.shastaCatchSliders{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;margin-top:8px}
+.shastaCatchSliders label{display:flex;flex-wrap:wrap;justify-content:space-between;
+  gap:3px;font-size:10px;color:#e5e8dc}
+.shastaCatchSliders input{width:100%;accent-color:#e9aa93}
+.shastaDrawer .shastaCatchResult{margin:7px 2px 0;color:#f3cbb0;
+  letter-spacing:normal;text-transform:none;font-size:11px;line-height:1.35}

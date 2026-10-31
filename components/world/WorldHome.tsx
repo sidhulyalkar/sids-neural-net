@@ -1,8 +1,11 @@
 "use client";
 import {RESEARCH_GALLERY} from "@/lib/world/researchGallery";
 import {worldGameSession} from "@/lib/world/gameMode";
-import {Bike, ChevronDown, Disc3, MountainSnow, Waves, Trees, Menu as MenuIcon, PawPrint} from "lucide-react";
+import {Bike, ChevronDown, Disc3, MountainSnow, Waves, Trees, Menu as MenuIcon, PawPrint, Mic, MicOff} from "lucide-react";
 import type {ShastaAction,ShastaTrick} from "@/lib/world/shastaTricks";
+import type {ShastaVoiceAction} from "@/lib/world/shastaVoice";
+import type {TreatCatchResult} from "@/lib/world/shastaTreatCatch";
+import {useShastaVoice} from "./useShastaVoice";
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -253,6 +256,24 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [shastaCommand,setShastaCommand]=useState<ShastaAction>("come");
   const [shastaOpen,setShastaOpen]=useState(false);
   const [shastaCommandSerial,setShastaCommandSerial]=useState(0);
+  const [treatThrowSerial,setTreatThrowSerial]=useState(0);
+  const [treatPower,setTreatPower]=useState(65);
+  const [treatAngle,setTreatAngle]=useState(0);
+  const [lastTreat,setLastTreat]=useState<TreatCatchResult|null>(null);
+  const [bestTreat,setBestTreat]=useState(0);
+  const onTreatCatch=useCallback((result:TreatCatchResult)=>{
+    setLastTreat(result);
+    if(result.caught)setBestTreat(previous=>{
+      const best=Math.max(previous,result.score);
+      try{window.localStorage.setItem("sid-world:shasta-catch-best-v1",String(best));}
+      catch{/* Private browsing keeps session records. */}
+      return best;
+    });
+  },[]);
+  useEffect(()=>{
+    try{setBestTreat(Math.max(0,Number(window.localStorage.getItem("sid-world:shasta-catch-best-v1"))||0));}
+    catch{/* Optional storage. */}
+  },[]);
   const [quiet, setQuiet] = useState(false);
   const [region, setRegion] = useState<RegionId>("grove");
   const [nearby, setNearby] = useState<string | null>(null);
@@ -490,6 +511,21 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const session=worldGameSession({jet:jetActive,ski:bigAir.phase,
     disc:discGolf.phase,trial:trial.phase,skim:skim.phase});
   const worldGameActive=!session.canChangeMovement;
+  const shastaAvailable=entered&&ready&&!quiet&&!panel&&!worldGameActive&&
+    aquatic==="land"&&skim.phase==="off";
+  const dispatchShastaAction=(action:ShastaVoiceAction)=>{
+    if(!shastaAvailable)return;
+    if(action==="catch"){
+      setLastTreat(null);
+      setTreatThrowSerial(serial=>serial+1);
+    }else{
+      setShastaCommand(action);
+      setShastaCommandSerial(serial=>serial+1);
+    }
+    setMobileHubOpen(false);
+    if(window.matchMedia("(pointer: coarse)").matches)setShastaOpen(false);
+  };
+  const voice=useShastaVoice(shastaAvailable,dispatchShastaAction);
 
   return (
     <div
@@ -509,6 +545,10 @@ export function WorldHome({ content }: { content: WorldContent }) {
             command={command}
             shastaCommand={shastaCommand}
             shastaCommandSerial={shastaCommandSerial}
+            treatThrowSerial={treatThrowSerial}
+            treatPower={treatPower}
+            treatAngle={treatAngle}
+            onTreatCatch={onTreatCatch}
             activity={activity}
             actionSerial={actionSerial}
             challengeSerial={challengeSerial}
@@ -603,6 +643,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
                  <button type="button" aria-label="Open navigation menu" aria-haspopup="dialog"
                    title="Navigation" onClick={()=>open("menu")}><MenuIcon size={19} aria-hidden="true"/></button>
                  <span className={styles.mobileHubTitle}>{ACTIVITIES.find(item=>item.id===activity)?.label ?? "Explore"}</span>
+                 <button type="button" className={styles.shastaMicButton}
+                   aria-label={voice.status==="listening"?"Stop Shasta voice control":"Speak a Shasta command"}
+                   aria-pressed={voice.status==="listening"}
+                   title="Voice uses your browser speech service and may be processed remotely"
+                   disabled={!shastaAvailable} onClick={voice.toggle}>
+                   {voice.status==="listening"?<MicOff size={18} aria-hidden="true"/>:<Mic size={18} aria-hidden="true"/>}
+                 </button>
                  <button type="button" aria-label={shastaOpen?"Hide Shasta tricks":"Show Shasta tricks"}
                    aria-expanded={shastaOpen} aria-controls="world-shasta-tricks"
                    title="Shasta commands" onClick={()=>{
@@ -636,8 +683,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                  {(["go","come"] as const).map(command=>(
                    <button key={command} type="button" disabled={!ready||quiet||!!panel||worldGameActive}
                      title={command==="go"?"Run around and chase nearby squirrels":"Return and stay with me"}
-                     onClick={()=>{setShastaCommand(command);setShastaCommandSerial(n=>n+1);setMobileHubOpen(false);
-                       if(window.matchMedia("(pointer: coarse)").matches)setShastaOpen(false);}}>
+                     onClick={()=>dispatchShastaAction(command)}>
                      Shasta {command==="go"?"Go":"Come"}
                    </button>
                  ))}
@@ -645,6 +691,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
                <div id="world-shasta-tricks" className={styles.shastaDrawer} hidden={!shastaOpen}
                     role="group" aria-label="Shasta training and tricks">
                  <p>Shasta · Tricks</p>
+                 <div className={styles.shastaVoiceFeedback} role="status" aria-live="polite">
+                   {voice.status==="listening"?"Listening for a Shasta command…":
+                     voice.status==="unsupported"?"Speech recognition unavailable in this browser. Buttons still work.":
+                     voice.status==="denied"?"Microphone access was denied. Update browser permissions to try again.":
+                     voice.status==="error"?"Speech recognition failed. Try again or use the buttons.":
+                     voice.lastHeard?`Heard: ${voice.lastHeard}`:"Tap the mic to speak one command. Audio may be processed by your browser provider."}
+                 </div>
                  <div className={styles.shastaTrickGrid}>
                    {([["sit","Sit"],["down","Down"],["stay","Stay"],["jump","Jump up"],
                      ["roll-left","Roll left"],["roll-right","Roll right"],
@@ -652,9 +705,31 @@ export function WorldHome({ content }: { content: WorldContent }) {
                      ["spin-left","Spin left"],["spin-right","Spin right"]] as [ShastaTrick,string][]).map(([trick,label])=>(
                      <button key={trick} type="button" title={label}
                        disabled={!ready||quiet||!!panel||worldGameActive}
-                       onClick={()=>{setShastaCommand(trick);setShastaCommandSerial(n=>n+1);setMobileHubOpen(false);
-                       if(window.matchMedia("(pointer: coarse)").matches)setShastaOpen(false);}}>{label}</button>
+                       onClick={()=>dispatchShastaAction(trick)}>{label}</button>
                    ))}
+                 </div>
+                 <div className={styles.shastaCatchPanel}>
+                   <div className={styles.shastaCatchHeading}>
+                     <span>Catch · Trickshots</span>
+                     <button type="button" disabled={!shastaAvailable}
+                       onClick={()=>dispatchShastaAction("catch")}>Throw treat</button>
+                   </div>
+                   <div className={styles.shastaCatchSliders}>
+                     <label>Power <strong>{treatPower}%</strong>
+                       <input type="range" min="20" max="100" step="5"
+                         value={treatPower} onChange={e=>setTreatPower(Number(e.target.value))}/>
+                     </label>
+                     <label>Aim <strong>{treatAngle}°</strong>
+                       <input type="range" min="-35" max="35" step="5"
+                         value={treatAngle} onChange={e=>setTreatAngle(Number(e.target.value))}/>
+                     </label>
+                   </div>
+                   <p className={styles.shastaHint}>Throw toward Shasta. Adjust aim for a harder curved shot. A catch requires an actual midair intercept.</p>
+                   <p className={styles.shastaCatchResult} aria-live="polite">{lastTreat?
+                     `${lastTreat.label} · ${lastTreat.distance.toFixed(1)} world m · ${lastTreat.score} pts`:
+                     "Distance and score appear after the throw."}
+                     {bestTreat>0&&` · Best ${bestTreat} pts`}
+                   </p>
                  </div>
                </div>
                <button type="button" className={styles.sportsToggle}
