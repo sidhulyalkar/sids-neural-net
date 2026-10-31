@@ -1,6 +1,6 @@
 import {applyLagoonSand} from "./worldLagoonSand";
 import {commandShasta,initialShastaOuting,stepShastaOuting} from "@/lib/world/shastaCommands";
-import {makeTreatFlight,sampleTreatFlight,planTreatCatchGoal,treatWithinMouth,scoreTreatFlight,type TreatFlight,type TreatCatchResult} from "@/lib/world/shastaTreatCatch";
+import {makeTreatFlight,sampleTreatFlight,planTreatCatchGoal,stepTreatFlight,scoreTreatFlight,type TreatFlight,type TreatCatchResult,type TreatVector,type TreatMissReason} from "@/lib/world/shastaTreatCatch";
 import {beginShastaTrick,idleShastaTrick,stepShastaTrick,shastaTrickPose,advanceShastaTrickClock,shastaSpinPawLift,shastaHeadingAfterTrickInterrupt,isShastaTrick,type ShastaAction} from "@/lib/world/shastaTricks";
 import {createCoastalNature} from "./worldCoastalNature";
 import {createResearchGallery} from "./worldResearchGallery";
@@ -3614,24 +3614,56 @@ export function createWorld(
   let shastaSpinPeakRootLift=0;
   let wasCarrying=false;
   let shastaCatchCount=0;
-  // Single reusable projectile: no runtime model loading or extra physics loop.
-  const treatGeometry=new THREE.IcosahedronGeometry(.13,1);
-  const treatMaterial=new THREE.MeshStandardMaterial({color:"#d68f5e",roughness:.87});
+  // One candy-colored treat and a 16-dot high-arc trail. Both GPU objects
+  // are created once and reused. They incur no draw calls while idle.
+  const treatGeometry=new THREE.IcosahedronGeometry(.145,1);
+  const treatMaterial=new THREE.MeshStandardMaterial({
+    color:"#e7b68c",emissive:"#e07859",emissiveIntensity:.65,roughness:.7,
+  });
   const treatMesh=new THREE.Mesh(treatGeometry,treatMaterial);
   treatMesh.visible=false;scene.add(treatMesh);
+  const treatTrailGeometry=new THREE.BufferGeometry();
+  const treatTrailAttribute=new THREE.BufferAttribute(new Float32Array(16*3),3);
+  treatTrailAttribute.setUsage(THREE.DynamicDrawUsage);
+  treatTrailGeometry.setAttribute("position",treatTrailAttribute);
+  treatTrailGeometry.setDrawRange(0,0);
+  const treatTrailMaterial=new THREE.PointsMaterial({
+    color:"#f6c5a6",size:.15,transparent:true,opacity:.8,depthWrite:false,
+  });
+  const treatTrail=new THREE.Points(treatTrailGeometry,treatTrailMaterial);
+  treatTrail.frustumCulled=false;treatTrail.visible=false;scene.add(treatTrail);
   let treatFlight:TreatFlight|null=null;
   let treatCatchGoal:Point|null=null;
   let treatStartedAt=0;
+  let treatPreviousTime=0;
+  let treatPreviousMouth:TreatVector={x:0,y:0,z:0};
   let lastTreatThrowSerial=0;
   let shastaTreatCatchCount=0;
-  function finishTreat(t:number,caught:boolean){
+  const hideTreat=()=>{
+    treatFlight=null;treatCatchGoal=null;
+    treatMesh.visible=false;treatTrail.visible=false;
+    treatTrailGeometry.setDrawRange(0,0);
+  };
+  function finishTreat(t:number,caught:boolean,reason?:TreatMissReason){
     if(!treatFlight)return;
-    const result=scoreTreatFlight(treatFlight,t,caught);
-    treatFlight=null;treatCatchGoal=null;treatMesh.visible=false;
-    canvas.dataset.shastaTreatResult=caught?"caught":"missed";
+    const result=scoreTreatFlight(treatFlight,t,caught,reason);
+    hideTreat();
+    canvas.dataset.shastaTreatResult=caught?"caught":reason??"missed";
     canvas.dataset.shastaTreatDistance=result.distance.toFixed(2);
     canvas.dataset.shastaTreatScore=String(result.score);
     callbacks.onTreatCatch(result);
+  }
+  function updateTreatTrail(flight:TreatFlight,at:number){
+    const count=Math.min(16,1+Math.floor(at/.055));
+    const positions=treatTrailAttribute.array as Float32Array;
+    for(let i=0;i<count;i++){
+      const p=sampleTreatFlight(flight,Math.max(0,at-i*.055));
+      positions[i*3]=p.x;positions[i*3+1]=p.y;positions[i*3+2]=p.z;
+    }
+    treatTrailGeometry.setDrawRange(0,count);
+    treatTrailAttribute.needsUpdate=true;
+    treatTrail.visible=count>1;
+    canvas.dataset.shastaTreatTrailPoints=String(count);
   }
   let pearlNoticeUntil=0;
 
@@ -6442,7 +6474,7 @@ export function createWorld(
       }
       return true;
     };
-    if(!outingAllowed&&treatFlight){treatFlight=null;treatCatchGoal=null;treatMesh.visible=false;}
+    if(!outingAllowed&&treatFlight)finishTreat(treatPreviousTime,false,"interrupted");
     dogTrick=stepShastaTrick(dogTrick,dogTrickClock,dog,outingAllowed);
     const commandedPose=shastaTrickPose(dogTrick,dogTrickClock);
     // Maxima survive the short active window until the next user command.
@@ -6746,26 +6778,31 @@ export function createWorld(
         activelyFetching?Math.min(7.4,dogAnimSpeed):dogAnimSpeed,
       dogGaitPhase,commandedPose.still?0:dogMoveBlend);
     const dogBob=activelyFetching||commandedPose.still?0:dogGait.bodyBob;
-    // Analytic flight: real wall time prevents low-FPS throws floating for minutes.
+    // Renderer-independent arc and swept collision. Keep the scene loop single:
+    // slow hardware samples between frames rather than tunneling the treat.
     if(treatFlight){
-      const t=Math.max(0,now*.001-treatStartedAt);
+      const t=Math.min(treatFlight.duration,Math.max(0,now*.001-treatStartedAt));
       const pos=sampleTreatFlight(treatFlight,t);
       treatMesh.position.set(pos.x,pos.y,pos.z);
       treatMesh.visible=true;
+      updateTreatTrail(treatFlight,t);
       canvas.dataset.shastaTreatPhase="flying";
-      // Husky muzzle center (local z=1.16, y=1.267), facing dogYaw.
-      // Contact is measured at the snout, never at the torso/root.
-      const mouth={x:dog.x+Math.sin(dogYaw)*1.16,
-        z:dog.z+Math.cos(dogYaw)*1.16};
-      if(treatWithinMouth(treatFlight,t,mouth,dogGroundY+1.267)){
+      // Anatomical muzzle, forward of the root; interpolate both treat and
+      // muzzle motion. Each sample checks ground before awarding a catch.
+      const mouth:TreatVector={x:dog.x+Math.sin(dogYaw)*1.16,
+        y:dogGroundY+1.267,z:dog.z+Math.cos(dogYaw)*1.16};
+      const hit=stepTreatFlight(treatFlight,treatPreviousTime,t,
+        treatPreviousMouth,mouth,(x,z)=>terrainHeight(x,z));
+      treatPreviousTime=t;
+      treatPreviousMouth=mouth;
+      if(hit.kind==="caught"){
         shastaTreatCatchCount++;
         canvas.dataset.shastaTreatCatchCount=String(shastaTreatCatchCount);
-        finishTreat(t,true);
-      }else if(t>=treatFlight.duration||pos.y<=terrainHeight(pos.x,pos.z)+.08){
-        finishTreat(Math.min(t,treatFlight.duration),false);
-      }
+        finishTreat(hit.time,true);
+      }else if(hit.kind==="terrain")finishTreat(hit.time,false,"terrain");
+      else if(hit.kind==="landed")finishTreat(hit.time,false,"timeout");
     }else{
-      treatMesh.visible=false;
+      treatMesh.visible=false;treatTrail.visible=false;
       canvas.dataset.shastaTreatPhase="idle";
     }
     const dogRenderY=dogGroundY+dogBob+commandedPose.jump;
@@ -7550,7 +7587,7 @@ export function createWorld(
     setState(next) {
       if(next.shastaCommandSerial!==state.shastaCommandSerial){
         // A newer explicit command always interrupts an outstanding treat chase.
-        treatFlight=null;treatCatchGoal=null;treatMesh.visible=false;
+        if(treatFlight)finishTreat(treatPreviousTime,false,"interrupted");
         // Commit the partial turn to world heading before clearing the
         // authored spin offset. A mid-spin Sit/Come must never snap yaw.
         if(dogTrick.trick==="spin-left"||dogTrick.trick==="spin-right"){
@@ -7646,14 +7683,24 @@ export function createWorld(
           if(destination.x>=WORLD_BOUNDS.minX&&destination.x<=WORLD_BOUNDS.maxX&&
             destination.z>=WORLD_BOUNDS.minZ&&destination.z<=WORLD_BOUNDS.maxZ&&
             !discGolfSurfaceIsWater(destination)){
+            if(treatFlight)finishTreat(treatPreviousTime,false,"interrupted");
             treatFlight=flight;
-            treatCatchGoal=planTreatCatchGoal(flight,dog);
+            treatCatchGoal=planTreatCatchGoal(flight,dog,
+              terrainHeight(flight.landing.x,flight.landing.z)+1.267);
             treatStartedAt=performance.now()*.001;
+            treatPreviousTime=0;
+            treatPreviousMouth={x:dog.x+Math.sin(dogYaw)*1.16,
+              y:dogGroundY+1.267,z:dog.z+Math.cos(dogYaw)*1.16};
+            canvas.dataset.shastaTreatApex=sampleTreatFlight(flight,flight.duration/2).y.toFixed(2);
+            canvas.dataset.shastaTreatTrailPoints="0";
             treatMesh.visible=true;
             dogOuting=commandShasta("come");
             dogTrick=idleShastaTrick();
             shastaSnow=idleShastaSnowPlay();
             canvas.dataset.shastaTreatResult="pending";
+          }else{
+            canvas.dataset.shastaTreatResult="unsafe";
+            callbacks.onTreatCatch(scoreTreatFlight(flight,0,false,"unsafe"));
           }
         }
       }
@@ -8046,8 +8093,9 @@ export function createWorld(
       window.removeEventListener("blur", clearHeldJetControls);
       document.removeEventListener("visibilitychange", visibility);
       canvas.removeEventListener("webglcontextlost", contextLost);
-      scene.remove(treatMesh);
+      scene.remove(treatMesh);scene.remove(treatTrail);
       treatGeometry.dispose();treatMaterial.dispose();
+      treatTrailGeometry.dispose();treatTrailMaterial.dispose();
       scene.traverse((o) => {
         if (o instanceof THREE.InstancedMesh) o.dispose();
       });

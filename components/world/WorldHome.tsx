@@ -739,7 +739,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                          value={treatAngle} onChange={e=>setTreatAngle(Number(e.target.value))}/>
                      </label>
                    </div>
-                   <p className={styles.shastaHint}>Throw toward Shasta. Adjust aim for a harder curved shot. A catch requires an actual midair intercept.</p>
+                   <p className={styles.shastaHint}>Toss a high, glowing arc toward Shasta. Aim off-axis for harder trickshots. Catches are earned, not automatic.</p>
                    <p className={styles.shastaCatchResult} aria-live="polite">{lastTreat?
                      `${lastTreat.label} · ${lastTreat.distance.toFixed(1)} world m · ${lastTreat.score} pts`:
                      "Distance and score appear after the throw."}
