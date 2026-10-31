@@ -3,7 +3,7 @@
 import {useCallback,useEffect,useRef,useState} from "react";
 import {parseShastaVoiceCommand,type ShastaVoiceAction} from "@/lib/world/shastaVoice";
 
-export type ShastaVoiceStatus="off"|"listening"|"unsupported"|"denied"|"error";
+export type ShastaVoiceStatus="off"|"starting"|"listening"|"unsupported"|"denied"|"error";
 type SpeechAlternative={transcript:string;confidence:number};
 type SpeechResult={isFinal:boolean;[index:number]:SpeechAlternative};
 type SpeechEvent={resultIndex:number;results:ArrayLike<SpeechResult>};
@@ -12,7 +12,7 @@ type Recognizer={
  lang:string;continuous:boolean;interimResults:boolean;maxAlternatives:number;
  onresult:((event:SpeechEvent)=>void)|null;
  onerror:((event:SpeechError)=>void)|null;
- onend:(()=>void)|null;
+ onstart:(()=>void)|null;onend:(()=>void)|null;
  start:()=>void;stop:()=>void;abort:()=>void;
 };
 type RecognizerConstructor=new()=>Recognizer;
@@ -69,6 +69,7 @@ export function useShastaVoice(available:boolean,onAction:(action:ShastaVoiceAct
       recognizer.current=active;
       active.lang="en-US";active.continuous=false;
       active.interimResults=false;active.maxAlternatives=1;
+      active.onstart=()=>{if(id===epoch.current)setStatus("listening");};
       active.onresult=(event)=>{
         if(id!==epoch.current||!availableRef.current||heard)return;
         for(let i=event.resultIndex;i<event.results.length;i++){
@@ -93,16 +94,16 @@ export function useShastaVoice(available:boolean,onAction:(action:ShastaVoiceAct
       active.onend=()=>{
         if(id!==epoch.current)return;
         recognizer.current=null;
-        setStatus(previous=>previous==="listening"?"off":previous);
+        setStatus(previous=>previous==="listening"||previous==="starting"?"off":previous);
       };
+      setStatus("starting");
       active.start();
-      setStatus("listening");
     }catch{
       recognizer.current=null;
       setStatus("error");
     }
   },[stop]);
   const effectiveStatus=available&&recognizer.current?status:
-    status==="listening"?"off":status;
+    status==="listening"||status==="starting"?"off":status;
   return {status:effectiveStatus,lastHeard,toggle,stop};
 }

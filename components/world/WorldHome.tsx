@@ -658,11 +658,11 @@ export function WorldHome({ content }: { content: WorldContent }) {
                    title="Navigation" onClick={()=>open("menu")}><MenuIcon size={19} aria-hidden="true"/></button>
                  <span className={styles.mobileHubTitle}>{ACTIVITIES.find(item=>item.id===activity)?.label ?? "Explore"}</span>
                  <button type="button" className={styles.shastaMicButton}
-                   aria-label={voice.status==="listening"?"Stop Shasta voice control":"Speak a Shasta command"}
-                   aria-pressed={voice.status==="listening"}
+                   aria-label={voice.status==="listening"||voice.status==="starting"?"Stop Shasta voice control":"Speak a Shasta command"}
+                   aria-pressed={voice.status==="listening"||voice.status==="starting"}
                    title="Voice uses your browser speech service and may be processed remotely"
                    disabled={!shastaAvailable} onClick={voice.toggle}>
-                   {voice.status==="listening"?<MicOff size={18} aria-hidden="true"/>:<Mic size={18} aria-hidden="true"/>}
+                   {voice.status==="listening"||voice.status==="starting"?<MicOff size={18} aria-hidden="true"/>:<Mic size={18} aria-hidden="true"/>}
                  </button>
                  <button type="button" aria-label={shastaOpen?"Hide Shasta tricks":"Show Shasta tricks"}
                    aria-expanded={shastaOpen} aria-controls="world-shasta-tricks"
@@ -707,6 +707,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                  <p>Shasta · Tricks</p>
                  <div className={styles.shastaVoiceFeedback} role="status" aria-live="polite">
                    {voice.status==="listening"?"Listening for a Shasta command…":
+                     voice.status==="starting"?"Starting microphone…":
                      voice.status==="unsupported"?"Speech recognition unavailable in this browser. Buttons still work.":
                      voice.status==="denied"?"Microphone access was denied. Update browser permissions to try again.":
                      voice.status==="error"?"Speech recognition failed. Try again or use the buttons.":
