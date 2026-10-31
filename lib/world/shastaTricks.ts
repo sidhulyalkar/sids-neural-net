@@ -107,9 +107,13 @@ export function shastaTrickPose(s:ShastaTrickState,now:number):ShastaTrickPose{
  // Lower to the chest first, roll through the shoulder/back, then right
  // the body. The old version rotated a rigid standing dog 360 degrees.
  const rollProgress=rolling?smooth((elapsed-.34)/1.58):0;
- const roll=rolling?direction*Math.PI*2*rollProgress:0;
+ // Explicit zero prevents -0 for a left roll's pre-rotation frames.
+ // Keeping the initial interval exactly neutral also avoids tiny renderer
+ // angular impulses when Shasta first lowers onto his shoulder.
+ const roll=rolling&&rollProgress>0?direction*Math.PI*2*rollProgress:0;
  const rollSettle=rolling?pulse(elapsed,0,.35,1.87,2.3):0;
- const spin=spinning?direction*Math.PI*2*smooth(phase):0;
+ const spinProgress=spinning?smooth(phase):0;
+ const spin=spinProgress>0?direction*Math.PI*2*spinProgress:0;
  const shakeLift=shaking?pulse(elapsed,.22,.52,1.09,1.42)*fade:0;
  const prep=jumping?pulse(elapsed,0,.22,.31,.49):0;
  const flight=jumping&&perform?Math.sin(Math.PI*clamp((elapsed-.29)/.92)):0;
