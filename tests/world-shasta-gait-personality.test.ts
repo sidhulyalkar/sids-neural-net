@@ -157,3 +157,17 @@ test('sitting and lying lower the trunk while the feet stay in contact',()=>{
   }
  }
 });
+
+test('reused two-segment leg output preserves stable object identity',()=>{
+ const buffer=shastaArticulatedLeg(.44,.44,.055,true);
+ const hip=buffer.hip,paw=buffer.paw,joint=buffer.joint;
+ for(let i=0;i<120;i++){
+  const result=shastaArticulatedLeg(.44,.44+Math.sin(i*.1)*.12,
+   .055+Math.max(0,Math.cos(i*.1))*.08,true,0,0,buffer);
+  assert.equal(result,buffer);
+  assert.equal(result.hip,hip);
+  assert.equal(result.joint,joint);
+  assert.equal(result.paw,paw);
+  assert.ok(result.upperLength>.05&&result.lowerLength>.05);
+ }
+});
