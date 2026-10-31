@@ -1,34 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {beginShastaTrick,stepShastaTrick,shastaTrickPose,idleShastaTrick,isShastaTrick,advanceShastaTrickClock} from '../lib/world/shastaTricks';
+import {beginShastaTrick,stepShastaTrick,shastaTrickPose,idleShastaTrick,isShastaTrick,advanceShastaTrickClock,shastaSpinPawLift,SHASTA_TRICK_DURATION} from '../lib/world/shastaTricks';
 const dog={x:8,z:6},player={x:0,z:0},heading={x:0,z:1};
 test('trick commands are distinct and never include chase/recall',()=>{
- for(const action of ['roll-left','roll-right','shake-left','shake-right','spin-left','spin-right','park-it','sit','down','stay','jump'] as const)
+ for(const action of ['roll-left','roll-right','shake-left','shake-right','spin-left','spin-right','sit','down','stay','jump'] as const)
   assert.equal(isShastaTrick(action),true);
  assert.equal(isShastaTrick('go'),false);
  assert.equal(isShastaTrick('come'),false);
-});
-test('Park it approaches behind the player and lays down without teleporting',()=>{
- for(const hz of [10,30,60]){
-  let state=beginShastaTrick('park-it',0,dog,player,heading);
-  assert.deepEqual(state.goal,{x:1.3,z:-1.9});
-  assert.deepEqual(state.finalGoal,{x:0,z:-.38});
-  assert.equal(state.phase,'approach');
-  // Stage one circles behind the legs without cutting through the player.
-  state=stepShastaTrick(state,1,{x:1.3,z:-1.9},true);
-  assert.equal(state.phase,'approach');
-  assert.deepEqual(state.goal,{x:0,z:-.38});
-  // Stage two settles into the center, then the down animation completes.
-  state=stepShastaTrick(state,1.3,{x:0,z:-.42},true);
-  assert.equal(state.phase,'perform');
-  for(let i=0;i<hz*3;i++)
-   state=stepShastaTrick(state,1.3+i/hz,{x:0,z:-.42},true);
-  assert.equal(state.phase,'hold');
-  const pose=shastaTrickPose(state,4.3);
-  assert.ok(pose.crouch>.7);
-  assert.equal(pose.jump,0);
-  assert.ok(pose.still);
- }
 });
 test('Stay, sit and down remain in a stationary hold until interrupted',()=>{
  for(const t of ['sit','down','stay'] as const){
@@ -59,12 +37,6 @@ test('new commands interrupt the prior trick without leaving queued animations',
  assert.equal(s.phase,'recover');
  s=stepShastaTrick(s,2.9,player,true);
  assert.deepEqual(s,idleShastaTrick());
-});
-
-test('park-it abandons blocked approach instead of teleporting through obstacles',()=>{
- let s=beginShastaTrick('park-it',0,dog,player,heading);
- s=stepShastaTrick(s,13,dog,true);
- assert.equal(s.phase,'idle');
 });
 
 test('roll lowers onto a shoulder before rotating and recovers upright',()=>{
@@ -99,13 +71,13 @@ test('one paw lifts after a visible supporting weight shift and the other stays 
 });
 test('spin steps, jump compresses before takeoff and held poses do not drift',()=>{
  const spin=beginShastaTrick('spin-right',0,player,player,heading);
- assert.ok(Math.abs(shastaTrickPose(spin,.7).turnStep)>.001);
+ assert.ok(shastaTrickPose(spin,.7).spinStep>0);
  const jump=beginShastaTrick('jump',0,player,player,heading);
  const loading=shastaTrickPose(jump,.13);
  const air=shastaTrickPose(jump,.75);
  assert.ok(loading.crouch>.05&&loading.jump===0);
  assert.ok(air.jump>.25&&air.tuck>.03);
- for(const trick of ['sit','down','park-it','stay'] as const){
+ for(const trick of ['sit','down','stay'] as const){
   const s=beginShastaTrick(trick,0,player,player,heading);
   const state={...s,phase:'hold' as const,since:1};
   assert.deepEqual(shastaTrickPose(state,100),shastaTrickPose(state,1),
@@ -114,7 +86,7 @@ test('spin steps, jump compresses before takeoff and held poses do not drift',()
 });
 test('trick pose samples are deterministic and finite across browser frame intervals',()=>{
  for(const trick of ['sit','down','stay','roll-left','roll-right',
-  'spin-left','spin-right','shake-left','shake-right','jump','park-it'] as const){
+  'spin-left','spin-right','shake-left','shake-right','jump'] as const){
   const s=beginShastaTrick(trick,0,player,player,heading);
   for(const hz of [15,30,60,120]){
    for(let i=0;i<Math.floor(hz*2.5);i++){
@@ -126,25 +98,6 @@ test('trick pose samples are deterministic and finite across browser frame inter
    }
   }
  }
-});
-
-test('Park it chooses reachable ground when the exact heel position is blocked',()=>{
- const blocked=(p:{x:number;z:number})=>Math.hypot(p.x,p.z+.38)>.42;
- const state=beginShastaTrick('park-it',0,dog,player,heading,blocked);
- assert.equal(state.phase,'approach');
- assert.ok(state.finalGoal);
- assert.ok(blocked(state.finalGoal!));
- assert.notDeepEqual(state.finalGoal,{x:0,z:-.38});
- assert.ok(state.goal&&blocked(state.goal));
-});
-test('fully blocked Park it settles safely at the existing dog location',()=>{
- const state=beginShastaTrick('park-it',0,dog,player,heading,()=>false);
- assert.equal(state.phase,'perform');
- assert.equal(state.goal,null);
- assert.equal(state.finalGoal,null);
- const held=stepShastaTrick(state,2,dog,true);
- assert.equal(held.phase,'hold');
- assert.ok(shastaTrickPose(held,2).down>.8);
 });
 
 test('trick choreography finishes on wall-time instead of slowing at 10 FPS',()=>{
@@ -168,4 +121,70 @@ test('trick choreography finishes on wall-time instead of slowing at 10 FPS',()=
  assert.equal(advanceShastaTrickClock(4,-1),4,'corrupt negative RAF delta is ignored');
  assert.equal(advanceShastaTrickClock(4,.9),4.5,
    'long tab stalls are capped rather than skipping multiple motions');
+});
+
+test('Park it is absent from the public command vocabulary',()=>{
+ assert.equal(isShastaTrick('park-it' as never),false);
+ assert.ok(!Object.prototype.hasOwnProperty.call(SHASTA_TRICK_DURATION,'park-it'));
+});
+test('spin rotates on four paws without ever jumping or rolling',()=>{
+ for(const trick of ['spin-left','spin-right'] as const){
+  const state=beginShastaTrick(trick,0,player,player,heading);
+  const direction=trick==='spin-left'?-1:1;
+  let previous=0;
+  const lifted=new Set<number>();
+  for(let i=0;i<=270;i++){
+   const t=i/100;
+   const pose=shastaTrickPose(state,t);
+   assert.equal(pose.jump,0,'spin must never lift the dog root off ground');
+   assert.equal(pose.roll,0,'spin must not turn into a barrel roll');
+   assert.equal(pose.crouch,0,'spin must keep a neutral standing body height');
+   assert.equal(pose.down,0);
+   const yaw=direction*pose.spin;
+   assert.ok(yaw>=previous-1e-9,'spin yaw must be monotonic');
+   previous=yaw;
+   const paws=[0,1,2,3].map(index=>shastaSpinPawLift(pose,index));
+   assert.ok(paws.every(v=>v>=0&&v<=.083));
+   assert.ok(paws.filter(v=>v>.00001).length<=1,
+    'only one paw can swing, with a minimum tripod support');
+   paws.forEach((v,index)=>{if(v>.02)lifted.add(index);});
+  }
+  assert.ok(Math.abs(previous-Math.PI*2)<1e-8,'complete one turn');
+  assert.deepEqual([...lifted].sort(),[0,1,2,3],
+   'all four feet must reposition during the turn');
+ }
+});
+test('spin footfalls alternate, with mirrored left/right order and low arcs',()=>{
+ const left=beginShastaTrick('spin-left',0,player,player,heading);
+ const right=beginShastaTrick('spin-right',0,player,player,heading);
+ // Each step occupies 0.29 sec; sample precisely at the footfall midpoint.
+ const leftOrder=[3,0,1,2,3,0,1,2];
+ const rightOrder=[1,2,3,0,1,2,3,0];
+ for(let step=0;step<8;step++){
+  const at=.18+(step+.5)*2.32/8;
+  for(const [state,order] of [[left,leftOrder],[right,rightOrder]] as const){
+   const pose=shastaTrickPose(state,at);
+   const lifts=[0,1,2,3].map(i=>shastaSpinPawLift(pose,i));
+   assert.ok(lifts[order[step]]>.075,'one specific foot should swing');
+   for(let i=0;i<4;i++)if(i!==order[step])assert.equal(lifts[i],0);
+   assert.equal(pose.jump,0);
+  }
+ }
+});
+test('spin ends upright at 10-120 FPS and can be interrupted by Sit',()=>{
+ for(const hz of [10,15,30,60,120]){
+  let state=beginShastaTrick('spin-left',0,player,player,heading);
+  let clock=0;
+  const dt=1/hz;
+  for(let i=0;i<Math.ceil(3.3*hz);i++){
+   clock=advanceShastaTrickClock(clock,dt);
+   state=stepShastaTrick(state,clock,player,true);
+  }
+  assert.equal(state.phase,'idle');
+ }
+ const spinning=beginShastaTrick('spin-right',0,player,player,heading);
+ assert.ok(shastaTrickPose(spinning,1).spin>0);
+ const sit=beginShastaTrick('sit',1,player,player,heading);
+ assert.equal(shastaTrickPose(sit,1).spin,0);
+ assert.equal(shastaTrickPose(sit,1).jump,0);
 });
