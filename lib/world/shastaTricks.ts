@@ -131,7 +131,7 @@ export function shastaTrickPose(s:ShastaTrickState,now:number):ShastaTrickPose{
  };
 }
 export const isShastaTrick=(c:ShastaAction):c is ShastaTrick=>
- !(['go','come'] as string[]).includes(c);
+ Object.prototype.hasOwnProperty.call(SHASTA_TRICK_DURATION,c);
 
 /** Index order: left hind, left fore, right hind, right fore.
  * During a 360-degree pivot each of eight short turns lifts ONE paw,
