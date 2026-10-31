@@ -42,7 +42,17 @@ export function useShastaVoice(available:boolean,onAction:(action:ShastaVoiceAct
       try{active.abort();}catch{/* Browser may have already stopped. */}}
     setStatus("off");
   },[]);
-  useEffect(()=>{if(!available)stop();},[available,stop]);
+  // Cancelling the resource belongs in the effect cleanup. Deriving the
+  // exposed status from the active resource avoids effect-driven state updates.
+  useEffect(()=>{
+    if(!available)return;
+    return ()=>{
+      epoch.current++;
+      const active=recognizer.current;recognizer.current=null;
+      if(active){active.onresult=null;active.onerror=null;active.onend=null;
+        try{active.abort();}catch{/* Already stopped. */}}
+    };
+  },[available]);
   useEffect(()=>()=>{epoch.current++;const active=recognizer.current;
     recognizer.current=null;if(active){active.onresult=null;active.onerror=null;active.onend=null;
       try{active.abort();}catch{/* Browser shutdown. */}}
@@ -92,5 +102,7 @@ export function useShastaVoice(available:boolean,onAction:(action:ShastaVoiceAct
       setStatus("error");
     }
   },[stop]);
-  return {status,lastHeard,toggle,stop};
+  const effectiveStatus=available&&recognizer.current?status:
+    status==="listening"?"off":status;
+  return {status:effectiveStatus,lastHeard,toggle,stop};
 }
