@@ -65,6 +65,14 @@ async function audit(width, height) {
     });
     assert.match((await rating.textContent()) || '', /\/10/, 'Explicit rating must persist in interface');
     assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'rated', 'Balloon returns to saved state on release');
+    if (width <= 390) {
+      const geometry = await page.evaluate(() => ({
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: innerWidth,
+      }));
+      assert(geometry.documentWidth <= geometry.viewportWidth + 2,
+        'Mobile focus reader must not require sideways scrolling: ' + JSON.stringify(geometry));
+    }
 
     const exact = page.locator('details').filter({ hasText: 'Set exact score' });
     await exact.locator('summary').click();
@@ -89,6 +97,7 @@ async function main() {
   const results = [];
   results.push(await audit(1440, 900));
   results.push(await audit(390, 844));
+  results.push(await audit(320, 700));
   console.log('FRONTIER focus reader audit:', JSON.stringify(results));
 }
 
