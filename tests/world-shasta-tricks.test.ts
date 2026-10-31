@@ -73,6 +73,7 @@ test('roll lowers onto a shoulder before rotating and recovers upright',()=>{
   const start=shastaTrickPose(s,.18);
   assert.ok(start.down>.01,'must first lower onto the ground');
   assert.equal(start.roll,0,'must not barrel-roll while standing');
+  assert.equal(Object.is(start.roll,-0),false,'zero roll must not preserve a negative sign');
   const side=shastaTrickPose(s,.9);
   assert.ok(Math.abs(side.roll)>.1&&Math.abs(side.roll)<Math.PI*2);
   const end=shastaTrickPose(s,2.34);
