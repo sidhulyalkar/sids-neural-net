@@ -94,6 +94,7 @@ import {
 import { shastaDetour, initialChaseState, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
 import {idleFetchRunRoute,stepFetchRunRoute,steerFetchRun} from "@/lib/world/shastaFetchRun";
 import {advanceShastaStride,shastaGaitPose,shastaArticulatedLeg} from "@/lib/world/shastaGait";
+import {createShastaFootAnchor,updateShastaFootContact} from "@/lib/world/shastaFootContact";
 import {shastaCameraShot,stepShastaCameraAnchor,type ShastaCameraAnchor} from "@/lib/world/shastaCamera";
 import {idleShastaSnowPlay,queueShastaSnowPlay,stepShastaSnowPlay,shastaSnowPose} from "@/lib/world/shastaPersonality";
 import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,discGolfHandoffTarget} from "@/lib/world/discGolfFetch";
@@ -2112,6 +2113,13 @@ export function createWorld(
   });
   const shastaLimbUp=new THREE.Vector3(0,1,0);
   const shastaLimbDir=new THREE.Vector3();
+  // World-space stance targets reuse these buffers on every animation frame.
+  const shastaFootAnchors=Array.from({length:4},createShastaFootAnchor);
+  const shastaNominalPaw=new THREE.Vector3();
+  const shastaContactPaw=new THREE.Vector3();
+  const shastaLocalPaw=new THREE.Vector3();
+  const shastaRenderedPaw=new THREE.Vector3();
+  let shastaMaxContactError=0;
   const shastaCylinderMesh = instances(
     cylinder,
     mat(shastaPalette.creamWhite),
@@ -3570,6 +3578,11 @@ export function createWorld(
   let dogCaveLayer:CaveLayer="surface";
   const dogSupport=(p:Point)=>dogCaveLayer==="paper"?paperCaveFloorHeight(p):dogCaveLayer==="arcade"?arcadeCaveFloorHeight(p):Math.max(groundHeight(p),visibleTerrainHeight(p));
   const dogFootGround=[0,0,0,0];
+  const shastaTerrainProbe:Point={x:0,z:0};
+  const shastaTerrainAt=(x:number,z:number)=>{
+    shastaTerrainProbe.x=x;shastaTerrainProbe.z=z;
+    return dogSupport(shastaTerrainProbe);
+  };
   let dogCameraAnchor:ShastaCameraAnchor|null=null;
   let dogGaitPhase = 0;
   let dogDistanceTraveled = 0;
@@ -6691,6 +6704,9 @@ export function createWorld(
       commandedPose.down*.085;
     shastaPose.position.y=.79-.34*Math.sin((snowPose.roll+commandedPose.roll)*.5)**2-
       snowPose.crouch*.19-commandedPose.crouch*.41;
+    // Update only the transform hierarchy before solving paw world positions.
+    // Other scene children and meshes do not need a world-matrix update.
+    shastaArt.updateWorldMatrix(true,false);
     canvas.dataset.shastaPoseSit=commandedPose.sit.toFixed(3);
     canvas.dataset.shastaPoseDown=commandedPose.down.toFixed(3);
     canvas.dataset.shastaPosePawLift=Math.max(
@@ -6747,37 +6763,79 @@ export function createWorld(
         commandedPose.sit*.065;
       const pose=shastaArticulatedLeg(
         leg.z,foot.z,foot.y+dogFootGround[i]+lift,fore,bodyDrop,slide);
+      const pawPart=shastaRockParts[leg.pawIndex];
+      shastaNominalPaw.set(leg.x,pose.paw.y+.012,pose.paw.z+.018);
+      shastaArt.localToWorld(shastaNominalPaw);
+      // Contact is intentionally limited to idle/held actions. During a
+      // genuine run, turn, leap or shoulder-roll the gait owns paw motion.
+      const planted=(commandedPose.still||dogAnimSpeed<.14)&&
+        dogActualSpeed<1.4&&lift<.035&&commandedPose.jump<.015&&
+        Math.abs(commandedPose.roll)<.025&&Math.abs(commandedPose.spin)<.025&&
+        Math.abs(snowPose.roll)<.025;
+      const anchored=updateShastaFootContact(shastaFootAnchors[i],
+        shastaNominalPaw,planted,shastaTerrainAt,shastaContactPaw);
+      let pawX=leg.x;
+      if(anchored){
+        shastaLocalPaw.copy(shastaContactPaw);
+        shastaArt.worldToLocal(shastaLocalPaw);
+        // Reach limits prevent a planted foot from stretching across an
+        // obstacle if the player's command abruptly changes body position.
+        if(Math.abs(shastaLocalPaw.x-leg.x)>.28||
+           Math.abs(shastaLocalPaw.y-pose.paw.y)>.57||
+           Math.abs(shastaLocalPaw.z-pose.paw.z)>.42){
+          shastaFootAnchors[i].active=false;
+        }else{
+          pawX=shastaLocalPaw.x;
+          pose.paw.y=shastaLocalPaw.y-.012;
+          pose.paw.z=shastaLocalPaw.z-.018;
+          const span=Math.max(.10,pose.hip.y-pose.paw.y);
+          pose.joint.y=pose.paw.y+span*(fore?.47:.54);
+          pose.joint.z=leg.z+(pose.paw.z-leg.z)*.52+
+            (fore?-.075:.13)*Math.min(1,span);
+          shastaRenderedPaw.set(pawX,pose.paw.y+.012,pose.paw.z+.018);
+          shastaArt.localToWorld(shastaRenderedPaw);
+          shastaMaxContactError=Math.max(shastaMaxContactError,
+            shastaRenderedPaw.distanceTo(shastaContactPaw));
+        }
+      }
+      const jointX=leg.x+(pawX-leg.x)*.52;
       const upper=shastaCylinderParts[leg.legIndex];
-      dummy.position.set(leg.x,
+      dummy.position.set((leg.x+jointX)*.5,
         (pose.hip.y+pose.joint.y)*.5,(pose.hip.z+pose.joint.z)*.5);
-      limbDir.set(0,pose.hip.y-pose.joint.y,
+      limbDir.set(leg.x-jointX,pose.hip.y-pose.joint.y,
         pose.hip.z-pose.joint.z).normalize();
       dummy.quaternion.setFromUnitVectors(limbUp,limbDir);
-      dummy.scale.set(upper.sx,pose.upperLength,upper.sz);
+      dummy.scale.set(upper.sx,Math.hypot(
+        leg.x-jointX,pose.hip.y-pose.joint.y,pose.hip.z-pose.joint.z),upper.sz);
       dummy.updateMatrix();
       shastaCylinderMesh.setMatrixAt(leg.legIndex,dummy.matrix);
 
       const lower=shastaCylinderParts[leg.lowerIndex];
-      dummy.position.set(leg.x,
+      dummy.position.set((jointX+pawX)*.5,
         (pose.joint.y+pose.paw.y)*.5,(pose.joint.z+pose.paw.z)*.5);
-      limbDir.set(0,pose.joint.y-pose.paw.y,
+      limbDir.set(jointX-pawX,pose.joint.y-pose.paw.y,
         pose.joint.z-pose.paw.z).normalize();
       dummy.quaternion.setFromUnitVectors(limbUp,limbDir);
-      dummy.scale.set(lower.sx,pose.lowerLength,lower.sz);
+      dummy.scale.set(lower.sx,Math.hypot(
+        jointX-pawX,pose.joint.y-pose.paw.y,pose.joint.z-pose.paw.z),lower.sz);
       dummy.updateMatrix();
       shastaCylinderMesh.setMatrixAt(leg.lowerIndex,dummy.matrix);
 
-      const pawPart=shastaRockParts[leg.pawIndex];
       const front=dogSupport({x:worldX+sinYaw*.12,z:worldZ+cosYaw*.12});
       const back=dogSupport({x:worldX-sinYaw*.12,z:worldZ-cosYaw*.12});
       const slopePitch=activelyFetching?0:foot.stance?
         THREE.MathUtils.clamp(Math.atan2(front-back,.24),-.045,.045):-.025;
-      dummy.position.set(leg.x,pose.paw.y+.012,pose.paw.z+.018);
+      dummy.position.set(pawX,pose.paw.y+.012,pose.paw.z+.018);
       dummy.rotation.set(slopePitch,0,0);
       dummy.scale.set(pawPart.sx,pawPart.sy,pawPart.sz);
       dummy.updateMatrix();
       shastaRockMesh.setMatrixAt(leg.pawIndex,dummy.matrix);
     });
+    canvas.dataset.shastaPawsAnchored=String(
+      shastaFootAnchors.filter(anchor=>anchor.active).length);
+    canvas.dataset.shastaMaxContactError=shastaMaxContactError.toFixed(4);
+    canvas.dataset.shastaContactResets=String(
+      shastaFootAnchors.reduce((sum,anchor)=>sum+anchor.resets,0));
     canvas.dataset.shastaLegRig="articulated-eight-segment";
     canvas.dataset.shastaLegCount=String(shastaLegs.length);
     canvas.dataset.shastaLimbSegmentCount=String(shastaLegs.length*2);
