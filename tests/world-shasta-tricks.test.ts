@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {beginShastaTrick,stepShastaTrick,shastaTrickPose,idleShastaTrick,isShastaTrick,advanceShastaTrickClock,shastaSpinPawLift,SHASTA_TRICK_DURATION} from '../lib/world/shastaTricks';
-const dog={x:8,z:6},player={x:0,z:0},heading={x:0,z:1};
+const player={x:0,z:0},heading={x:0,z:1};
 test('trick commands are distinct and never include chase/recall',()=>{
  for(const action of ['roll-left','roll-right','shake-left','shake-right','spin-left','spin-right','sit','down','stay','jump'] as const)
   assert.equal(isShastaTrick(action),true);
