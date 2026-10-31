@@ -15,6 +15,7 @@ import { clearFrontierDecisionLedger, recordFrontierDecisionVisibility } from '.
 import { clearFrontierForagedSources } from './forage/sourceRoster';
 import { migrateFrontierProfile } from './profileMigration';
 import { applyReactionToProfile } from './scoring';
+import { interestScoreReaction, validInterestScore } from './interestRating';
 import { clearFrontierVelocityHistory } from './synthesis/velocityEngine';
 import { applyImplicitTasteSignal } from './tasteLearning';
 import { clearFrontierTrajectories } from './trajectory/contextTrajectories';
@@ -93,6 +94,7 @@ export type FrontierStore = FrontierPersistedState & {
   recordExpand: (item: FrontierItem) => void;
   recordOpen: (item: FrontierItem) => void;
   react: (item: FrontierItem, reaction: FrontierReaction) => void;
+  rateInterest: (item: FrontierItem, score: number, method: 'hold' | 'slider', holdMs?: number) => void;
   toggleSave: (item: FrontierItem) => void;
   createCollection: (name: string, description?: string) => string;
   toggleCollectionItem: (collectionId: string, item: FrontierItem) => void;
@@ -233,6 +235,30 @@ export const useFrontierStore = create<FrontierStore>()(
           game: { ...game, xp: game.xp + (firstReward ? xpForReaction(reaction) : 0) },
         });
         if (current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'reaction', item, reaction });
+      },
+
+      rateInterest: (item, score, method, holdMs = 0) => {
+        if (!validInterestScore(score)) return;
+        if (get().history[item.id]?.interestScore === score) return;
+        // Preserve existing recommendation-learning semantics while recording the
+        // full numeric label for future calibration / export. Never reinterpret
+        // attention duration as enjoyment.
+        get().react(item, interestScoreReaction(score));
+        const current = get();
+        const entry = current.history[item.id];
+        if (!entry) return;
+        set({
+          history: {
+            ...current.history,
+            [item.id]: {
+              ...entry,
+              interestScore: score,
+              interestRatedAt: new Date().toISOString(),
+              interestRatingMethod: method,
+              interestRatingDurationMs: method === 'hold' ? Math.max(0, Math.min(3000, Math.round(holdMs))) : 0,
+            },
+          },
+        });
       },
 
       toggleSave: (item) => {
