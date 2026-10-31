@@ -95,7 +95,7 @@ async function audit(width, height) {
 
 async function auditBackgroundLatest() {
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  const page = await browser.newPage({ viewport: { width: 320, height: 700 }, reducedMotion: 'reduce' });
   try {
     const base = new URL(TARGET);
     const snapshotResponse = await page.request.get(base.origin + '/api/frontier/feed');
@@ -143,6 +143,9 @@ async function auditBackgroundLatest() {
     assert.equal(await page.locator('section[data-frontier-edition-at]').getAttribute('data-frontier-edition-at'), updatedAt,
       'Applying cached edition must update provenance timestamp');
     assert.equal(await page.locator('article').count(), 1, 'Cached edition must still mount one article');
+    const viewport = await page.evaluate(() => ({ documentWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth }));
+    assert(viewport.documentWidth <= viewport.viewportWidth + 2,
+      'Latest-ready controls must fit narrow mobile layout: ' + JSON.stringify(viewport));
     return { cachedLatestLookups: hits, preservesActiveArticle: true, appliesOnRequest: true };
   } finally {
     await page.close();
