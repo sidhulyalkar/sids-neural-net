@@ -23,7 +23,10 @@ const record=async label=>{
   peakDown:data.shastaTrickPeakDown,peakPawLift:data.shastaTrickPeakPawLift,
   trickFrames:data.shastaTrickFramesSeen,contactCount:data.shastaPawsAnchored,
   contactResets:data.shastaContactResets,maxContactError:data.shastaMaxContactError,
-  goalDistance:data.shastaTrickGoalDistance};
+  goalDistance:data.shastaTrickGoalDistance,
+  spinPeakYaw:data.shastaSpinPeakYaw,
+  spinPeakPawLift:data.shastaSpinPeakPawLift,
+  spinPeakRootLift:data.shastaSpinPeakRootLift};
  snapshots.push(item);return item;
 };
 try{
@@ -43,6 +46,8 @@ try{
  await toggle.click();
  assert.equal(await nav.getByRole('button',{name:'Hide Shasta tricks'}).getAttribute('aria-expanded'),'true');
  assert.equal(await nav.getByRole('button',{name:'Shake left paw'}).isVisible(),true);
+ assert.equal(await nav.getByRole('button',{name:'Park it'}).count(),0,
+  'retired Park it must be absent from Shasta trick UI');
  await nav.getByRole('button',{name:'Sit',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTrickPhase==='hold'&&
  document.querySelector('canvas')?.dataset.shastaTrick==='sit',null,{timeout:25000});
@@ -69,20 +74,28 @@ try{
  },null,{timeout:25000});
  const shake=await record('right paw peak sampled');
  assert.ok(Number(shake.peakPawLift)>.09);
- await nav.getByRole('button',{name:'Park it'}).click();
- await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTrick==='park-it',
-  null,{timeout:15000});
- await record('park it approach');
+ // Grounded spins must finish a full turn through alternating paw steps,
+ // with no body/root jump at any sampled render frame.
+ await nav.getByRole('button',{name:'Spin right'}).click();
  await page.waitForFunction(()=>{
   const d=document.querySelector('canvas')?.dataset;
-  return d?.shastaTrick==='park-it'&&d.shastaTrickPhase==='hold';
- },null,{timeout:55000});
- await record('park it lying down between feet');
- await page.screenshot({path:path.join(out,'02-shasta-park-it.png')});
+  return Number(d?.shastaSpinPeakYaw)>5.0;
+ },null,{timeout:60000});
+ const spinRight=await record('spin right with grounded paw steps');
+ assert.ok(Number(spinRight.spinPeakYaw)>5.0);
+ assert.equal(Number(spinRight.spinPeakRootLift),0,
+  'spinning Shasta may never jump off the island');
+ assert.ok(Number(spinRight.spinPeakPawLift)<=.083,
+  'pivoting feet stay within a modest low arc');
+ await page.screenshot({path:path.join(out,'02-shasta-grounded-spin.png')});
+ await nav.getByRole('button',{name:'Spin left'}).click();
+ await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTrick==='spin-left',
+  null,{timeout:15000});
+ await record('left spin mirrors right without jump');
  await nav.getByRole('button',{name:'Shasta Come'}).click();
  await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaCommand==='come'&&
  document.querySelector('canvas')?.dataset.shastaTrickPhase==='idle',null,{timeout:15000});
- await record('recall interrupts park');
+ await record('recall interrupts spin');
  // Mobile drawer must remain in the viewport and its trigger stay reachable.
  await page.setViewportSize({width:390,height:750});
  const rect=await nav.boundingBox();
