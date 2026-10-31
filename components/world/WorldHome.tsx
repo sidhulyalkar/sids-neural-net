@@ -260,20 +260,27 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [treatPower,setTreatPower]=useState(65);
   const [treatAngle,setTreatAngle]=useState(0);
   const [lastTreat,setLastTreat]=useState<TreatCatchResult|null>(null);
+  const [treatToast,setTreatToast]=useState(false);
   const [bestTreat,setBestTreat]=useState(0);
   const onTreatCatch=useCallback((result:TreatCatchResult)=>{
     setLastTreat(result);
-    if(result.caught)setBestTreat(previous=>{
-      const best=Math.max(previous,result.score);
-      try{window.localStorage.setItem("sid-world:shasta-catch-best-v1",String(best));}
-      catch{/* Private browsing keeps session records. */}
-      return best;
-    });
+    setTreatToast(true);
+    if(result.caught)setBestTreat(previous=>Math.max(previous,result.score));
   },[]);
   useEffect(()=>{
     try{setBestTreat(Math.max(0,Number(window.localStorage.getItem("sid-world:shasta-catch-best-v1"))||0));}
     catch{/* Optional storage. */}
   },[]);
+  useEffect(()=>{
+    if(bestTreat<=0)return;
+    try{window.localStorage.setItem("sid-world:shasta-catch-best-v1",String(bestTreat));}
+    catch{/* Optional storage. */}
+  },[bestTreat]);
+  useEffect(()=>{
+    if(!lastTreat)return;
+    const id=window.setTimeout(()=>setTreatToast(false),4700);
+    return ()=>window.clearTimeout(id);
+  },[lastTreat]);
   const [quiet, setQuiet] = useState(false);
   const [region, setRegion] = useState<RegionId>("grove");
   const [nearby, setNearby] = useState<string | null>(null);
@@ -517,6 +524,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
     if(!shastaAvailable)return;
     if(action==="catch"){
       setLastTreat(null);
+      setTreatToast(false);
       setTreatThrowSerial(serial=>serial+1);
     }else{
       setShastaCommand(action);
@@ -621,6 +629,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
             <div className={styles.loading} role="status">
               Loading world…{" "}
               <button onClick={() => open("menu")}>Browse the site</button>
+            </div>
+          )}
+          {treatToast&&lastTreat&&!worldGameActive&&aquatic==="land"&&(
+            <div role="status" aria-live="polite" className={styles.treatResultToast}>
+              <strong>{lastTreat.label}</strong>
+              <span>{lastTreat.distance.toFixed(1)} world m · {lastTreat.score} pts</span>
             </div>
           )}
           <div className={styles.location} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>

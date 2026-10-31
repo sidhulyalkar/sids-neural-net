@@ -1686,3 +1686,15 @@
 .shastaCatchSliders input{width:100%;accent-color:#e9aa93}
 .shastaDrawer .shastaCatchResult{margin:7px 2px 0;color:#f3cbb0;
   letter-spacing:normal;text-transform:none;font-size:11px;line-height:1.35}
+
+/* One short-lived outcome chip, clear of both joysticks and the activity pod. */
+.treatResultToast{position:absolute;z-index:5;top:132px;left:20px;display:flex;
+  flex-direction:column;gap:2px;max-width:min(260px,70vw);padding:9px 12px;
+  border:1px solid #e9aa9355;border-radius:11px;background:#15383bdc;
+  box-shadow:0 8px 18px #061e2540;pointer-events:none;
+  color:#e6eee4;font-size:12px;line-height:1.35}
+.treatResultToast strong{color:#f0b8a3}
+@media(pointer:coarse){
+  .treatResultToast{top:calc(117px + env(safe-area-inset-top,0px));
+    left:12px;max-width:min(175px,43vw);font-size:10px;padding:6px 8px}
+}

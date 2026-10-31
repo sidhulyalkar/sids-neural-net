@@ -7544,6 +7544,8 @@ export function createWorld(
   return {
     setState(next) {
       if(next.shastaCommandSerial!==state.shastaCommandSerial){
+        // A newer explicit command always interrupts an outstanding treat chase.
+        treatFlight=null;treatMesh.visible=false;
         // Commit the partial turn to world heading before clearing the
         // authored spin offset. A mid-spin Sit/Come must never snap yaw.
         if(dogTrick.trick==="spin-left"||dogTrick.trick==="spin-right"){

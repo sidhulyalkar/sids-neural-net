@@ -57,6 +57,6 @@ export function scoreTreatFlight(flight:TreatFlight,t:number,caught:boolean):Tre
   if(!caught)return {caught:false,distance,score:0,label:"Missed treat"};
   const long=distance>=18,angled=Math.abs(flight.angle)>=12;
   const label=long&&angled?"Long-range trickshot":long?"Long-distance catch":
-    angled?"Curve trickshot":"Clean catch";
+    angled?"Off-axis trickshot":"Clean catch";
   return {caught:true,distance,score:Math.round(distance*12+Math.abs(flight.angle)*3),label};
 }
