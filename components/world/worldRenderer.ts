@@ -3601,6 +3601,9 @@ export function createWorld(
   let shastaTrickPeakDown=0;
   let shastaTrickPeakPawLift=0;
   let shastaTrickFramesSeen=0;
+  let shastaSpinPeakYaw=0;
+  let shastaSpinPeakPawLift=0;
+  let shastaSpinPeakRootLift=0;
   let wasCarrying=false;
   let shastaCatchCount=0;
   let pearlNoticeUntil=0;
@@ -6426,6 +6429,17 @@ export function createWorld(
     canvas.dataset.shastaTrickPeakDown=shastaTrickPeakDown.toFixed(3);
     canvas.dataset.shastaTrickPeakPawLift=shastaTrickPeakPawLift.toFixed(3);
     canvas.dataset.shastaTrickFramesSeen=String(shastaTrickFramesSeen);
+    if(dogTrick.trick==="spin-left"||dogTrick.trick==="spin-right"){
+      shastaSpinPeakYaw=Math.max(shastaSpinPeakYaw,Math.abs(commandedPose.spin));
+      shastaSpinPeakRootLift=Math.max(shastaSpinPeakRootLift,
+        commandedPose.jump);
+      shastaSpinPeakPawLift=Math.max(shastaSpinPeakPawLift,
+        shastaSpinPawLift(commandedPose,0),shastaSpinPawLift(commandedPose,1),
+        shastaSpinPawLift(commandedPose,2),shastaSpinPawLift(commandedPose,3));
+    }
+    canvas.dataset.shastaSpinPeakYaw=shastaSpinPeakYaw.toFixed(4);
+    canvas.dataset.shastaSpinPeakPawLift=shastaSpinPeakPawLift.toFixed(4);
+    canvas.dataset.shastaSpinPeakRootLift=shastaSpinPeakRootLift.toFixed(4);
     dogOuting=stepShastaOuting(dogOuting,elapsed,dog,player,
       critters.map(c=>c.kind==="squirrel"?c.point:null),outingAllowed,dryRoute);
     dogChase={mode:dogOuting.mode==="roam"?"follow":
@@ -7486,6 +7500,9 @@ export function createWorld(
         shastaTrickPeakDown=0;
         shastaTrickPeakPawLift=0;
         shastaTrickFramesSeen=0;
+        shastaSpinPeakYaw=0;
+        shastaSpinPeakPawLift=0;
+        shastaSpinPeakRootLift=0;
         if(isShastaTrick(next.shastaCommand)){
           dogOuting=commandShasta("come");
           dogTrick=beginShastaTrick(next.shastaCommand,dogTrickClock,dog,player,
