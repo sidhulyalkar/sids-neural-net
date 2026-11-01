@@ -13,6 +13,14 @@ async function audit(width, height) {
   page.on('request', (request) => {
     if (request.url().includes('/api/frontier/feed')) feedRequests.push(request.url());
   });
+  // Freeze the optional background updater for first-paint and rating tests.
+  // auditBackgroundLatest explicitly exercises the positive update path below.
+  await page.route('**/api/frontier/feed?latest=1', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    headers: { 'X-Frontier-Live': 'snapshot-fallback' },
+    body: JSON.stringify({ generatedAt: new Date().toISOString(), items: [], sources: [] }),
+  }));
   const t0 = Date.now();
   try {
     const response = await page.goto(TARGET, { waitUntil: 'domcontentloaded', timeout: FIRST_PAINT_BUDGET_MS });
