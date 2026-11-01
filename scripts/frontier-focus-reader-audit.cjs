@@ -97,6 +97,10 @@ async function audit(width, height) {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('article h1').first().waitFor();
     await page.waitForFunction(() => document.querySelector('button[aria-label^="Hold to rate"]')?.textContent?.includes('9/10'), undefined, { timeout: 4000 });
+    await page.waitForTimeout(1_200);
+    const candidateLookups = feedRequests.filter((url) => url.includes('candidates=1'));
+    assert.equal(candidateLookups.length, 1,
+      'Returning reader should load the wider public snapshot once, after first paint');
     const beforeRevision = await page.evaluate(() => JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
     const finalRating = page.locator('details').filter({ hasText: 'Set exact score' });
     await finalRating.locator('summary').click();
@@ -115,7 +119,7 @@ async function audit(width, height) {
     assert.deepEqual(errors, [], 'No browser JavaScript exceptions allowed');
     return { width, height, firstPaintMs, initialUncachedRequests: 0,
       backgroundCachedRequests: feedRequests.filter((url) => url.includes('latest=1')).length,
-      singleArticle: true, ratingPersisted: true, revisionReplacedVote: true };
+      singleArticle: true, ratingPersisted: true, revisionReplacedVote: true, widerCandidateLookups: 1 };
   } finally {
     await page.close();
     await browser.close();
