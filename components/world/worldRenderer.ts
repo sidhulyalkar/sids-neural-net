@@ -4,6 +4,8 @@ import {makeTreatFlight,sampleTreatFlight,planTreatCatchGoal,stepTreatFlight,tre
 import {beginShastaTrick,idleShastaTrick,stepShastaTrick,shastaTrickPose,advanceShastaTrickClock,shastaSpinPawLift,shastaHeadingAfterTrickInterrupt,isShastaTrick,type ShastaAction} from "@/lib/world/shastaTricks";
 import {createCoastalNature} from "./worldCoastalNature";
 import {createResearchGallery} from "./worldResearchGallery";
+import {createWorldUnderwaterGallery} from "./worldUnderwaterGallery";
+import {bunkerInside,bunkerNearby,bunkerSwimY} from "@/lib/world/underwaterBunker";
 import {idleOceanObservation,advanceOceanObservation,stopOceanObservation} from "@/lib/world/coastalObservation";
 import {settleSurfaceHeight} from "@/lib/world/surfaceSupport";
 import {COAST_BENCH,COAST_WHALE,COAST_FALL,waterfallRockHeight} from "@/lib/world/hydrology";
@@ -146,6 +148,7 @@ import {
   type Point,
   type RegionId,
   type WorldCommand,
+  type WorldPhoto,
 } from "@/lib/world/model";
 
 type Callbacks = {
@@ -203,6 +206,7 @@ export function createWorld(
   callbacks: Callbacks,
   Renderer: typeof WebGLRenderer,
   gameTitles: string[],
+  photos: WorldPhoto[],
 ): WorldRuntime {
   const renderer = new Renderer({
     antialias: true,
@@ -2924,6 +2928,16 @@ export function createWorld(
   const southChannelLife = createSouthChannelLife(southPassageRoot);
   const southEcology = createSouthCoastalEcology(southPassageRoot);
   const goldenTridents = createWorldTridents(reefRoot,tropicalReefRoot);
+  const bunkerGallery=createWorldUnderwaterGallery(photos);
+  scene.add(bunkerGallery.root);
+  canvas.dataset.bunkerPhotoCount=String(bunkerGallery.photoCount);
+  canvas.dataset.bunkerPhotoCapacity=String(bunkerGallery.layout.photoCapacity);
+  canvas.dataset.bunkerMazeRooms=String(bunkerGallery.layout.cells);
+  const bunkerHud=document.createElement("div");
+  bunkerHud.setAttribute("role","status");
+  bunkerHud.setAttribute("aria-label","Underwater photo maze discovery");
+  bunkerHud.style.cssText="position:absolute;left:50%;bottom:116px;transform:translateX(-50%);z-index:7;pointer-events:none;display:none;border:1px solid #68d9e477;border-radius:12px;background:#07314dcc;color:#d9f9fd;padding:7px 13px;font:12px system-ui;text-align:center;max-width:calc(100vw - 48px);backdrop-filter:blur(7px)";
+  host.append(bunkerHud);
   canvas.dataset.schoolingFish = String(marineSchools.count);
   canvas.dataset.marineHabitatPatches = String(marinePatches.patchCount);
   canvas.dataset.westHabitatDrawCalls = String(marinePatches.drawCalls.kelp);
@@ -3844,6 +3858,13 @@ export function createWorld(
       const paperHit=ray.intersectObjects(researchGallery.targets,false)[0];
       if(paperHit&&paperHit.distance<20){window.open(paperHit.object.userData.paperHref,"_blank","noopener,noreferrer");return;}
     }
+    if(aquatic==="dive"&&bunkerInside(player)){
+      const photoHit=ray.intersectObjects(bunkerGallery.targets,false)
+        .find(hit=>hit.object.parent?.visible&&
+          Math.hypot(hit.point.x-player.x,hit.point.z-player.z)<7.2);
+      const photoId=photoHit?.object.userData.photoId as string|undefined;
+      if(photoId){callbacks.onInteract(photoId);return;}
+    }
     if(seated){leaveOceanBench();return;}
     const boardHit=ray.intersectObjects(skimProps,false)[0];
     if(boardHit&&boardHit.distance<60){
@@ -4734,12 +4755,18 @@ export function createWorld(
           lastBigAirUpdate=elapsed;
         }
       } else if (aquatic !== "land") {
-        const nextTravel = stepSwim(
+        const rawSwim=stepSwim(
           { ...travel, point: player },
           { x: dx, z: dz },
           rawDelta,
           destination,
         );
+        // A swept collision layer matches the actual blue bulkhead geometry.
+        const constrained=aquatic==="dive"&&bunkerNearby(player,30)
+          ?bunkerGallery.constrain(player,rawSwim.point):rawSwim.point;
+        const nextTravel={...rawSwim,point:constrained,
+          speed:Math.hypot(constrained.x-rawSwim.point.x,constrained.z-rawSwim.point.z)>.1
+            ?0:rawSwim.speed};
         if (!isWater(nextTravel.point)||jetSkiPierHeight(nextTravel.point)!==null) {
           if (aquatic === "surface") {
             travel = nextTravel;
@@ -4755,6 +4782,9 @@ export function createWorld(
           travel = nextTravel;
           player = travel.point;
           const availableDepth = maxDiveDepth(player);
+          if(aquatic==="dive"&&bunkerInside(player)){
+            targetDepth=SEA_SURFACE-bunkerSwimY(player);
+          }
           targetDepth = THREE.MathUtils.clamp(targetDepth, 0, availableDepth);
           if (aquatic === "dive") {
             const depthStep = 2.1 * dt;
@@ -6038,6 +6068,15 @@ export function createWorld(
           SEA_SURFACE - 0.28,
         );
       }
+      if(aquatic==="dive"&&bunkerInside(player)){
+        // Keep the camera within the chamber and the photograph at eye level.
+        const behind={x:player.x+Math.sin(yaw)*1.5,
+          z:player.z+Math.cos(yaw)*1.5};
+        const safe=bunkerGallery.constrain(player,behind);
+        targetCamera.set(safe.x,Math.min(SEA_SURFACE-.27,playerY+1.15),safe.z);
+        targetLook.set(player.x-Math.sin(yaw)*4.1,
+          playerY+1.0,player.z-Math.cos(yaw)*4.1);
+      }
       if (caveInside || paperInside) {
         const isArcade = caveInside;
         // A camera just 0.5m behind the player at the threshold rendered the
@@ -7165,6 +7204,23 @@ export function createWorld(
     // Underwater atmosphere and biome work are keyed by the water zone. The cold
     // kelp shelf and warm lagoon never render/animate together.
     const underwater = aquatic === "dive";
+    const galleryState=bunkerGallery.update(player,playerY,aquatic,rawDelta);
+    canvas.dataset.bunkerInside=String(galleryState.inside&&underwater);
+    canvas.dataset.bunkerHatchOpen=String(galleryState.open);
+    canvas.dataset.bunkerLoadedTextures=String(galleryState.loaded);
+    canvas.dataset.bunkerMissingTextures=String(galleryState.missing);
+    const entryDistance=distance(player,bunkerGallery.layout.entry);
+    const showBunkerHud=(aquatic!=="land"&&entryDistance<9)||
+      (galleryState.inside&&underwater);
+    bunkerHud.style.display=showBunkerHud?"block":"none";
+    if(showBunkerHud){
+      const nextText=galleryState.inside
+        ? "Sea Glass Archive · Explore the blue halls · Tap a photograph"
+        : galleryState.open
+          ? "Sea Glass Archive · Circular hatch opening"
+          : "Sea Glass Archive · Dive deeper toward the circular hatch";
+      if(bunkerHud.textContent!==nextText)bunkerHud.textContent=nextText;
+    }
     const currentWaterZone = waterZone(player);
     reefRoot.visible = aquatic !== "land" && currentWaterZone === "kelp";
     tropicalReefRoot.visible = aquatic !== "land" && currentWaterZone === "lagoon";
@@ -8096,6 +8152,7 @@ export function createWorld(
       mobileJoysticks.dispose();
        shoreLife.dispose();
       coastalNature.dispose();researchGallery.dispose();coastalControls.remove();
+      bunkerGallery.dispose();bunkerHud.remove();
       skimWake.dispose();
       skimSurf.dispose();
       discGolfObjects.dispose();

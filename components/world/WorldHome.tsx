@@ -578,6 +578,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             waterAction={waterAction}
             waterActionSerial={waterActionSerial}
             gameTitles={content.games.map(game => game.title)}
+            photos={content.photos}
             onAquatic={setAquatic}
             onReady={onReady}
             onError={onError}
@@ -1200,7 +1201,11 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 </>
               ) : (
                 <div className={styles.panelLinks}>
-                  <Link href={trident.href} prefetch={false}>Explore</Link>
+                  {trident.id==="trident-kelp"
+                    ?<a href={trident.href} target="_blank" rel="noopener noreferrer">
+                      UC San Diego Bioengineering ↗
+                     </a>
+                    :<Link href={trident.href} prefetch={false}>Explore</Link>}
                 </div>
               )}
               <button className={styles.geiselReturn} onClick={close}>Continue diving</button>

@@ -1,6 +1,6 @@
 import * as THREE from "three/src/Three.Core.js";
 import {bunkerLayout,bunkerInside,bunkerNearby,bunkerHatchAccessible,
- bunkerSwimY,UNDERWATER_BUNKER,type BunkerPhotoSlot} from "@/lib/world/underwaterBunker";
+ UNDERWATER_BUNKER,type BunkerPhotoSlot} from "@/lib/world/underwaterBunker";
 import {constrainMove,seaFloorHeight,type Point,type WorldPhoto,type Obstacle} from "@/lib/world/model";
 
 type PhotoEntry={group:THREE.Group;material:THREE.MeshBasicMaterial;

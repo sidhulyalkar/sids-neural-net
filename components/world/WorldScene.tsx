@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { createWorld, type WorldRuntime } from "./worldRenderer";
-import type { RegionId, WorldCommand } from "@/lib/world/model";
+import type { RegionId, WorldCommand, WorldPhoto } from "@/lib/world/model";
 import styles from "./world.module.css";
 
 import type { Activity, AquaticMode } from "@/lib/world/activities";
@@ -39,6 +39,7 @@ type Props = {
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   gameTitles: string[];
+  photos:WorldPhoto[];
   entered: boolean;
   paused: boolean;
   command: WorldCommand | null;
@@ -81,7 +82,8 @@ export default function WorldScene(props: Props) {
           onJetSkiMode:(active)=>callbacks.current.onJetSkiMode(active),
           onSkim:(heat)=>callbacks.current.onSkim(heat),
           onSkimNearby:(board)=>callbacks.current.onSkimNearby(board),
-        }, WebGLRenderer, callbacks.current.gameTitles);
+        }, WebGLRenderer, callbacks.current.gameTitles,
+          callbacks.current.photos);
         runtime.current.setState(callbacks.current);
       } catch (error) {
         console.error("World 3D initialization failed",error);
