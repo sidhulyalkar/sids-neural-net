@@ -27,7 +27,8 @@ function browserRecognizer():RecognizerConstructor|undefined{
 }
 function captureSupported(){
  return typeof navigator!=="undefined"&&!!navigator.mediaDevices?.getUserMedia&&
-  typeof MediaRecorder!=="undefined"&&!!preferredShastaAudioMime(MediaRecorder.isTypeSupported.bind(MediaRecorder));
+  typeof MediaRecorder!=="undefined"&&typeof MediaRecorder.isTypeSupported==="function"&&
+  !!preferredShastaAudioMime(MediaRecorder.isTypeSupported.bind(MediaRecorder));
 }
 type CaptureSession={
  recorder:MediaRecorder;stream:MediaStream;chunks:Blob[];timer:number;
@@ -130,12 +131,19 @@ export function useShastaVoice(available:boolean,onAction:(action:ShastaVoiceAct
   capture.current=null;
   window.clearTimeout(session.timer);
   const {recorder,stream,chunks}=session;
-  // Track cleanup is guaranteed even on recorder errors.
+  let finalized=false;
+  // Once-only completion: Safari can report "inactive" before dispatching
+  // the stop event. A synthetic/late duplicate may never upload twice.
   recorder.onstop=()=>{
+   if(finalized)return;
+   finalized=true;
    stream.getTracks().forEach(track=>track.stop());
    if(id===epoch.current)void sendClip(id,chunks,recorder.mimeType||"audio/webm");
   };
   recorder.onerror=()=>{
+   if(finalized)return;
+   finalized=true;
+   recorder.onstop=null;
    stream.getTracks().forEach(track=>track.stop());
    if(id===epoch.current){setStatus("error");setNotice("Microphone recording failed.");}
   };
