@@ -68,7 +68,7 @@ function dedupe(items: FrontierItem[]): FrontierItem[] {
 export function getFrontierColdSnapshotFeed(now = Date.now()): FrontierObservableFeedResponse {
   const snapshot = frontierSnapshot as FrontierFeedResponse;
   const input = snapshot.items ?? [];
-  const plausibleItems = input.map(cleanFrontierItem).filter((item) => plausible(item, now) && isFrontierEditoriallyUsable(item));
+  const plausibleItems = input.map(cleanFrontierItem).filter((item) => plausible(item, now));
   const rightsSafe = plausibleItems.filter((item) => !rightsFragileNflYoutube(item));
   const recent = rightsSafe.filter((item) => {
     const publishedAt = Date.parse(item.publishedAt);
@@ -80,7 +80,7 @@ export function getFrontierColdSnapshotFeed(now = Date.now()): FrontierObservabl
     !needsEnglishTranslation(item.title) && !needsEnglishTranslation(item.summary)
   ));
   const deduped = dedupe(english);
-  const admitted = vetFrontierItems(deduped);
+  const admitted = vetFrontierItems(deduped.filter(isFrontierEditoriallyUsable));
   const items = admitted.slice(0, MAX_SNAPSHOT_CANDIDATES);
 
   const pipeline = buildFrontierPipelineDiagnostics({
