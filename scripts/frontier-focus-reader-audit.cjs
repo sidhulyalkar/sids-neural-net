@@ -13,6 +13,14 @@ async function audit(width, height) {
   page.on('request', (request) => {
     if (request.url().includes('/api/frontier/feed')) feedRequests.push(request.url());
   });
+  // Freeze the optional background updater for first-paint and rating tests.
+  // auditBackgroundLatest explicitly exercises the positive update path below.
+  await page.route('**/api/frontier/feed?latest=1', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    headers: { 'X-Frontier-Live': 'snapshot-fallback' },
+    body: JSON.stringify({ generatedAt: new Date().toISOString(), items: [], sources: [] }),
+  }));
   const t0 = Date.now();
   try {
     const response = await page.goto(TARGET, { waitUntil: 'domcontentloaded', timeout: FIRST_PAINT_BUDGET_MS });
@@ -27,7 +35,11 @@ async function audit(width, height) {
     assert((await page.locator('figure img').count()) <= 1, 'Figure tabs cannot mount every source image');
     assert((await page.locator('figure img').count()) <= 1, 'Only the current source image is mounted');
     assert.equal(await page.locator('canvas').count(), 0, 'Default reader must not initialize WebGL/canvas');
-    assert.equal(feedRequests.length, 0, 'Initial navigation must use server snapshot, not passive live discovery');
+    const uncachedRequests = feedRequests.filter((url) => !url.includes('latest=1'));
+    assert.equal(uncachedRequests.length, 0,
+      'Initial navigation must use the server snapshot, never the expensive live-search graph');
+    assert(feedRequests.filter((url) => url.includes('latest=1')).length <= 1,
+      'An old snapshot may trigger at most one nonblocking cached-latest lookup');
 
     // Nav labels differ visually across sizes; use the stable accessible name.
     const nextButton = page.locator('[data-frontier-next="true"]');
@@ -85,8 +97,25 @@ async function audit(width, height) {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('article h1').first().waitFor();
     await page.waitForFunction(() => document.querySelector('button[aria-label^="Hold to rate"]')?.textContent?.includes('9/10'), undefined, { timeout: 4000 });
+    const beforeRevision = await page.evaluate(() => JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
+    const finalRating = page.locator('details').filter({ hasText: 'Set exact score' });
+    await finalRating.locator('summary').click();
+    await finalRating.locator('input[type="range"]').focus();
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ArrowRight');
+    await finalRating.getByRole('button', { name: 'Save' }).click();
+    assert.match((await rating.textContent()) || '', /2\/10/, 'Rating revision must replace the previous value');
+    const afterRevision = await page.evaluate(() => JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
+    assert.equal(afterRevision.profile.meaningfulInteractions, beforeRevision.profile.meaningfulInteractions,
+      'Revising a rating cannot add another learned interaction');
+    assert.equal(afterRevision.game.xp, beforeRevision.game.xp,
+      'Revising a rating cannot award the same item XP again');
+    const updated = Object.values(afterRevision.history).find((entry) => entry.item.title === heading && entry.interestScore === 2);
+    assert.equal(updated?.reaction, 'down', 'The numeric revision must replace the canonical coarse preference');
     assert.deepEqual(errors, [], 'No browser JavaScript exceptions allowed');
-    return { width, height, firstPaintMs, initialApiRequests: 0, singleArticle: true, ratingPersisted: true };
+    return { width, height, firstPaintMs, initialUncachedRequests: 0,
+      backgroundCachedRequests: feedRequests.filter((url) => url.includes('latest=1')).length,
+      singleArticle: true, ratingPersisted: true, revisionReplacedVote: true };
   } finally {
     await page.close();
     await browser.close();

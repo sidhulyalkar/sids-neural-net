@@ -44,10 +44,18 @@ export function frontierRecentItems(items: FrontierItem[], now = Date.now()): Fr
  */
 export function frontierHasUsableRecentFeed(feed: FrontierFeedResponse, now = Date.now()): boolean {
   const items = frontierRecentItems(feed.items, now);
-  return items.length >= 8 && items.some((item) => {
+  if (items.length < 8) return false;
+  // A rapidly changing sports scoreboard is not proof that the research/news
+  // discovery layer succeeded. Require three independently dated editorial
+  // items across at least two source kinds before replacing the shared edition.
+  const freshEditorial = items.filter((item) => {
+    if (item.sourceKind === 'sports_state' || item.sportsState) return false;
     const published = Date.parse(item.publishedAt);
-    return Number.isFinite(published) && now - published <= RECENT_AGE_MS;
+    return Number.isFinite(published) && published <= now
+      && now - published <= RECENT_AGE_MS;
   });
+  return freshEditorial.length >= 3
+    && new Set(freshEditorial.map((item) => item.sourceKind)).size >= 2;
 }
 
 /** Protect a reader's place: no benefit in announcing a new edition with the same items. */

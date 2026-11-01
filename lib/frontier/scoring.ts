@@ -1,4 +1,5 @@
 import { selectAdaptiveDailyAllocation } from './adaptiveSlate';
+import { interestScoreReaction, validInterestScore } from './interestRating';
 import { behavioralAdjustment, behavioralExplorationBonus, formatForItem, aggregatePreference, timeBucket } from './behavior';
 import { buildConnectionExposureIndex, connectionPortfolioAdjustment } from './connectionPortfolio';
 import { FRONTIER_LANE_MAP } from './config';
@@ -69,6 +70,53 @@ function consequentialInterruptPrior(item: FrontierItem): number {
   const severity = clamp((item.importance - 0.82) / 0.16);
   const evidenceQuality = clamp((item.quality - 0.72) / 0.26);
   return Math.min(0.1, severity * evidenceQuality * 0.1);
+}
+
+/**
+ * Replace an existing numeric vote without applying a second independent
+ * learning event. Old versions recorded the first rating through react(), so
+ * each explicit preference field is updated by the difference between the old
+ * and new reaction strengths. Count, XP and unrelated taste history stay intact.
+ *
+ * Historical scalar aggregates can already be clamped, so exact replay of
+ * pre-existing saturated memory is not possible. Canonical history still keeps
+ * only the latest rating, and evidence-aware ranking reads that latest label.
+ */
+export function replaceInterestRatingProfile(
+  profile: FrontierProfile,
+  item: FrontierItem,
+  previousScore: number,
+  nextScore: number,
+): FrontierProfile {
+  if (!validInterestScore(previousScore) || !validInterestScore(nextScore) || previousScore === nextScore) return profile;
+  const previousReaction = interestScoreReaction(previousScore);
+  const nextReaction = interestScoreReaction(nextScore);
+  const delta = reactionValue(nextReaction) - reactionValue(previousReaction);
+  if (delta === 0) return profile;
+  const laneAffinity = { ...profile.laneAffinity };
+  const topicAffinity = { ...profile.topicAffinity };
+  const sourceAffinity = { ...profile.sourceAffinity };
+  laneAffinity[item.lane] = clamp((laneAffinity[item.lane] ?? 0) + delta * 0.1, -0.75, 1.25);
+  sourceAffinity[item.sourceKind] = clamp((sourceAffinity[item.sourceKind] ?? 0) + delta * 0.045, -0.5, 0.8);
+  for (const tag of item.tags.slice(0, 7)) {
+    const key = tag.toLowerCase();
+    topicAffinity[key] = clamp((topicAffinity[key] ?? 0) + delta * 0.075, -0.8, 1.4);
+  }
+  // The original reaction path adjusts curiosity for an explicit "down".
+  const oldCuriosity = previousReaction === 'down' ? -0.01 : 0;
+  const newCuriosity = nextReaction === 'down' ? -0.01 : 0;
+  const revised = {
+    ...profile, laneAffinity, topicAffinity, sourceAffinity,
+    curiosity: clamp(profile.curiosity + newCuriosity - oldCuriosity, 0.08, 0.55),
+  };
+  // Pair learning clamps each individual signed vote before scaling it.
+  // Undo and reapply separately; clamping the combined delta would produce
+  // a different affinity for 9/10 -> 2/10 and corrupt reversibility.
+  return applyExplicitPairSignal(
+    applyExplicitPairSignal(revised, item, -reactionValue(previousReaction)),
+    item,
+    reactionValue(nextReaction),
+  );
 }
 
 export function applyReactionToProfile(profile: FrontierProfile, item: FrontierItem, reaction: FrontierReaction): FrontierProfile {

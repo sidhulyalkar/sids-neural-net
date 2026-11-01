@@ -8,13 +8,14 @@ import {
   endBehaviorSession,
   recordLayoutUse,
   recordViewUse,
+  replaceInterestRatingBehavior,
   startBehaviorSession,
 } from './behavior';
 import { createInitialProfile, DEFAULT_COLLECTIONS } from './config';
 import { clearFrontierDecisionLedger, recordFrontierDecisionVisibility } from './decisionLedger';
 import { clearFrontierForagedSources } from './forage/sourceRoster';
 import { migrateFrontierProfile } from './profileMigration';
-import { applyReactionToProfile } from './scoring';
+import { applyReactionToProfile, replaceInterestRatingProfile } from './scoring';
 import { interestScoreReaction, validInterestScore } from './interestRating';
 import { clearFrontierVelocityHistory } from './synthesis/velocityEngine';
 import { applyImplicitTasteSignal } from './tasteLearning';
@@ -239,19 +240,33 @@ export const useFrontierStore = create<FrontierStore>()(
 
       rateInterest: (item, score, method, holdMs = 0) => {
         if (!validInterestScore(score)) return;
-        if (get().history[item.id]?.interestScore === score) return;
-        // Preserve existing recommendation-learning semantics while recording the
-        // full numeric label for future calibration / export. Never reinterpret
-        // attention duration as enjoyment.
-        get().react(item, interestScoreReaction(score));
+        const previous = get().history[item.id];
+        if (previous?.interestScore === score) return;
+
+        // First explicit vote retains the established reaction/XP authority.
+        // Revisions replace that vote rather than accumulating contradictory
+        // preference events or awarding new XP. Canonical history remains the
+        // sole durable evidence record for this article.
+        if (!validInterestScore(previous?.interestScore ?? 0)) {
+          get().react(item, interestScoreReaction(score));
+        } else {
+          const current = get();
+          const priorScore = previous!.interestScore!;
+          const nextProfile = replaceInterestRatingProfile(current.profile, item, priorScore, score);
+          const nextBehavior = replaceInterestRatingBehavior(
+            current.behavior, item, priorScore, score, previous!.interestRatedAt,
+          );
+          set({ profile: nextProfile, behavior: nextBehavior });
+        }
         const current = get();
-        const entry = current.history[item.id];
-        if (!entry) return;
+        const entry = current.history[item.id] ?? historyEntry(item);
         set({
           history: {
             ...current.history,
             [item.id]: {
               ...entry,
+              reaction: interestScoreReaction(score),
+              reactedAt: new Date().toISOString(),
               interestScore: score,
               interestRatedAt: new Date().toISOString(),
               interestRatingMethod: method,
