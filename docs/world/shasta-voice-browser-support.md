@@ -54,3 +54,15 @@ data handling terms. This is a cloud fallback, not on-device transcription.
 No automated microphone test alone can guarantee every device/OS permission
 setting. On real devices, verify a command in Chrome, Edge, Firefox, Safari,
 iOS Safari and Android Chrome using a test deployment with a configured provider.
+
+## Browser QA isolation and cost replay guard
+
+The browser matrix uses the same `useShastaVoice` hook on a development-only
+`/world/voice-qa` page. The route deliberately returns 404 in production.
+This avoids an unrelated software-WebGL context failure on headless Linux Firefox
+being reported as a microphone failure. The full 3D world remains covered by
+its independent browser suite.
+
+Each capture includes a random `X-Shasta-Voice-Clip` ID. The server rejects a
+second upload with the same ID before contacting the paid transcription provider.
+This is a best-effort per-worker replay guard, not a distributed guarantee.
