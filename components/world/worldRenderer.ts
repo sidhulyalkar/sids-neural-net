@@ -8054,6 +8054,19 @@ export function createWorld(
         setAquaticMode("land");
         caveLayer = "surface";
         playerY = jetPierStart ? (jetSkiPierHeight(player) ?? groundHeight(player)) : groundHeight(player);
+        // Only dev/CI may start submerged at the archive. Production entry
+        // remains a real dive through the visible trident-side hatch.
+        if(process.env.NODE_ENV==="development"&&next.command.bunkerDestination){
+          const entry=bunkerGallery.layout.entry;
+          player={x:entry.x+(next.command.bunkerDestination==="gallery"?-3.2:2.8),
+            z:entry.z};
+          travel={point:player,speed:0,heading:{x:-1,z:0}};
+          yaw=Math.PI/2;pitch=.3;zoom=9;
+          targetDepth=swimDepth=Math.max(.6,SEA_SURFACE-bunkerSwimY(player));
+          playerY=SEA_SURFACE-swimDepth;
+          setAquaticMode("dive");
+          canvas.dataset.bunkerQaStart=next.command.bunkerDestination;
+        }
         if(barkStart){
           skateTunnelRide=beginSkateLogTopRide();
           const pose=skateTunnelSample(skateTunnelRide,groundHeight);

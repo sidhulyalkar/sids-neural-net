@@ -459,6 +459,17 @@ export function WorldHome({ content }: { content: WorldContent }) {
     setEnabled(true);
     setEntered(true);
     setFailed(false);
+    // Development-only browser qualification of the real underwater renderer.
+    // Ordinary visitors must discover the hatch by snorkeling.
+    if(process.env.NODE_ENV==="development"){
+      const qa=new URLSearchParams(window.location.search).get("bunker-start");
+      if(qa==="airlock"||qa==="gallery"){
+        setCommand(previous=>({
+          region:"coast",serial:(previous?.serial??0)+1,
+          activity:"run",bunkerDestination:qa,
+        }));
+      }
+    }
     // Optional shareable ride starts preserve real-loop browser QA without
     // exposing separate teleport buttons in the player-facing sports drawer.
     const ride = new URLSearchParams(window.location.search).get("skate-start");

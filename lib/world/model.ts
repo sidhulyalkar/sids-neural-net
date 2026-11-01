@@ -604,4 +604,5 @@ export type WorldCommand = {
   natureDestination?: "ocean-bench" | "research-cave" | "fern-crown" | "coastal-falls" | "snowmelt-pool";
   skateDestination?: "canyon-flow" | "loop-rollin" | "loop-reverse" | "hollow-log" | "log-top";
   sportDestination?: "jet-pier";
+  bunkerDestination?:"airlock"|"gallery";
 };
