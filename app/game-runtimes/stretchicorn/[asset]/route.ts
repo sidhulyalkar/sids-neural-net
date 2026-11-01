@@ -64,12 +64,15 @@ function prepareForGameNetwork(html: string) {
   }
 
   // Ensure the canvas can receive keyboard focus inside the Game Network shell.
-  let focusable = shell;
-  if (shell.includes('<canvas id=c ') && !shell.includes('<canvas id=c tabindex=')) {
-    focusable = shell.replace('<canvas id=c ', '<canvas id=c tabindex=0 ');
-  } else if (/<canvas id="c"/i.test(shell) && !/tabindex=/i.test(shell)) {
-    focusable = shell.replace(/<canvas id="c"([^>]*)>/i, '<canvas id="c"$1 tabindex="0">');
-  }
+  // Packed build variants can spell the same canvas element with quoted,
+  // unquoted, single-quoted, or end-of-tag id attributes. Check only the actual
+  // #c element, not whether some unrelated element has a tabindex.
+  const focusable = shell.replace(
+    /<canvas\b[^>]*\bid\s*=\s*(?:"c"|'c'|c)(?=[\s>])[^>]*>/i,
+    (canvasTag) => /\btabindex\s*=/i.test(canvasTag)
+      ? canvasTag
+      : canvasTag.replace(/>$/, ' tabindex="0">'),
+  );
 
   if (!/<canvas[^>]*\sid=['"]?c['"]?/i.test(focusable)) {
     throw new Error('Stretchicorn artifact no longer exposes the expected canvas shell.');
