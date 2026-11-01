@@ -145,9 +145,14 @@ async function boundedFetch(url: string, init: RequestInit = {}, outerSignal?: A
   const abort = () => controller.abort();
   outerSignal?.addEventListener('abort', abort, { once: true });
   try {
+    const hasCredentials = new Headers(init.headers).has('authorization');
+    const revalidate = (init as RequestInit & { next?: { revalidate?: number } }).next?.revalidate;
     return await fetch(url, {
       ...init,
-      cache: 'no-store',
+      // Share public adapter responses between serverless executions using
+      // Next's fetch cache. A bearer token or arbitrary focused query must
+      // never be persisted in that shared cache.
+      ...(hasCredentials || !revalidate ? { cache: 'no-store' as const, next: undefined } : {}),
       signal: controller.signal,
       headers: {
         Accept: 'application/json, application/atom+xml, application/rss+xml, application/xml, text/xml, */*;q=0.2',
@@ -161,14 +166,16 @@ async function boundedFetch(url: string, init: RequestInit = {}, outerSignal?: A
   }
 }
 
-async function fetchText(url: string, signal?: AbortSignal): Promise<string> {
-  const response = await boundedFetch(url, {}, signal);
+async function fetchText(url: string, signal?: AbortSignal, publicTtlSeconds = 0): Promise<string> {
+  const response = await boundedFetch(url,
+    publicTtlSeconds ? { next: { revalidate: publicTtlSeconds } } as RequestInit : {}, signal);
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   return response.text();
 }
 
-async function fetchJson<T>(url: string, headers: HeadersInit = {}, signal?: AbortSignal): Promise<T> {
-  const response = await boundedFetch(url, { headers }, signal);
+async function fetchJson<T>(url: string, headers: HeadersInit = {}, signal?: AbortSignal, publicTtlSeconds = 0): Promise<T> {
+  const response = await boundedFetch(url,
+    publicTtlSeconds ? { headers, next: { revalidate: publicTtlSeconds } } as RequestInit : { headers }, signal);
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   return response.json() as Promise<T>;
 }
@@ -448,7 +455,7 @@ function adapters(): SourceAdapter[] {
         url.searchParams.set('max_results', String(limit));
         url.searchParams.set('sortBy', 'submittedDate');
         url.searchParams.set('sortOrder', 'descending');
-        return parseArxivAtom(await fetchText(url.toString(), signal));
+        return parseArxivAtom(await fetchText(url.toString(), signal, query ? 0 : 900));
       },
     },
     {
@@ -456,7 +463,7 @@ function adapters(): SourceAdapter[] {
       load: async (_query, limit, signal) => {
         const url = new URL('https://huggingface.co/api/daily_papers');
         url.searchParams.set('limit', String(Math.min(100, Math.max(limit, 20))));
-        const parsed = parseHuggingFaceDailyPapers(await fetchJson<unknown>(url.toString(), {}, signal));
+        const parsed = parseHuggingFaceDailyPapers(await fetchJson<unknown>(url.toString(), {}, signal, 600));
         return parsed.slice(0, limit);
       },
     },
@@ -468,7 +475,7 @@ function adapters(): SourceAdapter[] {
         const token = typeof process !== 'undefined' ? (process.env.FRONTIER_GITHUB_TOKEN || process.env.GITHUB_TOKEN) : undefined;
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
         const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=stars&order=desc&per_page=${Math.min(30, limit)}`;
-        return parseGithubTrending(await fetchJson<GithubSearchPayload>(url, headers, signal));
+        return parseGithubTrending(await fetchJson<GithubSearchPayload>(url, headers, signal, query || token ? 0 : 900));
       },
     },
     {
@@ -478,26 +485,28 @@ function adapters(): SourceAdapter[] {
         url.searchParams.set('page', '1');
         url.searchParams.set('ordering', '-published');
         if (query) url.searchParams.set('q', query);
-        const parsed = parsePapersWithCode(await fetchJson<PwcPayload>(url.toString(), {}, signal));
+        const parsed = parsePapersWithCode(await fetchJson<PwcPayload>(url.toString(), {}, signal, query ? 0 : 1800));
         return parsed.slice(0, limit);
       },
     },
     {
       id: 'hackernews', label: 'Hacker News', minIntervalMs: 350,
       load: async (query, limit, signal) => {
-        const since = Math.floor((Date.now() - 3 * DAY_MS) / 1000);
+        // Five-minute query buckets let anonymous requests share upstream results
+        // rather than constructing a unique URL for every second.
+        const since = Math.floor((Date.now() - 3 * DAY_MS) / 300_000) * 300;
         const url = new URL('https://hn.algolia.com/api/v1/search_by_date');
         url.searchParams.set('tags', 'story');
         url.searchParams.set('numericFilters', `created_at_i>${since}`);
         url.searchParams.set('hitsPerPage', String(Math.min(50, limit)));
         if (query) url.searchParams.set('query', query);
-        return parseHackerNews(await fetchJson<HackerNewsPayload>(url.toString(), {}, signal));
+        return parseHackerNews(await fetchJson<HackerNewsPayload>(url.toString(), {}, signal, query ? 0 : 300));
       },
     },
     {
       id: 'rss', label: 'Targeted RSS', minIntervalMs: 500,
       load: async (_query, limit, signal) => {
-        const results = await Promise.allSettled(configuredRssFeeds().map(async (feed) => parseRss(await fetchText(feed, signal), feed)));
+        const results = await Promise.allSettled(configuredRssFeeds().map(async (feed) => parseRss(await fetchText(feed, signal, 900), feed)));
         return results.flatMap((result) => result.status === 'fulfilled' ? result.value : []).slice(0, limit);
       },
     },
