@@ -7,7 +7,7 @@ import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as Re
 import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, RefreshCw, Search } from 'lucide-react';
 import { holdToInterestScore } from '@/lib/frontier/interestRating';
 import { frontierHasNewStories, frontierShouldCheckLatest } from '@/lib/frontier/liveFeedPolicy';
-import { buildFrontierSourceBrief, frontierRatingDescription, frontierSourceFigures } from '@/lib/frontier/sourceBrief';
+import { buildFrontierSourceBrief, frontierSourceFigures } from '@/lib/frontier/sourceBrief';
 import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierFeedResponse, FrontierItem } from '@/lib/frontier/types';
@@ -82,7 +82,6 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const currentVisualGrade = holdValue ?? rating;
   const orbScale = (0.96 + 0.08 * ((currentVisualGrade ?? 0) / 10)).toFixed(3);
   const orbProgress = Math.round(((currentVisualGrade ?? 0) / 10) * 100) + '%';
-  const gradeDescription = frontierRatingDescription(currentVisualGrade);
 
   useEffect(() => {
     if (!hydrated || initialPersonalizationAppliedRef.current) return;
