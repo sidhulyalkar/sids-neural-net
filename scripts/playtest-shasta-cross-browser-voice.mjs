@@ -77,11 +77,31 @@ try{
   }
   Object.defineProperty(window,'MediaRecorder',{configurable:true,value:MockMediaRecorder});
  },kind);
+ const readyProbe=page.waitForResponse(response=>
+  response.url().includes('/api/world/shasta/transcribe')&&
+  response.request().method()==='GET',{timeout:25000});
  await page.goto((process.env.WORLD_BASE_URL??'http://127.0.0.1:3000')+
   '/world/voice-qa',{waitUntil:'domcontentloaded'});
+ await readyProbe;
  const nav=page.getByRole('navigation',{name:'Shasta voice quality assurance'});
+ await nav.getByRole('button',{name:'Speak a Shasta command'}).waitFor();
+ // Firefox's development StrictMode hydration/effect replay can invalidate a
+ // click delivered before the initial configuration effect has settled.
+ await page.waitForTimeout(150);
  await nav.getByRole('button',{name:'Speak a Shasta command'}).click();
- await nav.getByRole('button',{name:'Finish Shasta voice recording'}).waitFor({timeout:12000});
+ try{
+  await nav.getByRole('button',{name:'Finish Shasta voice recording'}).waitFor({timeout:12000});
+ }catch(error){
+  const diagnostic=await page.evaluate(()=>({
+   text:document.querySelector('[role="status"]')?.textContent,
+   hidden:document.hidden,
+   state:document.visibilityState,
+   mock:window.__shastaTest,
+   label:document.querySelector('nav button')?.getAttribute('aria-label'),
+  }));
+  console.error('SHASTA MICROPHONE START DIAGNOSTIC',JSON.stringify(diagnostic));
+  throw error;
+ }
  const capture=await page.evaluate(()=>({...window.__shastaTest}));
  assert.equal(capture.started,1);
  await nav.getByRole('button',{name:'Finish Shasta voice recording'}).click();
