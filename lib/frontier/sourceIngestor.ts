@@ -1,4 +1,5 @@
 import { FRONTIER_SOURCE_WEIGHTS } from './config';
+import { frontierHackerNewsSince, frontierUpstreamTtlSeconds } from './upstreamCachePolicy';
 import { classifyFrontierLane } from './sources';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceKind, FrontierSourceStatus } from './types';
 
@@ -145,9 +146,14 @@ async function boundedFetch(url: string, init: RequestInit = {}, outerSignal?: A
   const abort = () => controller.abort();
   outerSignal?.addEventListener('abort', abort, { once: true });
   try {
+    const hasCredentials = new Headers(init.headers).has('authorization');
+    const revalidate = (init as RequestInit & { next?: { revalidate?: number } }).next?.revalidate;
     return await fetch(url, {
       ...init,
-      cache: 'no-store',
+      // Share public adapter responses between serverless executions using
+      // Next's fetch cache. A bearer token or arbitrary focused query must
+      // never be persisted in that shared cache.
+      ...(hasCredentials || !revalidate ? { cache: 'no-store' as const, next: undefined } : {}),
       signal: controller.signal,
       headers: {
         Accept: 'application/json, application/atom+xml, application/rss+xml, application/xml, text/xml, */*;q=0.2',
@@ -161,14 +167,16 @@ async function boundedFetch(url: string, init: RequestInit = {}, outerSignal?: A
   }
 }
 
-async function fetchText(url: string, signal?: AbortSignal): Promise<string> {
-  const response = await boundedFetch(url, {}, signal);
+async function fetchText(url: string, signal?: AbortSignal, publicTtlSeconds = 0): Promise<string> {
+  const response = await boundedFetch(url,
+    publicTtlSeconds ? { next: { revalidate: publicTtlSeconds } } as RequestInit : {}, signal);
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   return response.text();
 }
 
-async function fetchJson<T>(url: string, headers: HeadersInit = {}, signal?: AbortSignal): Promise<T> {
-  const response = await boundedFetch(url, { headers }, signal);
+async function fetchJson<T>(url: string, headers: HeadersInit = {}, signal?: AbortSignal, publicTtlSeconds = 0): Promise<T> {
+  const response = await boundedFetch(url,
+    publicTtlSeconds ? { headers, next: { revalidate: publicTtlSeconds } } as RequestInit : { headers }, signal);
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   return response.json() as Promise<T>;
 }
@@ -448,7 +456,7 @@ function adapters(): SourceAdapter[] {
         url.searchParams.set('max_results', String(limit));
         url.searchParams.set('sortBy', 'submittedDate');
         url.searchParams.set('sortOrder', 'descending');
-        return parseArxivAtom(await fetchText(url.toString(), signal));
+        return parseArxivAtom(await fetchText(url.toString(), signal, frontierUpstreamTtlSeconds('arxiv', query)));
       },
     },
     {
@@ -456,7 +464,7 @@ function adapters(): SourceAdapter[] {
       load: async (_query, limit, signal) => {
         const url = new URL('https://huggingface.co/api/daily_papers');
         url.searchParams.set('limit', String(Math.min(100, Math.max(limit, 20))));
-        const parsed = parseHuggingFaceDailyPapers(await fetchJson<unknown>(url.toString(), {}, signal));
+        const parsed = parseHuggingFaceDailyPapers(await fetchJson<unknown>(url.toString(), {}, signal, frontierUpstreamTtlSeconds('huggingface', _query)));
         return parsed.slice(0, limit);
       },
     },
@@ -468,7 +476,7 @@ function adapters(): SourceAdapter[] {
         const token = typeof process !== 'undefined' ? (process.env.FRONTIER_GITHUB_TOKEN || process.env.GITHUB_TOKEN) : undefined;
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
         const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=stars&order=desc&per_page=${Math.min(30, limit)}`;
-        return parseGithubTrending(await fetchJson<GithubSearchPayload>(url, headers, signal));
+        return parseGithubTrending(await fetchJson<GithubSearchPayload>(url, headers, signal, frontierUpstreamTtlSeconds('github', query, Boolean(token))));
       },
     },
     {
@@ -478,26 +486,28 @@ function adapters(): SourceAdapter[] {
         url.searchParams.set('page', '1');
         url.searchParams.set('ordering', '-published');
         if (query) url.searchParams.set('q', query);
-        const parsed = parsePapersWithCode(await fetchJson<PwcPayload>(url.toString(), {}, signal));
+        const parsed = parsePapersWithCode(await fetchJson<PwcPayload>(url.toString(), {}, signal, frontierUpstreamTtlSeconds('paperswithcode', query)));
         return parsed.slice(0, limit);
       },
     },
     {
       id: 'hackernews', label: 'Hacker News', minIntervalMs: 350,
       load: async (query, limit, signal) => {
-        const since = Math.floor((Date.now() - 3 * DAY_MS) / 1000);
+        // Five-minute query buckets let anonymous requests share upstream results
+        // rather than constructing a unique URL for every second.
+        const since = frontierHackerNewsSince(Date.now());
         const url = new URL('https://hn.algolia.com/api/v1/search_by_date');
         url.searchParams.set('tags', 'story');
         url.searchParams.set('numericFilters', `created_at_i>${since}`);
         url.searchParams.set('hitsPerPage', String(Math.min(50, limit)));
         if (query) url.searchParams.set('query', query);
-        return parseHackerNews(await fetchJson<HackerNewsPayload>(url.toString(), {}, signal));
+        return parseHackerNews(await fetchJson<HackerNewsPayload>(url.toString(), {}, signal, frontierUpstreamTtlSeconds('hackernews', query)));
       },
     },
     {
       id: 'rss', label: 'Targeted RSS', minIntervalMs: 500,
       load: async (_query, limit, signal) => {
-        const results = await Promise.allSettled(configuredRssFeeds().map(async (feed) => parseRss(await fetchText(feed, signal), feed)));
+        const results = await Promise.allSettled(configuredRssFeeds().map(async (feed) => parseRss(await fetchText(feed, signal, frontierUpstreamTtlSeconds('rss', _query)), feed)));
         return results.flatMap((result) => result.status === 'fulfilled' ? result.value : []).slice(0, limit);
       },
     },
@@ -519,8 +529,25 @@ export function dedupeIngestedItems(items: FrontierItem[]): FrontierItem[] {
 export class FrontierSourceIngestor {
   private readonly limiter = new SourceRateLimiter();
   private readonly sourceAdapters = new Map(adapters().map((adapter) => [adapter.id, adapter]));
+  private readonly inFlight = new Map<string, Promise<AdapterResult>>();
 
   async ingest(source: FrontierIngestSourceId, options: IngestOptions = {}): Promise<AdapterResult> {
+    // Coalesce concurrent identical adapter requests inside a worker. This is
+    // not a distributed rate limit: Next's shared fetch cache handles warm
+    // cross-worker reuse, and request-level abuse limits are a separate gate.
+    if (options.signal) return this.ingestOnce(source, options);
+    const key = JSON.stringify([source, normalizeQuery(options.query), Math.max(1, Math.min(40, options.limit ?? DEFAULT_LIMIT))]);
+    const existing = this.inFlight.get(key);
+    if (existing) return existing;
+    const pending = this.ingestOnce(source, options);
+    this.inFlight.set(key, pending);
+    void pending.finally(() => {
+      if (this.inFlight.get(key) === pending) this.inFlight.delete(key);
+    }).catch(() => undefined);
+    return pending;
+  }
+
+  private async ingestOnce(source: FrontierIngestSourceId, options: IngestOptions = {}): Promise<AdapterResult> {
     const adapter = this.sourceAdapters.get(source);
     if (!adapter) throw new Error(`Unknown FRONTIER source: ${source}`);
     const query = normalizeQuery(options.query);

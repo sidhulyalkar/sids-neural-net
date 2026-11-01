@@ -8,7 +8,7 @@ test('cold FRONTIER navigation remains snapshot-first for bounded useful paint',
   assert.match(route, /!requestedFocus\.length && !forceFresh/);
   assert.match(route, /getFrontierColdSnapshotFeed\(\)/);
   assert.match(route, /from '@\/lib\/frontier\/snapshotFeed'/);
-  assert.match(route, /X-Frontier-Live': 'personal-snapshot'/);
+  assert.match(route, /X-Frontier-Live': wantsCandidates \? 'snapshot-candidates' : 'personal-snapshot'/);
 });
 
 test('focused search and manual refresh cannot silently refill from the committed snapshot', () => {

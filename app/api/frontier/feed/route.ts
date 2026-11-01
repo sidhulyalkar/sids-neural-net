@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
   const requestedFocus = decodeDiscoveryFocus(request.nextUrl.searchParams.get('focus'));
   const forceFresh = request.nextUrl.searchParams.get('fresh') === '1';
   const wantsLatest = request.nextUrl.searchParams.get('latest') === '1';
+  const wantsCandidates = request.nextUrl.searchParams.get('candidates') === '1';
 
   try {
     // Cold navigation is snapshot-first so useful cards paint immediately. The
@@ -87,10 +88,19 @@ export async function GET(request: NextRequest) {
     // refresh or focused query has a separate contract and lazy-loads the full
     // Internet discovery graph only after the request has opted into it.
     if (!requestedFocus.length && !forceFresh && !wantsLatest) {
-      return NextResponse.json(decorateFeedMedia(getFrontierColdSnapshotFeed()), {
+      const snapshot = getFrontierColdSnapshotFeed();
+      // The first page sends just 36 complete articles. Returning readers may
+      // ask for a larger, public, validated candidate slate in the background
+      // after the first story has rendered. No adapters or private profile data.
+      const edition = wantsCandidates
+        ? { ...snapshot, items: snapshot.items.slice(0, 96) }
+        : snapshot;
+      return NextResponse.json(decorateFeedMedia(edition), {
         headers: {
-          'Cache-Control': 'private, max-age=60, stale-while-revalidate=120',
-          'X-Frontier-Live': 'personal-snapshot',
+          'Cache-Control': wantsCandidates
+            ? 'public, max-age=0, s-maxage=60, stale-while-revalidate=180'
+            : 'private, max-age=60, stale-while-revalidate=120',
+          'X-Frontier-Live': wantsCandidates ? 'snapshot-candidates' : 'personal-snapshot',
         },
       });
     }
