@@ -56,6 +56,30 @@ test('source figures are deduplicated, attributed and capped without generating 
   assert.equal(frontierSourceFigures({ ...item, media: { type: 'none' } }).length, 0);
 });
 
+test('publisher original image is a validated fallback when HD proxy fails', () => {
+  const figures = frontierSourceFigures({
+    ...item,
+    media: {
+      type: 'image',
+      url: 'https://i.guim.co.uk/example.jpg?width=140',
+      proxyUrl: '/api/frontier/media?url=https%3A%2F%2Fi.guim.co.uk%2Fexample.jpg%3Fwidth%3D2048',
+      alt: 'Complete photograph',
+    },
+  });
+  assert.equal(figures[0].url.startsWith('/api/frontier/media?'), true);
+  assert.equal(figures[0].fallbackUrl, 'https://i.guim.co.uk/example.jpg?width=140');
+  assert.equal(figures[0].alt, 'Complete photograph');
+  const invalid = frontierSourceFigures({
+    ...item,
+    media: {
+      type: 'image',
+      url: 'http://localhost/private',
+      proxyUrl: '/api/frontier/media?url=https%3A%2F%2Fi.guim.co.uk%2Fexample.jpg',
+    },
+  });
+  assert.equal(invalid[0].fallbackUrl, undefined, 'Unsafe direct-image fallback must never leak into a browser tag');
+});
+
 test('balloon labels remain readable throughout the explicit 1–10 grading scale', () => {
   assert.equal(frontierRatingDescription(undefined), 'Hold to rate');
   assert.equal(frontierRatingDescription(1), 'Low interest');

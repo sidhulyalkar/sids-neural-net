@@ -54,7 +54,18 @@ async function audit(width, height) {
 
     const rating = page.getByRole('button', { name: /Hold to rate interest/i });
     const balloon = page.locator('[data-frontier-balloon]');
-    assert.equal(await balloon.count(), 1, 'Exactly one interest balloon is mounted');
+    assert.equal(await balloon.count(), 1, 'Exactly one radial interest control is mounted');
+    assert.equal(await page.locator('footer').count(), 0, 'Reader must not render a bulky bottom navigation footer');
+    assert.equal(await page.getByText('A quiet space for what is new').count(), 0, 'Remove redundant brand tagline');
+    assert.equal(await page.locator('article h1').count(), 1, 'Headline appears once, centered before the media');
+    const navigationArea = page.locator('nav[aria-label="Article navigation"]');
+    assert.equal(await navigationArea.count(), 1, 'Use an edge navigation overlay');
+    const image = page.locator('figure img').first();
+    if (await image.count()) {
+      const sizing = await image.evaluate((el) => ({ fit: getComputedStyle(el).objectFit,
+        naturalWidth: el.naturalWidth, naturalHeight: el.naturalHeight }));
+      assert.equal(sizing.fit, 'contain', 'Never crop article photos to fill an arbitrary frame');
+    }
     assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'idle');
     assert.equal(await page.locator('[aria-label="Source-grounded summary"]').count(), 1);
     assert((await page.locator('[aria-label="Source metrics"]').count()) <= 1,
@@ -62,7 +73,7 @@ async function audit(width, height) {
     await rating.hover();
     await page.mouse.down();
     await page.waitForTimeout(650);
-    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'inflating', 'Holding must inflate the balloon');
+    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'inflating', 'Holding must animate the radial interest meter');
     await page.mouse.up();
     await page.waitForFunction(() => {
       const text = document.querySelector('button[aria-label^="Hold to rate"]')?.textContent || '';
@@ -76,7 +87,7 @@ async function audit(width, height) {
       throw new Error('Hold interaction did not save a score: ' + JSON.stringify(diagnostics) + '; ' + error.message);
     });
     assert.match((await rating.textContent()) || '', /\/10/, 'Explicit rating must persist in interface');
-    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'rated', 'Balloon returns to saved state on release');
+    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'rated', 'Radial interest meter returns to saved state on release');
     if (width <= 390) {
       const geometry = await page.evaluate(() => ({
         documentWidth: document.documentElement.scrollWidth,
@@ -86,7 +97,7 @@ async function audit(width, height) {
         'Mobile focus reader must not require sideways scrolling: ' + JSON.stringify(geometry));
     }
 
-    const exact = page.locator('details').filter({ hasText: 'Set exact score' });
+    const exact = page.locator('details').filter({ hasText: 'Choose exact score' });
     await exact.locator('summary').click();
     await exact.locator('input[type="range"]').focus();
     await page.keyboard.press('End');
@@ -102,7 +113,7 @@ async function audit(width, height) {
     assert.equal(candidateLookups.length, 1,
       'Returning reader should load the wider public snapshot once, after first paint');
     const beforeRevision = await page.evaluate(() => JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
-    const finalRating = page.locator('details').filter({ hasText: 'Set exact score' });
+    const finalRating = page.locator('details').filter({ hasText: 'Choose exact score' });
     await finalRating.locator('summary').click();
     await finalRating.locator('input[type="range"]').focus();
     await page.keyboard.press('Home');
