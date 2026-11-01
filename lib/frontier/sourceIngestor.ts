@@ -1,4 +1,5 @@
 import { FRONTIER_SOURCE_WEIGHTS } from './config';
+import { frontierHackerNewsSince, frontierUpstreamTtlSeconds } from './upstreamCachePolicy';
 import { classifyFrontierLane } from './sources';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceKind, FrontierSourceStatus } from './types';
 
@@ -455,7 +456,7 @@ function adapters(): SourceAdapter[] {
         url.searchParams.set('max_results', String(limit));
         url.searchParams.set('sortBy', 'submittedDate');
         url.searchParams.set('sortOrder', 'descending');
-        return parseArxivAtom(await fetchText(url.toString(), signal, query ? 0 : 900));
+        return parseArxivAtom(await fetchText(url.toString(), signal, frontierUpstreamTtlSeconds('arxiv', query)));
       },
     },
     {
@@ -463,7 +464,7 @@ function adapters(): SourceAdapter[] {
       load: async (_query, limit, signal) => {
         const url = new URL('https://huggingface.co/api/daily_papers');
         url.searchParams.set('limit', String(Math.min(100, Math.max(limit, 20))));
-        const parsed = parseHuggingFaceDailyPapers(await fetchJson<unknown>(url.toString(), {}, signal, 600));
+        const parsed = parseHuggingFaceDailyPapers(await fetchJson<unknown>(url.toString(), {}, signal, frontierUpstreamTtlSeconds('huggingface', _query)));
         return parsed.slice(0, limit);
       },
     },
@@ -475,7 +476,7 @@ function adapters(): SourceAdapter[] {
         const token = typeof process !== 'undefined' ? (process.env.FRONTIER_GITHUB_TOKEN || process.env.GITHUB_TOKEN) : undefined;
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
         const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=stars&order=desc&per_page=${Math.min(30, limit)}`;
-        return parseGithubTrending(await fetchJson<GithubSearchPayload>(url, headers, signal, query || token ? 0 : 900));
+        return parseGithubTrending(await fetchJson<GithubSearchPayload>(url, headers, signal, frontierUpstreamTtlSeconds('github', query, Boolean(token))));
       },
     },
     {
@@ -485,7 +486,7 @@ function adapters(): SourceAdapter[] {
         url.searchParams.set('page', '1');
         url.searchParams.set('ordering', '-published');
         if (query) url.searchParams.set('q', query);
-        const parsed = parsePapersWithCode(await fetchJson<PwcPayload>(url.toString(), {}, signal, query ? 0 : 1800));
+        const parsed = parsePapersWithCode(await fetchJson<PwcPayload>(url.toString(), {}, signal, frontierUpstreamTtlSeconds('paperswithcode', query)));
         return parsed.slice(0, limit);
       },
     },
@@ -494,19 +495,19 @@ function adapters(): SourceAdapter[] {
       load: async (query, limit, signal) => {
         // Five-minute query buckets let anonymous requests share upstream results
         // rather than constructing a unique URL for every second.
-        const since = Math.floor((Date.now() - 3 * DAY_MS) / 300_000) * 300;
+        const since = frontierHackerNewsSince(Date.now());
         const url = new URL('https://hn.algolia.com/api/v1/search_by_date');
         url.searchParams.set('tags', 'story');
         url.searchParams.set('numericFilters', `created_at_i>${since}`);
         url.searchParams.set('hitsPerPage', String(Math.min(50, limit)));
         if (query) url.searchParams.set('query', query);
-        return parseHackerNews(await fetchJson<HackerNewsPayload>(url.toString(), {}, signal, query ? 0 : 300));
+        return parseHackerNews(await fetchJson<HackerNewsPayload>(url.toString(), {}, signal, frontierUpstreamTtlSeconds('hackernews', query)));
       },
     },
     {
       id: 'rss', label: 'Targeted RSS', minIntervalMs: 500,
       load: async (_query, limit, signal) => {
-        const results = await Promise.allSettled(configuredRssFeeds().map(async (feed) => parseRss(await fetchText(feed, signal, 900), feed)));
+        const results = await Promise.allSettled(configuredRssFeeds().map(async (feed) => parseRss(await fetchText(feed, signal, frontierUpstreamTtlSeconds('rss', _query)), feed)));
         return results.flatMap((result) => result.status === 'fulfilled' ? result.value : []).slice(0, limit);
       },
     },
