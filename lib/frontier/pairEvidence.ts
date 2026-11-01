@@ -63,6 +63,17 @@ function explicitReactionStrength(reaction: FrontierReaction): number {
 }
 
 function strongestEvidenceForEntry(entry: FrontierHistoryEntry, now: Date): ItemEvidence | undefined {
+  // Numeric 1-10 votes carry more information than the previous coarse 5-bin
+  // reaction categories. Read the canonical *latest* value only, never append
+  // another learner event for an edited vote. A middle score is weak/ambiguous.
+  if (Number.isInteger(entry.interestScore) && entry.interestScore! >= 1 && entry.interestScore! <= 10 && entry.interestRatedAt) {
+    const weight = decay(entry.interestRatedAt, EXPLICIT_HALF_LIFE_DAYS, now);
+    if (weight < 0.015) return undefined;
+    return {
+      signed: Math.max(-1, Math.min(1, (entry.interestScore! - 5.5) / 4.5)) * weight,
+      timestamp: entry.interestRatedAt,
+    };
+  }
   if (entry.reaction && entry.reactedAt) {
     const strength = explicitReactionStrength(entry.reaction);
     if (!strength) return undefined;
