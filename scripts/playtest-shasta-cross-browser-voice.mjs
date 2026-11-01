@@ -36,12 +36,14 @@ try{
   // Exercise the fallback even on engines that happen to support Web Speech.
   Object.defineProperty(window,'SpeechRecognition',{configurable:true,value:undefined});
   Object.defineProperty(window,'webkitSpeechRecognition',{configurable:true,value:undefined});
-  window.__shastaTest={stops:0,started:0,denied:false,postedSize:0,postedType:''};
+  window.__shastaTest={stops:0,started:0,denied:false,postedSize:0,postedType:'',fetchPosts:0,clipIds:[]};
   const originalFetch=window.fetch.bind(window);
   window.fetch=(input,init)=>{
    if(String(input).includes('/api/world/shasta/transcribe')&&init?.method==='POST'){
     window.__shastaTest.postedSize=init.body?.size??0;
     window.__shastaTest.postedType=init.body?.type??'';
+    window.__shastaTest.fetchPosts++;
+    window.__shastaTest.clipIds.push(init.headers?.['X-Shasta-Voice-Clip']);
    }
    return originalFetch(input,init);
   };
@@ -74,21 +76,20 @@ try{
   }
   Object.defineProperty(window,'MediaRecorder',{configurable:true,value:MockMediaRecorder});
  },kind);
- await page.goto(process.env.WORLD_BASE_URL??'http://127.0.0.1:3000',{waitUntil:'domcontentloaded'});
- await page.getByRole('button',{name:'Explore world',exact:true}).click();
- await page.waitForFunction(()=>Number(document.querySelector('canvas')?.dataset.drawCalls)>0,
-   null,{timeout:110000});
- const nav=page.getByRole('navigation',{name:'World movement and sports'});
+ await page.goto((process.env.WORLD_BASE_URL??'http://127.0.0.1:3000')+
+  '/world/voice-qa',{waitUntil:'domcontentloaded'});
+ const nav=page.getByRole('navigation',{name:'Shasta voice quality assurance'});
  await nav.getByRole('button',{name:'Speak a Shasta command'}).click();
  await nav.getByRole('button',{name:'Finish Shasta voice recording'}).waitFor({timeout:12000});
  const capture=await page.evaluate(()=>({...window.__shastaTest}));
  assert.equal(capture.started,1);
  await nav.getByRole('button',{name:'Finish Shasta voice recording'}).click();
- await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.shastaTrick==='sit',
-   null,{timeout:45000});
+ await page.getByTestId('shasta-voice-action').getByText('sit',{exact:true})
+  .waitFor({timeout:20000});
  await nav.getByRole('button',{name:'Speak a Shasta command'}).waitFor({timeout:12000});
- assert.equal(requests.filter(r=>r.method==='POST').length,1);
  const uploaded=await page.evaluate(()=>({...window.__shastaTest}));
+ assert.equal(uploaded.fetchPosts,1,'exactly one browser fetch per recording');
+ assert.match(uploaded.clipIds[0],/^[a-f0-9-]{36}$/i);
  assert.ok(uploaded.postedSize>=512,'browser must submit an audio Blob');
  assert.ok(uploaded.postedType.startsWith('audio/'),'audio MIME must be set');
  assert.ok(uploaded.stops>=1);
@@ -97,7 +98,7 @@ try{
  await nav.getByRole('button',{name:'Speak a Shasta command'}).click();
  await nav.getByRole('status').filter({hasText:'Microphone permission was denied'}).first()
   .waitFor({timeout:12000});
- assert.equal(requests.filter(r=>r.method==='POST').length,1);
+ assert.equal((await page.evaluate(()=>window.__shastaTest.fetchPosts)),1);
  await page.screenshot({path:path.join(out,'fallback-and-denial.png')});
  await page.evaluate(()=>{window.__shastaTest.denied=false;});
  await nav.getByRole('button',{name:'Speak a Shasta command'}).click();
@@ -109,7 +110,7 @@ try{
  });
  await nav.getByRole('button',{name:'Speak a Shasta command'}).waitFor({timeout:12000});
  assert.ok((await page.evaluate(()=>window.__shastaTest.stops))>=2);
- assert.equal(requests.filter(r=>r.method==='POST').length,1);
+ assert.equal((await page.evaluate(()=>window.__shastaTest.fetchPosts)),1);
  assert.deepEqual(errors,[]);
  const info={browser:kind,requests,errors,trackStops:await page.evaluate(()=>window.__shastaTest.stops)};
  fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(info,null,2)+'\n');

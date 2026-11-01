@@ -5,6 +5,8 @@ on:
     paths:
       - 'components/world/useShastaVoice.ts'
       - 'components/world/WorldHome.tsx'
+      - 'components/world/ShastaVoiceQaHarness.tsx'
+      - 'app/world/voice-qa/page.tsx'
       - 'lib/world/shastaVoiceCapture.ts'
       - 'lib/world/shastaTranscribeServer.ts'
       - 'app/api/world/shasta/transcribe/route.ts'
@@ -45,7 +47,7 @@ jobs:
       - name: Typecheck, lint and fallback security tests
         run: |
           npm run typecheck
-          npx eslint components/world/useShastaVoice.ts components/world/WorldHome.tsx lib/world/shastaVoiceCapture.ts lib/world/shastaTranscribeServer.ts app/api/world/shasta/transcribe/route.ts tests/world-shasta-cross-browser.test.ts --max-warnings=0
+          npx eslint components/world/useShastaVoice.ts components/world/ShastaVoiceQaHarness.tsx components/world/WorldHome.tsx lib/world/shastaVoiceCapture.ts lib/world/shastaTranscribeServer.ts app/api/world/shasta/transcribe/route.ts tests/world-shasta-cross-browser.test.ts --max-warnings=0
           node --import tsx --test tests/world-shasta-cross-browser.test.ts tests/world-shasta-voice.test.ts
           node --check scripts/playtest-shasta-cross-browser-voice.mjs
       - name: Install browser engine

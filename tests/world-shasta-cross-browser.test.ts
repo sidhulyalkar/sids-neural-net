@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {preferredShastaAudioMime,validShastaAudioMime,SHASTA_MAX_AUDIO_BYTES} from "../lib/world/shastaVoiceCapture";
-import {readShastaAudio,transcribeShastaAudio,allowShastaVoiceRequest} from "../lib/world/shastaTranscribeServer";
+import {readShastaAudio,transcribeShastaAudio,allowShastaVoiceRequest,firstShastaVoiceClip} from "../lib/world/shastaTranscribeServer";
 
 test("Firefox WebM and Safari MP4 choose supported recordings at runtime",()=>{
  assert.equal(preferredShastaAudioMime(m=>m==="audio/webm;codecs=opus"),"audio/webm;codecs=opus");
@@ -47,4 +47,12 @@ test("per-worker budget limits repeated public guest requests",()=>{
  for(let i=0;i<8;i++)assert.equal(allowShastaVoiceRequest(id,60000),true);
  assert.equal(allowShastaVoiceRequest(id,60000),false);
  assert.equal(allowShastaVoiceRequest(id,120000),true);
+});
+
+test("duplicate clip IDs are rejected before incurring another provider charge",()=>{
+ const ip="test-"+Math.random(),id="12345678-aaaa-4bbb-8ccc-0123456789ab";
+ assert.equal(firstShastaVoiceClip(ip,id,1000),true);
+ assert.equal(firstShastaVoiceClip(ip,id,1000),false);
+ assert.equal(firstShastaVoiceClip(ip,id,62000),true);
+ assert.equal(firstShastaVoiceClip(ip,"not-a-uuid",1000),false);
 });
