@@ -74,10 +74,18 @@ function attribute(block: string, tag: string, name: string): string {
   return match?.[1]?.trim() ?? '';
 }
 
+// Undated source records must never become "new" merely because we fetched
+// them today. The old 1970 sentinel is intentionally rejected by the candidate
+// plausibility gate while preserving the parser's FrontierItem return type.
+export const FRONTIER_UNKNOWN_PUBLICATION_DATE = '1970-01-01T00:00:00.000Z';
+
 function normalizeDate(value?: string): string {
-  if (!value) return new Date().toISOString();
+  if (!value) return FRONTIER_UNKNOWN_PUBLICATION_DATE;
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+  const time = parsed.getTime();
+  return Number.isFinite(time) && time >= Date.UTC(2000, 0, 1)
+    && time <= Date.now() + 12 * 60 * 60_000
+    ? parsed.toISOString() : FRONTIER_UNKNOWN_PUBLICATION_DATE;
 }
 
 function canonicalUrl(value: string): string {
@@ -136,7 +144,7 @@ function item(input: {
     authors: input.authors,
     metrics: input.metrics,
     ...sourceScores(publishedAt, input.sourceKind, input.credibility, input.momentum),
-    why: `Fresh ${input.sourceLabel} signal normalized by FRONTIER's multi-source ingestor.`,
+    why: `${input.sourceLabel} signal normalized from its source metadata by FRONTIER's multi-source ingestor.`,
   };
 }
 
