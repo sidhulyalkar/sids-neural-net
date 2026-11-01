@@ -84,8 +84,9 @@ try{
  const capture=await page.evaluate(()=>({...window.__shastaTest}));
  assert.equal(capture.started,1);
  await nav.getByRole('button',{name:'Finish Shasta voice recording'}).click();
- await page.getByTestId('shasta-voice-action').getByText('sit',{exact:true})
-  .waitFor({timeout:20000});
+ await page.waitForFunction(()=>
+  document.querySelector('[data-testid="shasta-voice-action"]')?.textContent==='sit',
+  null,{timeout:20000});
  await nav.getByRole('button',{name:'Speak a Shasta command'}).waitFor({timeout:12000});
  const uploaded=await page.evaluate(()=>({...window.__shastaTest}));
  assert.equal(uploaded.fetchPosts,1,'exactly one browser fetch per recording');
