@@ -27,7 +27,11 @@ async function audit(width, height) {
     assert((await page.locator('figure img').count()) <= 1, 'Figure tabs cannot mount every source image');
     assert((await page.locator('figure img').count()) <= 1, 'Only the current source image is mounted');
     assert.equal(await page.locator('canvas').count(), 0, 'Default reader must not initialize WebGL/canvas');
-    assert.equal(feedRequests.length, 0, 'Initial navigation must use server snapshot, not passive live discovery');
+    const uncachedRequests = feedRequests.filter((url) => !url.includes('latest=1'));
+    assert.equal(uncachedRequests.length, 0,
+      'Initial navigation must use the server snapshot, never the expensive live-search graph');
+    assert(feedRequests.filter((url) => url.includes('latest=1')).length <= 1,
+      'An old snapshot may trigger at most one nonblocking cached-latest lookup');
 
     // Nav labels differ visually across sizes; use the stable accessible name.
     const nextButton = page.locator('[data-frontier-next="true"]');
@@ -101,7 +105,9 @@ async function audit(width, height) {
     const updated = Object.values(afterRevision.history).find((entry) => entry.item.title === heading && entry.interestScore === 2);
     assert.equal(updated?.reaction, 'down', 'The numeric revision must replace the canonical coarse preference');
     assert.deepEqual(errors, [], 'No browser JavaScript exceptions allowed');
-    return { width, height, firstPaintMs, initialApiRequests: 0, singleArticle: true, ratingPersisted: true };
+    return { width, height, firstPaintMs, initialUncachedRequests: 0,
+      backgroundCachedRequests: feedRequests.filter((url) => url.includes('latest=1')).length,
+      singleArticle: true, ratingPersisted: true, revisionReplacedVote: true };
   } finally {
     await page.close();
     await browser.close();
