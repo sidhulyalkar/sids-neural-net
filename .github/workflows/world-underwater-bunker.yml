@@ -1,0 +1,35 @@
+name: Sea Glass Underwater Photo Maze Qualification
+on:
+  pull_request:
+    paths:
+      - 'lib/world/underwaterBunker.ts'
+      - 'components/world/worldUnderwaterGallery.ts'
+      - 'components/world/worldRenderer.ts'
+      - 'components/world/WorldScene.tsx'
+      - 'components/world/WorldHome.tsx'
+      - 'lib/world/model.ts'
+      - 'lib/world/content.ts'
+      - 'tests/world-underwater-bunker.test.ts'
+      - '.github/workflows/world-underwater-bunker.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sea-glass-maze-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  underwater-photo-maze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Validate geometry, assets and integration
+        run: |
+          npm run typecheck
+          npx eslint lib/world/underwaterBunker.ts components/world/worldUnderwaterGallery.ts components/world/worldRenderer.ts components/world/WorldScene.tsx components/world/WorldHome.tsx lib/world/model.ts lib/world/content.ts tests/world-underwater-bunker.test.ts --max-warnings=0
+          node --import tsx --test tests/world-underwater-bunker.test.ts
