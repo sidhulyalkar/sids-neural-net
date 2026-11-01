@@ -528,8 +528,25 @@ export function dedupeIngestedItems(items: FrontierItem[]): FrontierItem[] {
 export class FrontierSourceIngestor {
   private readonly limiter = new SourceRateLimiter();
   private readonly sourceAdapters = new Map(adapters().map((adapter) => [adapter.id, adapter]));
+  private readonly inFlight = new Map<string, Promise<AdapterResult>>();
 
   async ingest(source: FrontierIngestSourceId, options: IngestOptions = {}): Promise<AdapterResult> {
+    // Coalesce concurrent identical adapter requests inside a worker. This is
+    // not a distributed rate limit: Next's shared fetch cache handles warm
+    // cross-worker reuse, and request-level abuse limits are a separate gate.
+    if (options.signal) return this.ingestOnce(source, options);
+    const key = JSON.stringify([source, normalizeQuery(options.query), Math.max(1, Math.min(40, options.limit ?? DEFAULT_LIMIT))]);
+    const existing = this.inFlight.get(key);
+    if (existing) return existing;
+    const pending = this.ingestOnce(source, options);
+    this.inFlight.set(key, pending);
+    void pending.finally(() => {
+      if (this.inFlight.get(key) === pending) this.inFlight.delete(key);
+    }).catch(() => undefined);
+    return pending;
+  }
+
+  private async ingestOnce(source: FrontierIngestSourceId, options: IngestOptions = {}): Promise<AdapterResult> {
     const adapter = this.sourceAdapters.get(source);
     if (!adapter) throw new Error(`Unknown FRONTIER source: ${source}`);
     const query = normalizeQuery(options.query);
