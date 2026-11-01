@@ -254,7 +254,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
         const store = useFrontierStore.getState();
         const ranked = rankFrontierItems(payload.items, store.profile, store.history, new Date(), store.behavior);
         const next = selectDailyRun(ranked.length ? ranked : payload.items, store.history, EDITION_LIMIT);
-        if (!frontierHasNewStories(initialItems.map((entry) => entry.id), next.map((entry) => entry.id))) return;
+        const initiallyVisible = selectDailyRun(initialItems, {}, EDITION_LIMIT);
+        if (!frontierHasNewStories(initiallyVisible.map((entry) => entry.id), next.map((entry) => entry.id))) return;
         const edition = { items: next, generatedAt: payload.generatedAt };
         // A saved rating indicates an existing reading session even if this
         // particular tab was just reloaded. Don't reset that reader's place.
