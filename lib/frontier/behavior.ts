@@ -1,4 +1,5 @@
 import { FRONTIER_LANE_MAP } from './config';
+import { interestScoreReaction } from './interestRating';
 import type {
   FrontierBehaviorAggregate,
   FrontierBehaviorEvent,
@@ -148,6 +149,66 @@ export function applyBehaviorEvent(
     ], event, now), 128),
     lastActiveAt: now,
   };
+}
+
+/**
+ * Numeric rating revisions correct only the old explicit vote counters. This
+ * does not undo impressions, dwell, opens or saves. A rating first recorded by
+ * react() contributes one positive or negative event; changing it must not
+ * make both directions look independently supported in aggregate memory.
+ */
+export function replaceInterestRatingBehavior(
+  model: FrontierBehaviorModel,
+  item: FrontierItem,
+  previousScore: number,
+  nextScore: number,
+  previousRatedAt?: string,
+  now = new Date(),
+): FrontierBehaviorModel {
+  if (!model.implicitLearning || item.sourceKind === 'local' || previousScore === nextScore) return model;
+  const kind = (score: number): 'positive' | 'negative' | undefined => {
+    const reaction = interestScoreReaction(score);
+    if (['up', 'love', 'important', 'surprise', 'useful'].includes(reaction)) return 'positive';
+    if (reaction === 'down' || reaction === 'meh') return 'negative';
+    return undefined;
+  };
+  const oldKind = kind(previousScore);
+  const nextKind = kind(nextScore);
+  if (oldKind === nextKind) return model;
+  let revised = model;
+  if (oldKind) {
+    const previousDate = previousRatedAt && Number.isFinite(Date.parse(previousRatedAt))
+      ? new Date(previousRatedAt) : now;
+    const bucket = timeBucket(previousDate);
+    const weekday = previousDate.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+    const format = formatForItem(item);
+    const novelty = noveltyBucket(item);
+    const depth = depthBucket(item);
+    const remove = (map: Record<string, FrontierBehaviorAggregate>, keys: Array<string | undefined>) => {
+      const copy = { ...map };
+      for (const key of keys) {
+        if (!key || !copy[key]) continue;
+        copy[key] = { ...copy[key], [oldKind]: Math.max(0, copy[key][oldKind] - 1) };
+      }
+      return copy;
+    };
+    revised = {
+      ...revised,
+      laneStats: remove(revised.laneStats, [item.lane]),
+      sourceStats: remove(revised.sourceStats, [item.sourceKind, item.sourceLabel.toLowerCase()]),
+      topicStats: remove(revised.topicStats, item.tags.slice(0, 8).map((tag) => tag.toLowerCase())),
+      formatStats: remove(revised.formatStats, [format]),
+      timeStats: remove(revised.timeStats, [bucket]),
+      contextStats: remove(revised.contextStats, [
+        `${bucket}:${item.lane}`,
+        `${weekday}:${item.lane}`,
+        `${bucket}:${format}`,
+        `novelty:${novelty}`,
+        depth ? `depth:${depth}` : undefined,
+      ]),
+    };
+  }
+  return nextKind ? applyBehaviorEvent(revised, item, { kind: nextKind }, now) : revised;
 }
 
 export function startBehaviorSession(model: FrontierBehaviorModel, date = new Date()): FrontierBehaviorModel {
