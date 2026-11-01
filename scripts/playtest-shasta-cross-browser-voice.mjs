@@ -97,7 +97,7 @@ try{
  // Permission denied must not submit audio, and a second tap must be retryable.
  await page.evaluate(()=>{window.__shastaTest.denied=true;});
  await nav.getByRole('button',{name:'Speak a Shasta command'}).click();
- await nav.getByRole('status').filter({hasText:'Microphone permission was denied'}).first()
+ await page.getByRole('status').filter({hasText:'Microphone permission was denied'}).first()
   .waitFor({timeout:12000});
  assert.equal((await page.evaluate(()=>window.__shastaTest.fetchPosts)),1);
  await page.screenshot({path:path.join(out,'fallback-and-denial.png')});
