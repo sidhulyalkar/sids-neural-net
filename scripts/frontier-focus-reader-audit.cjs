@@ -85,6 +85,21 @@ async function audit(width, height) {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('article h1').first().waitFor();
     await page.waitForFunction(() => document.querySelector('button[aria-label^="Hold to rate"]')?.textContent?.includes('9/10'), undefined, { timeout: 4000 });
+    const beforeRevision = await page.evaluate(() => JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
+    const finalRating = page.locator('details').filter({ hasText: 'Set exact score' });
+    await finalRating.locator('summary').click();
+    await finalRating.locator('input[type="range"]').focus();
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ArrowRight');
+    await finalRating.getByRole('button', { name: 'Save' }).click();
+    assert.match((await rating.textContent()) || '', /2\/10/, 'Rating revision must replace the previous value');
+    const afterRevision = await page.evaluate(() => JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
+    assert.equal(afterRevision.profile.meaningfulInteractions, beforeRevision.profile.meaningfulInteractions,
+      'Revising a rating cannot add another learned interaction');
+    assert.equal(afterRevision.game.xp, beforeRevision.game.xp,
+      'Revising a rating cannot award the same item XP again');
+    const updated = Object.values(afterRevision.history).find((entry) => entry.item.title === heading && entry.interestScore === 2);
+    assert.equal(updated?.reaction, 'down', 'The numeric revision must replace the canonical coarse preference');
     assert.deepEqual(errors, [], 'No browser JavaScript exceptions allowed');
     return { width, height, firstPaintMs, initialApiRequests: 0, singleArticle: true, ratingPersisted: true };
   } finally {
