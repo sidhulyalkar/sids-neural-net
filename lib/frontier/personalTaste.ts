@@ -56,6 +56,13 @@ export const FRONTIER_PERSONAL_TASTE_TOPICS: readonly FrontierPersonalTasteTopic
     prior: 0.14,
   },
   {
+    id: 'sports-injury-biomechanics',
+    label: 'sports injury biomechanics and vision',
+    aliases: ['sports injury prediction', 'injury risk modeling', 'injury risk assessment', 'athlete fatigue modeling', 'sports biomechanics', 'athlete biomechanics', 'musculoskeletal simulation', 'opencap', 'opensim', 'markerless motion capture', 'sports pose estimation', 'joint load estimation'],
+    tags: ['sports injury', 'biomechanics', 'computer vision', 'athlete performance'],
+    prior: 0.17,
+  },
+  {
     id: 'scientific-visualization',
     label: 'scientific visualization tools',
     aliases: ['neuroglancer', 'napari', 'connectomics', 'brain atlas', 'volume rendering', 'volumetric visualization', 'microscopy visualization', 'scientific visualization', 'observable', 'plotly', 'd3.js', 'deck.gl'],
@@ -81,6 +88,20 @@ export const FRONTIER_PERSONAL_TASTE_TOPICS: readonly FrontierPersonalTasteTopic
     label: 'neural foundation models',
     aliases: ['neural foundation model', 'neuroscience foundation model', 'brain foundation model', 'eeg foundation model', 'foundation model for eeg', 'bendr', 'brainiac', 'self-supervised eeg', 'self supervised eeg'],
     tags: ['neuroai', 'foundation models', 'eeg', 'representation learning'],
+    prior: 0.15,
+  },
+  {
+    id: 'multimodal-neural-sensing',
+    label: 'multimodal neural and physiological sensing',
+    aliases: ['lsl time synchronization', 'lab streaming layer', 'multi-modal eeg', 'multimodal eeg', 'emg eeg', 'eeg emg', 'functional near infrared', 'fnirs', 'hd-dot', 'neural sensing', 'wearable biosensors', 'hyperscanning', 'neurotechnology wearables'],
+    tags: ['multimodal physiology', 'neural sensing', 'eeg', 'neurotechnology'],
+    prior: 0.16,
+  },
+  {
+    id: 'neurobehavioral-digital-twins',
+    label: 'neurobehavioral digital twins',
+    aliases: ['neurobehavioral digital twin', 'physiological digital twin', 'whole person digital twin', 'synthetic patient model', 'digital twin health', 'sleep stress modeling', 'multi-modal physiology model', 'multimodal physiology model'],
+    tags: ['digital twins', 'computational neuroscience', 'physiology', 'multimodal modeling'],
     prior: 0.15,
   },
   {
@@ -216,6 +237,9 @@ export const FRONTIER_DISCOVERY_SEEDS = [
   'Neuroglancer',
   'scientific visualization',
   'neural decoding',
+  'multimodal neural sensing',
+  'neurobehavioral digital twins',
+  'sports injury biomechanics computer vision',
   'neural foundation models',
   'mechanistic interpretability',
   'computational imaging',
@@ -268,6 +292,21 @@ export const FRONTIER_TASTE_DISCOVERY_QUERIES: readonly FrontierTasteDiscoveryQu
     query: 'mechanistic interpretability sparse autoencoder causal tracing activation patching representation probing open source',
     lane: 'methods',
     tags: ['mechanistic interpretability', 'causal probing', 'representation analysis'],
+  },
+  {
+    query: 'OpenCap OpenSim video pose estimation musculoskeletal biomechanics athlete injury risk datasets',
+    lane: 'sports',
+    tags: ['sports injury', 'biomechanics', 'computer vision'],
+  },
+  {
+    query: 'EEG EMG fNIRS multimodal neural sensing Lab Streaming Layer synchronization open datasets',
+    lane: 'neuro_frontier',
+    tags: ['neural sensing', 'eeg', 'multimodal physiology'],
+  },
+  {
+    query: 'neurobehavioral digital twins sleep stress activity multimodal physiology model benchmark',
+    lane: 'neuro_frontier',
+    tags: ['digital twins', 'multimodal modeling', 'physiology'],
   },
   {
     query: 'inverse problems computational imaging tomography image reconstruction open source',
