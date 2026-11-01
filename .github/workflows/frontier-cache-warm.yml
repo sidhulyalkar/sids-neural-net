@@ -1,0 +1,39 @@
+name: FRONTIER Recent Discovery Cache Warm
+
+on:
+  schedule:
+    # An hourly request revalidates the shared 10-minute recent-source cache.
+    # GitHub schedules are best-effort; user requests still revalidate on demand.
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontier-recent-cache-warm
+  cancel-in-progress: false
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Revalidate public recent-source edition
+        env:
+          FRONTIER_LATEST_URL: https://sidhulyalkar.com/api/frontier/feed?latest=1
+        run: |
+          set -euo pipefail
+          headers="$(mktemp)"
+          trap 'rm -f "$headers"' EXIT
+          status="$(curl --silent --show-error --location --retry 1 --retry-delay 3             --connect-timeout 10 --max-time 95 --dump-header "$headers"             --output /dev/null --write-out '%{http_code}' "$FRONTIER_LATEST_URL")"
+          if [[ "$status" != "200" ]]; then
+            echo "::error::FRONTIER recent cache returned HTTP $status."
+            exit 1
+          fi
+          outcome="$(grep -i '^x-frontier-live:' "$headers" | tail -n 1 | tr -d '\r' | cut -d: -f2- | xargs || true)"
+          if [[ "$outcome" != "cached-latest" ]]; then
+            echo "::warning::FRONTIER did not yield qualified recent editorial content ($outcome). Snapshot fallback remains safe."
+            exit 1
+          fi
+          echo "Qualified multi-source recent edition warmed successfully."
