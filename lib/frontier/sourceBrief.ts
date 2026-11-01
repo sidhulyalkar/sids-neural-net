@@ -22,13 +22,13 @@ export function buildFrontierSourceBrief(summary: string): FrontierSourceBrief {
   const text = summary.replace(/\s+/g, ' ').trim();
   if (!text) return { lead: '', details: [], hasFullerContext: false };
   const sentences = readableSentences(text);
-  if (text.length <= 260 || sentences.length < 2) {
+  if (text.length <= 460 || sentences.length < 2) {
     return { lead: text, details: [], hasFullerContext: false };
   }
   const lead: string[] = [];
   let total = 0;
   let index = 0;
-  while (index < sentences.length && (total < 160 || lead.length === 0) && lead.length < 2) {
+  while (index < sentences.length && (total < 360 || lead.length === 0) && lead.length < 4) {
     lead.push(sentences[index]);
     total += sentences[index].length;
     index += 1;
@@ -67,6 +67,7 @@ export function frontierSourceFigures(item: FrontierItem): FrontierSourceFigure[
     seen.add(url);
     found.push({
       url,
+      fallbackUrl: figure.fallbackUrl && allowedImageUrl(figure.fallbackUrl) && figure.fallbackUrl !== url ? figure.fallbackUrl : undefined,
       alt: figure.alt?.trim() || item.title,
       caption: figure.caption?.trim() || '',
       credit: figure.credit?.trim() || item.sourceLabel,
@@ -78,7 +79,13 @@ export function frontierSourceFigures(item: FrontierItem): FrontierSourceFigure[
     const url = media.type === 'image'
       ? (media.proxyUrl || media.url)
       : ((media.type === 'video' || media.type === 'youtube') ? (media.posterProxyUrl || media.poster) : undefined);
-    if (url) add({ url, alt: media.alt || item.title, caption: media.alt || item.title, credit: item.sourceLabel });
+    if (url) add({
+      url,
+      fallbackUrl: media.type === 'image' ? media.url : media.poster,
+      alt: media.alt || item.title,
+      caption: media.alt || item.title,
+      credit: item.sourceLabel,
+    });
   }
   for (const figure of item.figures ?? []) add(figure);
   return found;
