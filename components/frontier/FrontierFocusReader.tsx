@@ -79,13 +79,25 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
   useEffect(() => {
     if (!hydrated || initialPersonalizationAppliedRef.current) return;
-    initialPersonalizationAppliedRef.current = true;
-    // Never move an article after a gesture, touch or navigation begins.
-    if (readerInteractedRef.current) return;
-    const state = useFrontierStore.getState();
-    const ranked = rankFrontierItems(initialItems, state.profile, state.history, new Date(), state.behavior);
-    const selected = selectDailyRun(ranked, state.history, EDITION_LIMIT);
-    if (selected.length) setItems(selected);
+    // Hydration is an external store event. Schedule the one-time handoff
+    // rather than synchronously cascading a React render from this effect.
+    const timer = window.setTimeout(() => {
+      if (initialPersonalizationAppliedRef.current) return;
+      initialPersonalizationAppliedRef.current = true;
+      if (readerInteractedRef.current) return;
+      const state = useFrontierStore.getState();
+      const ranked = rankFrontierItems(initialItems, state.profile, state.history, new Date(), state.behavior);
+      const selected = selectDailyRun(ranked, state.history, EDITION_LIMIT);
+      if (!selected.length || readerInteractedRef.current) return;
+      setItems((current) => {
+        const first = current[0];
+        // Never flash a different story under the reader after hydration.
+        // The remaining 35 slots still reflect their learned taste model.
+        if (!first || state.history[first.id]?.reaction === 'hide') return selected;
+        return [first, ...selected.filter((candidate) => candidate.id !== first.id)].slice(0, EDITION_LIMIT);
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [hydrated, initialItems]);
 
   const cancelHold = useCallback(() => {
