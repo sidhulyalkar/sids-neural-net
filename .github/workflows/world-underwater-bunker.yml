@@ -10,6 +10,7 @@ on:
       - 'lib/world/model.ts'
       - 'lib/world/content.ts'
       - 'tests/world-underwater-bunker.test.ts'
+      - 'tests/world-marine-discoveries.test.ts'
       - '.github/workflows/world-underwater-bunker.yml'
   workflow_dispatch:
 permissions:
@@ -31,5 +32,5 @@ jobs:
       - name: Validate geometry, assets and integration
         run: |
           npm run typecheck
-          npx eslint lib/world/underwaterBunker.ts components/world/worldUnderwaterGallery.ts components/world/worldRenderer.ts components/world/WorldScene.tsx components/world/WorldHome.tsx lib/world/model.ts lib/world/content.ts tests/world-underwater-bunker.test.ts --max-warnings=0
-          node --import tsx --test tests/world-underwater-bunker.test.ts
+          npx eslint lib/world/underwaterBunker.ts components/world/worldUnderwaterGallery.ts components/world/worldRenderer.ts components/world/WorldScene.tsx components/world/WorldHome.tsx lib/world/model.ts lib/world/content.ts tests/world-underwater-bunker.test.ts tests/world-marine-discoveries.test.ts --max-warnings=0
+          node --import tsx --test tests/world-underwater-bunker.test.ts tests/world-marine-discoveries.test.ts

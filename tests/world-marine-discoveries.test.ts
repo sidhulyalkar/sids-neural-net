@@ -49,7 +49,9 @@ test("three UCSD-inspired tridents are submerged, reachable and dive-gated",()=>
     assert.equal(nearbyUnderwaterTrident(t.point,y,"land"),null);
     assert.equal(nearbyUnderwaterTrident(t.point,SEA_SURFACE,"dive"),null);
     assert.equal(nearbyUnderwaterTrident({x:t.point.x+5,z:t.point.z},y,"dive"),null);
-    assert.ok(t.href.startsWith("/"));
+    if(t.id==="trident-kelp"){
+      assert.equal(t.href,"https://bioengineering.ucsd.edu/");
+    }else assert.ok(t.href.startsWith("/"));
   }
 });
 test("larger navy-and-gold trident sculptures remain fully submerged and dive-gated",()=>{

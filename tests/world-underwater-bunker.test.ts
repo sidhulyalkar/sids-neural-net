@@ -4,7 +4,7 @@ import {visualArchive} from "../src/data/visualArchive";
 import {getWorldContent} from "../lib/world/content";
 import {SEA_SURFACE,maxDiveDepth,waterZone,WORLD_BOUNDS,seaFloorHeight} from "../lib/world/model";
 import {bunkerLayout,bunkerInside,bunkerHatchAccessible,bunkerDepthIsReachable,
- bunkerNearby,bunkerSwimY,UNDERWATER_BUNKER} from "../lib/world/underwaterBunker";
+ bunkerSwimY,UNDERWATER_BUNKER} from "../lib/world/underwaterBunker";
 
 test("Sea Glass photo maze preserves every archived photograph, one per wall face",()=>{
  const layout=bunkerLayout();
@@ -40,7 +40,8 @@ test("Bunker placement remains within the western kelp zone and diving range",()
  const layout=bunkerLayout();
  assert.equal(waterZone(layout.entry),"kelp");
  assert.ok(layout.entry.x>WORLD_BOUNDS.minX&&layout.entry.x<WORLD_BOUNDS.maxX);
- assert.ok(bunkerNearby({x:-58,z:7},11),"hatch belongs near UCSD trident");
+ assert.ok(Math.hypot(layout.entry.x+58,layout.entry.z-7)<11,
+  "hatch belongs near UCSD trident, not the maze center");
  assert.ok(!bunkerInside(layout.entry),"the entrance must be outside the gallery");
  for(const slot of layout.slots){
   assert.ok(slot.x>WORLD_BOUNDS.minX+.05&&slot.x<WORLD_BOUNDS.maxX);
