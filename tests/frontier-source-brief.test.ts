@@ -80,6 +80,23 @@ test('publisher original image is a validated fallback when HD proxy fails', () 
   assert.equal(invalid[0].fallbackUrl, undefined, 'Unsafe direct-image fallback must never leak into a browser tag');
 });
 
+test('HD video poster retries the original master then source-specific thumbnails', () => {
+  const figures = frontierSourceFigures({
+    ...item,
+    sourceKind: 'youtube',
+    media: {
+      type: 'youtube', url: 'yvNpoXd3sRc',
+      poster: 'https://i.ytimg.com/vi/yvNpoXd3sRc/maxresdefault.jpg',
+      posterProxyUrl: '/api/frontier/media?url=https%3A%2F%2Fi.ytimg.com%2Fvi%2FyvNpoXd3sRc%2Fmaxresdefault.jpg',
+    },
+  });
+  assert.equal(figures.length, 1);
+  assert.equal(figures[0].fallbackUrls?.length, 5);
+  assert.equal(figures[0].fallbackUrls?.[0], 'https://i.ytimg.com/vi/yvNpoXd3sRc/maxresdefault.jpg');
+  assert.ok(figures[0].fallbackUrls?.some((url) => url.endsWith('/sddefault.jpg')));
+  assert.ok(figures[0].fallbackUrls?.some((url) => url.endsWith('/hqdefault.jpg')));
+});
+
 test('balloon labels remain readable throughout the explicit 1–10 grading scale', () => {
   assert.equal(frontierRatingDescription(undefined), 'Hold to rate');
   assert.equal(frontierRatingDescription(1), 'Low interest');
