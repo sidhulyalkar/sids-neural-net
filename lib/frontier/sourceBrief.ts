@@ -22,13 +22,13 @@ export function buildFrontierSourceBrief(summary: string): FrontierSourceBrief {
   const text = summary.replace(/\s+/g, ' ').trim();
   if (!text) return { lead: '', details: [], hasFullerContext: false };
   const sentences = readableSentences(text);
-  if (text.length <= 460 || sentences.length < 2) {
+  if (text.length <= 260 || sentences.length < 2) {
     return { lead: text, details: [], hasFullerContext: false };
   }
   const lead: string[] = [];
   let total = 0;
   let index = 0;
-  while (index < sentences.length && (total < 360 || lead.length === 0) && lead.length < 4) {
+  while (index < sentences.length && (total < 360 || lead.length === 0) && lead.length < 3) {
     lead.push(sentences[index]);
     total += sentences[index].length;
     index += 1;
