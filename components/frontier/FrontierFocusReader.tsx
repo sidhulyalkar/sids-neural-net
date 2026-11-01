@@ -44,6 +44,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const [latestReady, setLatestReady] = useState<{ items: FrontierItem[]; generatedAt: string } | null>(null);
   const [error, setError] = useState('');
   const [failedImages, setFailedImages] = useState<string[]>([]);
+  const [nativeImageWidth, setNativeImageWidth] = useState<number | null>(null);
   const [figureIndex, setFigureIndex] = useState(0);
   const [holdValue, setHoldValue] = useState<number | null>(null);
   const [sliderDraft, setSliderDraft] = useState<{ id: string; value: number } | null>(null);
@@ -74,10 +75,10 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const activeFigure = figures[Math.min(figureIndex, Math.max(0, figures.length - 1))];
   // A failed HD proxy must retry the original publisher image before the
   // editorial fallback. Never retry a source that already failed.
-  const image = activeFigure && !failedImages.includes(activeFigure.url)
-    ? activeFigure.url
-    : activeFigure?.fallbackUrl && !failedImages.includes(activeFigure.fallbackUrl)
-      ? activeFigure.fallbackUrl : undefined;
+  const imageCandidates = activeFigure
+    ? [...new Set([activeFigure.url, ...(activeFigure.fallbackUrls ?? []), activeFigure.fallbackUrl].filter((url): url is string => Boolean(url)))]
+    : [];
+  const image = imageCandidates.find((candidate) => !failedImages.includes(candidate));
   const canShowImage = Boolean(image);
   const currentVisualGrade = holdValue ?? rating;
   const orbScale = (0.96 + 0.08 * ((currentVisualGrade ?? 0) / 10)).toFixed(3);
@@ -194,6 +195,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     cancelHold();
     setNotice('');
     setFailedImages([]);
+    setNativeImageWidth(null);
     setFigureIndex(0);
     setPosition((current) => Math.max(0, Math.min(items.length - 1, current + delta)));
     contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
@@ -253,6 +255,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     setEditionAt(edition.generatedAt);
     setActiveQuery('');
     setFailedImages([]);
+    setNativeImageWidth(null);
     setFigureIndex(0);
     setLatestReady(null);
     setNotice('');
@@ -352,6 +355,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       setActiveQuery(query);
       setNotice('');
       setFailedImages([]);
+    setNativeImageWidth(null);
       setFigureIndex(0);
       contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     } catch (cause) {
@@ -372,7 +376,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const hasNext = position < items.length - 1;
   const progress = items.length ? Math.round(((position + 1) / items.length) * 100) : 0;
 
-  const sourceBrief = useMemo(() => buildFrontierSourceBrief(item?.summary || ''), [item?.summary]);
+  const sourceBrief = useMemo(() => buildFrontierSourceBrief(item?.summary || '', item?.sourceKind), [item?.summary, item?.sourceKind]);
 
   return (
     <section className={styles.reader} aria-label="Frontier focused reader" data-frontier-edition-at={editionAt}>
@@ -430,6 +434,15 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                       sizes="(max-width: 900px) 100vw, 56vw"
                       priority={position === 0 && figureIndex === 0}
                       className={styles.heroImage}
+                      style={nativeImageWidth && nativeImageWidth < 720 ? { maxWidth: nativeImageWidth + 'px' } : undefined}
+                      onLoad={(event) => {
+                        const width = event.currentTarget.naturalWidth;
+                        if (width < 720 && imageCandidates.some((candidate) => candidate !== image && !failedImages.includes(candidate))) {
+                          setFailedImages((current) => current.includes(image) ? current : [...current, image]);
+                          return;
+                        }
+                        setNativeImageWidth(width);
+                      }}
                       onError={() => setFailedImages((current) => current.includes(image) ? current : [...current, image])}
                     />
                   ) : (
@@ -445,7 +458,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                     {figures.map((figure, index) => (
                       <button key={figure.url} type="button" aria-label={'View source figure ' + (index + 1)}
                         aria-pressed={index === figureIndex}
-                        onClick={() => { readerInteractedRef.current = true; setFigureIndex(index); setFailedImages([]); }}>
+                        onClick={() => { readerInteractedRef.current = true; setFigureIndex(index); setFailedImages([]);
+    setNativeImageWidth(null); }}>
                         {String(index + 1).padStart(2, '0')}
                       </button>
                     ))}
