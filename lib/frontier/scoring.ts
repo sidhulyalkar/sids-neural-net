@@ -109,7 +109,14 @@ export function replaceInterestRatingProfile(
     ...profile, laneAffinity, topicAffinity, sourceAffinity,
     curiosity: clamp(profile.curiosity + newCuriosity - oldCuriosity, 0.08, 0.55),
   };
-  return applyExplicitPairSignal(revised, item, delta);
+  // Pair learning clamps each individual signed vote before scaling it.
+  // Undo and reapply separately; clamping the combined delta would produce
+  // a different affinity for 9/10 -> 2/10 and corrupt reversibility.
+  return applyExplicitPairSignal(
+    applyExplicitPairSignal(revised, item, -reactionValue(previousReaction)),
+    item,
+    reactionValue(nextReaction),
+  );
 }
 
 export function applyReactionToProfile(profile: FrontierProfile, item: FrontierItem, reaction: FrontierReaction): FrontierProfile {
