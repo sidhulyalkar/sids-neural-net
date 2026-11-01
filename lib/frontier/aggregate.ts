@@ -148,11 +148,11 @@ export function frontierCandidatePriority(item: FrontierItem): number {
  * or profile state and therefore may safely cross the diagnostic boundary.
  */
 export function prepareFrontierCandidatePool(items: FrontierItem[]): FrontierCandidatePoolPreparation {
-  const plausible = items.map(cleanFrontierItem).filter((item) => isPlausibleFrontierCandidate(item) && isFrontierEditoriallyUsable(item));
+  const plausible = items.map(cleanFrontierItem).filter((item) => isPlausibleFrontierCandidate(item));
   const rightsSafe = plausible.filter((item) => !isRightsFragileNflYoutube(item));
   const enriched = rightsSafe.map(enrichFrontierSemantics);
   const deduped = dedupe(enriched);
-  const admitted = vetFrontierItems(deduped);
+  const admitted = vetFrontierItems(deduped.filter(isFrontierEditoriallyUsable));
   const retained = [...admitted]
     .sort((a, b) => frontierCandidatePriority(b) - frontierCandidatePriority(a))
     .slice(0, MAX_INTEGRATED_CANDIDATES);
