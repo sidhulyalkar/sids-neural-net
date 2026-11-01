@@ -54,9 +54,17 @@ test('cache does not store empty, purely old or implausibly sparse discovery', (
   assert.equal(frontierHasUsableRecentFeed(feed([]), now), false);
   assert.equal(frontierHasUsableRecentFeed(feed(Array.from({ length: 8 }, (_, index) =>
     item('old-' + index, now - 9 * 24 * 60 * 60_000, 'https://github.com/test/old-' + index))), now), false);
-  const valid = feed(Array.from({ length: 9 }, (_, index) =>
-    item('recent-' + index, now - index * 60 * 60_000, 'https://github.com/test/recent-' + index)));
+  const valid = feed(Array.from({ length: 9 }, (_, index) => ({
+    ...item('recent-' + index, now - index * 60 * 60_000, 'https://github.com/test/recent-' + index),
+    sourceKind: index < 3 ? 'rss' as const : 'github' as const,
+  })));
   assert.equal(frontierHasUsableRecentFeed(valid, now), true);
+  assert.equal(frontierHasUsableRecentFeed(feed(valid.items.map((entry) => ({ ...entry, sourceKind: 'github' }))), now), false,
+    'A single active adapter must not establish a multi-source healthy edition');
+  assert.equal(frontierHasUsableRecentFeed(feed(valid.items.map((entry, index) =>
+    index < 7 ? { ...entry, sourceKind: 'sports_state' as const } : entry)), now), false,
+    'Changing sports scores must not disguise stale research discovery');
+
 });
 
 test('oversized editions are capped and latest notification needs a genuinely new id', () => {
