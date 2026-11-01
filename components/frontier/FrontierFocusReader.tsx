@@ -53,6 +53,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const backgroundRef = useRef<AbortController | null>(null);
   const readerInteractedRef = useRef(false);
   const initialPersonalizationAppliedRef = useRef(false);
+  const editionVersionRef = useRef(0);
   const holdStartedRef = useRef<number | null>(null);
   const holdFrameRef = useRef<number | null>(null);
 
@@ -79,25 +80,47 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
   useEffect(() => {
     if (!hydrated || initialPersonalizationAppliedRef.current) return;
-    // Hydration is an external store event. Schedule the one-time handoff
-    // rather than synchronously cascading a React render from this effect.
-    const timer = window.setTimeout(() => {
+    // Rendering must never wait for the wider inventory. A returning reader
+    // loads the other candidates *after* first paint; a new reader pays no
+    // additional request or 96-item React flight payload.
+    const controller = new AbortController();
+    const startingEdition = editionVersionRef.current;
+    const timer = window.setTimeout(async () => {
       if (initialPersonalizationAppliedRef.current) return;
       initialPersonalizationAppliedRef.current = true;
-      if (readerInteractedRef.current) return;
+      if (readerInteractedRef.current || document.visibilityState === 'hidden') return;
       const state = useFrontierStore.getState();
-      const ranked = rankFrontierItems(initialItems, state.profile, state.history, new Date(), state.behavior);
-      const selected = selectDailyRun(ranked, state.history, EDITION_LIMIT);
-      if (!selected.length || readerInteractedRef.current) return;
+      const hasTaste = state.profile.meaningfulInteractions > 0
+        || Object.values(state.history).some((entry) => entry.interestScore !== undefined || Boolean(entry.reaction));
+      if (!hasTaste) return;
+      let candidates = initialItems;
+      try {
+        const response = await fetch('/api/frontier/feed?candidates=1', {
+          cache: 'no-store', signal: controller.signal,
+        });
+        if (response.ok && response.headers.get('X-Frontier-Live') === 'snapshot-candidates') {
+          const snapshot = await response.json() as FrontierFeedResponse;
+          if (Array.isArray(snapshot.items) && snapshot.items.length > initialItems.length) {
+            candidates = snapshot.items;
+          }
+        }
+      } catch {
+        // Preserve offline first paint and still rank the available candidates.
+      }
+      if (controller.signal.aborted || readerInteractedRef.current || startingEdition !== editionVersionRef.current) return;
+      const latest = useFrontierStore.getState();
+      const ranked = rankFrontierItems(candidates, latest.profile, latest.history, new Date(), latest.behavior);
+      const selected = selectDailyRun(ranked, latest.history, EDITION_LIMIT);
+      if (!selected.length || controller.signal.aborted || readerInteractedRef.current) return;
       setItems((current) => {
         const first = current[0];
-        // Never flash a different story under the reader after hydration.
-        // The remaining 35 slots still reflect their learned taste model.
-        if (!first || state.history[first.id]?.reaction === 'hide') return selected;
+        // Pin the initially visible story so a preference update never flashes
+        // a new article under the reader's eyes.
+        if (!first || latest.history[first.id]?.reaction === 'hide') return selected;
         return [first, ...selected.filter((candidate) => candidate.id !== first.id)].slice(0, EDITION_LIMIT);
       });
-    }, 0);
-    return () => window.clearTimeout(timer);
+    }, 850);
+    return () => { window.clearTimeout(timer); controller.abort(); };
   }, [hydrated, initialItems]);
 
   const cancelHold = useCallback(() => {
@@ -218,6 +241,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   }, []);
 
   const applyLatest = useCallback((edition: { items: FrontierItem[]; generatedAt: string }) => {
+    editionVersionRef.current += 1;
     cancelHold();
     setItems(edition.items.slice(0, EDITION_LIMIT));
     setPosition(0);
@@ -316,6 +340,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       const state = useFrontierStore.getState();
       const ranked = rankFrontierItems(payload.items, state.profile, state.history, new Date(), state.behavior);
       const next = selectDailyRun(ranked.length ? ranked : payload.items, state.history, EDITION_LIMIT);
+      editionVersionRef.current += 1;
       setItems(next);
       setPosition(0);
       setEditionAt(payload.generatedAt);
