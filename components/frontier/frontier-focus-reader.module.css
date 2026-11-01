@@ -185,7 +185,7 @@
   .briefSection { padding-top:17px; }
   .interactionArea { padding:14px 0 0; }
   .holdButton { min-height:160px; }
-  .navigation button { width:43px; height:43px; opacity:1; }
+  .navigation button { position:fixed; top:50svh; width:43px; height:43px; opacity:1; }
   .navigation .previous { left:8px; }
   .navigation .next { right:8px; }
 }
