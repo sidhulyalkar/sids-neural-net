@@ -25,7 +25,9 @@ try{
     body:JSON.stringify({enabled:true})});return;
   }
   const bytes=req.postDataBuffer();
-  assert.ok(bytes&&bytes.byteLength>=512,'fake microphone must upload a real Blob');
+  // WebKit inspection may omit valid streamed Blob request bodies.
+  // Also verify the real Blob size at the browser fetch boundary.
+  if(bytes)assert.ok(bytes.byteLength>=512);
   assert.ok(/audio\/(mp4|webm)/.test(req.headers()['content-type']??''));
   await route.fulfill({status:200,contentType:'application/json',
    body:JSON.stringify({action:'sit',transcript:'Shasta, sit!'})});
@@ -34,7 +36,15 @@ try{
   // Exercise the fallback even on engines that happen to support Web Speech.
   Object.defineProperty(window,'SpeechRecognition',{configurable:true,value:undefined});
   Object.defineProperty(window,'webkitSpeechRecognition',{configurable:true,value:undefined});
-  window.__shastaTest={stops:0,started:0,denied:false};
+  window.__shastaTest={stops:0,started:0,denied:false,postedSize:0,postedType:''};
+  const originalFetch=window.fetch.bind(window);
+  window.fetch=(input,init)=>{
+   if(String(input).includes('/api/world/shasta/transcribe')&&init?.method==='POST'){
+    window.__shastaTest.postedSize=init.body?.size??0;
+    window.__shastaTest.postedType=init.body?.type??'';
+   }
+   return originalFetch(input,init);
+  };
   const fakeStream={
    getTracks(){return [{stop(){window.__shastaTest.stops++;}}];},
   };
@@ -78,7 +88,10 @@ try{
    null,{timeout:45000});
  await nav.getByRole('button',{name:'Speak a Shasta command'}).waitFor({timeout:12000});
  assert.equal(requests.filter(r=>r.method==='POST').length,1);
- assert.ok((await page.evaluate(()=>window.__shastaTest.stops))>=1);
+ const uploaded=await page.evaluate(()=>({...window.__shastaTest}));
+ assert.ok(uploaded.postedSize>=512,'browser must submit an audio Blob');
+ assert.ok(uploaded.postedType.startsWith('audio/'),'audio MIME must be set');
+ assert.ok(uploaded.stops>=1);
  // Permission denied must not submit audio, and a second tap must be retryable.
  await page.evaluate(()=>{window.__shastaTest.denied=true;});
  await nav.getByRole('button',{name:'Speak a Shasta command'}).click();
