@@ -1,26 +1,61 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { getIntegratedFrontierFeed } from '../lib/frontier/aggregate';
+import { assertQualifiedFrontierArchive, buildFrontierDiscoveryLedger } from '../lib/frontier/discoveryLedger';
+
+async function readPreviousLedger(path: string): Promise<unknown> {
+  try {
+    return JSON.parse(await readFile(path, 'utf8')) as unknown;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    // A corrupted ledger needs review. Never silently erase the historical
+    // first-seen dates just because reading the last version failed.
+    throw error;
+  }
+}
 
 async function main() {
-  // The daily archive is the deep collection path, not the request-time UI.
-  // Let each adapter use its own bounded transport timeout rather than the
-  // shorter first-paint budget enforced by /api/frontier/feed.
+  // Full adapter deadlines only in scheduled discovery. Page rendering and
+  // cached-fresh searches remain separate from this deep ingestion path.
   const feed = await getIntegratedFrontierFeed({
     includeSnapshot: false,
     adapterDeadlineMs: false,
   });
-  if (feed.items.length < 8) {
-    throw new Error(`Refusing to replace the FRONTIER archive with only ${feed.items.length} live items.`);
-  }
+  assertQualifiedFrontierArchive(feed);
 
   const directory = join(process.cwd(), 'content', 'frontier');
-  const path = join(directory, 'latest.json');
+  const snapshotPath = join(directory, 'latest.json');
+  const ledgerPath = join(directory, 'discovery-ledger.json');
   await mkdir(directory, { recursive: true });
-  await writeFile(path, `${JSON.stringify(feed, null, 2)}\n`, 'utf8');
+  const previous = await readPreviousLedger(ledgerPath);
+  const ledger = buildFrontierDiscoveryLedger(feed, previous);
+
+  // Prepare both files before replacing either. The existing PR qualification
+  // checks the resulting snapshot and the workflow commits them together.
+  const tempSnapshot = snapshotPath + '.pending';
+  const tempLedger = ledgerPath + '.pending';
+  await Promise.all([
+    writeFile(tempSnapshot, JSON.stringify(feed, null, 2) + '\n', 'utf8'),
+    writeFile(tempLedger, JSON.stringify(ledger, null, 2) + '\n', 'utf8'),
+  ]);
+  await rename(tempLedger, ledgerPath);
+  await rename(tempSnapshot, snapshotPath);
 
   const online = feed.sources.filter((source) => source.ok).length;
-  console.log(`Wrote ${feed.items.length} FRONTIER items from ${online}/${feed.sources.length} online source groups to ${path}.`);
+  console.log(
+    'FRONTIER qualified archive: ' +
+    JSON.stringify({
+      candidates: feed.items.length,
+      onlineSources: online,
+      totalSourceGroups: feed.sources.length,
+      editorialNew: ledger.latest.editorialNew,
+      discovered: ledger.latest.discovered,
+      revised: ledger.latest.revised,
+      unchanged: ledger.latest.unchanged,
+      observedHistory: ledger.latest.retained,
+      degradedSources: ledger.latest.sourceFailures,
+    }),
+  );
 }
 
 main().catch((error) => {
