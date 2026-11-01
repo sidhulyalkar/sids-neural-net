@@ -15,7 +15,7 @@ const MAX_SNAPSHOT_CANDIDATES = 320;
 function plausible(item: FrontierItem, now: number): boolean {
   if (!item.title?.trim()) return false;
   const publishedAt = Date.parse(item.publishedAt);
-  if (!Number.isFinite(publishedAt) || publishedAt > now + MAX_FUTURE_SKEW_MS) return false;
+  if (!Number.isFinite(publishedAt) || publishedAt < Date.UTC(2000, 0, 1) || publishedAt > now + MAX_FUTURE_SKEW_MS) return false;
   try {
     const url = new URL(item.url);
     return (url.protocol === 'https:' || url.protocol === 'http:') && Boolean(url.hostname);
