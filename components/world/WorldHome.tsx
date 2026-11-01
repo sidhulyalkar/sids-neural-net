@@ -660,11 +660,15 @@ export function WorldHome({ content }: { content: WorldContent }) {
                    title="Navigation" onClick={()=>open("menu")}><MenuIcon size={19} aria-hidden="true"/></button>
                  <span className={styles.mobileHubTitle}>{ACTIVITIES.find(item=>item.id===activity)?.label ?? "Explore"}</span>
                  <button type="button" className={styles.shastaMicButton}
-                   aria-label={voice.status==="listening"||voice.status==="starting"?"Stop Shasta voice control":"Speak a Shasta command"}
-                   aria-pressed={voice.status==="listening"||voice.status==="starting"}
-                   title="Voice uses your browser speech service and may be processed remotely"
+                   aria-label={voice.status==="recording"?"Finish Shasta voice recording":
+                     voice.status==="processing"?"Cancel Shasta transcription":
+                     voice.status==="listening"||voice.status==="starting"?"Stop Shasta voice control":
+                     "Speak a Shasta command"}
+                   aria-pressed={["starting","listening","recording","processing"].includes(voice.status)}
+                   title="Tap to speak. Native speech or an optional, short server transcription may be used."
                    disabled={!shastaAvailable} onClick={voice.toggle}>
-                   {voice.status==="listening"||voice.status==="starting"?<MicOff size={18} aria-hidden="true"/>:<Mic size={18} aria-hidden="true"/>}
+                   {["starting","listening","recording","processing"].includes(voice.status)?
+                     <MicOff size={18} aria-hidden="true"/>:<Mic size={18} aria-hidden="true"/>}
                  </button>
                  <button type="button" aria-label={shastaOpen?"Hide Shasta tricks":"Show Shasta tricks"}
                    aria-expanded={shastaOpen} aria-controls="world-shasta-tricks"
@@ -681,6 +685,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
                    <ChevronDown size={20} className={mobileHubOpen ? styles.sportsChevronOpen : styles.sportsChevron} aria-hidden="true"/>
                  </button>
                </div>
+               {voice.notice&&!shastaOpen&&
+                 <div role="status" className={styles.shastaMicNotice}>{voice.notice}</div>}
                <div id="world-hub-contents" className={styles.hubContents}>
                <div className={styles.activityButtons} role="group" aria-label="Movement activity">
                  {ACTIVITIES.map(item => (
@@ -708,12 +714,17 @@ export function WorldHome({ content }: { content: WorldContent }) {
                     role="group" aria-label="Shasta training and tricks">
                  <p>Shasta · Tricks</p>
                  <div className={styles.shastaVoiceFeedback} role="status" aria-live="polite">
-                   {voice.status==="listening"?"Listening for a Shasta command…":
-                     voice.status==="starting"?"Starting microphone…":
-                     voice.status==="unsupported"?"Speech recognition unavailable in this browser. Buttons still work.":
-                     voice.status==="denied"?"Microphone access was denied. Update browser permissions to try again.":
-                     voice.status==="error"?"Speech recognition failed. Try again or use the buttons.":
-                     voice.lastHeard?`Heard: ${voice.lastHeard}`:"Tap the mic to speak one command. Audio may be processed by your browser provider."}
+                   {voice.notice?voice.notice:
+                     voice.status==="listening"?"Listening for a Shasta command…":
+                     voice.status==="recording"?"Recording. Tap again to submit (maximum 5 seconds).":
+                     voice.status==="processing"?"Transcribing the command…":
+                     voice.status==="starting"?"Requesting microphone…":
+                     voice.status==="unsupported"?"Microphone recording unavailable in this browser. Buttons still work.":
+                     voice.status==="unconfigured"?"Cross-browser voice requires server transcription to be enabled.":
+                     voice.status==="denied"?"Microphone access denied. Check site permissions.":
+                     voice.status==="error"?"Recognition failed. Try again or use the buttons.":
+                     voice.lastHeard?`Heard: ${voice.lastHeard}`:
+                       "Tap the mic to speak. The recording fallback sends a short clip to the site's transcription provider."}
                  </div>
                  <div className={styles.shastaCatchPanel}>
                    <div className={styles.shastaCatchHeading}>
