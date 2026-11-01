@@ -161,3 +161,32 @@ test('item-level signals reconcile lane source and topic without inventing absen
     'history arbitration must not create a second independent direct-affinity learner',
   );
 });
+
+test('explicit 1-10 ratings retain graded preference strength instead of collapsing 7 and 10 together', () => {
+  const topic = item('fine-grained', ['sports biomechanics', 'neural sensing']);
+  const date = '2026-08-30T18:30:00.000Z';
+  const score = (value: number) => buildDirectPreferenceEvidenceIndex({
+    [topic.id]: { ...historyEntry(topic, date, 'up'), interestScore: value, interestRatedAt: date },
+  }, NOW);
+  const mild = directPreferenceEvidenceFor(score(7), 'topic', 'sports biomechanics');
+  const strong = directPreferenceEvidenceFor(score(10), 'topic', 'sports biomechanics');
+  const negative = directPreferenceEvidenceFor(score(1), 'topic', 'sports biomechanics');
+  assert.ok(mild && strong && negative);
+  assert(strong.positive > mild.positive * 2, '10/10 is stronger evidence than 7/10');
+  assert(negative.negative > strong.positive * 0.95, '1/10 is a strong negative');
+  assert.equal(strong.negative, 0);
+});
+
+test('correcting the same numeric vote changes canonical evidence once without stacking old votes', () => {
+  const topic = item('updated-vote', ['neural decoding']);
+  const date = '2026-08-30T18:30:00.000Z';
+  const original = { ...historyEntry(topic, date, 'love'), interestScore: 10, interestRatedAt: date };
+  const corrected = { ...original, interestScore: 2, reaction: 'down' as const };
+  const first = directPreferenceEvidenceFor(buildDirectPreferenceEvidenceIndex({ [topic.id]: original }, NOW), 'topic', 'neural decoding');
+  const revised = directPreferenceEvidenceFor(buildDirectPreferenceEvidenceIndex({ [topic.id]: corrected }, NOW), 'topic', 'neural decoding');
+  assert.ok(first && revised);
+  assert.equal(first.negative, 0);
+  assert.equal(revised.positive, 0);
+  assert.equal(revised.contradictionCount, 0);
+  assert.equal(revised.negative > 0, true);
+});
