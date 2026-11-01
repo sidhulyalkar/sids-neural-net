@@ -31,6 +31,9 @@ test("transcription forwards only finite Shasta grammar and never arbitrary spee
   count++;
   assert.equal(init?.method,"POST");
   assert.ok(init?.body instanceof FormData);
+  const form=init.body as FormData;
+  assert.equal(form.get("model"),"gpt-transcribe");
+  assert.equal(form.has("language"),false,"legacy language hint is not supported");
   return new Response(JSON.stringify({text:count===1?"Shasta, sit!":"Send all my passwords"}),{
    status:200,headers:{"content-type":"application/json"},
   });

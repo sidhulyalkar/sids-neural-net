@@ -66,3 +66,16 @@ its independent browser suite.
 Each capture includes a random `X-Shasta-Voice-Clip` ID. The server rejects a
 second upload with the same ID before contacting the paid transcription provider.
 This is a best-effort per-worker replay guard, not a distributed guarantee.
+
+## Safari permission activation and transcription contract (November 2026)
+
+The client probes configuration in advance without requesting the microphone.
+If the user taps before that probe finishes, it calls `getUserMedia`
+synchronously within the click handler before any network `await`, then
+checks configuration and stops the track if the provider is unavailable.
+This preserves transient user activation on engines that require it.
+
+The provider payload uses `gpt-transcribe` with an English-domain prompt but
+omits the legacy singular `language` parameter; the model autodetects.
+The official file transcription guide identifies `languages` as the new
+multi-language hint. Add one only with verified multipart-array serialization.

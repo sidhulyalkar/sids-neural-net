@@ -52,6 +52,19 @@ export function useShastaVoice(available:boolean,onAction:(action:ShastaVoiceAct
  const actionRef=useRef(onAction);
  const preferFallback=useRef(false);
  const fallbackConfigured=useRef<boolean|null>(null);
+ useEffect(()=>{
+  // Preflight does not activate a microphone. Safari requires the actual
+  // getUserMedia call to remain connected to a deliberate user gesture.
+  if(!captureSupported())return;
+  const controller=new AbortController();
+  fetch("/api/world/shasta/transcribe",{...noCache,signal:controller.signal})
+   .then(async response=>{
+    const data=await response.json() as {enabled?:boolean};
+    fallbackConfigured.current=response.ok&&data.enabled===true;
+   })
+   .catch(()=>{/* Network errors may be transient; retry on explicit tap. */});
+  return ()=>controller.abort();
+ },[]);
  useEffect(()=>{actionRef.current=onAction;},[onAction]);
  useEffect(()=>{availableRef.current=available;},[available]);
  const cleanup=useCallback(()=>{
@@ -160,21 +173,31 @@ export function useShastaVoice(available:boolean,onAction:(action:ShastaVoiceAct
   const id=++epoch.current;
   setStatus("starting");setNotice("");
   try{
-   if(fallbackConfigured.current===null){
-    const probe=await fetch("/api/world/shasta/transcribe",noCache);
-    const data=await probe.json() as {enabled?:boolean};
-    fallbackConfigured.current=probe.ok&&data.enabled===true;
-   }
-   if(id!==epoch.current||!availableRef.current)return;
-   if(!fallbackConfigured.current){
+   // A known-disabled provider must never solicit unnecessary microphone
+   // permissions. If configuration is still loading, request capture *now*,
+   // before any await, to preserve Safari's transient user activation.
+   if(fallbackConfigured.current===false){
     setStatus("unconfigured");setNotice("Cross-browser voice requires server transcription to be enabled.");
     return;
    }
-   // A permission prompt appears only following the user's mic tap.
-   const stream=await navigator.mediaDevices.getUserMedia({audio:{
+   const pendingStream=navigator.mediaDevices.getUserMedia({audio:{
     echoCancellation:true,noiseSuppression:true,autoGainControl:true,
    },video:false});
+   const stream=await pendingStream;
    if(id!==epoch.current||!availableRef.current){stream.getTracks().forEach(t=>t.stop());return;}
+   if(fallbackConfigured.current!==true){
+    try{
+     const probe=await fetch("/api/world/shasta/transcribe",noCache);
+     const data=await probe.json() as {enabled?:boolean};
+     fallbackConfigured.current=probe.ok&&data.enabled===true;
+    }catch{/* A failed probe is not a paid transcription request. */}
+   }
+   if(id!==epoch.current||!availableRef.current){stream.getTracks().forEach(t=>t.stop());return;}
+   if(fallbackConfigured.current!==true){
+    stream.getTracks().forEach(t=>t.stop());
+    setStatus("unconfigured");setNotice("Cross-browser voice requires server transcription to be enabled.");
+    return;
+   }
    try{
     const mime=preferredShastaAudioMime(MediaRecorder.isTypeSupported.bind(MediaRecorder));
     if(!mime)throw new Error("unsupported audio MIME");
@@ -233,6 +256,9 @@ export function useShastaVoice(available:boolean,onAction:(action:ShastaVoiceAct
      setStatus("off");setNotice("No speech heard. Tap the mic to try again.");
     }else{
      preferFallback.current=true;
+     recognizer.current=null;
+     active.onresult=null;active.onstart=null;active.onerror=null;active.onend=null;
+     try{active.abort();}catch{/* Recognition service may already be dead. */}
      setStatus("error");
      setNotice("Browser recognition failed. Tap the mic again to try recording mode.");
     }

@@ -66,7 +66,9 @@ export async function transcribeShastaAudio(
  const extension=mime.toLowerCase().includes("mp4")?"mp4":"webm";
  form.append("file",new Blob([Uint8Array.from(bytes)],{type:mime}),"shasta-command."+extension);
  form.append("model","gpt-transcribe");
- form.append("language","en");
+ // GPT-Transcribe uses a languages array rather than the legacy
+ // singular language parameter. Autodetect is safer than an ambiguous raw
+ // multipart encoding when requesting one short English command.
  form.append("prompt","Short command to a husky named Shasta: come, go, sit, down, stay, jump, spin left, spin right, roll left, roll right, shake left paw, shake right paw, catch the treat.");
  const response=await fetcher("https://api.openai.com/v1/audio/transcriptions",{
   method:"POST",body:form,headers:{Authorization:"Bearer "+apiKey},
