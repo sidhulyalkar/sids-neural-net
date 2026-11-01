@@ -1,3 +1,4 @@
+import { cleanFrontierEditorialText } from './editorialQuality';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
 
 const USER_AGENT = 'sids-neural-net-frontier-watch-radar/1.0 (+https://sidhulyalkar.com/frontier)';
@@ -83,7 +84,8 @@ export function parseWatchChannelFeed(xml: string, channel: WatchChannel): Front
     const publishedAt = new Date(publishedRaw).toISOString();
     if (ageDays(publishedAt) > 14) return [];
 
-    const description = xmlTag(entry, 'media:description');
+    const description = cleanFrontierEditorialText(xmlTag(entry, 'media:description'), 'youtube');
+    if (description.length < 55 || description.split(/\s+/).length < 9) return [];
     const freshness = Math.exp(-ageDays(publishedAt) / 5);
     const quality = 0.7;
     const novelty = 0.64;
@@ -96,7 +98,7 @@ export function parseWatchChannelFeed(xml: string, channel: WatchChannel): Front
     return [{
       id: `watch-${channel.id}-${stableId(videoId)}`,
       title,
-      summary: description || `Fresh video from ${channel.label}.`,
+      summary: description,
       url,
       source: 'youtube.com',
       sourceLabel: channel.label,
@@ -108,6 +110,8 @@ export function parseWatchChannelFeed(xml: string, channel: WatchChannel): Front
         type: 'youtube' as const,
         url: videoId,
         poster: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+        width: 1280,
+        height: 720,
         alt: title,
         aspectRatio: 'wide' as const,
       },
