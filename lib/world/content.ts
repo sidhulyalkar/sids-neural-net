@@ -33,7 +33,7 @@ export function getWorldContent(): WorldContent {
         : [];
     }),
     galleryPhotos: visualArchive.map(p=>({
-      id:p.id,src:p.src,alt:p.alt,width:p.width,height:p.height,
+      id:p.id,src:p.src,thumbSrc:p.thumbSrc,alt:p.alt,width:p.width,height:p.height,
       location:p.location,mapUrl:photoMapUrl(p.place),
     })),
     photos: MEMORY_POINTS.flatMap((m) => {

@@ -4047,6 +4047,14 @@ export function createWorld(
     if (key === "enter" && !e.repeat && !jetSki&&nearJetSkiBoarding(player)&&aquatic==="land"&&skimHeat.phase==="off") {
       e.preventDefault();openJetChooser();return;
     }
+    if(key==="enter"&&!e.repeat&&aquatic==="dive"&&bunkerInside(player)){
+      ray.setFromCamera(gazePointer,camera);
+      const photoHit=ray.intersectObjects(bunkerGallery.targets,false)
+        .find(hit=>hit.object.parent?.visible&&
+          Math.hypot(hit.point.x-player.x,hit.point.z-player.z)<7.2);
+      const photoId=photoHit?.object.userData.photoId as string|undefined;
+      if(photoId){e.preventDefault();callbacks.onInteract(photoId);return;}
+    }
     if (key === "enter" && !e.repeat && discovery && skimHeat.phase==="off") {
       e.preventDefault();
       callbacks.onInteract(discovery);
@@ -7215,7 +7223,7 @@ export function createWorld(
     bunkerHud.style.display=showBunkerHud?"block":"none";
     if(showBunkerHud){
       const nextText=galleryState.inside
-        ? "Sea Glass Archive · Explore the blue halls · Tap a photograph"
+        ? "Sea Glass Archive · Swim the blue halls · Tap or aim + Enter to view a photo"
         : galleryState.open
           ? "Sea Glass Archive · Circular hatch opening"
           : "Sea Glass Archive · Dive deeper toward the circular hatch";

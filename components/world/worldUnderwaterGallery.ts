@@ -52,7 +52,10 @@ export function createWorldUnderwaterGallery(photos:readonly WorldPhoto[]){
   const w=layout.walls[i],horizontal=w.along==="x";
   const y=seaFloorHeight(w.x,w.z)+UNDERWATER_BUNKER.wallHeight/2+.05;
   const rotate=horizontal?0:Math.PI/2;
-  put(wallMeshes,i,w.x,y,w.z,w.length,UNDERWATER_BUNKER.wallHeight,.13,rotate);
+  // Extend below the sloping seafloor to avoid hairline daylight gaps
+  // between adjacent pressure panels and terrain triangles.
+  put(wallMeshes,i,w.x,y-.34,w.z,w.length,
+   UNDERWATER_BUNKER.wallHeight+.68,.13,rotate);
   for(const offset of [-w.length/2+.09,w.length/2-.09]){
    put(edgeMeshes,e++,w.x+(horizontal?offset:0),y,
     w.z+(horizontal?0:offset),.13,UNDERWATER_BUNKER.wallHeight+.15,.16,0);
@@ -128,7 +131,7 @@ export function createWorldUnderwaterGallery(photos:readonly WorldPhoto[]){
   image.scale.set(width,height,1);image.position.z=.118;
   image.userData.photoId=photo.id;image.userData.galleryPhotoIndex=i;
   image.name="underwater-photo-"+photo.id;grp.add(image);
-  root.add(grp);targets.push(image);
+  grp.visible=false;root.add(grp);targets.push(image);
   photoEntries.push({group:grp,material,image,photo,slot,
    texture:null,generation:0,pending:false});
  }
@@ -147,13 +150,14 @@ export function createWorldUnderwaterGallery(photos:readonly WorldPhoto[]){
   entry.generation++;
   if(entry.texture){entry.texture.dispose();entry.texture=null;
    activeTextures.delete(photoEntries.indexOf(entry));}
-  entry.material.map=null;entry.material.needsUpdate=true;
+  entry.material.map=null;entry.material.color.set("#b2c7d1");
+  entry.material.needsUpdate=true;
   entry.pending=false;
  }
  function load(entry:PhotoEntry,index:number){
   if(entry.texture||entry.pending)return;
   entry.pending=true;const token=++entry.generation;
-  const t=loader.load(entry.photo.src,()=>{
+  const t=loader.load(entry.photo.thumbSrc??entry.photo.src,()=>{
    if(!alive||token!==entry.generation){t.dispose();return;}
    t.colorSpace=THREE.SRGBColorSpace;
    t.anisotropy=2;

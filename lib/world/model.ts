@@ -575,6 +575,7 @@ export type WorldProject = {
 export type WorldPhoto = {
   id: string;
   src: string;
+  thumbSrc?:string;
   alt: string;
   width: number;
   height: number;
