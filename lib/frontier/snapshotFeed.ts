@@ -1,5 +1,6 @@
 import frontierSnapshot from '@/content/frontier/latest.json';
 import { needsEnglishTranslation } from './english';
+import { cleanFrontierItem, isFrontierEditoriallyUsable } from './editorialQuality';
 import {
   buildFrontierPipelineDiagnostics,
   frontierObservedDrop,
@@ -67,7 +68,7 @@ function dedupe(items: FrontierItem[]): FrontierItem[] {
 export function getFrontierColdSnapshotFeed(now = Date.now()): FrontierObservableFeedResponse {
   const snapshot = frontierSnapshot as FrontierFeedResponse;
   const input = snapshot.items ?? [];
-  const plausibleItems = input.filter((item) => plausible(item, now));
+  const plausibleItems = input.map(cleanFrontierItem).filter((item) => plausible(item, now) && isFrontierEditoriallyUsable(item));
   const rightsSafe = plausibleItems.filter((item) => !rightsFragileNflYoutube(item));
   const recent = rightsSafe.filter((item) => {
     const publishedAt = Date.parse(item.publishedAt);
