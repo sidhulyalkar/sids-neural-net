@@ -8,7 +8,7 @@ import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, RefreshCw, Search } from
 import { holdToInterestScore } from '@/lib/frontier/interestRating';
 import { frontierHasNewStories, frontierShouldCheckLatest } from '@/lib/frontier/liveFeedPolicy';
 import { buildFrontierSourceBrief, frontierRatingDescription, frontierSourceFigures } from '@/lib/frontier/sourceBrief';
-import { rankFrontierItems } from '@/lib/frontier/scoring';
+import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierFeedResponse, FrontierItem } from '@/lib/frontier/types';
 import styles from './frontier-focus-reader.module.css';
@@ -33,7 +33,8 @@ function sourceDate(date: string): string {
 
 /** One DOM article and at most one image are mounted at any point in time. */
 export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
-  const [items, setItems] = useState(() => initialItems.slice(0, EDITION_LIMIT));
+  // Deterministic diverse first edition during SSR, before preference hydration.
+  const [items, setItems] = useState(() => selectDailyRun(initialItems, {}, EDITION_LIMIT));
   const [position, setPosition] = useState(0);
   const [editionAt, setEditionAt] = useState(generatedAt);
   const [searchDraft, setSearchDraft] = useState('');
@@ -51,6 +52,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const requestRef = useRef<AbortController | null>(null);
   const backgroundRef = useRef<AbortController | null>(null);
   const readerInteractedRef = useRef(false);
+  const initialPersonalizationAppliedRef = useRef(false);
   const holdStartedRef = useRef<number | null>(null);
   const holdFrameRef = useRef<number | null>(null);
 
@@ -74,6 +76,17 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const currentVisualGrade = holdValue ?? rating;
   const balloonScale = (0.76 + 0.36 * ((currentVisualGrade ?? 1) / 10)).toFixed(3);
   const gradeDescription = frontierRatingDescription(currentVisualGrade);
+
+  useEffect(() => {
+    if (!hydrated || initialPersonalizationAppliedRef.current) return;
+    initialPersonalizationAppliedRef.current = true;
+    // Never move an article after a gesture, touch or navigation begins.
+    if (readerInteractedRef.current) return;
+    const state = useFrontierStore.getState();
+    const ranked = rankFrontierItems(initialItems, state.profile, state.history, new Date(), state.behavior);
+    const selected = selectDailyRun(ranked, state.history, EDITION_LIMIT);
+    if (selected.length) setItems(selected);
+  }, [hydrated, initialItems]);
 
   const cancelHold = useCallback(() => {
     holdStartedRef.current = null;
@@ -228,7 +241,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
         if (controller.signal.aborted || !Array.isArray(payload.items) || !payload.items.length) return;
         const store = useFrontierStore.getState();
         const ranked = rankFrontierItems(payload.items, store.profile, store.history, new Date(), store.behavior);
-        const next = (ranked.length ? ranked : payload.items).slice(0, EDITION_LIMIT);
+        const next = selectDailyRun(ranked.length ? ranked : payload.items, store.history, EDITION_LIMIT);
         if (!frontierHasNewStories(initialItems.map((entry) => entry.id), next.map((entry) => entry.id))) return;
         const edition = { items: next, generatedAt: payload.generatedAt };
         // A saved rating indicates an existing reading session even if this
@@ -289,7 +302,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       }
       const state = useFrontierStore.getState();
       const ranked = rankFrontierItems(payload.items, state.profile, state.history, new Date(), state.behavior);
-      const next = (ranked.length ? ranked : payload.items).slice(0, EDITION_LIMIT);
+      const next = selectDailyRun(ranked.length ? ranked : payload.items, state.history, EDITION_LIMIT);
       setItems(next);
       setPosition(0);
       setEditionAt(payload.generatedAt);
