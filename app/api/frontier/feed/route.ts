@@ -138,9 +138,17 @@ export async function GET(request: NextRequest) {
           pipelineMode: mode,
           adapterDeadlineMs: forceFresh ? MANUAL_REFRESH_BUDGET_MS : FOCUSED_LIVE_BUDGET_MS,
         }),
-      isCachedFocus
+      (isCachedFocus
         ? import('@/lib/frontier/sportsStateCdnRequest').then((sports) => sports.getCdnSportsStateFeed())
-        : dependencies!.getCdnSportsStateFeed(),
+        : dependencies!.getCdnSportsStateFeed()
+      ).catch((): FrontierFeedResponse => ({
+        generatedAt: new Date().toISOString(),
+        items: [],
+        sources: [{
+          id: 'sports_state', label: 'Live sports state', ok: false, count: 0,
+          message: 'Sports provider unavailable; other discovery remains usable',
+        }],
+      })),
     ]);
     const decorated = decorateFeedMedia(mergeRequestSportsState(integratedFeed, requestSports));
     // Media/sports decorators intentionally operate on the historical base feed
