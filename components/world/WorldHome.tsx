@@ -510,7 +510,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const selected = REGIONS.find((r) => r.id === panel);
   const carvedGameIndex = panel?.startsWith("game:") ? Number(panel.slice(5)) : -1;
   const carvedGame = Number.isInteger(carvedGameIndex) ? content.games[carvedGameIndex] : undefined;
-  const photo = content.photos.find((p) => p.id === panel ||
+  const photo = [...content.photos,...content.galleryPhotos].find((p) => p.id === panel ||
     (panel === "sloth-portrait" && p.id === "photo-050"));
   const video = content.videos.find((item) => item.id === panel);
   const caption = MEMORY_POINTS.find((m) => m.id === panel);
@@ -578,7 +578,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             waterAction={waterAction}
             waterActionSerial={waterActionSerial}
             gameTitles={content.games.map(game => game.title)}
-            photos={content.photos}
+            photos={content.galleryPhotos}
             onAquatic={setAquatic}
             onReady={onReady}
             onError={onError}

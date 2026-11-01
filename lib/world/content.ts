@@ -32,6 +32,10 @@ export function getWorldContent(): WorldContent {
           ]
         : [];
     }),
+    galleryPhotos: visualArchive.map(p=>({
+      id:p.id,src:p.src,alt:p.alt,width:p.width,height:p.height,
+      location:p.location,mapUrl:photoMapUrl(p.place),
+    })),
     photos: MEMORY_POINTS.flatMap((m) => {
       const p = visualArchive.find((photo) => photo.id === m.photoId);
       return p

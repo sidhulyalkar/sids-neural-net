@@ -591,6 +591,7 @@ export type WorldVideo = {
 export type WorldContent = {
   projects: WorldProject[];
   photos: WorldPhoto[];
+  galleryPhotos: WorldPhoto[];
   publications: {id:string;title:string;year:number|null;href:string}[];
   videos: WorldVideo[];
   games: { title: string; subtitle: string; href: string }[];
