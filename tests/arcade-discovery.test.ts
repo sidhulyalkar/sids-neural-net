@@ -70,7 +70,9 @@ test('Stretchicorn cabinet tracks live main dist/stretchicorn-local.html', () =>
   const route = readRepoFile('app/game-runtimes/stretchicorn/[asset]/route.ts');
   assert.match(route, /STRETCHICORN_SOURCE_REF = 'main'/);
   assert.match(route, /STRETCHICORN_SOURCE_ARTIFACT = 'dist\/stretchicorn-local\.html'/);
-  assert.match(route, /tabindex=0/);
+  assert.match(route, /tabindex="0"/);
+  assert.match(route, /const focusable = shell\.replace/);
+  assert.match(route, /canvasTag\.replace/);
   assert.match(route, /data-sids-game-network-fit/);
   assert.match(route, /width:min\(100vw,150vh\)!important/);
   assert.match(route, /height:auto!important/);

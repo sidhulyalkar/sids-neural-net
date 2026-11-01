@@ -253,3 +253,29 @@ test('adaptive discovery restores explicit seed anchors once local learning has 
   assert.equal(focus.length, 7);
   assert.ok(focus.filter((topic) => seedSet.has(topic)).length >= 3);
 });
+
+
+test('specialized biomechanics, multimodal sensing and whole-person digital twins are discoverable without generic keyword drift', () => {
+  const biomechanics = item('sports-biomechanics', {
+    title: 'OpenCap and OpenSim markerless motion capture for athlete injury risk modeling',
+    lane: 'sports', tags: ['sports injury', 'biomechanics', 'computer vision'],
+  });
+  const sensing = item('neural-sensing', {
+    title: 'EEG EMG and fNIRS synchronization for multimodal neural sensing',
+    lane: 'neuro_frontier', tags: ['neural sensing', 'eeg', 'multimodal physiology'],
+  });
+  const twins = item('digital-twins', {
+    title: 'Neurobehavioral digital twin of sleep stress and physiological state',
+    lane: 'neuro_frontier', tags: ['digital twins', 'multimodal modeling'],
+  });
+  const generic = item('generic-sports', {
+    title: 'NBA player signs a multi-year endorsement contract',
+    lane: 'sports', tags: ['basketball', 'sports'],
+  });
+  assert.equal(matchesPersonalTasteTopic(biomechanics, ['sports-injury-biomechanics']), true);
+  assert.equal(matchesPersonalTasteTopic(sensing, ['multimodal-neural-sensing']), true);
+  assert.equal(matchesPersonalTasteTopic(twins, ['neurobehavioral-digital-twins']), true);
+  assert.equal(matchesPersonalTasteTopic(generic, ['sports-injury-biomechanics']), false);
+  assert(personalTasteRankingPrior(biomechanics) > personalTasteRankingPrior(generic));
+  assert(FRONTIER_DISCOVERY_SEEDS.includes('sports injury biomechanics computer vision'));
+});

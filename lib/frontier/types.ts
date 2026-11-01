@@ -103,6 +103,8 @@ export type FrontierSourceFigure = {
   url: string;
   /** Publisher-original retry when a trusted higher-resolution proxy fails. */
   fallbackUrl?: string;
+  /** Alternate authentic resolutions ordered before the low-quality source fallback. */
+  fallbackUrls?: string[];
   alt: string;
   caption?: string;
   credit?: string;

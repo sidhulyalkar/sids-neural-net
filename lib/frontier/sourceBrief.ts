@@ -1,4 +1,6 @@
 import type { FrontierItem, FrontierSourceFigure } from './types';
+import { cleanFrontierEditorialText } from './editorialQuality';
+import { frontierImageResolutionFallbacks } from './media/sourceResolution';
 
 /**
  * The focus reader re-arranges the *existing source payload*; it does not
@@ -18,8 +20,8 @@ function readableSentences(value: string): string[] {
   return normalized.split(/(?<=[.!?])\s+(?=[A-Z0-9"'“(])/u).map((part) => part.trim()).filter(Boolean);
 }
 
-export function buildFrontierSourceBrief(summary: string): FrontierSourceBrief {
-  const text = summary.replace(/\s+/g, ' ').trim();
+export function buildFrontierSourceBrief(summary: string, sourceKind = ''): FrontierSourceBrief {
+  const text = cleanFrontierEditorialText(summary, sourceKind);
   if (!text) return { lead: '', details: [], hasFullerContext: false };
   const sentences = readableSentences(text);
   if (text.length <= 260 || sentences.length < 2) {
@@ -68,6 +70,7 @@ export function frontierSourceFigures(item: FrontierItem): FrontierSourceFigure[
     found.push({
       url,
       fallbackUrl: figure.fallbackUrl && allowedImageUrl(figure.fallbackUrl) && figure.fallbackUrl !== url ? figure.fallbackUrl : undefined,
+      fallbackUrls: figure.fallbackUrls?.filter((candidate) => allowedImageUrl(candidate) && candidate !== url).slice(0, 6),
       alt: figure.alt?.trim() || item.title,
       caption: figure.caption?.trim() || '',
       credit: figure.credit?.trim() || item.sourceLabel,
@@ -79,13 +82,23 @@ export function frontierSourceFigures(item: FrontierItem): FrontierSourceFigure[
     const url = media.type === 'image'
       ? (media.proxyUrl || media.url)
       : ((media.type === 'video' || media.type === 'youtube') ? (media.posterProxyUrl || media.poster) : undefined);
-    if (url) add({
+    if (url) {
+      const original = media.type === 'image' ? media.url : media.poster;
+      const variants = original ? frontierImageResolutionFallbacks(original) : [];
+      const alternateUrls = variants.flatMap((variant) => [
+        '/api/frontier/media?url=' + encodeURIComponent(variant),
+        variant,
+      ]);
+      add({
       url,
-      fallbackUrl: media.type === 'image' ? media.url : media.poster,
+      fallbackUrl: original,
+      fallbackUrls: media.type === 'youtube' || media.type === 'video'
+        ? [...(original ? [original] : []), ...alternateUrls] : alternateUrls,
       alt: media.alt || item.title,
       caption: media.alt || item.title,
       credit: item.sourceLabel,
     });
+    }
   }
   for (const figure of item.figures ?? []) add(figure);
   return found;

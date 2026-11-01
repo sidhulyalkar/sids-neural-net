@@ -56,3 +56,34 @@ export function frontierDeclaredImageWidth(raw: string): number | undefined {
     return undefined;
   }
 }
+
+
+/**
+ * Source-authentic resolution ladder, never an AI upscale. The initial URL is
+ * already the HD transform/poster; these are bounded fallback source variants.
+ */
+export function frontierImageResolutionFallbacks(raw: string): string[] {
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'https:' || url.username || url.password) return [];
+    if (url.hostname === 'i.ytimg.com') {
+      const match = url.pathname.match(/^\/vi(?:_webp)?\/([a-zA-Z0-9_-]{11})\/(maxresdefault|sddefault|hqdefault)\.(jpg|webp)$/);
+      if (!match) return [];
+      const videoId = match[1];
+      return ['sddefault', 'hqdefault']
+        .map((size) => new URL('/vi/' + videoId + '/' + size + '.jpg', url.origin).toString())
+        .filter((candidate) => candidate !== raw);
+    }
+    if (url.hostname === GUARDIAN_IMAGE_HOST) {
+      const width = frontierDeclaredImageWidth(raw);
+      if (width && width >= 800) return [];
+      const retry = new URL(raw);
+      retry.searchParams.set('width', '1200');
+      retry.searchParams.set('quality', '85');
+      return retry.toString() === raw ? [] : [retry.toString()];
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}

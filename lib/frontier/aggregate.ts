@@ -1,6 +1,7 @@
 import frontierSnapshot from '@/content/frontier/latest.json';
 import { getActiveSportsFeed } from './activeSportsSources';
 import { needsEnglishTranslation, normalizeFeedToEnglish } from './english';
+import { cleanFrontierItem, isFrontierEditoriallyUsable } from './editorialQuality';
 import { getSharedExpandedPublicFeed } from './expandedSourcesShared';
 import { getAdaptiveLiveDiscovery } from './liveDiscovery';
 import { enrichFrontierMediaGeometry } from './media/geometry';
@@ -147,11 +148,11 @@ export function frontierCandidatePriority(item: FrontierItem): number {
  * or profile state and therefore may safely cross the diagnostic boundary.
  */
 export function prepareFrontierCandidatePool(items: FrontierItem[]): FrontierCandidatePoolPreparation {
-  const plausible = items.filter((item) => isPlausibleFrontierCandidate(item));
+  const plausible = items.map(cleanFrontierItem).filter((item) => isPlausibleFrontierCandidate(item));
   const rightsSafe = plausible.filter((item) => !isRightsFragileNflYoutube(item));
   const enriched = rightsSafe.map(enrichFrontierSemantics);
   const deduped = dedupe(enriched);
-  const admitted = vetFrontierItems(deduped);
+  const admitted = vetFrontierItems(deduped.filter(isFrontierEditoriallyUsable));
   const retained = [...admitted]
     .sort((a, b) => frontierCandidatePriority(b) - frontierCandidatePriority(a))
     .slice(0, MAX_INTEGRATED_CANDIDATES);
@@ -206,7 +207,7 @@ function recentSnapshotItems(): FrontierItem[] {
   const snapshot = frontierSnapshot as FrontierFeedResponse;
   const now = Date.now();
   return (snapshot.items ?? []).filter((item) => {
-    if (!isPlausibleFrontierCandidate(item, now) || isRightsFragileNflYoutube(item)) return false;
+    if (!isPlausibleFrontierCandidate(item, now) || isRightsFragileNflYoutube(item) || !isFrontierEditoriallyUsable(item)) return false;
     const ageDays = (now - new Date(item.publishedAt).getTime()) / DAY_MS;
     return Number.isFinite(ageDays) && ageDays <= 10;
   });
