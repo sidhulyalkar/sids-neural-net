@@ -15,6 +15,7 @@ const out=path.join(process.env.WORLD_AUDIT_DIR??'artifacts/world/shasta-cross-b
 fs.mkdirSync(out,{recursive:true});
 const page=await browser.newPage({viewport:{width:kind==='webkit'?390:1280,height:kind==='webkit'?760:800}});
 const errors=[],requests=[];
+let providerEnabled=true;
 try{
  page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/world/shasta/transcribe',async route=>{
@@ -22,7 +23,7 @@ try{
   requests.push({method:req.method(),type:req.headers()['content-type']??''});
   if(req.method()==='GET'){
    await route.fulfill({status:200,contentType:'application/json',
-    body:JSON.stringify({enabled:true})});return;
+    body:JSON.stringify({enabled:providerEnabled})});return;
   }
   const bytes=req.postDataBuffer();
   // WebKit inspection may omit valid streamed Blob request bodies.
@@ -112,6 +113,43 @@ try{
  await nav.getByRole('button',{name:'Speak a Shasta command'}).waitFor({timeout:12000});
  assert.ok((await page.evaluate(()=>window.__shastaTest.stops))>=2);
  assert.equal((await page.evaluate(()=>window.__shastaTest.fetchPosts)),1);
+ // Browser's native recognition can exist but fail with a network/service
+ // error. The next deliberate tap must use fallback, not dismiss a ghost
+ // recognizer instance.
+ await page.evaluate(()=>{
+  Object.defineProperty(document,'hidden',{configurable:true,value:false});
+  Object.defineProperty(window,'SpeechRecognition',{configurable:true,value:
+   class FailingSpeechRecognition{
+    start(){queueMicrotask(()=>this.onerror?.({error:'network'}));}
+    abort(){}
+    stop(){}
+   },
+  });
+ });
+ await nav.getByRole('button',{name:'Speak a Shasta command'}).click();
+ await page.getByRole('status').filter({hasText:'Browser recognition failed'}).first()
+  .waitFor({timeout:12000});
+ await nav.getByRole('button',{name:'Speak a Shasta command'}).click();
+ await nav.getByRole('button',{name:'Finish Shasta voice recording'}).waitFor({timeout:12000});
+ await nav.getByRole('button',{name:'Finish Shasta voice recording'}).click();
+ await page.waitForFunction(()=>window.__shastaTest?.fetchPosts===2,
+  null,{timeout:12000});
+ await nav.getByRole('button',{name:'Speak a Shasta command'}).waitFor({timeout:12000});
+
+ // When the server says the paid feature is disabled, no microphone prompt
+ // or recording is allowed. New page clears the old session/recognizer.
+ providerEnabled=false;
+ const probe=page.waitForResponse(r=>r.url().includes('/api/world/shasta/transcribe')&&
+  r.request().method()==='GET',{timeout:12000});
+ await page.reload({waitUntil:'domcontentloaded'});
+ await probe;
+ await page.waitForTimeout(150);
+ const startedBefore=await page.evaluate(()=>window.__shastaTest.started);
+ await nav.getByRole('button',{name:'Speak a Shasta command'}).click();
+ await page.getByRole('status').filter({hasText:'Cross-browser voice requires server transcription'}).first()
+  .waitFor({timeout:12000});
+ assert.equal((await page.evaluate(()=>window.__shastaTest.started)),startedBefore,
+  'disabled provider must never open the microphone');
  assert.deepEqual(errors,[]);
  const info={browser:kind,requests,errors,trackStops:await page.evaluate(()=>window.__shastaTest.stops)};
  fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(info,null,2)+'\n');
