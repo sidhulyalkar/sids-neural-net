@@ -1,4 +1,4 @@
-import {allowShastaVoiceRequest,readShastaAudio,transcribeShastaAudio} from "@/lib/world/shastaTranscribeServer";
+import {allowShastaVoiceRequest,firstShastaVoiceClip,readShastaAudio,transcribeShastaAudio} from "@/lib/world/shastaTranscribeServer";
 import {validShastaAudioMime} from "@/lib/world/shastaVoiceCapture";
 
 export const runtime="nodejs";
@@ -26,6 +26,8 @@ export async function POST(request:Request){
  if(!validShastaAudioMime(mime))return json({error:"invalid_format"},415);
  const ip=(request.headers.get("x-forwarded-for")??"unknown").split(",")[0].trim().slice(0,80);
  if(!allowShastaVoiceRequest(ip))return json({error:"rate_limited"},429);
+ if(!firstShastaVoiceClip(ip,request.headers.get("x-shasta-voice-clip")??""))
+  return json({error:"duplicate_or_missing_clip"},409);
  try{
   const bytes=await readShastaAudio(request.body,request.headers.get("content-length"));
   const result=await transcribeShastaAudio(bytes,mime!,process.env.OPENAI_API_KEY!);

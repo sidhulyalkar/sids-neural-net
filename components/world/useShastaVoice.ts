@@ -97,7 +97,8 @@ export function useShastaVoice(available:boolean,onAction:(action:ShastaVoiceAct
   try{
    const response=await fetch("/api/world/shasta/transcribe",{
     method:"POST",body:clip,signal:abort.signal,credentials:"same-origin",
-    cache:"no-store",headers:{"Content-Type":mime},
+    cache:"no-store",headers:{"Content-Type":mime,
+     "X-Shasta-Voice-Clip":crypto.randomUUID()},
    });
    const data=await response.json() as {action?:string;transcript?:string;error?:string};
    if(id!==epoch.current||!availableRef.current)return;

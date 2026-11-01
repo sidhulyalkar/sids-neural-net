@@ -4,6 +4,19 @@ import {SHASTA_MAX_AUDIO_BYTES,validShastaAudioMime} from "./shastaVoiceCapture"
 type ProviderResponse={text?:unknown};
 export type ShastaTranscriptionResult={transcript:string;action:ReturnType<typeof parseShastaVoiceCommand>};
 const BUCKETS=new Map<string,{minute:number;count:number;day:number;daily:number}>();
+const RECENT_CLIPS=new Map<string,number>();
+/** A bounded, short-lived replay guard. No audio/transcripts are retained. */
+export function firstShastaVoiceClip(ip:string,id:string,now=Date.now()){
+ if(!/^[a-f0-9-]{36}$/i.test(id))return false;
+ if(RECENT_CLIPS.size>1000){
+  for(const [k,t] of RECENT_CLIPS)if(now-t>60000)RECENT_CLIPS.delete(k);
+  if(RECENT_CLIPS.size>1000)RECENT_CLIPS.clear();
+ }
+ const key=ip+":"+id,seen=RECENT_CLIPS.get(key);
+ if(seen!==undefined&&now-seen<60000)return false;
+ RECENT_CLIPS.set(key,now);return true;
+}
+
 /** Best-effort per-worker rate limiting. A distributed WAF/KV quota is
  * still necessary for public high-volume production deployments.
  */
