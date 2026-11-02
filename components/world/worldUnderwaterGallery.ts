@@ -5,7 +5,8 @@ import {constrainMove,seaFloorHeight,type Point,type WorldPhoto,type Obstacle} f
 
 type PhotoEntry={group:THREE.Group;material:THREE.MeshBasicMaterial;
  image:THREE.Mesh;photo:WorldPhoto;slot:BunkerPhotoSlot;
- texture:THREE.Texture|null;generation:number;pending:boolean};
+ texture:THREE.Texture|null;generation:number;pending:boolean;
+ quality:"thumb"|"full"|null;}
 
 /**
  * A lightweight aquarium-blue photography museum: pressure-glass walls, metal
@@ -152,7 +153,7 @@ export function createWorldUnderwaterGallery(photos:readonly WorldPhoto[]){
   image.name="underwater-photo-"+photo.id;grp.add(image);
   grp.visible=false;root.add(grp);targets.push(image);
   photoEntries.push({group:grp,material,image,photo,slot,
-   texture:null,generation:0,pending:false});
+   texture:null,generation:0,pending:false,quality:null});
  }
  frames.instanceMatrix.needsUpdate=true;
  backings.instanceMatrix.needsUpdate=true;
@@ -178,12 +179,15 @@ export function createWorldUnderwaterGallery(photos:readonly WorldPhoto[]){
    activeTextures.delete(photoEntries.indexOf(entry));}
   entry.material.map=null;entry.material.color.set("#b2c7d1");
   entry.material.needsUpdate=true;
-  entry.pending=false;
+  entry.pending=false;entry.quality=null;
  }
- function load(entry:PhotoEntry,index:number){
-  if(entry.texture||entry.pending)return;
-  entry.pending=true;const token=++entry.generation;
-  const t=loader.load(entry.photo.thumbSrc??entry.photo.src,()=>{
+ function load(entry:PhotoEntry,index:number,quality:"thumb"|"full"){
+  if((entry.texture||entry.pending)&&entry.quality===quality)return;
+  if(entry.texture||entry.pending)unload(entry);
+  entry.pending=true;entry.quality=quality;
+  const token=++entry.generation;
+  const t=loader.load(quality==="full"?entry.photo.src:
+   (entry.photo.thumbSrc??entry.photo.src),()=>{
    if(!alive||token!==entry.generation){t.dispose();return;}
    t.colorSpace=THREE.SRGBColorSpace;
    t.anisotropy=2;
@@ -215,16 +219,20 @@ export function createWorldUnderwaterGallery(photos:readonly WorldPhoto[]){
    })).sort((a,b)=>a.d-b.d);
    const allowed=new Set(nearby.filter(p=>root.visible&&p.d<17)
     .slice(0,12).map(p=>p.index));
+   // Prioritize only the two nearest artworks for full-size textures.
+   const full=new Set(nearby.filter(p=>allowed.has(p.index)&&p.d<7.5)
+    .slice(0,2).map(p=>p.index));
    for(let i=0;i<photoEntries.length;i++){
     const photo=photoEntries[i];
     photo.group.visible=root.visible&&
       Math.hypot(photo.slot.x-player.x,photo.slot.z-player.z)<19;
-    if(allowed.has(i))load(photo,i);
+    if(allowed.has(i))load(photo,i,full.has(i)?"full":"thumb");
     else if(photo.texture||photo.pending)unload(photo);
    }
   }
   return {near:close,open:isOpen,passable:openAmount>.77,
    inside:bunkerInside(player),loaded:activeTextures.size,
+   fullResolution:photoEntries.filter(p=>p.texture&&p.quality==="full").length,
    missing:failed,viewed:visited.size};
  }
  return {root,targets,layout,update,

@@ -55,3 +55,14 @@ per-photo dynamic lighting and large transparent meshes that would degrade
 software-rendered mobile WebGL. Validate actual image rendering, collision
 reachability, haze depth and first-person camera framing in a physical-browser
 playtest before merging the branch chain.
+
+## Second rendering pass
+- The museum has a **single level pressure deck** with seabed supports under
+  the western rooms.
+- Perimeter photographs face inward; their frames and backings share two GPU
+  instancing batches instead of separate calls per exhibit.
+- Nearby images use two stages: at most twelve resident thumbnails and two
+  full-resolution photographs nearest the visitor.
+- Hatch collision opens only after its animated circular door clears the passage.
+- Three concise ambient wings: Kelp Forest, Open Ocean and Blue Abyss, plus
+  a per-session photograph discovery count.
