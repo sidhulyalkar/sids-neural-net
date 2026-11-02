@@ -313,15 +313,10 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
         const initiallyVisible = selectDailyRun(initialItems, {}, EDITION_LIMIT);
         if (!frontierHasNewStories(initiallyVisible.map((entry) => entry.id), next.map((entry) => entry.id))) return;
         const edition = { items: next, generatedAt: payload.generatedAt };
-        // A saved rating indicates an existing reading session even if this
-        // particular tab was just reloaded. Don't reset that reader's place.
-        const alreadyReading = initialItems[0] &&
-          Boolean(store.history[initialItems[0].id]?.interestScore);
-        if (!readerInteractedRef.current && !alreadyReading) {
-          applyLatest(edition);
-        } else {
-          setLatestReady(edition);
-        }
+        // Reading without clicking or scrolling is still reading. Never swap
+        // an article underneath someone after an asynchronous cache refresh.
+        // A visible "Latest ready" action lets them choose when to switch.
+        setLatestReady(edition);
       } catch {
         // A valid snapshot is still on screen. No noisy errors on a background
         // fetch failure; manual refresh remains available.
