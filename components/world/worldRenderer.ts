@@ -3397,7 +3397,6 @@ export function createWorld(
   let skateBowlLastLanding="",skateBowlLastLandingSpeed=0;
   let skateLoopRide:SkateLoopRide|null=null;
   let loopCameraWasActive=false;
-  let bunkerCameraWasInside=false;
   let skateLoopEntries=0,skateLoopCompletions=0,lastSkateLoopEnd=-Infinity;
   let skateTunnelRide:SkateTunnelRide|null=null;
   let skateTunnelEntries=0,skateTunnelCompletions=0;
@@ -7124,9 +7123,8 @@ export function createWorld(
     const loopCameraChanged=loopCameraWasActive!==!!skateLoopRide;
     loopCameraWasActive=!!skateLoopRide;
     const bunkerCameraNow=aquatic==="dive"&&bunkerInside(player);
-    const bunkerCameraEntered=bunkerCameraNow&&!bunkerCameraWasInside;
-    bunkerCameraWasInside=bunkerCameraNow;
-    if(showingDiscGolfIntro || snapDiscCamera || loopCameraChanged||bunkerCameraEntered){
+    // First-person lens follows the swimmer without lagging through glass.
+    if(showingDiscGolfIntro || snapDiscCamera || loopCameraChanged||bunkerCameraNow){
       // A direct time-derived pose starts on the basket instead of slowly
       // drifting there from a camera that previously followed the player.
       camera.position.copy(targetCamera);
@@ -8066,7 +8064,10 @@ export function createWorld(
             z:entry.z};
           travel={point:player,speed:0,heading:{x:-1,z:0}};
           yaw=Math.PI/2;pitch=.3;zoom=9;
-          targetDepth=swimDepth=Math.max(.6,SEA_SURFACE-bunkerSwimY(player));
+          const baseline=SEA_SURFACE-bunkerSwimY(player);
+          targetDepth=swimDepth=Math.min(maxDiveDepth(player),
+            next.command.bunkerDestination==="airlock"?Math.max(2.25,baseline):
+            Math.max(.6,baseline));
           playerY=SEA_SURFACE-swimDepth;
           setAquaticMode("dive");
           canvas.dataset.bunkerQaStart=next.command.bunkerDestination;

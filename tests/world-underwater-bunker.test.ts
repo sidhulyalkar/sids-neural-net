@@ -54,6 +54,9 @@ test("Bunker placement remains within the western kelp zone and diving range",()
  assert.equal(bunkerHatchAccessible(atDoor,layout.entryY,"land"),false);
  assert.equal(bunkerHatchAccessible(atDoor,SEA_SURFACE-.1,"dive"),false);
  assert.equal(bunkerHatchAccessible(atDoor,layout.entryY,"dive"),true);
+ const outer={x:layout.entry.x+2.8,z:layout.entry.z};
+ assert.equal(bunkerHatchAccessible(outer,SEA_SURFACE-2.25,"dive"),true,
+   "a real dive from the seaward approach should open the hatch");
  assert.ok(SEA_SURFACE-layout.entryY<=maxDiveDepth(layout.entry)+.1);
  assert.ok(Math.abs(bunkerSwimY(layout.entry)-seaFloorHeight(layout.entry.x,layout.entry.z)-1.75)<.001);
 });
