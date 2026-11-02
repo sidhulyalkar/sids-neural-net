@@ -56,6 +56,11 @@ test("the website and three-dimensional galleries share bidirectional navigation
   assert.match(renderer,/playerY=SHRINE_GALLERY\.floorY\+\.04/);
   assert.match(renderer,/camera\.position\.set\(player\.x\+2\.45,playerY\+1\.65,player\.z\)/);
   assert.match(renderer,/lastGalleryCameraPhase="outside"/);
+  assert.match(renderer,/explorer\.visible=!jetChoosing&&!cameraInsideAvatar&&galleryPhase!=="inside"/);
+  assert.match(renderer,/galleryFocusIndex/);
+  assert.match(renderer,/galleryPhotoViewpoint\(gallerySlots\[galleryFocusIndex\]\)/);
+  assert.match(renderer,/galleryPhase==="inside"\?"eye-level":"third-person"/);
+  assert.match(renderer,/galleryFocusIndex=null;e\.preventDefault\(\);return/);
 });
 
 test("waterfall research museum has a source-backed panel for every real paper",()=>{
