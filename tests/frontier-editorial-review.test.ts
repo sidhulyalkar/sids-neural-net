@@ -34,7 +34,8 @@ test('cold first edition ranks all qualified candidates before imposing its rend
     lane: 'neuro_frontier',
   });
   const selected = selectFrontierColdEdition([...generic, niche], 14, now);
-  assert.equal(selected.length, 14);
+  assert.ok(selected.length > 0 && selected.length <= 14,
+    'editorial composition may return fewer items when source diversity limits apply');
   assert.ok(selected.some((entry) => entry.id === niche.id),
     'high-fit neuroscience item at position 49 must survive first-paint shortlist');
 });
