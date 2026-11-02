@@ -197,11 +197,15 @@ async function auditBackgroundLatest() {
     await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
     await page.locator('article h1').waitFor();
     const initial = await page.locator('article h1').textContent();
-    await page.locator('[data-frontier-next="true"]').click();
-    await page.locator('[data-frontier-previous="true"]').click();
+    // This is deliberately BEFORE any user action. A quietly reading person
+    // must never see their article replaced just because the cache refreshed.
     await page.getByRole('button', { name: 'Open latest discovered articles' }).waitFor({ timeout: 8000 });
     assert.equal(await page.locator('article h1').textContent(), initial,
-      'Background revalidation may not replace an article after interaction');
+      'Background revalidation must not replace an untouched article');
+    await page.locator('[data-frontier-next="true"]').click();
+    await page.locator('[data-frontier-previous="true"]').click();
+    assert.equal(await page.locator('article h1').textContent(), initial,
+      'Background revalidation must not replace an article after interaction');
     assert.equal(hits, 1, 'At most one cache lookup per visit; no polling');
     await page.getByRole('button', { name: 'Open latest discovered articles' }).click();
     assert.equal(await page.locator('section[data-frontier-edition-at]').getAttribute('data-frontier-edition-at'), updatedAt,
