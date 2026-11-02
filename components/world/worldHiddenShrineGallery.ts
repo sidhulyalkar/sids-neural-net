@@ -2,7 +2,7 @@ import * as THREE from "three/src/Three.Core.js";
 import { visualArchive } from "@/src/data/visualArchive";
 import { GeometryBatch } from "./worldGeometry";
 import {
-  SHRINE_GALLERY, GALLERY_ROOMS, GALLERY_DOORS, galleryDoorSide,
+  SHRINE_GALLERY, GALLERY_ROOMS, galleryDoorSide,
   galleryPhotoSlots, galleryShaftTopY, galleryFloorFootprint,
   galleryDoorThresholds, type GallerySide,
 } from "@/lib/world/hiddenShrineGallery";
@@ -78,6 +78,12 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
 
   const batched = new GeometryBatch();
   const frameBatch = new GeometryBatch();
+  // A small shared set of carved ornament primitives is merged into the
+  // existing frame batch. No per-photo meshes, draw calls or cloned materials.
+  const ornamentBead=new THREE.SphereGeometry(1,8,6);
+  const ornamentStroke=new THREE.CylinderGeometry(1,1,1,7);
+  geometries.push(ornamentBead,ornamentStroke);
+  const up=new THREE.Vector3(0,1,0);
   const v = (x:number,y:number,z:number)=>new THREE.Vector3(x,y,z);
   const add = (x:number,y:number,z:number,sx:number,sy:number,sz:number,
     color:string, yaw=0) =>
@@ -201,11 +207,30 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     const imageHeight=2.15;
     const normalX=Math.sin(slot.yaw),normalZ=Math.cos(slot.yaw);
     const px=slot.x+normalX*.275,pz=slot.z+normalZ*.275;
+    const facePoint=(dx:number,dy:number,offset:number)=>
+      v(slot.x+Math.cos(slot.yaw)*dx+Math.sin(slot.yaw)*offset,
+        slot.y+dy,
+        slot.z-Math.sin(slot.yaw)*dx+Math.cos(slot.yaw)*offset);
     const front = (dx:number,dy:number,offset:number,sx:number,sy:number,sz:number,color:string)=>{
-      const x=slot.x+Math.cos(slot.yaw)*dx+Math.sin(slot.yaw)*offset;
-      const z=slot.z-Math.sin(slot.yaw)*dx+Math.cos(slot.yaw)*offset;
-      frameBatch.add(box,color,v(x,slot.y+dy,z),v(sx,sy,sz),
+      frameBatch.add(box,color,facePoint(dx,dy,offset),v(sx,sy,sz),
         new THREE.Euler(0,slot.yaw,0));
+    };
+    const bead=(dx:number,dy:number,offset:number,size:number,color:string)=>{
+      frameBatch.add(ornamentBead,color,facePoint(dx,dy,offset),
+        v(size,size*.85,size*.55));
+    };
+    const carvedStroke=(path:readonly [number,number][],color:string,width=.019)=>{
+      for(let k=1;k<path.length;k++){
+        const a=facePoint(path[k-1][0],path[k-1][1],.303);
+        const b=facePoint(path[k][0],path[k][1],.303);
+        const delta=b.clone().sub(a);
+        const length=delta.length();
+        if(length<.001)continue;
+        const rotation=new THREE.Euler().setFromQuaternion(
+          new THREE.Quaternion().setFromUnitVectors(up,delta.normalize()));
+        frameBatch.add(ornamentStroke,color,a.add(b).multiplyScalar(.5),
+          v(width,length,width),rotation);
+      }
     };
     // A layered carved walnut/antique-brass frame, crowned at the top.
     // All pieces are baked into ONE draw call, not 49 independent material sets.
@@ -224,6 +249,54 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     }
     front(0,imageHeight/2+.22,.245,.19,.19,.10,"#eed095");
     front(0,-imageHeight/2-.22,.245,.17,.13,.09,"#eed095");
+    // Archival gilding: stepped pediment, crown, floral corner scrollwork,
+    // polished rivets and repeated beadwork. The ornament stays strictly
+    // OUTSIDE the photograph aperture, so it cannot hide the artwork.
+    const halfW=slot.width/2,halfH=imageHeight/2;
+    front(0,halfH+.34,.13,.88,.15,.19,"#503324");
+    front(0,halfH+.39,.225,.72,.07,.10,"#d3a668");
+    front(0,-halfH-.30,.19,.67,.09,.12,"#785336");
+    for(const sign of [-1,1]){
+      // Twin laurel branches on the upper and lower crowns.
+      carvedStroke([
+        [sign*.10,halfH+.38],[sign*.22,halfH+.46],
+        [sign*.38,halfH+.43],[sign*.51,halfH+.30],
+      ],"#edd093",.023);
+      carvedStroke([
+        [sign*.10,-halfH-.29],[sign*.25,-halfH-.39],
+        [sign*.44,-halfH-.28],
+      ],"#cfa463",.019);
+      bead(sign*.26,halfH+.46,.33,.047,"#e8c47b");
+      bead(sign*.36,-halfH-.37,.33,.043,"#efcb8a");
+      // Thin carved beading runs down both stiles in evenly spaced relief.
+      for(let k=0;k<7;k++){
+        bead(sign*(halfW+.16),-.74+k*.25,.30,.036,
+          k%2===0?"#eac784":"#b98a4a");
+      }
+      for(const vertical of [-1,1]){
+        const cornerX=sign*(halfW+.16);
+        const cornerY=vertical*(halfH+.16);
+        bead(cornerX,cornerY,.315,.075,"#f2d99f");
+        bead(cornerX,cornerY,.35,.029,"#79502a");
+        // Constrained scrolls turn inwards but never cross the picture edge.
+        carvedStroke([
+          [cornerX,cornerY],
+          [cornerX-sign*.10,cornerY+vertical*.095],
+          [cornerX-sign*.24,cornerY+vertical*.11],
+          [cornerX-sign*.33,cornerY+vertical*.045],
+          [cornerX-sign*.28,cornerY-vertical*.012],
+        ],"#c99556",.018);
+        carvedStroke([
+          [cornerX,cornerY],
+          [cornerX+sign*.08,cornerY-vertical*.08],
+          [cornerX+sign*.09,cornerY-vertical*.18],
+        ],"#e7c68b",.017);
+      }
+    }
+    // Central raised shield and inset jewel complete the pediment.
+    bead(0,halfH+.43,.33,.115,"#bb8647");
+    bead(0,halfH+.47,.392,.062,"#f9df9a");
+    bead(0,-halfH-.30,.33,.09,"#b88952");
     const col=i%columns,row=Math.floor(i/columns);
     const u0=(col+.012)/columns,u1=(col+.988)/columns;
     const v0=1-(row+.988)/columns,v1=1-(row+.012)/columns;
