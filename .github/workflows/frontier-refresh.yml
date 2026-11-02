@@ -70,6 +70,9 @@ jobs:
       - name: Audit candidate slate counterfactual
         run: npm run frontier:slate-audit -- content/frontier/latest.json
 
+      - name: Build reproducible editorial review set from candidate snapshot
+        run: npm run frontier:review-kit
+
       - name: Upload candidate snapshot and slate audit for PR inspection
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v7
@@ -79,6 +82,10 @@ jobs:
             content/frontier/latest.json
             content/frontier/discovery-ledger.json
             artifacts/frontier-slate/counterfactual.json
+            artifacts/frontier-editorial-review/sample.json
+            artifacts/frontier-editorial-review/sample.csv
+            artifacts/frontier-editorial-review/labels.template.json
+            artifacts/frontier-editorial-review/report.json
           retention-days: 7
 
       - name: Commit refreshed signal archive
