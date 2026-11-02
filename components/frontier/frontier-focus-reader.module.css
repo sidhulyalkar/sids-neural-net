@@ -298,3 +298,23 @@
 @media (max-width:520px) {
   .advanced { display:none; }
 }
+
+/* Source-specific evidence uses the same typographic system, never a new card feed. */
+.briefLabel { color:#a6b7c3; text-transform:uppercase; letter-spacing:.13em;
+  font-size:10px; font-weight:660; line-height:1.5; margin:0 0 12px; }
+.provenanceHint { color:#91a6b5; font-size:11px; line-height:1.45;
+  margin:12px 0 0; max-width:49ch; }
+.metricSection + .metricSection { margin-top:18px; }
+.featuredSports { padding:17px 18px; border:1px solid #344654;
+  border-radius:12px; background:#111f2b; }
+.featuredSports h2 { font-size:11px; line-height:1.4; margin:0 0 11px;
+  color:#f2cfbe; text-transform:uppercase; letter-spacing:.08em; font-weight:650; }
+.featuredSports .gameRows { border-top:1px solid #354652; }
+.featuredSports .gameRow strong { font-variant-numeric:tabular-nums; color:#f4f5f5; }
+.featuredSports>p { color:#96acb9; font-size:10px; line-height:1.4;
+  margin:13px 0 0; }
+.featuredSports+.briefSection { margin-top:14px; }
+@media (max-width:520px) {
+  .featuredSports { padding:13px 14px; }
+  .featuredSports .gameRow { font-size:11px; }
+}
