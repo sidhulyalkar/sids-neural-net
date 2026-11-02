@@ -50,9 +50,8 @@ test("the website and three-dimensional galleries share bidirectional navigation
   assert.match(world,/galleryDestination:target/);
   assert.match(renderer,/galleryPhase="inside";caveLayer="surface"/);
   assert.match(renderer,/galleryStart==="papers"/);
-  assert.match(renderer,/galleryConstrainMove\(player,\{/);
-  assert.match(renderer,/wallClockStep/);
-  assert.match(renderer,/2\.6\*wallClockStep/);
+  assert.match(renderer,/galleryStepWalk\(\{\.\.\.travel,point:player\}/);
+  assert.match(renderer,/rawDelta,destination/);
   assert.match(renderer,/const swimming = aquatic !== "land" && galleryPhase!=="inside"/);
   assert.match(renderer,/playerY=SHRINE_GALLERY\.floorY\+\.04/);
 });
