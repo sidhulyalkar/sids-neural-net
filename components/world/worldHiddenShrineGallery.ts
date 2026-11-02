@@ -4,7 +4,8 @@ import { GeometryBatch } from "./worldGeometry";
 import {
   SHRINE_GALLERY, GALLERY_ROOMS, galleryDoorSide,
   galleryPhotoSlots, galleryShaftTopY, galleryFloorFootprint,
-  galleryDoorThresholds, galleryCeilingTiles, GALLERY_FLOOR_GEOMETRY, type GallerySide,
+  galleryDoorThresholds, galleryCeilingTiles, GALLERY_FLOOR_GEOMETRY,
+  GALLERY_VIEWING, type GallerySide,
 } from "@/lib/world/hiddenShrineGallery";
 
 /**
@@ -124,10 +125,8 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   for (const [i,r] of GALLERY_ROOMS.entries()) {
     for (const side of ["north","east","south","west"] as const)
       wall(r,side,galleryDoorSide(i,side));
-    // Natural dressed-stone shoulders, subtle variation in place of cyan glass.
-    for(const dx of [-h+.38,h-.38])for(const dz of [-h+.38,h-.38])
-      add(r.x+dx,bottom+height/2,r.z+dz,.48,height,.48,
-        (i+dx+dz)%3>0?"#646157":"#484e49");
+    // Leave gallery corners and all photograph sightlines free of columns.
+    // Previously the corner pillars could clip the outer gold frame corners.
   }
   // Raised, narrow brass-stone sills mark passages without a coplanar
   // second floor face. Their entire underside clears the foundation top.
@@ -141,11 +140,8 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     add(e.x+side*1.5,top+shaftHeight/2,e.z,.32,shaftHeight,3.2,"#625a4b");
     add(e.x,top+shaftHeight/2,e.z+side*1.5,3.2,shaftHeight,.32,"#625a4b");
   }
-  // The last frame has its own freestanding stone back inside the vestibule.
-  const entrancePhoto=galleryPhotoSlots().at(-1)!;
-  batched.add(box,"#5c584e",
-    v(entrancePhoto.x,SHRINE_GALLERY.floorY+1.9,entrancePhoto.z),
-    v(1.82,3.3,.2),new THREE.Euler(0,entrancePhoto.yaw,0));
+  // No freestanding entrance plinth: all 49 frames are wall-mounted,
+  // leaving the shaft approach and every straight-on viewing cone open.
   const stoneGeometry=batched.finish();
   geometries.push(stoneGeometry);
   const stoneMesh=new THREE.Mesh(stoneGeometry,stone);
@@ -197,7 +193,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   // tile from a native photo texture by mistake.
   const fullUvs=[0,0,1,0,1,1,0,0,1,1,0,1];
   slots.forEach((slot,i)=>{
-    const imageHeight=2.15;
+    const imageHeight=GALLERY_VIEWING.imageHeight;
     const normalX=Math.sin(slot.yaw),normalZ=Math.cos(slot.yaw);
     const px=slot.x+normalX*.275,pz=slot.z+normalZ*.275;
     const facePoint=(dx:number,dy:number,offset:number)=>
