@@ -429,7 +429,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
         <Link href="/" className={styles.brand}>FRONTIER<span className={styles.brandDot}>.</span></Link>
         <div className={styles.topActions}>
           <button ref={contentsButtonRef} type="button" className={styles.contentsToggle}
-            aria-expanded={contentsOpen} aria-controls="frontier-edition-contents"
+            aria-expanded={contentsOpen} aria-controls="frontier-edition-contents" aria-label="Browse edition"
             onClick={() => { readerInteractedRef.current = true; setContentsOpen((open) => !open); }}
             title="Browse this edition">
             <ListFilter size={17} aria-hidden="true" />
@@ -458,7 +458,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
         <div className={styles.contentsLayer}>
           <button className={styles.contentsBackdrop} type="button" tabIndex={-1}
             aria-label="Dismiss edition contents" onClick={() => setContentsOpen(false)} />
-          <nav id="frontier-edition-contents" className={styles.contentsPanel} aria-label="Edition contents">
+          <nav id="frontier-edition-contents" className={styles.contentsPanel} aria-label="Edition contents" data-frontier-contents-panel="true">
             <div className={styles.contentsHeader}>
               <div><strong>In this edition</strong><span>{items.length} stories · Curated order</span></div>
               <button type="button" aria-label="Close edition contents" onClick={() => {
@@ -471,6 +471,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                   <h2>{group.label}<span>{group.entries.length}</span></h2>
                   {group.entries.map((entry) => (
                     <button key={entry.item.id} type="button" className={styles.contentsEntry}
+                      data-frontier-contents-entry={entry.position}
                       aria-current={entry.position === position ? 'true' : undefined}
                       onClick={() => navigateTo(entry.position)}>
                       <span className={styles.contentsOrdinal}>{String(entry.position + 1).padStart(2, '0')}</span>
