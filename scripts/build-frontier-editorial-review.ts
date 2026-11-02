@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createInitialProfile } from '../lib/frontier/config';
 import { isFrontierEditoriallyQualified } from '../lib/frontier/editorialAdmission';
-import { cleanFrontierItem } from '../lib/frontier/editorialQuality';
+import { cleanFrontierItem, isFrontierEditoriallyUsable } from '../lib/frontier/editorialQuality';
 import {
   buildFrontierEditorialReviewRows,
   evaluateFrontierEditorialReview,
@@ -12,7 +12,7 @@ import {
 } from '../lib/frontier/editorialReview';
 import { rankFrontierItems, selectDailyRun } from '../lib/frontier/scoring';
 import { isFrontierSourceAdmitted } from '../lib/frontier/sourceTrust';
-import type { FrontierFeedResponse } from '../lib/frontier/types';
+import type { FrontierFeedResponse, FrontierItem } from '../lib/frontier/types';
 
 function arg(name: string): string | undefined {
   const pair = process.argv.slice(2).find((part) => part.startsWith('--' + name + '='));
@@ -39,8 +39,38 @@ async function main() {
   const at = new Date(feed.generatedAt);
   if (!Number.isFinite(at.getTime())) throw new Error('Snapshot has no valid generatedAt provenance');
 
-  const observed = feed.items.map(cleanFrontierItem).filter(isFrontierSourceAdmitted);
-  const qualified = observed.filter(isFrontierEditoriallyQualified);
+  const rejectedPath = path.resolve(arg('rejected')
+    ?? 'artifacts/frontier-editorial-review/rejected-candidates.json');
+  let rejected: FrontierItem[] = [];
+  let rejectionCapture: 'observed-from-discovery' | 'unavailable' = 'unavailable';
+  try {
+    const shadow = JSON.parse(await readFile(rejectedPath, 'utf8')) as {
+      generatedAt?: string; items?: FrontierItem[];
+    };
+    if (!Array.isArray(shadow.items) || shadow.generatedAt !== feed.generatedAt) {
+      throw new Error('Rejected review archive must match this snapshot generatedAt');
+    }
+    rejected = shadow.items;
+    rejectionCapture = 'observed-from-discovery';
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+
+  // Rejected candidates are public source metadata held in a separate audit
+  // artifact, NEVER in latest.json or /api/frontier/feed. Deduplicate them
+  // against admitted candidates so the benchmark does not double-count.
+  const seenIds = new Set(feed.items.map((item) => item.id));
+  const seenUrls = new Set(feed.items.map((item) => item.url));
+  const rejectedOnly = rejected.filter((item) => {
+    if (seenIds.has(item.id) || seenUrls.has(item.url)) return false;
+    seenIds.add(item.id);
+    seenUrls.add(item.url);
+    return true;
+  });
+  const allCandidates = [...feed.items, ...rejectedOnly];
+  const observed = allCandidates.map(cleanFrontierItem).filter(isFrontierSourceAdmitted);
+  const qualified = observed.filter((item) =>
+    isFrontierEditoriallyUsable(item) && isFrontierEditoriallyQualified(item));
 
   // Control: the previous provider-ordered first-36 strategy, holding the
   // same source-trust filter. This is a strategy comparison, NOT proof of the
@@ -57,7 +87,7 @@ async function main() {
     ...selected,
     ...ranked.filter((item) => !selected.some((candidate) => candidate.id === item.id)),
   ].map((item) => item.id);
-  const rows = buildFrontierEditorialReviewRows(feed.items, baselineOrder, newOrder);
+  const rows = buildFrontierEditorialReviewRows(allCandidates, baselineOrder, newOrder);
   const sample = sampleFrontierEditorialReview(rows, maxSample);
 
   const labelsPath = arg('labels');
@@ -74,7 +104,10 @@ async function main() {
     sourceSha256,
     sourceGeneratedAt: feed.generatedAt,
     sampleSize: sample.length,
-    totalCandidates: feed.items.length,
+    totalCandidates: allCandidates.length,
+    publicSnapshotCandidates: feed.items.length,
+    rejectedAuditCandidates: rejectedOnly.length,
+    rejectionCapture,
     trustedCandidates: observed.length,
     editorialQualifiedCandidates: qualified.length,
     baselineModel: 'provider-ordered trusted first 36: composition-only control',
@@ -104,7 +137,10 @@ async function main() {
   ]);
   console.log(JSON.stringify({
     snapshotSha256: sourceSha256,
-    input: feed.items.length,
+    input: allCandidates.length,
+    published: feed.items.length,
+    rejectedReviewCandidates: rejectedOnly.length,
+    rejectionCapture,
     trusted: observed.length,
     qualified: qualified.length,
     sampled: sample.length,
