@@ -233,6 +233,8 @@ test("native images are never distorted inside the common-size frames",()=>{
   assert.match(renderer,/photoTargets\[i\]\.visible=false/);
   assert.match(renderer,/photoTargets\[i\]\.visible=true/);
   assert.match(renderer,/photoPickTargets\.push\(hd\)/);
+  assert.match(renderer,/const fit=galleryImageContainScale\(image\.naturalWidth,image\.naturalHeight\)/);
+  assert.match(renderer,/const w=\(tileW-12\)\*fit\.width/);
   assert.match(renderer,/hd\.userData\.discovery=slot\.id/);
 });
 
