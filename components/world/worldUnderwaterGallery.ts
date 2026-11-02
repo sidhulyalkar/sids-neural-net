@@ -1,5 +1,5 @@
 import * as THREE from "three/src/Three.Core.js";
-import {bunkerLayout,bunkerInside,bunkerNearby,bunkerHatchAccessible,
+import {bunkerLayout,bunkerDeckY,bunkerInside,bunkerNearby,bunkerHatchAccessible,
  UNDERWATER_BUNKER,type BunkerPhotoSlot} from "@/lib/world/underwaterBunker";
 import {constrainMove,seaFloorHeight,type Point,type WorldPhoto,type Obstacle} from "@/lib/world/model";
 
@@ -38,7 +38,12 @@ export function createWorldUnderwaterGallery(photos:readonly WorldPhoto[]){
  const dummy=new THREE.Object3D();
  const wallMeshes=new THREE.InstancedMesh(box,glass,layout.walls.length);
  const edgeMeshes=new THREE.InstancedMesh(box,metal,layout.walls.length*2);
- const ceiling=new THREE.InstancedMesh(box,glass,UNDERWATER_BUNKER.grid**2);
+ const roofGlass=mat(new THREE.MeshStandardMaterial({
+  color:"#159ac4",roughness:.2,metalness:.04,transparent:true,
+  opacity:.17,depthWrite:false,side:THREE.DoubleSide,
+ }));
+ const ceiling=new THREE.InstancedMesh(box,roofGlass,UNDERWATER_BUNKER.grid**2);
+ const pilings=new THREE.InstancedMesh(box,metal,UNDERWATER_BUNKER.grid**2);
  const floors=new THREE.InstancedMesh(box,floorMat,UNDERWATER_BUNKER.grid**2);
  const floorLight=new THREE.InstancedMesh(box,glow,UNDERWATER_BUNKER.grid**2);
  const colliders:Obstacle[]=[];
@@ -50,7 +55,7 @@ export function createWorldUnderwaterGallery(photos:readonly WorldPhoto[]){
  };
  for(let i=0;i<layout.walls.length;i++){
   const w=layout.walls[i],horizontal=w.along==="x";
-  const y=seaFloorHeight(w.x,w.z)+UNDERWATER_BUNKER.wallHeight/2+.05;
+  const y=bunkerDeckY()+UNDERWATER_BUNKER.wallHeight/2+.05;
   const rotate=horizontal?0:Math.PI/2;
   // Extend below the sloping seafloor to avoid hairline daylight gaps
   // between adjacent pressure panels and terrain triangles.
@@ -69,23 +74,29 @@ export function createWorldUnderwaterGallery(photos:readonly WorldPhoto[]){
   }
  }
  const g=UNDERWATER_BUNKER.grid,size=UNDERWATER_BUNKER.cell;
+ const deckY=bunkerDeckY();
  for(let r=0;r<g;r++)for(let c=0;c<g;c++){
   const x=UNDERWATER_BUNKER.center.x+(c-(g-1)/2)*size;
   const z=UNDERWATER_BUNKER.center.z+(r-(g-1)/2)*size;
-  const floor=seaFloorHeight(x,z);
+  const seabed=seaFloorHeight(x,z);
+  const pillarHeight=Math.max(.08,deckY-seabed);
   const index=r*g+c;
-  put(floors,index,x,floor+.05,z,size-.10,.13,size-.10);
-  put(ceiling,index,x,floor+UNDERWATER_BUNKER.wallHeight+.16,z,
+  // Every chamber shares the same deck plane. The west end is supported
+  // by seabed piles rather than creating a five-meter staircase.
+  put(floors,index,x,deckY+.05,z,size-.10,.13,size-.10);
+  put(ceiling,index,x,deckY+UNDERWATER_BUNKER.wallHeight+.16,z,
    size-.12,.09,size-.12);
-  put(floorLight,index,x,floor+.13,z,size-.45,.02,.06);
+  put(floorLight,index,x,deckY+.13,z,size-.45,.02,.06);
+  put(pilings,index,x,seabed+pillarHeight/2-.03,z,.24,pillarHeight+.12,.24);
  }
- for(const instance of [wallMeshes,edgeMeshes,ceiling,floors,floorLight]){
+ for(const instance of [wallMeshes,edgeMeshes,ceiling,floors,floorLight,pilings]){
   instance.instanceMatrix.needsUpdate=true;
   instance.frustumCulled=false;
   root.add(instance);
  }
  wallMeshes.name="translucent-blue-pressure-glass-bulkheads";
  ceiling.name="transparent-blue-ocean-skylights";
+ pilings.name="seabed-supported-blue-museum-deck";
  // The circular airlock opens vertically inside a fixed steel pressure ring.
  const ringGeo=geo(new THREE.TorusGeometry(1.45,.18,8,32));
  const lipGeo=geo(new THREE.TorusGeometry(1.27,.06,7,32));

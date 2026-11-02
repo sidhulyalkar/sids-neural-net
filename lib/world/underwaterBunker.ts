@@ -43,8 +43,14 @@ export function bunkerHatchAccessible(p:Point,y:number,mode:string){
   Math.abs(y-(seaFloorHeight(entry.x,entry.z)+1.55))<1.6&&
   y<SEA_SURFACE-1.9;
 }
+/** One genuinely level pressure deck rather than a row of flooded seabed steps.
+ * Western bays float above the declining kelp shelf on metal seabed pilings. */
+export function bunkerDeckY(){
+ const entry=bunkerEntrance();
+ return seaFloorHeight(entry.x,entry.z)+.16;
+}
 export function bunkerSwimY(p:Point){
- return seaFloorHeight(p.x,p.z)+1.75;
+ return bunkerInside(p)?bunkerDeckY()+1.75:seaFloorHeight(p.x,p.z)+1.75;
 }
 export function bunkerDepthIsReachable(p:Point){
  const d=SEA_SURFACE-bunkerSwimY(p);
@@ -110,7 +116,7 @@ export function bunkerLayout():BunkerMaze{
     face==="south"?Math.PI:0;
    const point={x:wall.x+dx,z:wall.z+dz};
    slots.push({id:wall.id+":"+face,x:point.x,z:point.z,
-    y:seaFloorHeight(point.x,point.z)+1.85,
+    y:bunkerDeckY()+1.85,
     yaw,wallId:wall.id});
   }
  }
