@@ -36,6 +36,9 @@ function focusRuntimeWindow(iframe: HTMLIFrameElement | null) {
     // ignore host focus failures
   }
   try {
+    // WebKit can focus the iframe element but leave its inner document's body
+    // active. Explicitly activate the same-origin frame window first.
+    iframe.contentWindow?.focus();
     const canvas = iframe.contentDocument?.querySelector('canvas');
     if (canvas instanceof HTMLElement) {
       // Packed runtimes may dynamically replace the originally focusable canvas.
