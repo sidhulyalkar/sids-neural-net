@@ -199,6 +199,13 @@ test("all 49 photographs have the same eye-level straight-on viewing pose",()=>{
   assert.ok(v.standOff>=2.2&&v.standOff<=3.0);
   const degrees=Math.atan2(v.imageCenterAboveFloor-v.eyeHeight,v.standOff)*180/Math.PI;
   assert.ok(Math.abs(degrees)<8,"Art hangs near the visitor's eye line");
+  // Ornate top (scrolls and crown) lies ~1.75 m above the human eye.
+  // Focus view's vertical field must include the full artwork AND frame.
+  const focusHalfHeight=v.standOff*Math.tan(74*Math.PI/360);
+  const ornamentAboveEye=v.imageHeight/2+.47+
+    (v.imageCenterAboveFloor-v.eyeHeight);
+  assert.ok(focusHalfHeight>ornamentAboveEye+.06,
+    "The entire elaborate pediment fits within the focused camera");
   for(const slot of slots){
     assert.equal(slot.width,v.imageWidth);
     assert.equal(slot.y,SHRINE_GALLERY.floorY+v.imageCenterAboveFloor);
