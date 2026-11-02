@@ -268,24 +268,29 @@ async function auditSourceOnlyPresentation() {
         });
         await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
         await page.getByRole('button', { name: 'Refresh live edition' }).click();
-        const sourceOnly = page.locator('[data-frontier-media="source-only"]');
-        await sourceOnly.waitFor({ timeout: 8000 });
+        const textFirst = page.locator('[data-frontier-source-image="false"]');
+        await textFirst.waitFor({ timeout: 8000 });
         assert.equal(await page.locator('article').count(), 1);
         assert.equal(await page.locator('figure img').count(), 0);
         assert.equal(await page.locator('article h1').count(), 1);
-        const layout = await sourceOnly.evaluate((element) => ({
-          height: element.getBoundingClientRect().height,
-          text: element.textContent || '',
-          documentWidth: document.documentElement.scrollWidth,
-          viewportWidth: window.innerWidth,
-        }));
-        assert(!layout.text.includes(fixture.title),
-          'No-image fallback must not repeat the oversized headline');
-        assert(layout.height <= (width <= 520 ? 155 : 275),
-          'No-image treatment should not dominate the article: ' + JSON.stringify(layout));
+        const layout = await textFirst.evaluate((element) => {
+          const title = document.querySelector('article h1').getBoundingClientRect();
+          const lead = element.querySelector('section[aria-label="Source-grounded summary"]').getBoundingClientRect();
+          const figure = element.querySelector('figure');
+          return {
+            hiddenCover: figure ? getComputedStyle(figure).display === 'none' : true,
+            contentWidth: element.getBoundingClientRect().width,
+            leadGap: Math.round(lead.top - title.bottom),
+            documentWidth: document.documentElement.scrollWidth,
+            viewportWidth: window.innerWidth,
+          };
+        });
+        assert(layout.hiddenCover, 'Missing source imagery must not reserve decorative space');
+        assert(layout.leadGap < 130, 'Source synopsis must follow headline promptly: ' + JSON.stringify(layout));
+        assert(layout.contentWidth <= 762, 'Source-only text should remain readable, not span the whole desktop');
         assert(layout.documentWidth <= layout.viewportWidth + 2,
           'Source-only layout must not overflow horizontally: ' + JSON.stringify(layout));
-        results.push({ width, compactSourcePlaceholder: true, height: layout.height });
+        results.push({ width, evidenceFirstWithoutArt: true, ...layout });
       } finally {
         await page.close();
       }
