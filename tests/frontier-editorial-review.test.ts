@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import frontierSnapshot from '../content/frontier/latest.json';
 import { selectFrontierColdEdition } from '../lib/frontier/coldEdition';
+import { prepareFrontierCandidatePool } from '../lib/frontier/aggregate';
 import { cleanFrontierEditorialText } from '../lib/frontier/editorialQuality';
 import { assessFrontierEditorialAdmission } from '../lib/frontier/editorialAdmission';
 import {
@@ -131,6 +132,27 @@ test('a complete source-checked label set measures top-14 and false exclusions',
   assert.equal(report.metrics.falseExclusions.rate, 1);
   assert.equal(report.metrics.falseExclusions.reviewed,
     sample.filter((row) => !row.admitted).length);
+});
+
+
+test('deep discovery can capture rejected material without publishing it into the reader pool', () => {
+  const valid = item('valid-capture');
+  const lowInformation = item('rejected-capture', {
+    summary: '',
+    baseScore: 1,
+    quality: 1,
+  });
+  const publicPool = prepareFrontierCandidatePool([valid, lowInformation]);
+  assert.equal(publicPool.editorialRejected, undefined,
+    'normal live requests must not receive unpublished rejection evidence');
+  assert.deepEqual(publicPool.items.map((candidate) => candidate.id), [valid.id]);
+
+  const auditPool = prepareFrontierCandidatePool([valid, lowInformation], {
+    captureEditorialReview: true,
+  });
+  assert.deepEqual(auditPool.items.map((candidate) => candidate.id), [valid.id]);
+  assert.deepEqual(auditPool.editorialRejected?.map((candidate) => candidate.id),
+    [lowInformation.id]);
 });
 
 test('real archive supplies a reproducible 100-row review candidate kit', () => {
