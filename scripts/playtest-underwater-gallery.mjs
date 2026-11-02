@@ -8,20 +8,35 @@ if(!root)throw Error("PLAYWRIGHT_MODULE_ROOT is required");
 const {chromium}=createRequire(path.join(root,"package.json"))("playwright");
 const out=process.env.WORLD_AUDIT_DIR??"artifacts/world/sea-glass";
 fs.mkdirSync(out,{recursive:true});
-const browser=await chromium.launch({headless:true,
- args:["--no-sandbox","--enable-unsafe-swiftshader"]});
 const errors=[],snapshots=[],diagnostics=[],consoleErrors=[];
+const launch=()=>chromium.launch({headless:true,
+ args:["--no-sandbox","--enable-unsafe-swiftshader"]});
 const base=process.env.WORLD_BASE_URL??"http://127.0.0.1:3000";
 try{
  for(const scenario of ["gallery","airlock"]){
+  // Fully independent graphics processes. One headless software-WebGL world
+  // may exhaust a Chromium context before a second viewport can initialize.
+  const browser=await launch();
   const page=await browser.newPage({viewport:scenario==="gallery"?
    {width:1280,height:800}:{width:390,height:760}});
+  try {
   page.on("pageerror",e=>errors.push(e.message));
   page.on("console",message=>{if(message.type()==="error")consoleErrors.push(message.text());});
   page.on("requestfailed",request=>consoleErrors.push("request failed "+request.url()+" "+request.failure()?.errorText));
   await page.goto(base+"/?bunker-start="+scenario,{waitUntil:"domcontentloaded"});
   await page.getByRole("button",{name:"Explore world",exact:true}).click();
-  await page.locator("canvas").waitFor({timeout:30000});
+  try { await page.locator("canvas").waitFor({state:"attached",timeout:30000}); }
+  catch(error){
+   const diag=await page.evaluate(()=>({
+    state:document.querySelector('[data-world-state]')?.getAttribute('data-world-state'),
+    canvas:!!document.querySelector("canvas"),
+    text:document.body.innerText.slice(-1000),
+   }));
+   diagnostics.push({scenario,stage:"canvas",diag});
+   await page.screenshot({path:path.join(out,scenario+"-diagnostic.png")}).catch(()=>{});
+   console.error("SEA GLASS CANVAS DIAGNOSTIC",JSON.stringify(diag),JSON.stringify(consoleErrors));
+   throw error;
+  }
   try{
    await page.waitForFunction(expected=>{
     const d=document.querySelector("canvas")?.dataset;
@@ -71,7 +86,10 @@ try{
   assert.ok(Number(snapshot.drawCalls)>0);
   snapshots.push(snapshot);
   await page.screenshot({path:path.join(out,scenario+"-render.png")});
-  await page.close();
+  }finally{
+   await page.close().catch(()=>{});
+   await browser.close().catch(()=>{});
+  }
  }
  assert.deepEqual(errors,[]);
  fs.writeFileSync(path.join(out,"sea-glass.json"),
@@ -81,4 +99,4 @@ try{
  fs.writeFileSync(path.join(out,"sea-glass.json"),
   JSON.stringify({snapshots,diagnostics,errors,consoleErrors,error:String(error)},null,2)+"\n");
  throw error;
-}finally{await browser.close();}
+}finally{ /* Each scenario owns and closes its Chromium process. */ }

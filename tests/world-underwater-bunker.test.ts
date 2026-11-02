@@ -4,7 +4,7 @@ import {visualArchive} from "../src/data/visualArchive";
 import {getWorldContent} from "../lib/world/content";
 import {SEA_SURFACE,maxDiveDepth,waterZone,WORLD_BOUNDS,seaFloorHeight} from "../lib/world/model";
 import {bunkerLayout,bunkerInside,bunkerHatchAccessible,bunkerDepthIsReachable,
- bunkerSwimY,UNDERWATER_BUNKER} from "../lib/world/underwaterBunker";
+ bunkerDeckY,bunkerSwimY,UNDERWATER_BUNKER} from "../lib/world/underwaterBunker";
 
 test("Sea Glass photo maze preserves every archived photograph, one per wall face",()=>{
  const layout=bunkerLayout();
@@ -78,5 +78,23 @@ test("Walls, frames and passages use consistent cell-aligned geometry",()=>{
    const border=Math.max(rowA,rowB);
    assert.ok(!layout.walls.some(w=>w.id===`h:${border}:${colA}`));
   }
+ }
+});
+
+test("Glass museum has one level, exhibit frames face inside and roof stays submerged",()=>{
+ const layout=bunkerLayout(),grid=UNDERWATER_BUNKER.grid;
+ const floor=bunkerDeckY();
+ assert.ok(Number.isFinite(floor));
+ assert.ok(floor+UNDERWATER_BUNKER.wallHeight+.2<SEA_SURFACE,
+  "entire glass roof must remain underwater");
+ assert.equal(layout.slots[0].y,floor+1.85);
+ assert.ok(layout.slots.every(s=>Math.abs(s.y-(floor+1.85))<.001),
+  "all frames sit at one consistent museum eye level");
+ // The north and south edges previously displayed art toward open ocean.
+ for(const wall of layout.walls){
+  if(wall.id.startsWith("h:0:"))assert.deepEqual(wall.faces,["north"]);
+  if(wall.id.startsWith(`h:${grid}:`))assert.deepEqual(wall.faces,["south"]);
+  if(wall.id.startsWith("v:0:"))assert.deepEqual(wall.faces,["east"]);
+  if(wall.id.startsWith(`v:${grid}:`))assert.deepEqual(wall.faces,["west"]);
  }
 });

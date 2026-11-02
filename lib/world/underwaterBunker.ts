@@ -90,7 +90,8 @@ export function bunkerLayout():BunkerMaze{
  };
  for(let boundary=0;boundary<=grid;boundary++)for(let c=0;c<grid;c++){
   if(boundary>0&&boundary<grid&&open.has(seam(cellId(boundary-1,c),cellId(boundary,c))))continue;
-  const faces=boundary===0?["south"]:boundary===grid?["north"]:["north","south"];
+  // Outermost photo faces must look INTO the bunker, not at the empty sea.
+  const faces=boundary===0?["north"]:boundary===grid?["south"]:["north","south"];
   add("x",boundary,c,faces as BunkerWall["faces"]);
  }
  for(let boundary=0;boundary<=grid;boundary++)for(let r=0;r<grid;r++){
