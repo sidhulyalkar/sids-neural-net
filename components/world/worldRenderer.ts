@@ -53,6 +53,8 @@ import {
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
 import { createWorldTridents } from "./worldTridents";
+import { createHiddenShrineGallery } from "./worldHiddenShrineGallery";
+import { SHRINE_GALLERY, galleryConstrainMove, galleryNearShaft, galleryWalkable, galleryShaftTopY, shrineReachable, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
@@ -207,6 +209,13 @@ export function createWorld(
   arcadeTrailHud.setAttribute("aria-label","Arcade Cavern trail guidance");
   arcadeTrailHud.style.cssText="display:none;position:absolute;left:24px;top:91px;max-width:min(350px,calc(100% - 48px));z-index:6;pointer-events:none;padding:8px 13px;border-radius:10px;background:#17252add;color:#f4d29d;border:1px solid #ecb56a8a;box-shadow:0 6px 20px #0d181c55;text-align:center;font:650 11px/1.4 system-ui,sans-serif;letter-spacing:.055em";
   host.appendChild(arcadeTrailHud);
+  const shrineHint=document.createElement("div");
+  shrineHint.setAttribute("role","status");
+  shrineHint.setAttribute("aria-label","Hidden shrine swimming guidance");
+  shrineHint.style.cssText=arcadeTrailHud.style.cssText;
+  shrineHint.style.top="134px";
+  shrineHint.hidden=true;
+  host.appendChild(shrineHint);
   // A brief, non-blocking landing card is more rewarding than a permanent
   // dashboard. The island stays visible while the completed move is named.
   const skateResult=document.createElement("div");
@@ -554,6 +563,20 @@ export function createWorld(
     colors.push(groundColor.r, groundColor.g, groundColor.b);
   }
   terrain.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  // A real seabed aperture sits beneath the wooden shrine. Remove only the
+  // intersecting indexed triangles; elsewhere the original sea floor is intact.
+  const seabedIndices=terrain.getIndex();
+  if(seabedIndices){
+    const keep:number[]=[];
+    const opening=SHRINE_GALLERY.entrance;
+    for(let i=0;i<seabedIndices.count;i+=3){
+      const a=seabedIndices.getX(i),b=seabedIndices.getX(i+1),c=seabedIndices.getX(i+2);
+      const cx=(pos.getX(a)+pos.getX(b)+pos.getX(c))/3;
+      const cz=(pos.getZ(a)+pos.getZ(b)+pos.getZ(c))/3;
+      if(Math.hypot(cx-opening.x,cz-opening.z)>1.65)keep.push(a,b,c);
+    }
+    terrain.setIndex(keep);
+  }
   terrain.computeVertexNormals();
   const ground = mesh(
     terrain,
@@ -1207,6 +1230,9 @@ export function createWorld(
     ...WILDLIFE_DISCOVERIES.map(m=>({id:m.id,point:m.point})),
   ];
   const markerObjects: THREE.Mesh[] = [];
+  const hiddenShrineGallery=createHiddenShrineGallery(scene);
+  canvas.dataset.hiddenGalleryPhotos=String(hiddenShrineGallery.photoCount);
+  canvas.dataset.hiddenGalleryVersion="submerged-stone-shrine-v1";
   const cairnPieces: Instance[] = [], markerHitVolumes: Instance[] = [];
   const markerIds: string[] = [];
   const markerHitMat = mat("#ffffff", {
@@ -3186,6 +3212,8 @@ export function createWorld(
     rideBoostNoticeUntil=0;rideBoostNotice="";
   }
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
+  let galleryPhase:GalleryPhase="outside";
+  let lastGalleryCameraPhase:GalleryPhase="outside";
   let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
   let grind: {
     log: GrindRail;
@@ -3576,6 +3604,16 @@ export function createWorld(
       else destination=boardPoint(index);
       return;
     }
+    if(galleryPhase==="inside"){
+      const photoHit=ray.intersectObjects(hiddenShrineGallery.photoTargets,false)
+        .find(hit=>hit.distance<7);
+      if(photoHit){
+        const photoId=photoHit.object.userData.discovery as string;
+        callbacks.onInteract(photoId);
+        return;
+      }
+      return; // Under the seabed: never click the terrain above to teleport.
+    }
     const marker = ray.intersectObjects(markerObjects)[0];
     if (marker && marker.distance < 55) {
       const discoveryId = discoveryForHit(marker);
@@ -3758,6 +3796,23 @@ export function createWorld(
   }
   function applyWaterAction(action: State["waterAction"]) {
     if (aquatic === "land") return;
+    if(galleryPhase==="descending"||galleryPhase==="ascending")return;
+    if(galleryPhase==="inside"){
+      if(galleryNearShaft(player)&&(action==="surface"||action==="shallower")){
+        galleryPhase="ascending";destination=null;return;
+      }
+      const minDepth=SEA_SURFACE-(SHRINE_GALLERY.roofY-2.15);
+      const maxDepth=SEA_SURFACE-(SHRINE_GALLERY.floorY+.85);
+      if(action==="deeper")targetDepth=Math.min(maxDepth,targetDepth+.55);
+      if(action==="shallower"||action==="surface")
+        targetDepth=Math.max(minDepth,targetDepth-.55);
+      return;
+    }
+    if(action==="deeper" && aquatic==="dive" && shrineReachable(player,swimDepth)){
+      galleryPhase="descending";
+      destination=null;
+      return;
+    }
     const available = maxDiveDepth(player);
     if (action === "dive" && aquatic === "surface" && available > 0.8) {
       targetDepth = Math.min(1.1, available);
@@ -4385,6 +4440,32 @@ export function createWorld(
           lastBigAirUpdate=elapsed;
         }
       } else if (aquatic !== "land") {
+        if(galleryPhase==="descending"||galleryPhase==="ascending"){
+          const destY=galleryPhase==="descending"
+            ? SHRINE_GALLERY.floorY+1.15
+            : SEA_SURFACE-maxDiveDepth(SHRINE_GALLERY.entrance);
+          const speed=2.5*dt;
+          player={...SHRINE_GALLERY.entrance};
+          travel={...travel,point:player,speed:0};
+          playerY+=THREE.MathUtils.clamp(destY-playerY,-speed,speed);
+          swimDepth=targetDepth=SEA_SURFACE-playerY;
+          if(Math.abs(playerY-destY)<.06){
+            playerY=destY;swimDepth=targetDepth=SEA_SURFACE-playerY;
+            galleryPhase=galleryPhase==="descending"?"inside":"outside";
+          }
+        } else if(galleryPhase==="inside"){
+          const next=stepSwim({...travel,point:player},
+            {x:dx,z:dz},rawDelta,destination);
+          const moved=galleryConstrainMove(player,next.point);
+          travel={...next,point:moved,speed:Math.hypot(
+            moved.x-player.x,moved.z-player.z)<.001?0:next.speed};
+          player=moved;
+          targetDepth=THREE.MathUtils.clamp(targetDepth,
+            SEA_SURFACE-(SHRINE_GALLERY.roofY-2.15),
+            SEA_SURFACE-(SHRINE_GALLERY.floorY+.85));
+          swimDepth+=THREE.MathUtils.clamp(targetDepth-swimDepth,-2.1*dt,2.1*dt);
+          playerY=SEA_SURFACE-swimDepth;
+        } else {
         const nextTravel = stepSwim(
           { ...travel, point: player },
           { x: dx, z: dz },
@@ -4418,6 +4499,7 @@ export function createWorld(
             swimDepth = targetDepth = 0;
           }
           playerY = SEA_SURFACE - (aquatic === "dive" ? Math.max(0.52, swimDepth) : 0.42);
+        }
         }
       } else {
         const previousHeading={...travel.heading};
@@ -5169,6 +5251,20 @@ export function createWorld(
       canvas.dataset.jetSkiPier=String(nearJetSkiBoarding(player)&&aquatic==="land");
       canvas.dataset.jetSkiDeckHeight=jetSkiPierHeight(player)?.toFixed(2)??"";
       canvas.dataset.paperInside = String(paperInside);
+      canvas.dataset.hiddenGalleryPhase=galleryPhase;
+      canvas.dataset.hiddenGalleryDepth=(SEA_SURFACE-playerY).toFixed(2);
+      canvas.dataset.hiddenGalleryInBounds=String(
+        galleryPhase!=="inside"||galleryWalkable(player));
+      canvas.dataset.hiddenGalleryPhotosReady=String(hiddenShrineGallery.loadedPhotos());
+      const nearShrine=distance(player,SHRINE_GALLERY.entrance)<3.5;
+      const hint=galleryPhase==="inside"
+        ? (galleryNearShaft(player)?"Shallower to ascend through the shrine":"Aim at a photograph and click to view")
+        : galleryPhase==="descending"?"Descending into the hidden gallery"
+        : galleryPhase==="ascending"?"Ascending to the seabed"
+        : aquatic==="dive" && nearShrine
+          ? "Find the shrine opening, dive to the seabed, then choose Deeper":"";
+      shrineHint.textContent=hint;
+      shrineHint.hidden=!hint||!state.entered||state.paused;
       canvas.dataset.caveChamber = String(caveInside && caveProgress > 0.58);
       let rawGazeGame: string | null = null;
       const cavernCameraSettled =
@@ -5208,7 +5304,15 @@ export function createWorld(
       const layeredNearby =
         nearby === "paper-archive" && caveLayer !== "paper" ? null : nearby;
       const trident=nearbyUnderwaterTrident(player,playerY,aquatic);
-      discovery = aquatic === "land" ? (gazeGame ?? layeredNearby) : trident?.id ?? null;
+      let galleryPhotoId:string|null=null;
+      if(galleryPhase==="inside"){
+        ray.setFromCamera(gazePointer,camera);
+        const photoHit=ray.intersectObjects(hiddenShrineGallery.photoTargets,false)
+          .find(hit=>hit.distance<6);
+        galleryPhotoId=photoHit?.object.userData.discovery as string|undefined ?? null;
+      }
+      discovery = galleryPhase==="inside" ? galleryPhotoId :
+        aquatic === "land" ? (gazeGame ?? layeredNearby) : trident?.id ?? null;
       const nextKey = `${r}:${discovery}`;
       if (nextKey !== locationKey) {
         locationKey = nextKey;
@@ -5527,6 +5631,18 @@ export function createWorld(
         const half = isArcade ? caveHalfWidth(z)-.85 : paperCaveHalfWidth(z)-.85;
         targetCamera.set(THREE.MathUtils.clamp(desired.x,centerX-half,centerX+half),playerY+2.15,z);
         targetLook.set(player.x-Math.sin(yaw)*2.4,playerY+1.85,player.z-Math.cos(yaw)*2.4);
+      }
+      if(galleryPhase!=="outside"){
+        const desired=galleryConstrainMove(player,{
+          x:player.x+Math.sin(yaw)*2.55,
+          z:player.z+Math.cos(yaw)*2.55,
+        });
+        targetCamera.set(desired.x,
+          THREE.MathUtils.clamp(playerY+1.5,
+            SHRINE_GALLERY.floorY+1.2,SHRINE_GALLERY.roofY-.45),
+          desired.z);
+        targetLook.set(player.x-Math.sin(yaw)*1.1,
+          playerY+1.6,player.z-Math.cos(yaw)*1.1);
       }
       // Camera choreography, never gameplay authority:
       // flight -> landing reveal -> visible dog chase -> Shasta eye view.
@@ -6334,6 +6450,10 @@ export function createWorld(
       camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
       look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
     }
+    if(galleryPhase!==lastGalleryCameraPhase){
+      camera.position.copy(targetCamera);look.copy(targetLook);
+      lastGalleryCameraPhase=galleryPhase;
+    }
     // The *interpolated* lens can cross foliage even if both ends of
     // the blend are clear. Reject that intermediate pose and snap onto the
     // validated shot so a second throw is never framed from inside a leaf.
@@ -6358,6 +6478,13 @@ export function createWorld(
       const half = (inArcade ? caveHalfWidth(z) : paperCaveHalfWidth(z)) - .85;
       camera.position.x=THREE.MathUtils.clamp(c.x,centerX-half,centerX+half);camera.position.z=z;
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
+    }
+    if(galleryPhase!=="outside"){
+      const bounded=galleryConstrainMove(player,{
+        x:camera.position.x,z:camera.position.z});
+      camera.position.x=bounded.x;camera.position.z=bounded.z;
+      camera.position.y=THREE.MathUtils.clamp(camera.position.y,
+        SHRINE_GALLERY.floorY+1.15,SHRINE_GALLERY.roofY-.45);
     }
     // Last-resort cutaway also covers an obstructed interpolated pose or
     // a lie surrounded by foliage where no unobstructed boom exists.
@@ -6404,9 +6531,11 @@ export function createWorld(
     // kelp shelf and warm lagoon never render/animate together.
     const underwater = aquatic === "dive";
     const currentWaterZone = waterZone(player);
-    reefRoot.visible = aquatic !== "land" && currentWaterZone === "kelp";
-    tropicalReefRoot.visible = aquatic !== "land" && currentWaterZone === "lagoon";
-    bubbles.visible = aquatic !== "land";
+    reefRoot.visible = aquatic !== "land" && currentWaterZone === "kelp"
+      && galleryPhase==="outside";
+    tropicalReefRoot.visible = aquatic !== "land" && currentWaterZone === "lagoon"
+      && galleryPhase==="outside";
+    bubbles.visible = aquatic !== "land" && galleryPhase==="outside";
     shasta.visible = !underwater;
     dogContact.visible = !underwater;
     waterMaterial.opacity = underwater ? 0.48 : aquatic === "surface" ? 0.58 : 0.76;
@@ -6415,11 +6544,14 @@ export function createWorld(
     const underwaterFog =
       currentWaterZone === "lagoon" ? "#2f8f91" : "#196b72";
     if (scene.background instanceof THREE.Color)
-      scene.background.set(underwater ? underwaterColor : "#67b7ef");
+      scene.background.set(galleryPhase!=="outside" ? "#272c29" :
+        underwater ? underwaterColor : "#67b7ef");
     if (scene.fog instanceof THREE.Fog) {
-      if (underwater) scene.fog.color.set(underwaterFog);
-      scene.fog.near = underwater ? 7 : 85;
-      scene.fog.far = underwater ? (currentWaterZone === "lagoon" ? 70 : 58) : 270;
+      if(galleryPhase!=="outside")scene.fog.color.set("#444037");
+      else if (underwater) scene.fog.color.set(underwaterFog);
+      scene.fog.near = galleryPhase!=="outside" ? 12 : underwater ? 7 : 85;
+      scene.fog.far = galleryPhase!=="outside" ? 55 :
+        underwater ? (currentWaterZone === "lagoon" ? 70 : 58) : 270;
     }
 
     // Ski-mode snowfall follows the player anywhere in the world.
@@ -6724,6 +6856,9 @@ export function createWorld(
       decoration.visible=!hideUpland;
     canvas.dataset.underwaterDecorCulled=String(
       hideUpland?submergedSurfaceDecor.length:0);
+    hiddenShrineGallery.exterior.visible=aquatic!=="land" &&
+      distance(player,SHRINE_GALLERY.entrance)<27;
+    hiddenShrineGallery.interior.visible=galleryPhase!=="outside";
     renderer.render(scene, camera);
     // This per-mode diagnostic is sampled from the *current underwater
     // render*, not a stale land-mode FPS window.
@@ -7054,6 +7189,7 @@ export function createWorld(
           next.command.activity==="skate"&&insideSkatePark(player)?
           skateGroveStartHeading():{x:0,z:r.id==="north-shore"?1:-1} };
         airHeight = verticalSpeed = swimDepth = targetDepth = 0;
+        galleryPhase="outside";lastGalleryCameraPhase="outside";
         climb = null;
         grind = null;
         setAquaticMode("land");
@@ -7174,6 +7310,8 @@ export function createWorld(
       reefGarden.dispose();
       marineSchools.dispose();
       goldenTridents.dispose();
+      hiddenShrineGallery.dispose();
+      shrineHint.remove();
       disposed = true;
       cancelAnimationFrame(raf);
       observer.disconnect();
