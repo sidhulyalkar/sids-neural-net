@@ -51,7 +51,19 @@ node scripts/frontier-focus-reader-audit.cjs
 
 The browser audit mocks format-specific payloads against the real reader and
 verifies original-source action labels, visible scores, and the distinction
-between activity metadata and performance claims.
+between activity metadata and performance claims. It captures 12 full-page
+screenshots of research, repository, video and sports layouts at 1080, 390
+and 320 CSS-pixel widths in
+`artifacts/browser-smoke/frontier-format-layout/`. Geometry assertions
+protect against horizontal overflow, hidden synopsis text and unnecessary
+decorative image panels.
+
+Posts without an authentic usable image now switch to a centered, readable
+single-column layout rather than spending the first screen on a decorative
+cover. Structured scoreboards similarly give scores priority over artwork.
+At narrow widths, research and repository screenshots have shallower image
+viewports so the actual source description arrives sooner. Video and visual
+stories retain their larger, un-cropped original media.
 
 Keep these changes stacked on editorial admission #143 and the reader
 navigation/transition PR #144. Do not present the 85% quality / 90% relevance
