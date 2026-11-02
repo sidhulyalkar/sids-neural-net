@@ -1,0 +1,126 @@
+import { SEA_SURFACE, maxDiveDepth, seaFloorHeight, type Point } from "./model";
+
+/**
+ * The gallery is a second, fully submerged navigation volume BELOW the natural
+ * sea floor. Nothing in this module changes the public seabed or coast heights.
+ * Room portals and movement bounds share the same authored door graph.
+ */
+export const SHRINE_GALLERY = {
+  entrance: { x: -62, z: 7 } as Point,
+  halfRoom: 3.8,
+  roomStep: 7.8,
+  wallThickness: 0.42,
+  doorHalfWidth: 1.18,
+  floorY: SEA_SURFACE - 16.7,
+  roofY: SEA_SURFACE - 12.7,
+  photoCount: 49,
+} as const;
+
+export type GalleryPhase = "outside" | "descending" | "inside" | "ascending";
+export type GallerySide = "north" | "east" | "south" | "west";
+export type GalleryDoor = { from: number; to: number };
+export type GalleryPhotoSlot = {
+  id: string; roomIndex: number; side: GallerySide;
+  x: number; y: number; z: number; yaw: number; width: number;
+};
+
+// One meandering, inspectable route. There are no unconnected rooms, and the
+// door graph, geometry and collision all derive from this same topology.
+export const GALLERY_ROOMS: readonly Point[] = Array.from({ length: 12 }, (_, i) => ({
+  x: SHRINE_GALLERY.entrance.x - (i % 4) * SHRINE_GALLERY.roomStep,
+  z: SHRINE_GALLERY.entrance.z + Math.floor(i / 4) * SHRINE_GALLERY.roomStep,
+}));
+export const GALLERY_ROUTE = [0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11] as const;
+export const GALLERY_DOORS: readonly GalleryDoor[] = GALLERY_ROUTE.slice(1).map((to, i) => ({
+  from: GALLERY_ROUTE[i], to,
+}));
+
+export function galleryDoorSide(roomIndex: number, side: GallerySide): boolean {
+  const room = GALLERY_ROOMS[roomIndex];
+  return GALLERY_DOORS.some(({ from, to }) => {
+    const other = from === roomIndex ? GALLERY_ROOMS[to] :
+      to === roomIndex ? GALLERY_ROOMS[from] : null;
+    if (!other) return false;
+    const dx = other.x - room.x, dz = other.z - room.z;
+    return side === "east" ? dx > 0 && Math.abs(dz) < 0.01 :
+      side === "west" ? dx < 0 && Math.abs(dz) < 0.01 :
+      side === "north" ? dz < 0 && Math.abs(dx) < 0.01 :
+      dz > 0 && Math.abs(dx) < 0.01;
+  });
+}
+
+export function galleryPhotoSlots(): readonly GalleryPhotoSlot[] {
+  const sides: GallerySide[] = ["north", "east", "south", "west"];
+  const h = SHRINE_GALLERY.halfRoom - 0.12;
+  const slots = GALLERY_ROOMS.flatMap((room, roomIndex) =>
+    sides.map((side, i) => {
+      const hasDoor = galleryDoorSide(roomIndex, side);
+      const offset = hasDoor ? (i % 2 ? 2.25 : -2.25) : 0;
+      return {
+        id: `photo-${String(roomIndex * 4 + i + 1).padStart(3, "0")}`,
+        roomIndex, side,
+        x: side === "east" ? room.x + h : side === "west" ? room.x - h : room.x + offset,
+        z: side === "south" ? room.z + h : side === "north" ? room.z - h : room.z + offset,
+        y: SHRINE_GALLERY.floorY + 2.12,
+        yaw: side === "north" ? 0 : side === "south" ? Math.PI :
+          side === "east" ? -Math.PI / 2 : Math.PI / 2,
+        width: hasDoor ? 1.85 : 2.85,
+      };
+    }));
+  // A final photograph belongs to a small entrance alcove rather than being
+  // duplicated. Its plinth is entirely inside the first chamber.
+  slots.push({
+    id: "photo-049", roomIndex: 0, side: "north",
+    x: GALLERY_ROOMS[0].x - 1.25,
+    z: GALLERY_ROOMS[0].z + 1.15,
+    y: SHRINE_GALLERY.floorY + 2.16,
+    yaw: -Math.PI / 4, width: 1.6,
+  });
+  return slots;
+}
+
+export function galleryShaftTopY(): number {
+  return seaFloorHeight(SHRINE_GALLERY.entrance.x, SHRINE_GALLERY.entrance.z);
+}
+export function shrineReachable(p: Point, swimDepth: number): boolean {
+  return Math.hypot(p.x - SHRINE_GALLERY.entrance.x,
+    p.z - SHRINE_GALLERY.entrance.z) < 1.15 &&
+    swimDepth >= maxDiveDepth(p) - 0.75 &&
+    maxDiveDepth(p) > 2.5;
+}
+
+/** Horizontal collision through the authored doors; never phase through rock. */
+export function galleryWalkable(p: Point): boolean {
+  const inner = SHRINE_GALLERY.halfRoom - 0.46;
+  if (GALLERY_ROOMS.some(r => Math.abs(p.x - r.x) <= inner &&
+    Math.abs(p.z - r.z) <= inner)) return true;
+  return GALLERY_DOORS.some(({ from, to }) => {
+    const a = GALLERY_ROOMS[from], b = GALLERY_ROOMS[to];
+    if (Math.abs(a.x - b.x) > 1) {
+      return Math.abs(p.z - a.z) < SHRINE_GALLERY.doorHalfWidth - .24 &&
+        p.x <= Math.max(a.x, b.x) - inner &&
+        p.x >= Math.min(a.x, b.x) + inner;
+    }
+    return Math.abs(p.x - a.x) < SHRINE_GALLERY.doorHalfWidth - .24 &&
+      p.z >= Math.min(a.z, b.z) + inner &&
+      p.z <= Math.max(a.z, b.z) - inner;
+  });
+}
+
+/** Swept collision prevents a low frame-rate step from skipping a wall. */
+export function galleryConstrainMove(from: Point, to: Point): Point {
+  const length = Math.hypot(to.x - from.x, to.z - from.z);
+  const steps = Math.max(1, Math.ceil(length / 0.18));
+  let current = from;
+  for (let i = 1; i <= steps; i++) {
+    const proposed = { x: from.x + (to.x - from.x) * i / steps,
+      z: from.z + (to.z - from.z) * i / steps };
+    if (!galleryWalkable(proposed)) break;
+    current = proposed;
+  }
+  return current;
+}
+export function galleryNearShaft(p: Point): boolean {
+  return Math.hypot(p.x - SHRINE_GALLERY.entrance.x,
+    p.z - SHRINE_GALLERY.entrance.z) < 1.15;
+}
