@@ -83,10 +83,11 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
   // image, not a scrolled-to thumbnail or the top of the photography page.
   useEffect(()=>{
     const id=parsePhotoArchiveId(window.location.search,entries.map(e=>e.id));
-    if(id){
-      const index=entries.findIndex(e=>e.id===id);
-      if(index>=0)setActiveIndex(index);
-    }
+    if(!id)return;
+    const index=entries.findIndex(e=>e.id===id);
+    if(index<0)return;
+    const frame=requestAnimationFrame(()=>setActiveIndex(index));
+    return ()=>cancelAnimationFrame(frame);
   },[entries]);
 
   const close = useCallback(() => setActiveIndex(null), []);
