@@ -29,9 +29,13 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     vertexColors: true, side: THREE.DoubleSide, roughness: 0.96,
     depthWrite:true, depthTest:true,
   });
+  const ornateFrameMaterial=new THREE.MeshStandardMaterial({
+    vertexColors:true,metalness:.52,roughness:.36,side:THREE.DoubleSide,
+    depthWrite:true,depthTest:true,
+  });
   const wood = new THREE.MeshStandardMaterial({ color: "#58402d", roughness: .96 });
   const edge = new THREE.MeshStandardMaterial({ color: "#9b805d", roughness: .9 });
-  materials.push(stone, wood, edge);
+  materials.push(stone, ornateFrameMaterial, wood, edge);
   function plank(parent: THREE.Group, x: number, y: number, z: number,
     sx: number, sy: number, sz: number, material: THREE.Material, rx = 0, rz = 0) {
     const m = new THREE.Mesh(box, material);
@@ -175,6 +179,8 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   materials.push(photoMat);
   const photoTargets:THREE.Mesh[]=[];
   const hdMeshes:THREE.Mesh[]=[];
+  const placeholderMaterials:THREE.MeshBasicMaterial[]=[];
+  let selectedHighRes=new Set<number>();
   const hdResources=new Map<number,{texture:THREE.Texture;material:THREE.Material}>();
   const loading=new Set<number>();
   const photoEntries=new Map(visualArchive.map(p=>[p.id,p]));
@@ -237,10 +243,12 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     hiGeo.setAttribute("uv",new THREE.Float32BufferAttribute(fullUvs,2));
     hiGeo.translate(normalX*.018,0,normalZ*.018);
     geometries.push(hiGeo);
-    const hd=new THREE.Mesh(hiGeo,new THREE.MeshBasicMaterial({
+    const placeholder=new THREE.MeshBasicMaterial({
       color:"#ffffff",side:THREE.DoubleSide,depthWrite:true,depthTest:true,
-    }));
-    materials.push(hd.material as THREE.Material);
+    });
+    const hd=new THREE.Mesh(hiGeo,placeholder);
+    placeholderMaterials.push(placeholder);
+    materials.push(placeholder);
     hd.visible=false;
     hd.frustumCulled=false;
     hd.renderOrder=3;
@@ -249,11 +257,14 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     interior.add(hd);
   });
   const frames=frameBatch.finish();geometries.push(frames);
-  const frameMesh=new THREE.Mesh(frames,stone);
+  const frameMesh=new THREE.Mesh(frames,ornateFrameMaterial);
   frameMesh.frustumCulled=false;
   frameMesh.renderOrder=1;
   interior.add(frameMesh);
 
+  // Stable indirect bounce light avoids abrupt dark-room transitions between
+  // the authored point-light pools at each doorway.
+  interior.add(new THREE.AmbientLight("#cdb79a",0.42));
   for(let i=0;i<GALLERY_ROOMS.length;i+=2){
     const r=GALLERY_ROOMS[i];
     const lamp=new THREE.PointLight("#ffc68a",3.2,12,2);
@@ -282,10 +293,11 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     })).sort((a,b)=>a.dist-b.dist)
       .filter(o=>o.dist<14).slice(0,highResCap);
     const selected=new Set(candidates.map(o=>o.i));
+    selectedHighRes=selected;
     for(const [i,resource] of hdResources){
       if(selected.has(i))continue;
       hdMeshes[i].visible=false;
-      hdMeshes[i].material=materials[materials.length-1]; // placeholder is never displayed
+      hdMeshes[i].material=placeholderMaterials[i];
       resource.material.dispose();resource.texture.dispose();
       hdResources.delete(i);
     }
@@ -297,7 +309,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
       const image=new Image();
       image.decoding="async";image.src=entry.src;
       void image.decode().then(()=>{
-        if(disposed||lastFocusedRoom<0)return;
+        if(disposed||!selectedHighRes.has(i))return;
         const tex=new THREE.Texture(image);
         tex.colorSpace=THREE.SRGBColorSpace;
         tex.minFilter=THREE.LinearMipmapLinearFilter;
