@@ -32,6 +32,25 @@ async function audit(width, height) {
     assert(firstPaintMs <= FIRST_PAINT_BUDGET_MS, 'First readable story exceeded budget');
     const heading = await page.locator('article h1').first().textContent();
     assert(heading?.trim(), 'The first article must have a real title on initial navigation');
+    if (width <= 390) {
+      const geometry = await page.evaluate(() => {
+        const controls = document.querySelector('nav[aria-label="Article navigation"]');
+        const story = document.querySelector('article [data-frontier-source-image]');
+        const controlsRect = controls?.getBoundingClientRect();
+        const storyRect = story?.getBoundingClientRect();
+        return {
+          controlsBottom: controlsRect?.bottom ?? null,
+          contentTop: storyRect?.top ?? null,
+          controlsWidth: controlsRect?.width ?? null,
+          viewportWidth: innerWidth,
+        };
+      });
+      assert(geometry.controlsBottom !== null && geometry.contentTop !== null
+        && geometry.controlsBottom <= geometry.contentTop + 2,
+        'Mobile navigation must not cover source-backed story content: ' + JSON.stringify(geometry));
+      assert(geometry.controlsWidth <= geometry.viewportWidth,
+        'Mobile controls may not overflow horizontally: ' + JSON.stringify(geometry));
+    }
     // Wait for the actual media paint when possible; a screenshot of the
     // loading placeholder is not evidence of image rendering quality.
     if (await page.locator('figure img').count()) {
