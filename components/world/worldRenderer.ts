@@ -7270,10 +7270,14 @@ export function createWorld(
           playerY=SHRINE_GALLERY.floorY+.04;
           travel={point:player,speed:0,heading:{x:-1,z:0}};
           yaw=Math.PI/2;pitch=.32;zoom=7;
-          camera.position.set(player.x+1.65,playerY+2.25,player.z+1.65);
-          look.set(player.x,playerY+1.45,player.z);
+          // Open down the west doorway, not toward a near wall-mounted print.
+          // Both camera and follow target share this straight, interior-safe pose.
+          camera.position.set(player.x+2.45,playerY+1.65,player.z);
+          look.set(player.x-1.1,playerY+1.5,player.z);
           camera.lookAt(look);
-          lastGalleryCameraPhase="inside";
+          // First world frame snaps to the validated gallery camera rather
+          // than slowly blending across walls under a throttled WebGL renderer.
+          lastGalleryCameraPhase="outside";
         }else if(galleryStart==="papers"){
           player={x:-20,z:-33.8};
           caveLayer="paper";
