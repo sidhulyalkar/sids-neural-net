@@ -82,11 +82,16 @@ jobs:
           cat /tmp/frontier-reservoir.log
           exit 1
 
-      - name: Audit durable daily reservoir replay
+      # /frontier now renders a single focused article, not the legacy fluid
+      # multi-card river. The old DOM replay audit expected data-frontier-fluid-card
+      # and was unable to exercise this route. Keep reservoir sampling/pruning
+      # guarantees in the deterministic policy regressions above; validate the
+      # actual reader surface with its dedicated browser audit instead.
+      - name: Audit current focused FRONTIER reader
         env:
           NODE_PATH: /tmp/frontier-reservoir-playwright/node_modules
-          FRONTIER_RESERVOIR_AUDIT_URL: http://127.0.0.1:3000
-        run: node scripts/frontier-reservoir-browser-audit.cjs
+          FRONTIER_FOCUS_AUDIT_URL: http://127.0.0.1:3000/frontier
+        run: node scripts/frontier-focus-reader-audit.cjs
 
       - name: Upload reservoir qualification artifacts
         if: always()
