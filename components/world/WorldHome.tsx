@@ -617,10 +617,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
             </div>
           )}
           <div className={styles.location} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
-            <span className={styles.eyebrow}>
-              {String(REGIONS.indexOf(current) + 1).padStart(2, "0")} / {String(REGIONS.length).padStart(2, "0")}
-            </span>
-            <p>{current.name}</p>
+            {galleryPhase!=="inside" && (
+              <span className={styles.eyebrow}>
+                {String(REGIONS.indexOf(current) + 1).padStart(2, "0")} / {String(REGIONS.length).padStart(2, "0")}
+              </span>
+            )}
+            <p>{galleryPhase==="inside"?"Photography gallery":current.name}</p>
           </div>
           {nearby && ready && !worldGameActive && skim.phase==="off" && (
             <button className={styles.discovery} onClick={() => open(nearby)}>
