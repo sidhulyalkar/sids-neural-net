@@ -86,6 +86,8 @@ async function assertCanvasKeyboardFocus(frame, label) {
   const focus = await frame.evaluate(() => ({
     documentHasFocus: document.hasFocus(),
     activeElementId: document.activeElement?.id || null,
+    activeElementTag: document.activeElement?.tagName || null,
+    canvasTabIndex: document.querySelector('#c')?.tabIndex ?? null,
   }));
   if (!focus.documentHasFocus || focus.activeElementId !== 'c') {
     throw new Error(`${label}: canvas keyboard focus failed: ${JSON.stringify(focus)}`);
