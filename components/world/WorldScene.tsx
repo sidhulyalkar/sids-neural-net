@@ -10,6 +10,7 @@ import type { TrialState } from "@/lib/world/trials";
 import type { BigAirState } from "@/lib/world/bigAir";
 import type { DiscGolfState,DiscShot,DiscGolfSwingStage } from "@/lib/world/discGolf";
 import type { SkimHeat } from "@/lib/world/skimboarding";
+import type {WorldContent} from "@/lib/world/model";
 import type { GalleryPhase } from "@/lib/world/hiddenShrineGallery";
 
 type Props = {
@@ -32,6 +33,7 @@ type Props = {
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   gameTitles: string[];
+  publicationCards: WorldContent["publications"];
   entered: boolean;
   paused: boolean;
   command: WorldCommand | null;
@@ -75,7 +77,8 @@ export default function WorldScene(props: Props) {
           onJetSkiMode:(active)=>callbacks.current.onJetSkiMode(active),
           onSkim:(heat)=>callbacks.current.onSkim(heat),
           onSkimNearby:(board)=>callbacks.current.onSkimNearby(board),
-        }, WebGLRenderer, callbacks.current.gameTitles);
+        }, WebGLRenderer, callbacks.current.gameTitles,
+          callbacks.current.publicationCards);
         runtime.current.setState(callbacks.current);
       } catch { callbacks.current.onError(); }
     }).catch(() => { if (!cancelled) callbacks.current.onError(); });
