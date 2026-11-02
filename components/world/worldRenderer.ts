@@ -54,6 +54,7 @@ import {
 import { createMarineSchools } from "./worldSchools";
 import { createWorldTridents } from "./worldTridents";
 import { createHiddenShrineGallery } from "./worldHiddenShrineGallery";
+import { createWorldPaperGallery } from "./worldPaperGallery";
 import { SHRINE_GALLERY, galleryConstrainMove, galleryNearShaft, galleryWalkable, shrineReachable, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
@@ -173,6 +174,7 @@ export function createWorld(
   callbacks: Callbacks,
   Renderer: typeof WebGLRenderer,
   gameTitles: string[],
+  publicationCards: {id:string;title:string;year:number|null;href:string}[],
 ): WorldRuntime {
   const renderer = new Renderer({
     antialias: true,
@@ -1416,6 +1418,9 @@ export function createWorld(
   instances(boxGeo,mat("#8d9c96"),paperTablets,false);
   const paperGlyphs:Instance[]=paperTablets.flatMap(p=>Array.from({length:12},(_,i)=>({x:p.x-.4+i*.07,y:p.y+Math.sin(i*1.8)*.19,z:p.z+.1,sx:.05,sy:.055,sz:.025})));
   instances(boxGeo,mat("#394c4f"),paperGlyphs,false);
+  const paperGallery=createWorldPaperGallery(scene,publicationCards);
+  markerObjects.push(...paperGallery.targets);
+  canvas.dataset.paperGalleryCount=String(paperGallery.count);
   const paperLight=new THREE.PointLight("#b2dce6",4,9,2);paperLight.position.set(-20,fallsY+3,-33);scene.add(paperLight);
   const pool=mesh(geo(new THREE.CircleGeometry(3.7,24)),waterRibbonMat,[-20,fallsY+.08,-27],[1,1,1]);pool.rotation.x=-Math.PI/2;
   const lower=downstreamPoints().map(p=>new THREE.Vector3(p.x,p.y,p.z));
@@ -3619,6 +3624,12 @@ export function createWorld(
     const marker = ray.intersectObjects(markerObjects)[0];
     if (marker && marker.distance < 55) {
       const discoveryId = discoveryForHit(marker);
+      if(discoveryId?.startsWith("gallery-paper:")){
+        if(caveLayer==="paper"&&paperCaveInside(player))
+          callbacks.onInteract(discoveryId);
+        else destination={x:-20,z:-34};
+        return;
+      }
       if (discoveryId?.startsWith("game:")) {
         if (caveLayer === "arcade" && arcadeInside(player) && distance(player, arcadeWall) < 7.4) callbacks.onInteract(discoveryId);
         else destination = { x: arcadeWall.x, z: arcadeWall.z - 4.2 };
@@ -5241,6 +5252,8 @@ export function createWorld(
       // The underground mural uses only seven draw batches but must not
       // consume them on the coast, skatepark or other distant islands.
       // Keep it visible on approach as well as while inside the chamber.
+      paperGallery.root.visible=caveLayer==="paper" ||
+        (aquatic==="land"&&Math.hypot(player.x+20,player.z+32)<15);
       arcadeGraffiti.root.visible = caveLayer==="arcade" ||
         (aquatic==="land" && distance(player,arcade)<29);
       canvas.dataset.arcadeGraffitiVisible=String(arcadeGraffiti.root.visible);
@@ -5313,6 +5326,13 @@ export function createWorld(
       const layeredNearby =
         nearby === "paper-archive" && caveLayer !== "paper" ? null : nearby;
       const trident=nearbyUnderwaterTrident(player,playerY,aquatic);
+      let paperArtwork:string|null=null;
+      if(paperInside){
+        ray.setFromCamera(gazePointer,camera);
+        const paperHit=ray.intersectObjects(paperGallery.targets,false)
+          .find(hit=>hit.distance<7);
+        paperArtwork=paperHit?.object.userData.discovery as string|undefined??null;
+      }
       let galleryPhotoId:string|null=null;
       if(galleryPhase==="inside"){
         ray.setFromCamera(gazePointer,camera);
@@ -5324,7 +5344,7 @@ export function createWorld(
       }
       discovery = galleryPhase==="inside" ?
         (galleryPhotoId ? "gallery-photo:"+galleryPhotoId : null) :
-        aquatic === "land" ? (gazeGame ?? layeredNearby) : trident?.id ?? null;
+        aquatic === "land" ? (paperArtwork ?? gazeGame ?? layeredNearby) : trident?.id ?? null;
       const nextKey = `${r}:${discovery}`;
       if (nextKey !== locationKey) {
         locationKey = nextKey;
@@ -7356,6 +7376,7 @@ export function createWorld(
       marineSchools.dispose();
       goldenTridents.dispose();
       hiddenShrineGallery.dispose();
+      paperGallery.dispose();
       shrineHint.remove();
       disposed = true;
       cancelAnimationFrame(raf);
