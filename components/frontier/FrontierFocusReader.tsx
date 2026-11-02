@@ -56,6 +56,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const [notice, setNotice] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
   const contentsButtonRef = useRef<HTMLButtonElement>(null);
+  const headlineRef = useRef<HTMLHeadingElement>(null);
   const requestRef = useRef<AbortController | null>(null);
   const backgroundRef = useRef<AbortController | null>(null);
   const readerInteractedRef = useRef(false);
@@ -473,7 +474,10 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                     <button key={entry.item.id} type="button" className={styles.contentsEntry}
                       data-frontier-contents-entry={entry.position}
                       aria-current={entry.position === position ? 'true' : undefined}
-                      onClick={() => navigateTo(entry.position)}>
+                      onClick={() => {
+                        navigateTo(entry.position);
+                        window.requestAnimationFrame(() => headlineRef.current?.focus({ preventScroll: true }));
+                      }}>
                       <span className={styles.contentsOrdinal}>{String(entry.position + 1).padStart(2, '0')}</span>
                       <span className={styles.contentsEntryText}>
                         <strong>{entry.item.title}</strong>
@@ -505,7 +509,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                 <span className={styles.kicker}>{item.lane.replace(/_/g, ' ')} <span className={styles.separator}>/</span> {item.sourceLabel} <span className={styles.separator}>·</span> {frontierReaderFormat(item)}</span>
                 <span className={styles.counter}>{String(position + 1).padStart(2, '0')} / {String(items.length).padStart(2, '0')}</span>
               </div>
-              <h1>{item.title}</h1>
+              <h1 ref={headlineRef} tabIndex={-1}>{item.title}</h1>
               {item.authors?.length ? <p className={styles.byline}>{item.authors.slice(0, 3).join(', ')}</p> : null}
             </div>
 
