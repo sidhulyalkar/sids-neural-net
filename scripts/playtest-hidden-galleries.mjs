@@ -50,7 +50,24 @@ try{
   assert.equal(await scene.getAttribute("data-hidden-gallery-photos"),"49");
   assert.equal(await scene.getAttribute("data-hidden-gallery-locomotion"),"walking");
   const initial=await scene.getAttribute("data-player");
+  assert.equal(await scene.getAttribute("data-hidden-gallery-camera"),"eye-level");
   await page.screenshot({path:path.join(out,"gallery-start.png")});
+  // The same accessible F interaction aligns each photograph to its 2.45m
+  // standing position. Escape restores uninterrupted gallery walking.
+  await scene.focus();
+  await page.keyboard.press("f");
+  await page.waitForFunction(()=>{
+    const c=document.querySelector("canvas");
+    return !!c?.dataset.hiddenGalleryPhotoFocus;
+  },null,{timeout:10000});
+  const focused=await scene.getAttribute("data-hidden-gallery-photo-focus");
+  assert.match(focused,/^photo-\\d{3}$/);
+  await page.screenshot({path:path.join(out,"gallery-photo-focus.png")});
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(()=>{
+    const c=document.querySelector("canvas");
+    return c?.dataset.hiddenGalleryPhotoFocus==="";
+  },null,{timeout:10000});
   await page.keyboard.down("w");
   await page.waitForTimeout(850);
   await page.keyboard.up("w");
@@ -165,7 +182,7 @@ try{
   },null,{timeout:90000});
   await page.screenshot({path:path.join(out,"paper-gallery.png")});
   report.routes.push({route:"/?gallery=papers",museum:"paper",papers:8});
-  report.screenshots=["gallery-start.png","gallery-walking.png",
+  report.screenshots=["gallery-start.png","gallery-photo-focus.png","gallery-walking.png",
     "gallery-next-room.png","gallery-still-1.png","gallery-still-2.png",
     "gallery-still-3.png","photo-deep-link.png","paper-gallery.png"];
   assert.deepEqual(errors,[]);
