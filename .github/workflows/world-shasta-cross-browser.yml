@@ -1,0 +1,79 @@
+name: Shasta Cross-Browser Voice (Chrome, Firefox, Safari engine)
+
+on:
+  pull_request:
+    paths:
+      - 'components/world/useShastaVoice.ts'
+      - 'components/world/WorldHome.tsx'
+      - 'components/world/ShastaVoiceQaHarness.tsx'
+      - 'app/world/voice-qa/page.tsx'
+      - 'lib/world/shastaVoiceCapture.ts'
+      - 'lib/world/shastaTranscribeServer.ts'
+      - 'app/api/world/shasta/transcribe/route.ts'
+      - 'tests/world-shasta-cross-browser.test.ts'
+      - 'scripts/playtest-shasta-cross-browser-voice.mjs'
+      - '.github/workflows/world-shasta-cross-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shasta-browsers-${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  voice-browser:
+    name: voice-${{ matrix.browser }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      SHASTA_BROWSER: ${{ matrix.browser }}
+      PLAYWRIGHT_MODULE_ROOT: /tmp/shasta-browser-pw/node_modules/playwright
+      WORLD_BASE_URL: http://127.0.0.1:3000
+      WORLD_AUDIT_DIR: artifacts/world/shasta-cross-browser
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install exact dependencies
+        run: npm ci
+      - name: Typecheck, lint and fallback security tests
+        run: |
+          npm run typecheck
+          npx eslint components/world/useShastaVoice.ts components/world/ShastaVoiceQaHarness.tsx components/world/WorldHome.tsx lib/world/shastaVoiceCapture.ts lib/world/shastaTranscribeServer.ts app/api/world/shasta/transcribe/route.ts tests/world-shasta-cross-browser.test.ts --max-warnings=0
+          node --import tsx --test tests/world-shasta-cross-browser.test.ts tests/world-shasta-voice.test.ts
+          node --check scripts/playtest-shasta-cross-browser-voice.mjs
+      - name: Install browser engine
+        run: |
+          mkdir -p /tmp/shasta-browser-pw
+          npm install --prefix /tmp/shasta-browser-pw --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/shasta-browser-pw/node_modules/.bin/playwright install --with-deps "${SHASTA_BROWSER}"
+      - name: Run local site
+        run: |
+          npm run dev -- --hostname 127.0.0.1 >/tmp/shasta-cross-browser-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 130 /tmp/shasta-cross-browser-next.log
+          exit 1
+      - name: Test real browser media-recording fallback
+        run: node scripts/playtest-shasta-cross-browser-voice.mjs
+      - name: Preserve browser screenshots and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shasta-fallback-${{ matrix.browser }}-${{ github.sha }}
+          path: |
+            artifacts/world/shasta-cross-browser/
+          if-no-files-found: warn
+      - name: Show server errors
+        if: failure()
+        run: tail -n 150 /tmp/shasta-cross-browser-next.log || true

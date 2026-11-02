@@ -575,6 +575,7 @@ export type WorldProject = {
 export type WorldPhoto = {
   id: string;
   src: string;
+  thumbSrc?:string;
   alt: string;
   width: number;
   height: number;
@@ -591,6 +592,7 @@ export type WorldVideo = {
 export type WorldContent = {
   projects: WorldProject[];
   photos: WorldPhoto[];
+  galleryPhotos: WorldPhoto[];
   publications: {id:string;title:string;year:number|null;href:string}[];
   videos: WorldVideo[];
   games: { title: string; subtitle: string; href: string }[];
@@ -602,4 +604,5 @@ export type WorldCommand = {
   natureDestination?: "ocean-bench" | "research-cave" | "fern-crown" | "coastal-falls" | "snowmelt-pool";
   skateDestination?: "canyon-flow" | "loop-rollin" | "loop-reverse" | "hollow-log" | "log-top";
   sportDestination?: "jet-pier";
+  bunkerDestination?:"airlock"|"gallery";
 };

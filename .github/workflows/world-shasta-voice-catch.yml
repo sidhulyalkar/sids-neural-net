@@ -1,0 +1,74 @@
+name: Shasta Voice and Treat Flight Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'lib/world/shastaVoice.ts'
+      - 'lib/world/shastaTreatCatch.ts'
+      - 'components/world/useShastaVoice.ts'
+      - 'components/world/WorldHome.tsx'
+      - 'components/world/WorldScene.tsx'
+      - 'components/world/worldRenderer.ts'
+      - 'tests/world-shasta-voice.test.ts'
+      - 'tests/world-shasta-treat-catch.test.ts'
+      - 'scripts/playtest-shasta-voice-catch.mjs'
+      - '.github/workflows/world-shasta-voice-catch.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shasta-voice-catch-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shasta-voice-catch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      PLAYWRIGHT_MODULE_ROOT: /tmp/shasta-voice-playwright/node_modules/playwright
+      WORLD_BASE_URL: http://127.0.0.1:3000
+      WORLD_AUDIT_DIR: artifacts/world/shasta-voice-catch
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Check types, lint and deterministic trick physics
+        run: |
+          npm run typecheck
+          npx eslint lib/world/shastaVoice.ts lib/world/shastaTreatCatch.ts components/world/useShastaVoice.ts components/world/WorldHome.tsx tests/world-shasta-voice.test.ts tests/world-shasta-treat-catch.test.ts --max-warnings=0
+          node --import tsx --test tests/world-shasta-voice.test.ts tests/world-shasta-treat-catch.test.ts
+          node --check scripts/playtest-shasta-voice-catch.mjs
+      - name: Install independent browser
+        run: |
+          mkdir -p /tmp/shasta-voice-playwright
+          npm install --prefix /tmp/shasta-voice-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/shasta-voice-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Launch the real site
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/shasta-voice-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 130 /tmp/shasta-voice-next.log
+          exit 1
+      - name: Execute microphone and throw browser regression
+        run: node scripts/playtest-shasta-voice-catch.mjs
+      - name: Report browser failure
+        if: failure()
+        run: tail -n 180 /tmp/shasta-voice-next.log || true
+      - name: Preserve results and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shasta-voice-catch-${{ github.sha }}
+          path: |
+            artifacts/world/shasta-voice-catch/
+            /tmp/shasta-voice-next.log
+          if-no-files-found: warn
