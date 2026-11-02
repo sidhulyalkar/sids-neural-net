@@ -38,6 +38,10 @@ test('reader format names identify evidence types without exaggerating significa
   assert.equal(frontierReaderFormat(item('video', 'sports', 'youtube')), 'Video');
   assert.equal(frontierReaderFormat(item('discuss', 'internet_culture', 'lobsters')), 'Discussion');
   assert.equal(frontierReaderFormat(item('news', 'world_pulse', 'rss')), 'Article');
+  assert.equal(frontierReaderFormat({
+    ...item('scoreboard', 'sports', 'sports_state'),
+    sportsState: { kind: 'scoreboard', league: 'nba', leagueLabel: 'NBA', games: [] },
+  }), 'Scores & standings', 'Do not imply a stale sports snapshot is live');
 });
 
 test('short lead and visible source sentences preserve every claim and original ordering', () => {
