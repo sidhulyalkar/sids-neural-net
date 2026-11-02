@@ -3397,6 +3397,7 @@ export function createWorld(
   let skateBowlLastLanding="",skateBowlLastLandingSpeed=0;
   let skateLoopRide:SkateLoopRide|null=null;
   let loopCameraWasActive=false;
+  let bunkerCameraWasInside=false;
   let skateLoopEntries=0,skateLoopCompletions=0,lastSkateLoopEnd=-Infinity;
   let skateTunnelRide:SkateTunnelRide|null=null;
   let skateTunnelEntries=0,skateTunnelCompletions=0;
@@ -5964,7 +5965,8 @@ export function createWorld(
         // never the player's actual collision or equipment states.
         const cameraInsideAvatar=caveInside&&
           camera.position.distanceTo(explorer.position)<2.55;
-        explorer.visible=!jetChoosing&&!cameraInsideAvatar;
+        const galleryFirstPerson=aquatic==="dive"&&bunkerInside(player);
+        explorer.visible=!jetChoosing&&!cameraInsideAvatar&&!galleryFirstPerson;
         jetskiVisual.activeSki.visible=jetChoosing;
         if(jetChoosing){
           jetskiVisual.activeSki.position.set(JET_SKI_DOCK.x+.25,SEA_SURFACE+.2,JET_SKI_PIER.centerZ-.15);
@@ -6077,13 +6079,12 @@ export function createWorld(
         );
       }
       if(aquatic==="dive"&&bunkerInside(player)){
-        // Keep the camera within the chamber and the photograph at eye level.
-        const behind={x:player.x+Math.sin(yaw)*1.5,
-          z:player.z+Math.cos(yaw)*1.5};
-        const safe=bunkerGallery.constrain(player,behind);
-        targetCamera.set(safe.x,Math.min(SEA_SURFACE-.27,playerY+1.15),safe.z);
-        targetLook.set(player.x-Math.sin(yaw)*4.1,
-          playerY+1.0,player.z-Math.cos(yaw)*4.1);
+        // Museum-style first-person lens: a third-person boom previously
+        // filled the frame with the swimmer's back and glass bulkheads.
+        // The eye remains 2.05m above the seabed, safely below the roof.
+        targetCamera.set(player.x,playerY+.3,player.z);
+        targetLook.set(player.x-Math.sin(yaw)*5.2,
+          playerY+.3,player.z-Math.cos(yaw)*5.2);
       }
       if (caveInside || paperInside) {
         const isArcade = caveInside;
@@ -7122,7 +7123,10 @@ export function createWorld(
     let chaseBlendApplied=false;
     const loopCameraChanged=loopCameraWasActive!==!!skateLoopRide;
     loopCameraWasActive=!!skateLoopRide;
-    if(showingDiscGolfIntro || snapDiscCamera || loopCameraChanged){
+    const bunkerCameraNow=aquatic==="dive"&&bunkerInside(player);
+    const bunkerCameraEntered=bunkerCameraNow&&!bunkerCameraWasInside;
+    bunkerCameraWasInside=bunkerCameraNow;
+    if(showingDiscGolfIntro || snapDiscCamera || loopCameraChanged||bunkerCameraEntered){
       // A direct time-derived pose starts on the basket instead of slowly
       // drifting there from a camera that previously followed the player.
       camera.position.copy(targetCamera);

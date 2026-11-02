@@ -40,12 +40,24 @@ try{
    console.error("SEA GLASS SCENE DIAGNOSTIC",JSON.stringify(diag),JSON.stringify(consoleErrors));
    throw error;
   }
-  await page.waitForFunction(scenario=>{
-   const d=document.querySelector("canvas")?.dataset;
-   return scenario==="gallery"?
-    d?.bunkerInside==="true"&&Number(d.bunkerLoadedTextures)>0:
-    d?.bunkerHatchOpen==="true";
-  },scenario,{timeout:35000,polling:300});
+  try{
+   await page.waitForFunction(scenario=>{
+    const d=document.querySelector("canvas")?.dataset;
+    return scenario==="gallery"?
+     d?.bunkerInside==="true"&&Number(d.bunkerLoadedTextures)>0:
+     d?.bunkerHatchOpen==="true";
+   },scenario,{timeout:28000,polling:300});
+  }catch(error){
+   const diag=await page.evaluate(()=>({
+    state:document.querySelector('[data-world-state]')?.getAttribute('data-world-state'),
+    canvas:document.querySelector('canvas')?{...document.querySelector('canvas').dataset}:null,
+    text:document.body.innerText.slice(-500),
+   }));
+   diagnostics.push({scenario,stage:"gallery-or-airlock",diag});
+   await page.screenshot({path:path.join(out,scenario+"-diagnostic.png")}).catch(()=>{});
+   console.error("SEA GLASS INTERACTION DIAGNOSTIC",JSON.stringify(diag));
+   throw error;
+  }
   const snapshot=await page.locator("canvas").evaluate((c,scenario)=>({
    scenario,qa:c.dataset.bunkerQaStart,inside:c.dataset.bunkerInside,
    photos:c.dataset.bunkerPhotoCount,capacity:c.dataset.bunkerPhotoCapacity,
