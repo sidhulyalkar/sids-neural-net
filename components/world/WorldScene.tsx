@@ -80,8 +80,14 @@ export default function WorldScene(props: Props) {
         }, WebGLRenderer, callbacks.current.gameTitles,
           callbacks.current.publicationCards);
         runtime.current.setState(callbacks.current);
-      } catch { callbacks.current.onError(); }
-    }).catch(() => { if (!cancelled) callbacks.current.onError(); });
+      } catch (error) {
+        console.error("[world] initialization or initial command failed",error);
+        callbacks.current.onError();
+      }
+    }).catch((error) => {
+      console.error("[world] WebGL renderer import failed",error);
+      if (!cancelled) callbacks.current.onError();
+    });
     return () => {
       cancelled = true;
       runtime.current?.dispose();
