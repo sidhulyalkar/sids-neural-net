@@ -16,6 +16,14 @@ export const SHRINE_GALLERY = {
   photoCount: 49,
 } as const;
 
+/** Explicit vertical separation avoids any coplanar z-fighting at thresholds. */
+export const GALLERY_FLOOR_GEOMETRY={
+  slabCenterOffset:-.22,
+  slabThickness:.45,
+  sillCenterOffset:.045,
+  sillThickness:.045,
+} as const;
+
 export type GalleryPhase = "outside" | "descending" | "inside" | "ascending";
 export type GallerySide = "north" | "east" | "south" | "west";
 export type GalleryDoor = { from: number; to: number };
