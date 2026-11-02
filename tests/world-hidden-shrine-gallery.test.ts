@@ -135,6 +135,39 @@ test("rendered foundation has one slab and detailed gilded picture frames",()=>{
   assert.doesNotMatch(source,/fillText\(slots\[i\]\.id/);
 });
 
+test("gallery walking crosses a real doorway consistently at 5, 20 and 60 FPS",()=>{
+  const start=GALLERY_ROOMS[0];
+  const simulate=(fps:number)=>{
+    let state={
+      point:{...start},heading:{x:-1,z:0},speed:0,
+    };
+    for(let i=0;i<Math.round(3.6*fps);i++){
+      state=galleryStepWalk(state,{x:-1,z:0},1/fps);
+      assert.ok(galleryWalkable(state.point),"Walk collision remains inside gallery");
+    }
+    return state;
+  };
+  const at5=simulate(5),at20=simulate(20),at60=simulate(60);
+  for(const state of [at5,at20,at60])
+    assert.ok(start.x-state.point.x>7.4,
+      "Walking must reach the next chamber in 3.6 seconds");
+  assert.ok(Math.abs(at5.point.x-at60.point.x)<.18,
+    "Real travel distance must be mostly independent of rendering FPS");
+  assert.ok(Math.abs(at20.point.x-at60.point.x)<.18);
+});
+
+test("gallery walking collision prevents tunneling into a closed neighboring room",()=>{
+  const start=GALLERY_ROOMS[0];
+  let state={point:{...start},heading:{x:0,z:1},speed:0};
+  for(let i=0;i<25;i++){
+    state=galleryStepWalk(state,{x:0,z:1},.2);
+    assert.ok(galleryWalkable(state.point));
+  }
+  assert.ok(state.point.z<start.z+SHRINE_GALLERY.halfRoom,
+    "No movement through the sealed south wall");
+  assert.equal(galleryStepWalk(state,{x:0,z:0},.2).speed,0);
+});
+
 test("solid walls stop a diver from crossing between disconnected neighboring rooms",()=>{
   const from=GALLERY_ROOMS[0],other=GALLERY_ROOMS[4];
   assert.ok(!galleryDoorSide(0,"south"));
