@@ -163,6 +163,20 @@ export function galleryPhotoSlots():readonly GalleryPhotoSlot[]{
   return slots;
 }
 
+/** Contain original artwork proportions within the identical gilded frames.
+ * Fractions are relative to the print opening; black matte backing fills
+ * the remaining edge, rather than stretching landscapes/portraits.
+ */
+export function galleryImageContainScale(width:number,height:number){
+  if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)
+    return {width:1,height:1};
+  const imageRatio=width/height;
+  const frameRatio=GALLERY_VIEWING.imageWidth/GALLERY_VIEWING.imageHeight;
+  return imageRatio>frameRatio
+    ? {width:1,height:frameRatio/imageRatio}
+    : {width:imageRatio/frameRatio,height:1};
+}
+
 /** Foot position for a perpendicular, repeatable photograph viewing angle. */
 export function galleryPhotoViewpoint(slot:GalleryPhotoSlot):Point{
   return {
