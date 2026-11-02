@@ -3,7 +3,8 @@ import { visualArchive } from "@/src/data/visualArchive";
 import { GeometryBatch } from "./worldGeometry";
 import {
   SHRINE_GALLERY, GALLERY_ROOMS, GALLERY_DOORS, galleryDoorSide,
-  galleryPhotoSlots, galleryShaftTopY, type GallerySide,
+  galleryPhotoSlots, galleryShaftTopY, galleryFloorFootprint,
+  galleryDoorThresholds, type GallerySide,
 } from "@/lib/world/hiddenShrineGallery";
 
 /**
@@ -103,18 +104,26 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     // Head-height stone lintel makes the doorway feel excavated, not glassy.
     segment(0,opening*2,bottom+height-.32,.64);
   }
+  // This single foundation replaces 12 room slabs and 11 overlapping
+  // bridge plates. The old bridge plates were COPLANAR with both room floors
+  // and flickered at exactly the shared door thresholds.
+  const floor=galleryFloorFootprint();
+  add(floor.x,bottom-.22,floor.z,floor.width,.45,floor.depth,"#494d46");
   for (const [i,r] of GALLERY_ROOMS.entries()) {
-    add(r.x,bottom-.22,r.z,2*h+.18,.45,2*h+.18,"#494d46");
+    // Ceiling tiles meet at their edges without intersecting. The entry
+    // tile has a square shaft cutout assembled from four DISJOINT pieces.
+    const ceilingSpan=SHRINE_GALLERY.roomStep;
     if(i===0){
-      // Keep a 2.8m square opening directly under the physical shrine shaft.
-      const margin=(2*h-2.8)/2;
-      for(const side of [-1,1]){
-        add(r.x+side*(1.4+margin/2),top+.28,r.z,
-          margin,.62,2*h+.28,"#353b37");
-        add(r.x,top+.28,r.z+side*(1.4+margin/2),
-          2.8,.62,margin,"#353b37");
+      const aperture=2.8;
+      const strip=(ceilingSpan-aperture)/2;
+      const offset=(ceilingSpan+aperture)/4;
+      for(const sign of [-1,1]){
+        add(r.x+sign*offset,top+.28,r.z,
+          strip,.62,ceilingSpan,"#353b37");
+        add(r.x,top+.28,r.z+sign*offset,
+          aperture,.62,strip,"#353b37");
       }
-    }else add(r.x,top+.28,r.z,2*h+.28,.62,2*h+.28,"#353b37");
+    }else add(r.x,top+.28,r.z,ceilingSpan,.62,ceilingSpan,"#353b37");
     for (const side of ["north","east","south","west"] as const)
       wall(r,side,galleryDoorSide(i,side));
     // Natural dressed-stone shoulders, subtle variation in place of cyan glass.
@@ -122,15 +131,10 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
       add(r.x+dx,bottom+height/2,r.z+dz,.48,height,.48,
         (i+dx+dz)%3>0?"#646157":"#484e49");
   }
-  // Stone bridge plates close the 20cm gaps between neighboring rooms.
-  for(const d of GALLERY_DOORS){
-    const a=GALLERY_ROOMS[d.from],b=GALLERY_ROOMS[d.to];
-    add((a.x+b.x)/2,bottom-.22,(a.z+b.z)/2,
-      Math.abs(a.x-b.x)>1?.42:2.25,.45,
-      Math.abs(a.z-b.z)>1?.42:2.25,"#625f52");
-    add((a.x+b.x)/2,top+.28,(a.z+b.z)/2,
-      Math.abs(a.x-b.x)>1?.65:2.6,.62,
-      Math.abs(a.z-b.z)>1?.65:2.6,"#353b37");
+  // Raised, narrow brass-stone sills mark passages without a coplanar
+  // second floor face. Their entire underside clears the foundation top.
+  for(const sill of galleryDoorThresholds()){
+    add(sill.x,bottom+.045,sill.z,sill.width,.045,sill.depth,"#847356");
   }
   // The entry shaft really does extend upward to the sea-floor opening.
   const shaftHeight=seaFloor-(top+.2);
