@@ -238,12 +238,71 @@ async function auditBackgroundLatest() {
   }
 }
 
+async function auditSourceOnlyPresentation() {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const results = [];
+    for (const width of [1280, 320]) {
+      const page = await browser.newPage({ viewport: { width, height: 800 }, reducedMotion: 'reduce' });
+      try {
+        const base = new URL(TARGET);
+        const response = await page.request.get(base.origin + '/api/frontier/feed');
+        assert(response.ok(), 'Source-only fixture requires a valid snapshot');
+        const snapshot = await response.json();
+        assert(snapshot.items?.length, 'Source-only fixture requires a real publisher item');
+        // Strip only the media from one real source record. This tests the
+        // layout without creating fictitious reporting or source citations.
+        const fixture = {
+          ...snapshot.items[0],
+          id: 'frontier-source-only-layout-audit',
+          media: { type: 'none' },
+          figures: [],
+        };
+        await page.route('**/api/frontier/feed?latest=1', async (route) => {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: { 'X-Frontier-Live': 'cached-latest' },
+            body: JSON.stringify({ generatedAt: new Date().toISOString(), items: [fixture], sources: [] }),
+          });
+        });
+        await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
+        await page.getByRole('button', { name: 'Refresh live edition' }).click();
+        const sourceOnly = page.locator('[data-frontier-media="source-only"]');
+        await sourceOnly.waitFor({ timeout: 8000 });
+        assert.equal(await page.locator('article').count(), 1);
+        assert.equal(await page.locator('figure img').count(), 0);
+        assert.equal(await page.locator('article h1').count(), 1);
+        const layout = await sourceOnly.evaluate((element) => ({
+          height: element.getBoundingClientRect().height,
+          text: element.textContent || '',
+          documentWidth: document.documentElement.scrollWidth,
+          viewportWidth: window.innerWidth,
+        }));
+        assert(!layout.text.includes(fixture.title),
+          'No-image fallback must not repeat the oversized headline');
+        assert(layout.height <= (width <= 520 ? 155 : 275),
+          'No-image treatment should not dominate the article: ' + JSON.stringify(layout));
+        assert(layout.documentWidth <= layout.viewportWidth + 2,
+          'Source-only layout must not overflow horizontally: ' + JSON.stringify(layout));
+        results.push({ width, compactSourcePlaceholder: true, height: layout.height });
+      } finally {
+        await page.close();
+      }
+    }
+    return results;
+  } finally {
+    await browser.close();
+  }
+}
+
 async function main() {
   const results = [];
   results.push(await audit(1440, 900));
   results.push(await audit(390, 844));
   results.push(await audit(320, 700));
   results.push(await auditBackgroundLatest());
+  results.push(await auditSourceOnlyPresentation());
   console.log('FRONTIER focus reader audit:', JSON.stringify(results));
 }
 
