@@ -32,6 +32,14 @@ async function audit(width, height) {
     assert(firstPaintMs <= FIRST_PAINT_BUDGET_MS, 'First readable story exceeded budget');
     const heading = await page.locator('article h1').first().textContent();
     assert(heading?.trim(), 'The first article must have a real title on initial navigation');
+    // Wait for the actual media paint when possible; a screenshot of the
+    // loading placeholder is not evidence of image rendering quality.
+    if (await page.locator('figure img').count()) {
+      await page.waitForFunction(() => {
+        const img = document.querySelector('figure img');
+        return !img || img.getAttribute('data-frontier-media-ready') === 'true';
+      }, undefined, { timeout: 3500 }).catch(() => {});
+    }
     // Capture the *real archived first story* in addition to the controlled
     // cross-format fixtures. This makes image sizing and textual hierarchy
     // reviewable without a hand-maintained or fabricated article.
