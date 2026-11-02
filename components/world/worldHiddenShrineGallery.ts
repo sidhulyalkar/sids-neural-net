@@ -186,7 +186,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   const photoEntries=new Map(visualArchive.map(p=>[p.id,p]));
   let disposed=false;
   let lastFocusedRoom=-1;
-  const highResCap=8;
+  const highResCap=window.matchMedia("(max-width: 760px)").matches?4:8;
   // Shared plane UVs for full-resolution overlays: never sample a small atlas
   // tile from a native photo texture by mistake.
   const fullUvs=[0,0,1,0,1,1,0,0,1,1,0,1];
@@ -280,6 +280,16 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   let next=0,loaded=0;
   // Only keep full-resolution images in the nearby rooms. Offscreen images
   // remain legible at atlas quality and never flash blank while HD loads.
+  function releaseHighResolution(){
+    selectedHighRes.clear();
+    lastFocusedRoom=-1;
+    for(const [i,resource] of hdResources){
+      hdMeshes[i].visible=false;
+      hdMeshes[i].material=placeholderMaterials[i];
+      resource.material.dispose();resource.texture.dispose();
+    }
+    hdResources.clear();
+  }
   function updateNearPhotos(player:{x:number;z:number}){
     let focused=0,best=Infinity;
     for(const [i,room] of GALLERY_ROOMS.entries()){
@@ -354,13 +364,10 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     photoCount:slots.length,
     loadedPhotos:()=>loaded,
     highResolutionPhotos:()=>hdResources.size,
-    updateNearPhotos,
+    updateNearPhotos,releaseHighResolution,
     dispose(){
       disposed=true;
-      for(const resource of hdResources.values()){
-        resource.material.dispose();resource.texture.dispose();
-      }
-      hdResources.clear();
+      releaseHighResolution();
       exterior.removeFromParent();interior.removeFromParent();
       geometries.forEach(g=>g.dispose());
       materials.forEach(m=>m.dispose());
