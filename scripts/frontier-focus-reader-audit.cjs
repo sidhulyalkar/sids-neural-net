@@ -49,18 +49,35 @@ async function audit(width, height) {
     assert.equal(await contentsToggle.getAttribute('aria-expanded'), 'true');
     const contents = page.locator('[data-frontier-contents-panel="true"]');
     assert.equal(await contents.count(), 1, 'Exactly one edition contents panel');
+    assert.equal(await contents.getAttribute('aria-modal'), 'true',
+      'Contents must expose a modal focus boundary to assistive technology');
     assert((await contents.locator('[data-frontier-contents-entry]').count()) >= 3,
       'Edition contents must include the available curated stories');
+    const exploreLink = contents.getByRole('link', { name: /Explore the full frontier/i });
+    await exploreLink.focus();
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')),
+      'Close edition contents', 'Keyboard focus must wrap within the contents modal');
+    await page.keyboard.press('Shift+Tab');
+    assert.equal(await exploreLink.evaluate((element) => document.activeElement === element), true,
+      'Reverse tab must wrap to the final navigable link');
     await contents.locator('[data-frontier-contents-entry="2"]').click();
     assert.equal(await contents.count(), 0, 'Contents closes after a direct jump');
     assert.notEqual(await page.locator('article h1').first().textContent(), heading,
       'Jumping to a story must change the focused article');
+    await page.waitForFunction(() => document.activeElement === document.querySelector('article h1'),
+      undefined, { timeout: 2500 });
     assert.equal(await page.locator('article').count(), 1, 'Contents must never mount hidden articles');
     assert((await page.locator('figure img').count()) <= 1, 'Contents cannot duplicate media');
     await contentsToggle.click();
     await page.locator('[data-frontier-contents-entry="0"]').click();
     assert.equal(await page.locator('article h1').first().textContent(), heading,
       'Return to opening story must retain original editorial order');
+    await contentsToggle.click();
+    await page.keyboard.press('Escape');
+    assert.equal(await contents.count(), 0, 'Escape must close the contents modal');
+    assert.equal(await contentsToggle.evaluate((element) => document.activeElement === element), true,
+      'Escape should restore focus to the Contents toggle');
 
     const nextButton = page.locator('[data-frontier-next="true"]');
     assert((await nextButton.textContent())?.trim() === 'Next', 'Snapshot should include multiple articles, got: ' + (await nextButton.textContent()));
