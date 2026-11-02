@@ -1,5 +1,5 @@
 import { assessFrontierEditorialAdmission } from './editorialAdmission';
-import { cleanFrontierItem } from './editorialQuality';
+import { cleanFrontierItem, isFrontierEditoriallyUsable } from './editorialQuality';
 import type { FrontierItem } from './types';
 
 export type FrontierEditorialReviewLabel = {
@@ -117,6 +117,7 @@ export function buildFrontierEditorialReviewRows(
   return items.map((original) => {
     const item = cleanFrontierItem(original);
     const admission = assessFrontierEditorialAdmission(item);
+    const usable = isFrontierEditoriallyUsable(item);
     const baselineRank = baseline.get(item.id) ?? null;
     const qualifiedRank = qualified.get(item.id) ?? null;
     return {
@@ -126,8 +127,8 @@ export function buildFrontierEditorialReviewRows(
       sourceKind: item.sourceKind,
       lane: item.lane,
       summary: item.summary,
-      admitted: admission.admitted,
-      reason: admission.reason,
+      admitted: admission.admitted && usable,
+      reason: usable ? admission.reason : 'source-copy-unusable',
       flags: frontierEditorialReviewFlags(item),
       baselineRank,
       qualifiedRank,
