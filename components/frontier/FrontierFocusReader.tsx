@@ -550,7 +550,9 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
               {item.authors?.length ? <p className={styles.byline}>{item.authors.slice(0, 3).join(', ')}</p> : null}
             </div>
 
-            <div className={styles.storyBody}>
+            <div className={styles.storyBody}
+              data-frontier-source-image={canShowImage ? 'true' : 'false'}
+              data-frontier-sports-state={item.sportsState ? 'true' : 'false'}>
               <figure className={styles.visual} data-frontier-figure-count={figures.length}>
                 <div className={styles.visualViewport} data-frontier-media={canShowImage ? 'source-image' : 'source-only'}>
                   {canShowImage && image ? (
