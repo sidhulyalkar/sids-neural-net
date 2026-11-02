@@ -33,6 +33,12 @@ export function bunkerInside(p:Point){
  return Math.abs(p.x-center.x)<grid*cell/2-.25&&
   Math.abs(p.z-center.z)<grid*cell/2-.25;
 }
+/** Distinct underwater wings; labels are tied to the physical maze grid. */
+export function bunkerWingAt(p:Point){
+ const row=Math.max(0,Math.min(grid-1,
+  Math.floor((p.z-center.z)/cell+grid/2)));
+ return row>=4?"Kelp Forest":row>=2?"Open Ocean":"Blue Abyss";
+}
 export function bunkerNearby(p:Point,range=43){
  return Math.hypot(p.x-center.x,p.z-center.z)<range;
 }

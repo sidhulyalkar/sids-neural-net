@@ -5,7 +5,7 @@ import {beginShastaTrick,idleShastaTrick,stepShastaTrick,shastaTrickPose,advance
 import {createCoastalNature} from "./worldCoastalNature";
 import {createResearchGallery} from "./worldResearchGallery";
 import {createWorldUnderwaterGallery} from "./worldUnderwaterGallery";
-import {bunkerInside,bunkerNearby,bunkerSwimY} from "@/lib/world/underwaterBunker";
+import {bunkerInside,bunkerNearby,bunkerSwimY,bunkerWingAt} from "@/lib/world/underwaterBunker";
 import {idleOceanObservation,advanceOceanObservation,stopOceanObservation} from "@/lib/world/coastalObservation";
 import {settleSurfaceHeight} from "@/lib/world/surfaceSupport";
 import {COAST_BENCH,COAST_WHALE,COAST_FALL,waterfallRockHeight} from "@/lib/world/hydrology";
@@ -3863,7 +3863,10 @@ export function createWorld(
         .find(hit=>hit.object.parent?.visible&&
           Math.hypot(hit.point.x-player.x,hit.point.z-player.z)<7.2);
       const photoId=photoHit?.object.userData.photoId as string|undefined;
-      if(photoId){callbacks.onInteract(photoId);return;}
+      if(photoId){
+        canvas.dataset.bunkerViewedPhotos=String(bunkerGallery.markViewed(photoId));
+        callbacks.onInteract(photoId);return;
+      }
     }
     if(seated){leaveOceanBench();return;}
     const boardHit=ray.intersectObjects(skimProps,false)[0];
@@ -4053,7 +4056,11 @@ export function createWorld(
         .find(hit=>hit.object.parent?.visible&&
           Math.hypot(hit.point.x-player.x,hit.point.z-player.z)<7.2);
       const photoId=photoHit?.object.userData.photoId as string|undefined;
-      if(photoId){e.preventDefault();callbacks.onInteract(photoId);return;}
+      if(photoId){
+        e.preventDefault();
+        canvas.dataset.bunkerViewedPhotos=String(bunkerGallery.markViewed(photoId));
+        callbacks.onInteract(photoId);return;
+      }
     }
     if (key === "enter" && !e.repeat && discovery && skimHeat.phase==="off") {
       e.preventDefault();
@@ -7219,15 +7226,20 @@ export function createWorld(
     canvas.dataset.bunkerHatchOpen=String(galleryState.open);
     canvas.dataset.bunkerLoadedTextures=String(galleryState.loaded);
     canvas.dataset.bunkerMissingTextures=String(galleryState.missing);
+    canvas.dataset.bunkerViewedPhotos=String(galleryState.viewed);
+    canvas.dataset.bunkerWing=bunkerWingAt(player);
     const entryDistance=distance(player,bunkerGallery.layout.entry);
     const showBunkerHud=(aquatic!=="land"&&entryDistance<9)||
       (galleryState.inside&&underwater);
     bunkerHud.style.display=showBunkerHud?"block":"none";
     if(showBunkerHud){
       const nextText=galleryState.inside
-        ? "Sea Glass Archive · Swim the blue halls · Tap or aim + Enter to view a photo"
+        ? "Sea Glass · "+bunkerWingAt(player)+" · "+galleryState.viewed+"/"+
+            bunkerGallery.photoCount+" viewed · Tap a photo"
+        : galleryState.passable
+          ? "Sea Glass Archive · Airlock open · Swim inside"
         : galleryState.open
-          ? "Sea Glass Archive · Circular hatch opening"
+          ? "Sea Glass Archive · Hatch opening"
           : "Sea Glass Archive · Dive deeper toward the circular hatch";
       if(bunkerHud.textContent!==nextText)bunkerHud.textContent=nextText;
     }

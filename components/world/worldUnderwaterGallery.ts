@@ -125,14 +125,22 @@ export function createWorldUnderwaterGallery(photos:readonly WorldPhoto[]){
  const photoEntries:PhotoEntry[]=[],targets:THREE.Mesh[]=[];
  const panelBase=mat(new THREE.MeshBasicMaterial({color:"#092b40",toneMapped:false}));
  const pictureFrame=mat(new THREE.MeshBasicMaterial({color:"#8ddde8",toneMapped:false}));
- for(let i=0;i<Math.min(photos.length,layout.slots.length);i++){
+ const photoCount=Math.min(photos.length,layout.slots.length);
+ const frames=new THREE.InstancedMesh(box,pictureFrame,photoCount);
+ const backings=new THREE.InstancedMesh(box,panelBase,photoCount);
+ const photographMatrix=(slot:BunkerPhotoSlot,offset:number,
+  w:number,h:number,depth:number,i:number,target:THREE.InstancedMesh)=>{
+  const normalX=Math.sin(slot.yaw),normalZ=Math.cos(slot.yaw);
+  dummy.position.set(slot.x+normalX*offset,slot.y,slot.z+normalZ*offset);
+  dummy.rotation.set(0,slot.yaw,0);dummy.scale.set(w,h,depth);
+  dummy.updateMatrix();target.setMatrixAt(i,dummy.matrix);
+ };
+ for(let i=0;i<photoCount;i++){
   const photo=photos[i],slot=layout.slots[i];
   const grp=new THREE.Group();
   grp.position.set(slot.x,slot.y,slot.z);grp.rotation.y=slot.yaw;
-  const frame=new THREE.Mesh(box,pictureFrame);
-  frame.scale.set(2.91,2.18,.075);frame.position.z=.012;grp.add(frame);
-  const backing=new THREE.Mesh(box,panelBase);
-  backing.scale.set(2.78,2.06,.07);backing.position.z=.072;grp.add(backing);
+  photographMatrix(slot,.012,2.91,2.18,.075,i,frames);
+  photographMatrix(slot,.072,2.78,2.06,.07,i,backings);
   const aspect=Math.max(.2,Math.min(4,photo.width/Math.max(1,photo.height)));
   const width=Math.min(2.67,1.94*aspect),height=width/aspect;
   const material=mat(new THREE.MeshBasicMaterial({
@@ -146,6 +154,12 @@ export function createWorldUnderwaterGallery(photos:readonly WorldPhoto[]){
   photoEntries.push({group:grp,material,image,photo,slot,
    texture:null,generation:0,pending:false});
  }
+ frames.instanceMatrix.needsUpdate=true;
+ backings.instanceMatrix.needsUpdate=true;
+ frames.name="49-photo-cyan-gallery-frame-batch";
+ backings.name="49-photo-deep-water-panel-batch";
+ frames.frustumCulled=backings.frustumCulled=false;
+ root.add(frames,backings);
  // Subtle marine motif. Each fin-like blue glass vane is instanced, with no
  // animated scene lights or new particle emitter near the busy kelp biome.
  const vanes=new THREE.InstancedMesh(box,glow,12);
@@ -156,6 +170,7 @@ export function createWorldUnderwaterGallery(photos:readonly WorldPhoto[]){
  }
  vanes.instanceMatrix.needsUpdate=true;vanes.frustumCulled=false;root.add(vanes);
  const activeTextures=new Map<number,THREE.Texture>();
+ const visited=new Set<string>();
  let alive=true,openAmount=0,isOpen=false,updateClock=0,failed=0;
  function unload(entry:PhotoEntry){
   entry.generation++;
@@ -208,16 +223,21 @@ export function createWorldUnderwaterGallery(photos:readonly WorldPhoto[]){
     else if(photo.texture||photo.pending)unload(photo);
    }
   }
-  return {near:close,open:isOpen,inside:bunkerInside(player),
-   loaded:activeTextures.size,missing:failed};
+  return {near:close,open:isOpen,passable:openAmount>.77,
+   inside:bunkerInside(player),loaded:activeTextures.size,
+   missing:failed,viewed:visited.size};
  }
  return {root,targets,layout,update,
-  get obstacles(){return isOpen?colliders:[...colliders,...pressureDoor];},
+  markViewed(id:string){
+   if(photoEntries.some(p=>p.photo.id===id))visited.add(id);
+   return visited.size;
+  },
+  get obstacles(){return openAmount>.77?colliders:[...colliders,...pressureDoor];},
   get loadedPhotos(){return activeTextures.size;},
   get photoCount(){return photoEntries.length;},
   constrain(from:Point,to:Point){
    if(!bunkerNearby(from,30)&&!bunkerNearby(to,30))return to;
-   return constrainMove(from,to,isOpen?colliders:[...colliders,...pressureDoor]);
+   return constrainMove(from,to,openAmount>.77?colliders:[...colliders,...pressureDoor]);
   },
   dispose(){
    alive=false;
