@@ -24,7 +24,7 @@ export type FrontierEditorialAdmission = {
 };
 
 const PROMOTIONAL_OPENING = /^(?:use (?:our|my) (?:code|link)|sponsored by|paid partnership|become a member|join (?:our|this|the) channel|subscribe(?: to)?|shop (?:our|the) merch|save \d{1,2}%|sign up for|click (?:here|the link)|support (?:us|at|on) patreon)\b/i;
-const GENERIC_COPY = /^(?:recent(?:ly)? (?:substantive )?(?:development|update|open.source project)|worth (?:inspecting|checking) at the source|click (?:here|through) to (?:learn|read) more|read (?:the )?full (?:article|story)|no description (?:provided|available)|link only|watch (?:the )?full video)[^.!?]*[.!?]?$/i;
+const GENERIC_COPY = /^(?:recent(?:ly)? (?:active |substantive )?(?:development|update|open.source project)|worth (?:inspecting|checking) at the source|click (?:here|through) to (?:learn|read) more|read (?:the )?full (?:article|story)|no description (?:provided|available)|link only|watch (?:the )?full video)[^.!?]*[.!?]?$/i;
 const URL = /https?:\/\/\S+/gi;
 const WORD = /[\p{L}\p{N}][\p{L}\p{N}'-]*/gu;
 const COMMUNITY = new Set(['hackernews', 'lobsters', 'reddit', 'social']);
