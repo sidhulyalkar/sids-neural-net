@@ -24,7 +24,7 @@ import { getSportsAnalyticsFeed } from './sportsAnalyticsSources';
 import { getSportsClipFeed } from './sportsClipSources';
 import { getDeepSportsStateFeed } from './sportsStateDeepSources';
 import { getSportsStateFeed } from './sportsStateSources';
-import { vetFrontierItems } from './sourceTrust';
+import { isFrontierSourceAdmitted, vetFrontierItems } from './sourceTrust';
 import { getToolingRadarFeed } from './toolingRadarSources';
 import type { FrontierFeedResponse, FrontierItem, FrontierSourceStatus } from './types';
 import { getVimeoStaffPicksFeed } from './vimeoSource';
@@ -47,6 +47,8 @@ type IntegratedOptions = {
    * this to false so it can wait for adapters' own transport deadlines.
    */
   adapterDeadlineMs?: number | false;
+  /** Only the offline archive builder may capture excluded public source candidates. */
+  captureEditorialReview?: boolean;
 };
 
 export type FrontierCandidatePoolStages = {
@@ -62,6 +64,8 @@ export type FrontierCandidatePoolPreparation = {
   items: FrontierItem[];
   stages: FrontierCandidatePoolStages;
   bootstrapTasteCandidateCap: FrontierBootstrapTasteCapAudit;
+  /** Optional offline-only rejection evidence, never returned in public feed routes. */
+  editorialRejected?: FrontierItem[];
 };
 
 export function isPlausibleFrontierCandidate(item: FrontierItem, now = Date.now()): boolean {
@@ -148,12 +152,20 @@ export function frontierCandidatePriority(item: FrontierItem): number {
  * result; stage and authority counts contain no item IDs, titles, URLs, queries,
  * or profile state and therefore may safely cross the diagnostic boundary.
  */
-export function prepareFrontierCandidatePool(items: FrontierItem[]): FrontierCandidatePoolPreparation {
+export function prepareFrontierCandidatePool(
+  items: FrontierItem[],
+  options: { captureEditorialReview?: boolean } = {},
+): FrontierCandidatePoolPreparation {
   const plausible = items.map(cleanFrontierItem).filter((item) => isPlausibleFrontierCandidate(item));
   const rightsSafe = plausible.filter((item) => !isRightsFragileNflYoutube(item));
   const enriched = rightsSafe.map(enrichFrontierSemantics);
   const deduped = dedupe(enriched);
   const admitted = vetFrontierItems(deduped.filter((item) => isFrontierEditoriallyUsable(item) && isFrontierEditoriallyQualified(item)));
+  const editorialRejected = options.captureEditorialReview
+    ? deduped.filter((item) => isFrontierSourceAdmitted(item)
+      && (!isFrontierEditoriallyUsable(item) || !isFrontierEditoriallyQualified(item)))
+        .sort((a, b) => b.baseScore - a.baseScore).slice(0, 256)
+    : undefined;
   const retained = [...admitted]
     .sort((a, b) => frontierCandidatePriority(b) - frontierCandidatePriority(a))
     .slice(0, MAX_INTEGRATED_CANDIDATES);
@@ -174,6 +186,7 @@ export function prepareFrontierCandidatePool(items: FrontierItem[]): FrontierCan
       candidateRetained: retained.length,
     },
     bootstrapTasteCandidateCap,
+    ...(editorialRejected ? { editorialRejected } : {}),
   };
 }
 
@@ -266,7 +279,7 @@ export function getFrontierSnapshotFeed(): FrontierFeedResponse {
   };
 }
 
-export async function getIntegratedFrontierFeed(options: IntegratedOptions = {}): Promise<FrontierObservableFeedResponse> {
+export async function getIntegratedFrontierFeed(options: IntegratedOptions = {}): Promise<FrontierObservableFeedResponse & { editorialRejections?: FrontierItem[] }> {
   const focusTopics = Array.from(new Set((options.focusTopics ?? []).map((topic) => topic.trim()).filter(Boolean))).slice(0, 10);
   const deadline = options.adapterDeadlineMs ?? REQUEST_ADAPTER_DEADLINE_MS;
   const emptyAdaptive: FrontierFeedResponse = { generatedAt: new Date().toISOString(), items: [], sources: [] };
@@ -343,7 +356,9 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
   ];
   const liveFeeds = orderedResults.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
   const liveSourceItems = liveFeeds.flatMap((feed) => feed.items);
-  const livePreparation = prepareFrontierCandidatePool(liveSourceItems);
+  const livePreparation = prepareFrontierCandidatePool(liveSourceItems, {
+    captureEditorialReview: options.captureEditorialReview === true && deepDiscovery,
+  });
   const liveItems = livePreparation.items.map(enrichPresentation);
 
   const liveKeys = new Set(liveItems.flatMap((item) => [canonicalKey(item), item.title.toLowerCase()]));
@@ -406,5 +421,7 @@ export async function getIntegratedFrontierFeed(options: IntegratedOptions = {})
     items,
     sources: mergeStatuses(sources),
     ...(pipeline ? { pipeline } : {}),
+    ...(options.captureEditorialReview === true && deepDiscovery
+      ? { editorialRejections: livePreparation.editorialRejected ?? [] } : {}),
   };
 }
