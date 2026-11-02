@@ -41,7 +41,7 @@ export function frontierReaderFormat(item: FrontierItem): string {
     case 'research': return 'Research';
     case 'repository': return 'Code';
     case 'video': return 'Video';
-    case 'sports': return 'Live data';
+    case 'sports': return 'Scores & standings';
     case 'discussion': return 'Discussion';
     case 'game': return 'Game';
     default: return 'Article';
