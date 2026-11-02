@@ -35,7 +35,51 @@ try{
   const moved=await scene.getAttribute("data-player");
   assert.notEqual(moved,initial,"Walking must move the actual player");
   await page.screenshot({path:path.join(out,"gallery-walking.png")});
-  report.routes.push({route:"/?gallery=photos",phase:"inside",locomotion:"walking",moved:true});
+  // Continue through the real first doorway. A movement-only test within the
+  // starting room cannot detect wall popping and interior visibility glitches.
+  await page.keyboard.down("w");
+  await page.waitForTimeout(3200);
+  await page.keyboard.up("w");
+  await page.waitForTimeout(1100);
+  const nextRoom=await scene.getAttribute("data-player");
+  assert.ok(Number(nextRoom.split(",")[0])<Number(initial.split(",")[0])-6,
+    "A continuous walk must pass through at least one room portal");
+  assert.equal(await scene.getAttribute("data-hidden-gallery-in-bounds"),"true");
+  await page.waitForFunction(()=>{
+    const c=document.querySelector("canvas[data-hidden-gallery-phase='inside']");
+    return !!c && Number(c.dataset.hiddenGalleryHd)>=2;
+  },null,{timeout:30000});
+  await page.waitForTimeout(1200);
+  await page.screenshot({path:path.join(out,"gallery-next-room.png")});
+  const stills=[];
+  for(let i=0;i<3;i++){
+    await page.waitForTimeout(250);
+    stills.push((await page.screenshot()).toString("base64"));
+  }
+  const stability=await page.evaluate(async frames=>{
+    const samples=[];
+    for(const encoded of frames){
+      const img=new Image();
+      img.src="data:image/png;base64,"+encoded;
+      await img.decode();
+      const canvas=document.createElement("canvas");
+      canvas.width=240;canvas.height=160;
+      const ctx=canvas.getContext("2d",{willReadFrequently:true});
+      ctx.drawImage(img,0,0,240,160);
+      samples.push(ctx.getImageData(0,0,240,160).data);
+    }
+    const averageDifference=(a,b)=>{
+      let delta=0;
+      for(let i=0;i<a.length;i+=4)
+        delta+=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);
+      return delta/(a.length/4)/3;
+    };
+    return Math.max(averageDifference(samples[0],samples[1]),
+      averageDifference(samples[1],samples[2]));
+  },stills);
+  assert.ok(stability<22,`Interior exhibits must remain visually stable while still (pixel change ${stability.toFixed(2)})`);
+  report.routes.push({route:"/?gallery=photos",phase:"inside",
+    locomotion:"walking",moved:true,throughDoor:true,staticPixelDifference:stability});
   await page.goto(base+"/photography?photo=photo-021",{waitUntil:"domcontentloaded"});
   const viewer=page.getByRole("dialog",{name:"Visual Cortex image viewer"});
   await viewer.waitFor({state:"visible",timeout:60000});
@@ -56,7 +100,8 @@ try{
   },null,{timeout:90000});
   await page.screenshot({path:path.join(out,"paper-gallery.png")});
   report.routes.push({route:"/?gallery=papers",museum:"paper",papers:8});
-  report.screenshots=["gallery-start.png","gallery-walking.png","photo-deep-link.png","paper-gallery.png"];
+  report.screenshots=["gallery-start.png","gallery-walking.png",
+    "gallery-next-room.png","photo-deep-link.png","paper-gallery.png"];
   assert.deepEqual(errors,[]);
   fs.writeFileSync(path.join(out,"report.json"),JSON.stringify(report,null,2)+"\n");
   console.log("GALLERY WALK / PHOTO DEEP LINK / PAPER MUSEUM BROWSER QA PASS");
