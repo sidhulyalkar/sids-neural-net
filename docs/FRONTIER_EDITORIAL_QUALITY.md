@@ -116,6 +116,15 @@ reads the committed snapshot and writes:
 - `report.json`: source/quality rejection census and **null** quality metrics
   until the relevant source links have actually been inspected.
 
+The deep snapshot builder writes a separate bounded
+`artifacts/frontier-editorial-review/rejected-candidates.json` file containing
+public source metadata rejected at the editorial gate. It is **never placed
+in `latest.json` or returned by public feed endpoints**. The review-kit command
+merges this same-run shadow evidence into the labeling pool, and checks the
+snapshot timestamp to avoid evaluating stale mismatched rejections. When that
+file is missing, the report explicitly says rejection capture is unavailable,
+and false-exclusion quality cannot be considered measured.
+
 The sampler includes the baseline first 14, the qualified first 14, and a
 fixed, round-robin mix of approved/rejected rows across source kinds. It
 avoids evaluation on only the candidates the new algorithm already trusts.
