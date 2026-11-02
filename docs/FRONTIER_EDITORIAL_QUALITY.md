@@ -58,6 +58,7 @@ Run:
 ```sh
 npm test
 npm run frontier:editorial-audit
+npm run frontier:review-kit
 npm run frontier:slate-audit
 npm run typecheck
 npm run lint
@@ -87,6 +88,73 @@ evaluation phase should compare blind judgments against the prior system using
 a fixed candidate batch, query provenance, reason-coded failures, and
 calibration by source kind and topic. Keep all rejected candidates in the
 offline audit rather than silently erasing the hard cases.
+
+## Phase 2: full-inventory cold-start selection
+
+Cold navigation previously sent only the first 36 provider-ordered snapshot
+items to the reader. That prematurely excluded high-fit specialist work buried
+below the provider cutoff. `selectFrontierColdEdition` now **ranks every
+qualified candidate with the explicit taste profile first**, then composes
+the finite 36-story reader edition. The reader receives the already chosen
+edition as the SSR initial state and never silently recomposes it from that
+truncated payload. Personalized hydration can still use the wider snapshot
+when explicitly learned user history exists.
+
+The first paint remains small: it transmits only the final edition, not the
+whole source inventory. No new HTTP request is required.
+
+## Phase 2: evidence-first blind review
+
+Run `npm run frontier:review-kit` from the repository root. The command
+reads the committed snapshot and writes:
+
+- `artifacts/frontier-editorial-review/sample.json`: canonical source URLs,
+  source-backed excerpts, admission reasons, reader positions, quality-review
+  triage flags and SHA-256 provenance of the input snapshot.
+- `sample.csv`: spreadsheet-friendly list of exactly the same review tasks.
+- `labels.template.json`: explicit **null** labels, never synthetic judgments.
+- `report.json`: source/quality rejection census and **null** quality metrics
+  until the relevant source links have actually been inspected.
+
+The sampler includes the baseline first 14, the qualified first 14, and a
+fixed, round-robin mix of approved/rejected rows across source kinds. It
+avoids evaluation on only the candidates the new algorithm already trusts.
+Its baseline is a *provider-ordered first-36 selection strategy control*;
+it is not claimed to be an exact reconstruction of historical live sessions.
+
+For each sampled item, open the **original source** and annotate these
+boolean/null fields in a separate JSON labels file:
+
+- `worthwhile`: worth a scarce editorial slot
+- `relevant`: relevant to this specific reader's interests
+- `novel`: supplies a new fact, technique, result or substantive perspective
+- `sourceTraceable`: URL opens the attributed source
+- `claimsSupported`: original source substantiates the visible claims
+
+Use `null` for anything not actually checked, including inaccessible sources.
+Then run:
+
+```sh
+npm run frontier:review-kit -- --labels=path/to/review-labels.json
+```
+
+Reported top-14 quality percentages remain `null` until **every** selected
+item has the corresponding human label. The false-exclusion metric requires a
+rejected candidate to be marked worthwhile **and** source-traceable **and**
+factually supported; it uses reviewed rejected candidates as its denominator.
+A partial observed rate is reported separately and must not be presented as a
+validated rate. Duplicate labels and IDs not in the frozen sample are errors.
+
+Editorial triage flags such as `generic-teaser`,
+`high-provider-score-low-evidence`, and `promotional-language` are
+review prompts, not unverified statements of fact. The sampler's output is
+fully offline and requires no external model or private browsing telemetry.
+
+The branch-head CI publishes this kit as a qualification artifact, but **CI
+does not assert that human review occurred**. Human labels must be provided
+explicitly and their results should be audited across source categories.
+Do not tune only to the reviewed false positives and forget the reviewed
+false negatives.
 
 ## Failure behavior
 
