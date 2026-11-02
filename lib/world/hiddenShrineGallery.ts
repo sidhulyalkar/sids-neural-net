@@ -20,8 +20,8 @@ export const SHRINE_GALLERY = {
 export const GALLERY_FLOOR_GEOMETRY={
   slabCenterOffset:-.22,
   slabThickness:.45,
-  sillCenterOffset:.045,
-  sillThickness:.045,
+  sillCenterOffset:.028,
+  sillThickness:.018,
 } as const;
 
 export type GalleryPhase = "outside" | "descending" | "inside" | "ascending";
