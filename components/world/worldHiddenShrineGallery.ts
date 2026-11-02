@@ -186,7 +186,10 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   const photoEntries=new Map(visualArchive.map(p=>[p.id,p]));
   let disposed=false;
   let lastFocusedRoom=-1;
-  const highResCap=window.matchMedia("(max-width: 760px)").matches?4:8;
+  // Native-resolution photos can each occupy tens of MB in GPU memory.
+  // Keep the closest four on desktop, two on mobile; the 2688px atlas
+  // remains an always-visible fallback when rotating or changing rooms.
+  const highResCap=window.matchMedia("(max-width: 760px)").matches?2:4;
   // Shared plane UVs for full-resolution overlays: never sample a small atlas
   // tile from a native photo texture by mistake.
   const fullUvs=[0,0,1,0,1,1,0,0,1,1,0,1];
