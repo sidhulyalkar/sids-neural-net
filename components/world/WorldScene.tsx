@@ -10,6 +10,7 @@ import type { TrialState } from "@/lib/world/trials";
 import type { BigAirState } from "@/lib/world/bigAir";
 import type { DiscGolfState,DiscShot,DiscGolfSwingStage } from "@/lib/world/discGolf";
 import type { SkimHeat } from "@/lib/world/skimboarding";
+import type { GalleryPhase } from "@/lib/world/hiddenShrineGallery";
 
 type Props = {
   activity: Activity;
@@ -37,6 +38,7 @@ type Props = {
   onReady: () => void;
   onError: () => void;
   onAquatic: (mode: AquaticMode) => void;
+  onGalleryPhase: (phase:GalleryPhase)=>void;
   onLocation: (region: RegionId, discovery: string | null) => void;
   onInteract: (discovery: string) => void;
   onChallenge: (state:TrialState) => void;
@@ -64,6 +66,7 @@ export default function WorldScene(props: Props) {
           onReady: () => callbacks.current.onReady(),
           onError: () => callbacks.current.onError(),
           onAquatic: (mode) => callbacks.current.onAquatic(mode),
+          onGalleryPhase: (phase) => callbacks.current.onGalleryPhase(phase),
           onLocation: (r, d) => callbacks.current.onLocation(r, d),
           onInteract: (d) => callbacks.current.onInteract(d),
           onChallenge: (trial) => callbacks.current.onChallenge(trial),
