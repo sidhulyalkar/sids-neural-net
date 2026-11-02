@@ -5270,6 +5270,7 @@ export function createWorld(
       canvas.dataset.jetSkiDeckHeight=jetSkiPierHeight(player)?.toFixed(2)??"";
       canvas.dataset.paperInside = String(paperInside);
       canvas.dataset.hiddenGalleryPhase=galleryPhase;
+      canvas.dataset.hiddenGalleryLocomotion=galleryPhase==="inside"?"walking":"swimming";
       if(galleryPhase!==lastNotifiedGalleryPhase){
         lastNotifiedGalleryPhase=galleryPhase;
         callbacks.onGalleryPhase(galleryPhase);
