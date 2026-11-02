@@ -71,8 +71,8 @@ export function galleryPhotoSlots(): readonly GalleryPhotoSlot[] {
   // duplicated. Its plinth is entirely inside the first chamber.
   slots.push({
     id: "photo-049", roomIndex: 0, side: "north",
-    x: GALLERY_ROOMS[0].x - 1.25,
-    z: GALLERY_ROOMS[0].z + 1.15,
+    x: GALLERY_ROOMS[0].x - 2.1,
+    z: GALLERY_ROOMS[0].z + 2.05,
     y: SHRINE_GALLERY.floorY + 2.16,
     yaw: -Math.PI / 4, width: 1.6,
   });
