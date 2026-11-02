@@ -286,3 +286,11 @@
   .stage { animation:none; }
   .heroImage { transition:none; }
 }
+
+.contentsExplore { display:flex; align-items:center; justify-content:space-between;
+  gap:8px; padding:13px 20px; flex:none; border-top:1px solid #263746;
+  font-size:12px; font-weight:600; color:#d4dce2; text-decoration:none; }
+.contentsExplore:hover { color:#ffb1a3; }
+@media (max-width:520px) {
+  .advanced { display:none; }
+}
