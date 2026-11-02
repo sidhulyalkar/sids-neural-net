@@ -4469,12 +4469,19 @@ export function createWorld(
         } else if(galleryPhase==="inside"){
           // Walk on the actual stone floor: no submerged vertical controls,
           // no floaty swim velocity, and no sea-floor support sampling.
+          const wallClockStep=Math.max(0,Math.min(rawDelta,.12));
           const next=stepSwim({...travel,point:player},
-            {x:dx,z:dz},dt,destination);
-          const moved=galleryConstrainMove(player,next.point);
+            {x:dx,z:dz},rawDelta,destination);
+          const proposedDistance=Math.hypot(
+            next.point.x-player.x,next.point.z-player.z);
+          const stride=Math.min(1,2.6*wallClockStep/Math.max(.00001,proposedDistance));
+          const moved=galleryConstrainMove(player,{
+            x:player.x+(next.point.x-player.x)*stride,
+            z:player.z+(next.point.z-player.z)*stride,
+          });
           const advanced=Math.hypot(moved.x-player.x,moved.z-player.z);
           travel={...next,point:moved,speed:advanced<.001?0:
-            Math.min(3.1,advanced/Math.max(.001,dt))};
+            Math.min(2.6,advanced/Math.max(.001,wallClockStep))};
           player=moved;
           playerY=SHRINE_GALLERY.floorY+.04;
           swimDepth=targetDepth=SEA_SURFACE-playerY;
@@ -4798,7 +4805,8 @@ export function createWorld(
       }else canvas.dataset.joshuaGhosts="0";
       const swimming = aquatic !== "land" && galleryPhase!=="inside";
       const walking = travel.speed > 0.05
-        ? Math.sin(elapsed * (swimming ? 9 : mode === "run" ? 14 : 10))
+        ? Math.sin(elapsed * (galleryPhase==="inside"?7.2:
+          swimming ? 9 : mode === "run" ? 14 : 10))
         : 0;
       const surfing=skimHeat.phase==="riding";
       const skimEquipped=skimHeat.phase!=="off"&&skimHeat.phase!=="finished";
