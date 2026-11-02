@@ -443,10 +443,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
   useEffect(()=>{
     const target=parseGalleryDestination(window.location.search);
     if(!target)return;
-    setEnabled(true);setEntered(true);setFailed(false);setQuiet(false);
-    setActivity("run");
-    setCommand(prev=>({region:target==="photos"?"coast":"waterfall",
-      serial:(prev?.serial??0)+1,galleryDestination:target,activity:"run"}));
+    const frame=requestAnimationFrame(()=>{
+      setEnabled(true);setEntered(true);setFailed(false);setQuiet(false);
+      setActivity("run");
+      setCommand(prev=>({region:target==="photos"?"coast":"waterfall",
+        serial:(prev?.serial??0)+1,galleryDestination:target,activity:"run"}));
+    });
+    return ()=>cancelAnimationFrame(frame);
   },[]);
   function enter() {
     setEnabled(true);
