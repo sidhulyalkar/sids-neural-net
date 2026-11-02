@@ -5,7 +5,7 @@ import {
   SHRINE_GALLERY, GALLERY_ROOMS, galleryDoorSide,
   galleryPhotoSlots, galleryShaftTopY, galleryFloorFootprint,
   galleryDoorThresholds, galleryCeilingTiles, GALLERY_FLOOR_GEOMETRY,
-  GALLERY_VIEWING, type GallerySide,
+  GALLERY_VIEWING, galleryImageContainScale, type GallerySide,
 } from "@/lib/world/hiddenShrineGallery";
 
 /**
@@ -177,6 +177,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   });
   materials.push(photoMat);
   const photoTargets:THREE.Mesh[]=[];
+  const photoPickTargets:THREE.Mesh[]=[];
   const hdMeshes:THREE.Mesh[]=[];
   const placeholderMaterials:THREE.MeshBasicMaterial[]=[];
   let selectedHighRes=new Set<number>();
@@ -307,6 +308,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     m.frustumCulled=false;
     m.renderOrder=2;
     photoTargets.push(m);
+    photoPickTargets.push(m);
     interior.add(m);
     const hiGeo=geometry.clone();
     hiGeo.setAttribute("uv",new THREE.Float32BufferAttribute(fullUvs,2));
@@ -322,7 +324,9 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     hd.frustumCulled=false;
     hd.renderOrder=3;
     hd.name="high-resolution-"+slot.id;
+    hd.userData.discovery=slot.id;
     hdMeshes.push(hd);
+    photoPickTargets.push(hd);
     interior.add(hd);
   });
   const frames=frameBatch.finish();geometries.push(frames);
@@ -354,6 +358,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     lastFocusedRoom=-1;
     for(const [i,resource] of hdResources){
       hdMeshes[i].visible=false;
+      photoTargets[i].visible=true;
       hdMeshes[i].material=placeholderMaterials[i];
       resource.material.dispose();resource.texture.dispose();
     }
@@ -376,6 +381,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     for(const [i,resource] of hdResources){
       if(selected.has(i))continue;
       hdMeshes[i].visible=false;
+      photoTargets[i].visible=true;
       hdMeshes[i].material=placeholderMaterials[i];
       resource.material.dispose();resource.texture.dispose();
       hdResources.delete(i);
@@ -389,6 +395,22 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
       image.decoding="async";image.src=entry.src;
       void image.decode().then(()=>{
         if(disposed||!selectedHighRes.has(i))return;
+        // Keep native landscapes and portraits proportional within the
+        // same-sized walnut-and-gold frame, leaving a dark matte border.
+        const fit=galleryImageContainScale(image.naturalWidth,image.naturalHeight);
+        const slot=slots[i];
+        const centerX=slot.x+Math.sin(slot.yaw)*.275;
+        const centerZ=slot.z+Math.cos(slot.yaw)*.275;
+        const source=photoTargets[i].geometry.getAttribute("position");
+        const positions=hdMeshes[i].geometry.getAttribute("position") as THREE.BufferAttribute;
+        for(let vertex=0;vertex<positions.count;vertex++){
+          positions.setXYZ(vertex,
+            centerX+(source.getX(vertex)-centerX)*fit.width+Math.sin(slot.yaw)*.018,
+            slot.y+(source.getY(vertex)-slot.y)*fit.height,
+            centerZ+(source.getZ(vertex)-centerZ)*fit.width+Math.cos(slot.yaw)*.018);
+        }
+        positions.needsUpdate=true;
+        hdMeshes[i].geometry.computeBoundingSphere();
         const tex=new THREE.Texture(image);
         tex.colorSpace=THREE.SRGBColorSpace;
         tex.minFilter=THREE.LinearMipmapLinearFilter;
@@ -401,6 +423,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
         });
         hdResources.set(i,{texture:tex,material});
         hdMeshes[i].material=material;
+        photoTargets[i].visible=false;
         hdMeshes[i].visible=true;
       }).catch(()=>{}).finally(()=>loading.delete(i));
     }
@@ -429,7 +452,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     if(!disposed)atlas.needsUpdate=true;
   });
   return {
-    exterior, interior, photoTargets, stoneMesh,
+    exterior, interior, photoTargets:photoPickTargets, stoneMesh,
     photoCount:slots.length,
     loadedPhotos:()=>loaded,
     highResolutionPhotos:()=>hdResources.size,
