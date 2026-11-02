@@ -484,6 +484,9 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                 </section>
               ))}
             </div>
+            <a className={styles.contentsExplore} href="/frontier/advanced">
+              Explore the full frontier <ExternalLink size={14} aria-hidden="true" />
+            </a>
           </nav>
         </div>
       ) : null}
