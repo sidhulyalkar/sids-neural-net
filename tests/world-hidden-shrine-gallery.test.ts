@@ -9,7 +9,7 @@ import {
   galleryWalkable, galleryNearShaft, galleryShaftTopY, shrineReachable,
   galleryFloorFootprint, galleryDoorThresholds, galleryCeilingTiles,
   GALLERY_FLOOR_GEOMETRY, galleryStepWalk, GALLERY_VIEWING,
-  galleryPhotoViewpoint, galleryPhotoClearance,
+  galleryPhotoViewpoint, galleryPhotoClearance, galleryImageContainScale,
 } from "../lib/world/hiddenShrineGallery";
 
 test("the shrine is a discoverable WEST-coast underwater entrance near the UCSD trident",()=>{
@@ -215,6 +215,25 @@ test("all 49 photographs have the same eye-level straight-on viewing pose",()=>{
     assert.ok(Math.abs(position.x-room.x)+v.clearRadius<=inner+1e-9);
     assert.ok(Math.abs(position.z-room.z)+v.clearRadius<=inner+1e-9);
   }
+});
+
+test("native images are never distorted inside the common-size frames",()=>{
+  const framed=GALLERY_VIEWING.imageWidth/GALLERY_VIEWING.imageHeight;
+  for(const [width,height] of [[1920,1080],[3024,4032],[1,1],[1800,1200]]){
+    const fit=galleryImageContainScale(width,height);
+    assert.ok(fit.width<=1&&fit.height<=1);
+    assert.ok(fit.width>0&&fit.height>0);
+    assert.ok(Math.abs(fit.width*framed/fit.height-width/height)<1e-9);
+    assert.ok(Math.abs(Math.max(fit.width,fit.height)-1)<1e-9);
+  }
+  assert.deepEqual(galleryImageContainScale(0,0),{width:1,height:1});
+  const renderer=readFileSync(
+    new URL("../components/world/worldHiddenShrineGallery.ts",import.meta.url),"utf8");
+  assert.match(renderer,/galleryImageContainScale\(image\.naturalWidth,image\.naturalHeight\)/);
+  assert.match(renderer,/photoTargets\[i\]\.visible=false/);
+  assert.match(renderer,/photoTargets\[i\]\.visible=true/);
+  assert.match(renderer,/photoPickTargets\.push\(hd\)/);
+  assert.match(renderer,/hd\.userData\.discovery=slot\.id/);
 });
 
 test("frames are outside door apertures and cannot block corridor approaches",()=>{
