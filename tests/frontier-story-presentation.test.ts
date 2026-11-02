@@ -61,6 +61,24 @@ test('popularity statistics are activity, never reported scientific outcomes', (
   assert.equal(hn.metricSections[0].kind, 'activity');
 });
 
+test('ambiguous score and points labels depend on the actual source type', () => {
+  const research = buildFrontierStoryPresentation({
+    ...sample, sourceKind: 'arxiv',
+    metrics: [{ label: 'score', value: '0.92' }, { label: 'points', value: '17' }],
+  });
+  assert.deepEqual(research.metricSections.map((group) => group.kind), ['reported']);
+  const discussion = buildFrontierStoryPresentation({
+    ...sample, sourceKind: 'reddit',
+    metrics: [{ label: 'score', value: '92' }, { label: 'points', value: '17' }],
+  });
+  assert.deepEqual(discussion.metricSections.map((group) => group.kind), ['activity']);
+  const sports = buildFrontierStoryPresentation({
+    ...sample, sourceKind: 'sports_state',
+    metrics: [{ label: 'upcoming', value: '1' }, { label: 'points', value: '17' }],
+  });
+  assert.deepEqual(sports.metricSections.map((group) => group.kind), ['reported', 'activity']);
+});
+
 test('source-backed scoreboards and standings are prominent without guessing outcomes', () => {
   const sports = {
     ...sample, sourceKind: 'sports_state' as const, lane: 'sports' as const,
