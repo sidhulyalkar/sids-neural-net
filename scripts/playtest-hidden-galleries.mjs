@@ -61,7 +61,7 @@ try{
     return !!c?.dataset.hiddenGalleryPhotoFocus;
   },null,{timeout:10000});
   const focused=await scene.getAttribute("data-hidden-gallery-photo-focus");
-  assert.match(focused,/^photo-\\d{3}$/);
+  assert.match(focused,/^photo-\d{3}$/);
   await page.screenshot({path:path.join(out,"gallery-photo-focus.png")});
   await page.keyboard.press("Escape");
   await page.waitForFunction(()=>{
