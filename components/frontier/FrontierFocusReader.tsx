@@ -340,6 +340,26 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     };
   }, [generatedAt, initialItems, applyLatest]);
 
+  // Warm one upcoming publisher image without mounting additional DOM media.
+  // Avoid speculative downloads for Data Saver and slow connections.
+  useEffect(() => {
+    const next = items[position + 1];
+    if (!next || document.visibilityState !== 'visible') return;
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string }
+    }).connection;
+    if (connection?.saveData || connection?.effectiveType === '2g') return;
+    const url = frontierSourceFigures(next)[0]?.url;
+    if (!url) return;
+    const timer = window.setTimeout(() => {
+      if (document.visibilityState !== 'visible') return;
+      const cached = new window.Image();
+      cached.decoding = 'async';
+      cached.src = url;
+    }, 950);
+    return () => window.clearTimeout(timer);
+  }, [items, position]);
+
   const retrieve = useCallback(async (query: string, fresh: boolean) => {
     readerInteractedRef.current = true;
     requestRef.current?.abort();
@@ -408,6 +428,13 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       <header className={styles.masthead}>
         <Link href="/" className={styles.brand}>FRONTIER<span className={styles.brandDot}>.</span></Link>
         <div className={styles.topActions}>
+          <button ref={contentsButtonRef} type="button" className={styles.contentsToggle}
+            aria-expanded={contentsOpen} aria-controls="frontier-edition-contents"
+            onClick={() => { readerInteractedRef.current = true; setContentsOpen((open) => !open); }}
+            title="Browse this edition">
+            <ListFilter size={17} aria-hidden="true" />
+            <span>Contents</span>
+          </button>
           <form role="search" onSubmit={onSearch} className={styles.search}>
             <Search aria-hidden="true" size={17} />
             <input aria-label="Search live topics" placeholder="Search" value={searchDraft}
@@ -427,6 +454,38 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
           <a href="/frontier/advanced" className={styles.advanced} title="Explore the complete frontier">Explore <span aria-hidden="true">↗</span></a>
         </div>
       </header>
+      {contentsOpen ? (
+        <div className={styles.contentsLayer}>
+          <button className={styles.contentsBackdrop} type="button" tabIndex={-1}
+            aria-label="Dismiss edition contents" onClick={() => setContentsOpen(false)} />
+          <nav id="frontier-edition-contents" className={styles.contentsPanel} aria-label="Edition contents">
+            <div className={styles.contentsHeader}>
+              <div><strong>In this edition</strong><span>{items.length} stories · Curated order</span></div>
+              <button type="button" aria-label="Close edition contents" onClick={() => {
+                setContentsOpen(false); contentsButtonRef.current?.focus();
+              }}><X size={18} aria-hidden="true" /></button>
+            </div>
+            <div className={styles.contentsGroups}>
+              {editionContents.map((group) => (
+                <section key={group.id} className={styles.contentsGroup} aria-label={group.label}>
+                  <h2>{group.label}<span>{group.entries.length}</span></h2>
+                  {group.entries.map((entry) => (
+                    <button key={entry.item.id} type="button" className={styles.contentsEntry}
+                      aria-current={entry.position === position ? 'true' : undefined}
+                      onClick={() => navigateTo(entry.position)}>
+                      <span className={styles.contentsOrdinal}>{String(entry.position + 1).padStart(2, '0')}</span>
+                      <span className={styles.contentsEntryText}>
+                        <strong>{entry.item.title}</strong>
+                        <small>{entry.item.sourceLabel} · {frontierReaderFormat(entry.item)}</small>
+                      </span>
+                    </button>
+                  ))}
+                </section>
+              ))}
+            </div>
+          </nav>
+        </div>
+      ) : null}
       <div className={styles.progressTrack} role="progressbar" aria-valuenow={position + (items.length ? 1 : 0)}
         aria-valuemin={0} aria-valuemax={items.length || 1} aria-label="Article progress">
         <span style={{ width: progress + '%' }} />
@@ -439,7 +498,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
           <article className={styles.article}>
             <div className={styles.headline}>
               <div className={styles.headlineMeta}>
-                <span className={styles.kicker}>{item.lane.replace(/_/g, ' ')} <span className={styles.separator}>/</span> {item.sourceLabel}</span>
+                <span className={styles.kicker}>{item.lane.replace(/_/g, ' ')} <span className={styles.separator}>/</span> {item.sourceLabel} <span className={styles.separator}>·</span> {frontierReaderFormat(item)}</span>
                 <span className={styles.counter}>{String(position + 1).padStart(2, '0')} / {String(items.length).padStart(2, '0')}</span>
               </div>
               <h1>{item.title}</h1>
