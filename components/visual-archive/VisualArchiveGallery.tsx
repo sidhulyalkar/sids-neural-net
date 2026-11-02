@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { ChevronLeft, ChevronRight, MapPin, X } from 'lucide-react';
 import { photoMapUrl } from '@/src/data/photoPlaces';
 import type { VisualArchiveEntry } from '@/src/data/visualArchive';
+import {parsePhotoArchiveId} from '@/lib/world/galleryLinks';
 
 type VisualArchiveGalleryProps = {
   entries: VisualArchiveEntry[];
@@ -78,6 +79,15 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
   const activeEntry = activeIndex === null ? null : entries[activeIndex];
   const activeDisplayIndex = activeIndex === null ? 0 : activeIndex + 1;
   const columns = useMemo(() => distributeEntries(entries, columnCount), [columnCount, entries]);
+  // Deep links from the physical gallery open the actual high-resolution
+  // image, not a scrolled-to thumbnail or the top of the photography page.
+  useEffect(()=>{
+    const id=parsePhotoArchiveId(window.location.search,entries.map(e=>e.id));
+    if(id){
+      const index=entries.findIndex(e=>e.id===id);
+      if(index>=0)setActiveIndex(index);
+    }
+  },[entries]);
 
   const close = useCallback(() => setActiveIndex(null), []);
   const showPrevious = useCallback(() => {
