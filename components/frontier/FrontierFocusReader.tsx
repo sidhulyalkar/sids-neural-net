@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, ListFilter, RefreshCw, Search, X } from 'lucide-react';
 import { holdToInterestScore } from '@/lib/frontier/interestRating';
+import { buildFrontierStoryPresentation } from '@/lib/frontier/storyPresentation';
 import { buildFrontierEditionContents, frontierReaderFormat } from '@/lib/frontier/editionContents';
 import { frontierHasNewStories, frontierShouldCheckLatest } from '@/lib/frontier/liveFeedPolicy';
 import { buildFrontierSourceBrief, frontierSourceFigures } from '@/lib/frontier/sourceBrief';
@@ -454,6 +455,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const progress = items.length ? Math.round(((position + 1) / items.length) * 100) : 0;
 
   const sourceBrief = useMemo(() => buildFrontierSourceBrief(item?.summary || '', item?.sourceKind), [item?.summary, item?.sourceKind]);
+  const presentation = useMemo(() => item ? buildFrontierStoryPresentation(item) : null, [item]);
 
   return (
     <section className={styles.reader} aria-label="Frontier focused reader" data-frontier-edition-at={editionAt}>
@@ -538,7 +540,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
       {item ? (
         <div className={styles.stage} key={item.id}>
-          <article className={styles.article}>
+          <article className={styles.article} data-frontier-story-format={presentation?.format}>
             <div className={styles.headline}>
               <div className={styles.headlineMeta}>
                 <span className={styles.kicker}>{item.lane.replace(/_/g, ' ')} <span className={styles.separator}>/</span> {item.sourceLabel} <span className={styles.separator}>·</span> {frontierReaderFormat(item)}</span>
@@ -609,8 +611,32 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
               <div ref={contentRef} className={styles.content}
                 onScroll={() => { readerInteractedRef.current = true; }}
                 onTouchStart={() => { readerInteractedRef.current = true; }}>
+                {presentation?.sportsPriority && item.sportsState ? (
+                  <section className={styles.featuredSports} aria-label="Source sports evidence">
+                    <h2>{item.sportsState.leagueLabel} · {item.sportsState.kind === 'scoreboard' ? 'Scores & schedule' : 'Standings'}</h2>
+                    <div className={styles.gameRows}>{item.sportsState.kind === 'scoreboard'
+                      ? item.sportsState.games.slice(0, 6).map((game) => (
+                        <div key={game.id} className={styles.gameRow}>
+                          <span>{game.competitors.map((team) => team.shortName).join(' · ')}</span>
+                          <strong>{game.competitors.map((team) => team.score ?? '–').join(' : ')}</strong>
+                          <small>{game.status}</small>
+                        </div>
+                      ))
+                      : item.sportsState.standings.slice(0, 8).map((team) => (
+                        <div key={team.team} className={styles.gameRow}>
+                          <span>{team.rank}. {team.team}</span>
+                          <strong>{team.record || (team.points === undefined ? '–' : String(team.points) + ' pts')}</strong>
+                        </div>
+                      ))}</div>
+                    <p>Source snapshot · {sourceDate(item.publishedAt)}. Scores may have changed.</p>
+                  </section>
+                ) : null}
                 <section className={styles.briefSection} aria-label="Source-grounded summary">
+                  {presentation ? <h2 className={styles.briefLabel}>{presentation.summaryLabel}</h2> : null}
                   <p className={styles.summary}>{sourceBrief.lead || 'This source did not include a synopsis. Read the original for the full story.'}</p>
+                  {presentation?.evidenceNote ? (
+                    <p className={styles.provenanceHint}>{presentation.evidenceNote}</p>
+                  ) : null}
                   {sourceBrief.details.length ? (
                     <div className={styles.sourcePoints}>
                       <h2>From the source</h2>
@@ -620,43 +646,28 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                   ) : null}
                   {sourceBrief.details.length > 2 ? (
                     <details className={styles.sourceDetail}>
-                      <summary>Read more source context</summary>
+                      <summary>{presentation?.detailLabel ?? 'More source context'}</summary>
                       <div className={styles.detailBody}>{sourceBrief.details.slice(2).map((part, index) => <p key={index}>{part}</p>)}</div>
                     </details>
                   ) : null}
                 </section>
 
-                {item.metrics?.length || item.sportsState || item.artifacts?.length ? (
+                {presentation?.metricSections.length || item.artifacts?.length ? (
                   <details className={styles.evidenceDetails}>
-                    <summary>Data &amp; sources</summary>
-                    {item.metrics?.length ? (
+                    <summary>{presentation?.evidenceLabel ?? 'Data & references'}</summary>
+                    {presentation?.metricSections.length ? (
                       <section className={styles.evidenceSection} aria-label="Source metrics">
-                        <h2>Reported numbers</h2>
-                        <dl className={styles.metricGrid}>{item.metrics.slice(0, 6).map((metric, index) => (
-                          <div key={metric.label + index} className={styles.metricCard}>
-                            <dt>{metric.label}</dt><dd>{metric.value}</dd>
-                            {metric.detail ? <p>{metric.detail}</p> : null}
+                        {presentation.metricSections.map((group) => (
+                          <div key={group.kind} data-frontier-metric-kind={group.kind} className={styles.metricSection}>
+                            <h2>{group.title}</h2>
+                            <dl className={styles.metricGrid}>{group.metrics.map((metric, index) => (
+                              <div key={metric.label + index} className={styles.metricCard}>
+                                <dt>{metric.label}</dt><dd>{metric.value}</dd>
+                                {metric.detail ? <p>{metric.detail}</p> : null}
+                              </div>
+                            ))}</dl>
                           </div>
-                        ))}</dl>
-                      </section>
-                    ) : null}
-                    {item.sportsState ? (
-                      <section className={styles.evidenceSection} aria-label="Source sports evidence">
-                        <h2>{item.sportsState.leagueLabel}</h2>
-                        <div className={styles.gameRows}>{item.sportsState.kind === 'scoreboard'
-                          ? item.sportsState.games.slice(0, 5).map((game) => (
-                            <div key={game.id} className={styles.gameRow}>
-                              <span>{game.competitors.map((team) => team.shortName).join(' · ')}</span>
-                              <strong>{game.competitors.map((team) => team.score ?? '–').join(' : ')}</strong>
-                              <small>{game.status}</small>
-                            </div>
-                          ))
-                          : item.sportsState.standings.slice(0, 6).map((team) => (
-                            <div key={team.team} className={styles.gameRow}>
-                              <span>{team.rank}. {team.team}</span>
-                              <strong>{team.record || (team.points === undefined ? '–' : String(team.points) + ' pts')}</strong>
-                            </div>
-                          ))}</div>
+                        ))}
                       </section>
                     ) : null}
                     {item.artifacts?.length ? (
@@ -677,7 +688,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                 <div className={styles.articleActions}>
                   <a href={item.url} target="_blank" rel="noopener noreferrer"
                     onClick={() => { readerInteractedRef.current = true; recordOpen(item); }}
-                    className={styles.sourceLink}>Original <ExternalLink size={15} aria-hidden="true" /></a>
+                    className={styles.sourceLink}>{presentation?.sourceActionLabel ?? 'Original source'} <ExternalLink size={15} aria-hidden="true" /></a>
                   <button type="button" onClick={() => { readerInteractedRef.current = true; toggleSave(item); }}
                     className={styles.saveButton} aria-pressed={isSaved}>
                     <Bookmark size={16} fill={isSaved ? 'currentColor' : 'none'} aria-hidden="true" />
