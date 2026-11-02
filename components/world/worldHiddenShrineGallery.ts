@@ -4,7 +4,7 @@ import { GeometryBatch } from "./worldGeometry";
 import {
   SHRINE_GALLERY, GALLERY_ROOMS, galleryDoorSide,
   galleryPhotoSlots, galleryShaftTopY, galleryFloorFootprint,
-  galleryDoorThresholds, galleryCeilingTiles, type GallerySide,
+  galleryDoorThresholds, galleryCeilingTiles, GALLERY_FLOOR_GEOMETRY, type GallerySide,
 } from "@/lib/world/hiddenShrineGallery";
 
 /**
@@ -114,7 +114,8 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   // bridge plates. The old bridge plates were COPLANAR with both room floors
   // and flickered at exactly the shared door thresholds.
   const floor=galleryFloorFootprint();
-  add(floor.x,bottom-.22,floor.z,floor.width,.45,floor.depth,"#494d46");
+  add(floor.x,bottom+GALLERY_FLOOR_GEOMETRY.slabCenterOffset,floor.z,
+    floor.width,GALLERY_FLOOR_GEOMETRY.slabThickness,floor.depth,"#494d46");
   // The ceiling uses the same disjoint-patch geometry invariant as the
   // foundation, except for the deliberate 2.8m shaft opening.
   for(const patch of galleryCeilingTiles()){
@@ -131,7 +132,8 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   // Raised, narrow brass-stone sills mark passages without a coplanar
   // second floor face. Their entire underside clears the foundation top.
   for(const sill of galleryDoorThresholds()){
-    add(sill.x,bottom+.045,sill.z,sill.width,.045,sill.depth,"#847356");
+    add(sill.x,bottom+GALLERY_FLOOR_GEOMETRY.sillCenterOffset,sill.z,
+      sill.width,GALLERY_FLOOR_GEOMETRY.sillThickness,sill.depth,"#847356");
   }
   // The entry shaft really does extend upward to the sea-floor opening.
   const shaftHeight=seaFloor-(top+.2);
