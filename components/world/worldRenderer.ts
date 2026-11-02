@@ -133,6 +133,7 @@ type Callbacks = {
   onBigAir: (flight:BigAirState) => void;
   onDiscGolf:(game:DiscGolfState)=>void;
   onJetSkiMode:(active:boolean)=>void;
+  onGalleryPhase:(phase:GalleryPhase)=>void;
 
   onSkim:(heat:SkimHeat)=>void;
   onSkimNearby:(board:number|null)=>void;
@@ -3214,6 +3215,7 @@ export function createWorld(
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let galleryPhase:GalleryPhase="outside";
   let lastGalleryCameraPhase:GalleryPhase="outside";
+  let lastNotifiedGalleryPhase:GalleryPhase="outside";
   let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
   let grind: {
     log: GrindRail;
@@ -3609,7 +3611,7 @@ export function createWorld(
         ...hiddenShrineGallery.photoTargets,hiddenShrineGallery.stoneMesh],false)[0];
       if(photoHit && photoHit.distance<7 && photoHit.object.userData.discovery){
         const photoId=photoHit.object.userData.discovery as string;
-        callbacks.onInteract(photoId);
+        callbacks.onInteract("gallery-photo:"+photoId);
         return;
       }
       return; // Under the seabed: never click the terrain above to teleport.
@@ -3799,13 +3801,8 @@ export function createWorld(
     if(galleryPhase==="descending"||galleryPhase==="ascending")return;
     if(galleryPhase==="inside"){
       if(galleryNearShaft(player)&&(action==="surface"||action==="shallower")){
-        galleryPhase="ascending";destination=null;return;
+        galleryPhase="ascending";destination=null;
       }
-      const minDepth=SEA_SURFACE-(SHRINE_GALLERY.roofY-2.15);
-      const maxDepth=SEA_SURFACE-(SHRINE_GALLERY.floorY+.85);
-      if(action==="deeper")targetDepth=Math.min(maxDepth,targetDepth+.55);
-      if(action==="shallower"||action==="surface")
-        targetDepth=Math.max(minDepth,targetDepth-.55);
       return;
     }
     if(action==="deeper" && aquatic==="dive" && shrineReachable(player,swimDepth)){
@@ -4451,20 +4448,25 @@ export function createWorld(
           swimDepth=targetDepth=SEA_SURFACE-playerY;
           if(Math.abs(playerY-destY)<.06){
             playerY=destY;swimDepth=targetDepth=SEA_SURFACE-playerY;
-            galleryPhase=galleryPhase==="descending"?"inside":"outside";
+            const entered=galleryPhase==="descending";
+            galleryPhase=entered?"inside":"outside";
+            if(entered){
+              playerY=SHRINE_GALLERY.floorY+.04;
+              swimDepth=targetDepth=SEA_SURFACE-playerY;
+            }
           }
         } else if(galleryPhase==="inside"){
+          // Walk on the actual stone floor: no submerged vertical controls,
+          // no floaty swim velocity, and no sea-floor support sampling.
           const next=stepSwim({...travel,point:player},
-            {x:dx,z:dz},rawDelta,destination);
+            {x:dx,z:dz},dt,destination);
           const moved=galleryConstrainMove(player,next.point);
-          travel={...next,point:moved,speed:Math.hypot(
-            moved.x-player.x,moved.z-player.z)<.001?0:next.speed};
+          const advanced=Math.hypot(moved.x-player.x,moved.z-player.z);
+          travel={...next,point:moved,speed:advanced<.001?0:
+            Math.min(3.1,advanced/Math.max(.001,dt))};
           player=moved;
-          targetDepth=THREE.MathUtils.clamp(targetDepth,
-            SEA_SURFACE-(SHRINE_GALLERY.roofY-2.15),
-            SEA_SURFACE-(SHRINE_GALLERY.floorY+.85));
-          swimDepth+=THREE.MathUtils.clamp(targetDepth-swimDepth,-2.1*dt,2.1*dt);
-          playerY=SEA_SURFACE-swimDepth;
+          playerY=SHRINE_GALLERY.floorY+.04;
+          swimDepth=targetDepth=SEA_SURFACE-playerY;
         } else {
         const nextTravel = stepSwim(
           { ...travel, point: player },
@@ -4783,7 +4785,7 @@ export function createWorld(
         canvas.dataset.joshuaPlace=String(joshuaRacePlace(trial,player));
         canvas.dataset.joshuaProgress=joshuaPlayerFraction(trial,player).toFixed(3);
       }else canvas.dataset.joshuaGhosts="0";
-      const swimming = aquatic !== "land";
+      const swimming = aquatic !== "land" && galleryPhase!=="inside";
       const walking = travel.speed > 0.05
         ? Math.sin(elapsed * (swimming ? 9 : mode === "run" ? 14 : 10))
         : 0;
@@ -4828,7 +4830,8 @@ export function createWorld(
       canvas.dataset.skimBoardContact=(skimContact?.centerY??0).toFixed(3);
       canvas.dataset.skimWashDepth=(skimContact?.wash??0).toFixed(3);
       snorkel.visible = swimming;
-      const running = !swimming && !surfing && (mode === "run" || mode === "boulder");
+      const running = galleryPhase==="inside" ||
+        (!swimming && !surfing && (mode === "run" || mode === "boulder"));
       const discGolfAiming=discGolf.phase!=="off" &&
         discGolf.phase!=="flying"&&!discGolf.presentationPending;
       const discGolfHeading=discGolfAiming?
@@ -4906,7 +4909,9 @@ export function createWorld(
         // Match wheel/stance samples to the exact support layer selected by
         // movement physics. Sampling an overhead beam as the ground here would
         // visually lift the avatar even when the collision solver stayed below.
-        const rigSupport=(p:Point)=>caveLayer==="surface"?
+        const rigSupport=(p:Point)=>galleryPhase==="inside"?
+          SHRINE_GALLERY.floorY:
+          caveLayer==="surface"?
           airborneSupportHeight(playerY,supportHeight(p),
             terrainHeight(p.x,p.z)):supportHeight(p);
         const bikeContact = mode==="bike"&&airHeight<=.001&&!climb&&!grind
@@ -5252,13 +5257,17 @@ export function createWorld(
       canvas.dataset.jetSkiDeckHeight=jetSkiPierHeight(player)?.toFixed(2)??"";
       canvas.dataset.paperInside = String(paperInside);
       canvas.dataset.hiddenGalleryPhase=galleryPhase;
+      if(galleryPhase!==lastNotifiedGalleryPhase){
+        lastNotifiedGalleryPhase=galleryPhase;
+        callbacks.onGalleryPhase(galleryPhase);
+      }
       canvas.dataset.hiddenGalleryDepth=(SEA_SURFACE-playerY).toFixed(2);
       canvas.dataset.hiddenGalleryInBounds=String(
         galleryPhase!=="inside"||galleryWalkable(player));
       canvas.dataset.hiddenGalleryPhotosReady=String(hiddenShrineGallery.loadedPhotos());
       const nearShrine=distance(player,SHRINE_GALLERY.entrance)<3.5;
       const hint=galleryPhase==="inside"
-        ? (galleryNearShaft(player)?"Shallower to ascend through the shrine":"Aim at a photograph and click to view")
+        ? (galleryNearShaft(player)?"Press E to return through the shrine":"Walk the gallery · click a photograph to view")
         : galleryPhase==="descending"?"Descending into the hidden gallery"
         : galleryPhase==="ascending"?"Ascending to the seabed"
         : aquatic==="dive" && nearShrine
@@ -5313,7 +5322,8 @@ export function createWorld(
           ? (photoHit.object.userData.discovery as string|undefined ?? null)
           : null;
       }
-      discovery = galleryPhase==="inside" ? galleryPhotoId :
+      discovery = galleryPhase==="inside" ?
+        (galleryPhotoId ? "gallery-photo:"+galleryPhotoId : null) :
         aquatic === "land" ? (gazeGame ?? layeredNearby) : trident?.id ?? null;
       const nextKey = `${r}:${discovery}`;
       if (nextKey !== locationKey) {
@@ -5644,7 +5654,7 @@ export function createWorld(
           : {x:SHRINE_GALLERY.entrance.x+.48,
               z:SHRINE_GALLERY.entrance.z+.48};
         targetCamera.set(desired.x,
-          THREE.MathUtils.clamp(playerY+1.5,
+          THREE.MathUtils.clamp(playerY+1.55,
             SHRINE_GALLERY.floorY+1.2,
             insideGallery?SHRINE_GALLERY.roofY-.45:
               SEA_SURFACE-maxDiveDepth(SHRINE_GALLERY.entrance)+1.15),
@@ -7180,6 +7190,7 @@ export function createWorld(
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
         const jetPierStart=next.command.sportDestination==="jet-pier";
+        const galleryStart=next.command.galleryDestination;
         const flowStart=next.command.skateDestination==="canyon-flow"&&
           next.command.activity==="skate";
         jetSki=null;jetRivals=[];jetHud.style.display="none";
@@ -7227,6 +7238,27 @@ export function createWorld(
         lastDogSpeed = 0;
         lastDogRenderY = dogGroundY;
         destination = null;
+        if(galleryStart==="photos"){
+          player={x:SHRINE_GALLERY.entrance.x,z:SHRINE_GALLERY.entrance.z};
+          galleryPhase="inside";caveLayer="surface";
+          swimDepth=targetDepth=SEA_SURFACE-SHRINE_GALLERY.floorY-.04;
+          setAquaticMode("dive");
+          playerY=SHRINE_GALLERY.floorY+.04;
+          travel={point:player,speed:0,heading:{x:-1,z:0}};
+          yaw=Math.PI/2;pitch=.32;zoom=7;
+          camera.position.set(player.x+1.65,playerY+2.25,player.z+1.65);
+          look.set(player.x,playerY+1.45,player.z);
+          camera.lookAt(look);
+          lastGalleryCameraPhase="inside";
+        }else if(galleryStart==="papers"){
+          player={x:-20,z:-33.8};
+          caveLayer="paper";
+          playerY=paperCaveFloorHeight(player);
+          travel={point:player,speed:0,heading:{x:0,z:-1}};
+          yaw=Math.PI;pitch=.3;zoom=7;
+          camera.position.set(-20,playerY+2.4,-31.5);
+          look.set(-20,playerY+1.5,-34.5);camera.lookAt(look);
+        }
         if (next.command.activity === "ski") {
           const kicker = RIDE_RAMPS.find((ramp) => ramp.id === "ski-kicker")!;
           const approachX = kicker.point.x - player.x;
