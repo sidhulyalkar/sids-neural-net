@@ -60,6 +60,9 @@ test("the website and three-dimensional galleries share bidirectional navigation
   assert.match(renderer,/galleryFocusIndex/);
   assert.match(renderer,/galleryPhotoViewpoint\(gallerySlots\[galleryFocusIndex\]\)/);
   assert.match(renderer,/galleryPhase==="inside"\?"eye-level":"third-person"/);
+  assert.match(renderer,/galleryFocusIndex===null\?68:74/);
+  assert.match(renderer,/camera\.updateProjectionMatrix\(\)/);
+  assert.match(renderer,/canvas\.dataset\.hiddenGalleryFov/);
   assert.match(renderer,/galleryFocusIndex=null;e\.preventDefault\(\);return/);
 });
 
