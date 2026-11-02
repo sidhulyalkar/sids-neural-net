@@ -4,8 +4,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, RefreshCw, Search } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, ListFilter, RefreshCw, Search, X } from 'lucide-react';
 import { holdToInterestScore } from '@/lib/frontier/interestRating';
+import { buildFrontierEditionContents, frontierReaderFormat } from '@/lib/frontier/editionContents';
 import { frontierHasNewStories, frontierShouldCheckLatest } from '@/lib/frontier/liveFeedPolicy';
 import { buildFrontierSourceBrief, frontierSourceFigures } from '@/lib/frontier/sourceBrief';
 import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
@@ -48,10 +49,13 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const [failedImages, setFailedImages] = useState<string[]>([]);
   const [nativeImageWidth, setNativeImageWidth] = useState<number | null>(null);
   const [figureIndex, setFigureIndex] = useState(0);
+  const [contentsOpen, setContentsOpen] = useState(false);
+  const [loadedImageKey, setLoadedImageKey] = useState<string | null>(null);
   const [holdValue, setHoldValue] = useState<number | null>(null);
   const [sliderDraft, setSliderDraft] = useState<{ id: string; value: number } | null>(null);
   const [notice, setNotice] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
+  const contentsButtonRef = useRef<HTMLButtonElement>(null);
   const requestRef = useRef<AbortController | null>(null);
   const backgroundRef = useRef<AbortController | null>(null);
   const readerInteractedRef = useRef(false);
@@ -69,6 +73,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const rateInterest = useFrontierStore((state) => state.rateInterest);
   const toggleSave = useFrontierStore((state) => state.toggleSave);
 
+  const editionContents = useMemo(() => buildFrontierEditionContents(items), [items]);
   const item = items[position];
   const rating = item ? history[item.id]?.interestScore : undefined;
   const sliderScore = sliderDraft?.id === item?.id ? sliderDraft.value : (rating ?? 5);
@@ -82,6 +87,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     : [];
   const image = imageCandidates.find((candidate) => !failedImages.includes(candidate));
   const canShowImage = Boolean(image);
+  const imageKey = item && image ? `${item.id}:${figureIndex}:${image}` : '';
+  const imageReady = Boolean(imageKey && loadedImageKey === imageKey);
   const currentVisualGrade = holdValue ?? rating;
   const orbScale = (0.96 + 0.08 * ((currentVisualGrade ?? 0) / 10)).toFixed(3);
   const orbProgress = Math.round(((currentVisualGrade ?? 0) / 10) * 100) + '%';
@@ -192,20 +199,32 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     finishHold();
   };
 
-  const move = useCallback((delta: number) => {
+  const navigateTo = useCallback((target: number) => {
     readerInteractedRef.current = true;
     cancelHold();
     setNotice('');
     setFailedImages([]);
+    setLoadedImageKey(null);
     setNativeImageWidth(null);
     setFigureIndex(0);
-    setPosition((current) => Math.max(0, Math.min(items.length - 1, current + delta)));
+    setPosition(Math.max(0, Math.min(items.length - 1, target)));
+    setContentsOpen(false);
     contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
   }, [cancelHold, items.length]);
 
+  const move = useCallback((delta: number) => {
+    navigateTo(position + delta);
+  }, [navigateTo, position]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.key === 'Escape' && contentsOpen) {
+        event.preventDefault();
+        setContentsOpen(false);
+        contentsButtonRef.current?.focus();
+        return;
+      }
+      if (contentsOpen || event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, button, a, [contenteditable="true"]')) return;
       if (event.key === 'ArrowRight') { event.preventDefault(); move(1); }
@@ -213,7 +232,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [move]);
+  }, [move, contentsOpen]);
 
   useEffect(() => {
     if (!item || !hydrated) return;
@@ -257,8 +276,10 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     setEditionAt(edition.generatedAt);
     setActiveQuery('');
     setFailedImages([]);
+    setLoadedImageKey(null);
     setNativeImageWidth(null);
     setFigureIndex(0);
+    setContentsOpen(false);
     setLatestReady(null);
     setNotice('');
     contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
@@ -324,6 +345,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     requestRef.current?.abort();
     backgroundRef.current?.abort();
     setLatestReady(null);
+    setContentsOpen(false);
     cancelHold();
     const controller = new AbortController();
     requestRef.current = controller;
@@ -357,6 +379,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       setActiveQuery(query);
       setNotice('');
       setFailedImages([]);
+       setLoadedImageKey(null);
     setNativeImageWidth(null);
       setFigureIndex(0);
       contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
