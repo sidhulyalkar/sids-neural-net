@@ -14,7 +14,14 @@ const browser=await chromium.launch({headless:true,args:["--no-sandbox","--enabl
 const report={routes:[],screenshots:[],errors};
 try{
   const page=await browser.newPage({viewport:{width:1366,height:900}});
-  page.on("pageerror",e=>errors.push(e.message));
+  page.on("pageerror",e=>{
+    errors.push(e.message);
+    console.error("GALLERY PAGE ERROR",e.stack??e.message);
+  });
+  page.on("console",message=>{
+    if(message.type()==="error"||/WebGL.*context lost/i.test(message.text()))
+      console.error("GALLERY BROWSER",message.type(),message.text());
+  });
   await page.goto(base+"/?gallery=photos",{waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>{
     const canvas=document.querySelector("canvas[data-hidden-gallery-phase='inside']");
@@ -34,6 +41,11 @@ try{
       canvases:document.querySelectorAll("canvas").length};
   });
   console.log("GALLERY BOOT",JSON.stringify(boot));
+  if(boot.phase!=="inside"){
+    console.error("GALLERY FAIL SNAPSHOT",JSON.stringify({
+      url:page.url(),boot,errors}));
+    await page.screenshot({path:path.join(out,"gallery-startup-fallback.png")});
+  }
   assert.equal(boot.phase,"inside","The gallery should remain entered after initialization");
   assert.equal(await scene.getAttribute("data-hidden-gallery-photos"),"49");
   assert.equal(await scene.getAttribute("data-hidden-gallery-locomotion"),"walking");
