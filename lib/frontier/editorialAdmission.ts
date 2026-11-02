@@ -60,7 +60,7 @@ export function assessFrontierEditorialAdmission(item: FrontierItem): FrontierEd
   }
 
   const title = item.title?.replace(/\s+/g, ' ').trim() ?? '';
-  if (title.length < 8 || wordCount(title) < 2) return rejected('missing-title');
+  if (title.length < 4) return rejected('missing-title');
 
   const summary = cleanFrontierEditorialText(item.summary ?? '', item.sourceKind)
     .replace(/\s+/g, ' ').trim();
