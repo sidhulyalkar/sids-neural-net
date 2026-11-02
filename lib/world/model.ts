@@ -507,4 +507,5 @@ export type WorldCommand = {
   activity?: import("./activities").Activity;
   skateDestination?: "canyon-flow" | "loop-rollin" | "loop-reverse" | "hollow-log";
   sportDestination?: "jet-pier";
+  galleryDestination?: import("./galleryLinks").GalleryDestination;
 };
