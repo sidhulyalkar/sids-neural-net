@@ -15,6 +15,9 @@
   const focusCanvas = () => {
     const canvas = document.querySelector('canvas');
     if (canvas) {
+      // Packed game builds may recreate the canvas after the HTML attribute
+      // patch. Canvas is not keyboard-focusable by default in Chrome/WebKit.
+      if (canvas.tabIndex < 0) canvas.tabIndex = 0;
       try {
         canvas.focus({ preventScroll: true });
       } catch {
