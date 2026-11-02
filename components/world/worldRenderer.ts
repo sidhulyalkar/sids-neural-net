@@ -7291,7 +7291,12 @@ export function createWorld(
           camera.position.set(-20,playerY+2.4,-31.5);
           look.set(-20,playerY+1.5,-34.5);camera.lookAt(look);
         }
-        if (next.command.activity === "ski") {
+        // A deep-linked museum arrival owns its own heading. The generic
+        // coastal/mountain orientation must never turn the first WASD stride
+        // into a sideways collision with an interior stone wall.
+        if(galleryStart==="photos"||galleryStart==="papers"){
+          // yaw is already authored by the corresponding room entrance.
+        }else if (next.command.activity === "ski") {
           const kicker = RIDE_RAMPS.find((ramp) => ramp.id === "ski-kicker")!;
           const approachX = kicker.point.x - player.x;
           const approachZ = kicker.point.z - player.z;
