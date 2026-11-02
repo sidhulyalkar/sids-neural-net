@@ -27,7 +27,8 @@
     "music:grid": "tsx scripts/build-beatgrid.ts",
     "frontier:snapshot": "tsx scripts/build-frontier-snapshot.ts",
     "frontier:slate-audit": "tsx scripts/audit-frontier-slate.ts",
-    "frontier:editorial-audit": "tsx scripts/audit-frontier-editorial-admission.ts"
+    "frontier:editorial-audit": "tsx scripts/audit-frontier-editorial-admission.ts",
+    "frontier:review-kit": "tsx scripts/build-frontier-editorial-review.ts"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.17",
