@@ -20,17 +20,34 @@ function readableSentences(value: string): string[] {
   return normalized.split(/(?<=[.!?])\s+(?=[A-Z0-9"'“(])/u).map((part) => part.trim()).filter(Boolean);
 }
 
+/** Some feeds provide a 1,000-character run-on sentence with no punctuation.
+ * Preserve every source word while letting the reader reveal it in stages. */
+function splitLongSourceSentence(sentence: string): string[] {
+  if (sentence.length <= 360) return [sentence];
+  const chunks: string[] = [];
+  let remaining = sentence;
+  while (remaining.length > 320) {
+    let boundary = remaining.lastIndexOf(' ', 320);
+    if (boundary < 160) boundary = remaining.indexOf(' ', 320);
+    if (boundary < 0) break; // Unbroken source token: never truncate it.
+    chunks.push(remaining.slice(0, boundary));
+    remaining = remaining.slice(boundary + 1);
+  }
+  if (remaining) chunks.push(remaining);
+  return chunks;
+}
+
 export function buildFrontierSourceBrief(summary: string, sourceKind = ''): FrontierSourceBrief {
   const text = cleanFrontierEditorialText(summary, sourceKind);
   if (!text) return { lead: '', details: [], hasFullerContext: false };
-  const sentences = readableSentences(text);
+  const sentences = readableSentences(text).flatMap(splitLongSourceSentence);
   if (text.length <= 260 || sentences.length < 2) {
     return { lead: text, details: [], hasFullerContext: false };
   }
   const lead: string[] = [];
   let total = 0;
   let index = 0;
-  while (index < sentences.length && (total < 360 || lead.length === 0) && lead.length < 3) {
+  while (index < sentences.length && (total < 220 || lead.length === 0) && lead.length < 2) {
     lead.push(sentences[index]);
     total += sentences[index].length;
     index += 1;

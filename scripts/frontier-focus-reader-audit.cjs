@@ -42,6 +42,43 @@ async function audit(width, height) {
       'An old snapshot may trigger at most one nonblocking cached-latest lookup');
 
     // Nav labels differ visually across sizes; use the stable accessible name.
+    // Contents is only a navigational index: it never mounts a second article
+    // or additional figure, and jumping deep in the edition preserves order.
+    const contentsToggle = page.getByRole('button', { name: 'Browse edition' });
+    await contentsToggle.click();
+    assert.equal(await contentsToggle.getAttribute('aria-expanded'), 'true');
+    const contents = page.locator('[data-frontier-contents-panel="true"]');
+    assert.equal(await contents.count(), 1, 'Exactly one edition contents panel');
+    assert.equal(await contents.getAttribute('aria-modal'), 'true',
+      'Contents must expose a modal focus boundary to assistive technology');
+    assert((await contents.locator('[data-frontier-contents-entry]').count()) >= 3,
+      'Edition contents must include the available curated stories');
+    const exploreLink = contents.getByRole('link', { name: /Explore the full frontier/i });
+    await exploreLink.focus();
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')),
+      'Close edition contents', 'Keyboard focus must wrap within the contents modal');
+    await page.keyboard.press('Shift+Tab');
+    assert.equal(await exploreLink.evaluate((element) => document.activeElement === element), true,
+      'Reverse tab must wrap to the final navigable link');
+    await contents.locator('[data-frontier-contents-entry="2"]').click();
+    assert.equal(await contents.count(), 0, 'Contents closes after a direct jump');
+    assert.notEqual(await page.locator('article h1').first().textContent(), heading,
+      'Jumping to a story must change the focused article');
+    await page.waitForFunction(() => document.activeElement === document.querySelector('article h1'),
+      undefined, { timeout: 2500 });
+    assert.equal(await page.locator('article').count(), 1, 'Contents must never mount hidden articles');
+    assert((await page.locator('figure img').count()) <= 1, 'Contents cannot duplicate media');
+    await contentsToggle.click();
+    await page.locator('[data-frontier-contents-entry="0"]').click();
+    assert.equal(await page.locator('article h1').first().textContent(), heading,
+      'Return to opening story must retain original editorial order');
+    await contentsToggle.click();
+    await page.keyboard.press('Escape');
+    assert.equal(await contents.count(), 0, 'Escape must close the contents modal');
+    assert.equal(await contentsToggle.evaluate((element) => document.activeElement === element), true,
+      'Escape should restore focus to the Contents toggle');
+
     const nextButton = page.locator('[data-frontier-next="true"]');
     assert((await nextButton.textContent())?.trim() === 'Next', 'Snapshot should include multiple articles, got: ' + (await nextButton.textContent()));
     assert(await nextButton.isEnabled(), 'Daily edition should contain multiple navigable articles');
@@ -177,11 +214,15 @@ async function auditBackgroundLatest() {
     await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
     await page.locator('article h1').waitFor();
     const initial = await page.locator('article h1').textContent();
-    await page.locator('[data-frontier-next="true"]').click();
-    await page.locator('[data-frontier-previous="true"]').click();
+    // This is deliberately BEFORE any user action. A quietly reading person
+    // must never see their article replaced just because the cache refreshed.
     await page.getByRole('button', { name: 'Open latest discovered articles' }).waitFor({ timeout: 8000 });
     assert.equal(await page.locator('article h1').textContent(), initial,
-      'Background revalidation may not replace an article after interaction');
+      'Background revalidation must not replace an untouched article');
+    await page.locator('[data-frontier-next="true"]').click();
+    await page.locator('[data-frontier-previous="true"]').click();
+    assert.equal(await page.locator('article h1').textContent(), initial,
+      'Background revalidation must not replace an article after interaction');
     assert.equal(hits, 1, 'At most one cache lookup per visit; no polling');
     await page.getByRole('button', { name: 'Open latest discovered articles' }).click();
     assert.equal(await page.locator('section[data-frontier-edition-at]').getAttribute('data-frontier-edition-at'), updatedAt,
@@ -197,12 +238,71 @@ async function auditBackgroundLatest() {
   }
 }
 
+async function auditSourceOnlyPresentation() {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const results = [];
+    for (const width of [1280, 320]) {
+      const page = await browser.newPage({ viewport: { width, height: 800 }, reducedMotion: 'reduce' });
+      try {
+        const base = new URL(TARGET);
+        const response = await page.request.get(base.origin + '/api/frontier/feed');
+        assert(response.ok(), 'Source-only fixture requires a valid snapshot');
+        const snapshot = await response.json();
+        assert(snapshot.items?.length, 'Source-only fixture requires a real publisher item');
+        // Strip only the media from one real source record. This tests the
+        // layout without creating fictitious reporting or source citations.
+        const fixture = {
+          ...snapshot.items[0],
+          id: 'frontier-source-only-layout-audit',
+          media: { type: 'none' },
+          figures: [],
+        };
+        await page.route('**/api/frontier/feed?latest=1', async (route) => {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: { 'X-Frontier-Live': 'cached-latest' },
+            body: JSON.stringify({ generatedAt: new Date().toISOString(), items: [fixture], sources: [] }),
+          });
+        });
+        await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
+        await page.getByRole('button', { name: 'Refresh live edition' }).click();
+        const sourceOnly = page.locator('[data-frontier-media="source-only"]');
+        await sourceOnly.waitFor({ timeout: 8000 });
+        assert.equal(await page.locator('article').count(), 1);
+        assert.equal(await page.locator('figure img').count(), 0);
+        assert.equal(await page.locator('article h1').count(), 1);
+        const layout = await sourceOnly.evaluate((element) => ({
+          height: element.getBoundingClientRect().height,
+          text: element.textContent || '',
+          documentWidth: document.documentElement.scrollWidth,
+          viewportWidth: window.innerWidth,
+        }));
+        assert(!layout.text.includes(fixture.title),
+          'No-image fallback must not repeat the oversized headline');
+        assert(layout.height <= (width <= 520 ? 155 : 275),
+          'No-image treatment should not dominate the article: ' + JSON.stringify(layout));
+        assert(layout.documentWidth <= layout.viewportWidth + 2,
+          'Source-only layout must not overflow horizontally: ' + JSON.stringify(layout));
+        results.push({ width, compactSourcePlaceholder: true, height: layout.height });
+      } finally {
+        await page.close();
+      }
+    }
+    return results;
+  } finally {
+    await browser.close();
+  }
+}
+
 async function main() {
   const results = [];
   results.push(await audit(1440, 900));
   results.push(await audit(390, 844));
   results.push(await audit(320, 700));
   results.push(await auditBackgroundLatest());
+  results.push(await auditSourceOnlyPresentation());
   console.log('FRONTIER focus reader audit:', JSON.stringify(results));
 }
 

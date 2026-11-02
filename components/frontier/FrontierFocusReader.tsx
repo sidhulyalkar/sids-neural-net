@@ -4,8 +4,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, RefreshCw, Search } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, ListFilter, RefreshCw, Search, X } from 'lucide-react';
 import { holdToInterestScore } from '@/lib/frontier/interestRating';
+import { buildFrontierEditionContents, frontierReaderFormat } from '@/lib/frontier/editionContents';
 import { frontierHasNewStories, frontierShouldCheckLatest } from '@/lib/frontier/liveFeedPolicy';
 import { buildFrontierSourceBrief, frontierSourceFigures } from '@/lib/frontier/sourceBrief';
 import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
@@ -48,10 +49,15 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const [failedImages, setFailedImages] = useState<string[]>([]);
   const [nativeImageWidth, setNativeImageWidth] = useState<number | null>(null);
   const [figureIndex, setFigureIndex] = useState(0);
+  const [contentsOpen, setContentsOpen] = useState(false);
+  const [loadedImageKey, setLoadedImageKey] = useState<string | null>(null);
   const [holdValue, setHoldValue] = useState<number | null>(null);
   const [sliderDraft, setSliderDraft] = useState<{ id: string; value: number } | null>(null);
   const [notice, setNotice] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
+  const contentsButtonRef = useRef<HTMLButtonElement>(null);
+  const contentsPanelRef = useRef<HTMLElement>(null);
+  const headlineRef = useRef<HTMLHeadingElement>(null);
   const requestRef = useRef<AbortController | null>(null);
   const backgroundRef = useRef<AbortController | null>(null);
   const readerInteractedRef = useRef(false);
@@ -69,6 +75,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const rateInterest = useFrontierStore((state) => state.rateInterest);
   const toggleSave = useFrontierStore((state) => state.toggleSave);
 
+  const editionContents = useMemo(() => buildFrontierEditionContents(items), [items]);
   const item = items[position];
   const rating = item ? history[item.id]?.interestScore : undefined;
   const sliderScore = sliderDraft?.id === item?.id ? sliderDraft.value : (rating ?? 5);
@@ -82,6 +89,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     : [];
   const image = imageCandidates.find((candidate) => !failedImages.includes(candidate));
   const canShowImage = Boolean(image);
+  const imageKey = item && image ? `${item.id}:${figureIndex}:${image}` : '';
+  const imageReady = Boolean(imageKey && loadedImageKey === imageKey);
   const currentVisualGrade = holdValue ?? rating;
   const orbScale = (0.96 + 0.08 * ((currentVisualGrade ?? 0) / 10)).toFixed(3);
   const orbProgress = Math.round(((currentVisualGrade ?? 0) / 10) * 100) + '%';
@@ -192,20 +201,32 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     finishHold();
   };
 
-  const move = useCallback((delta: number) => {
+  const navigateTo = useCallback((target: number) => {
     readerInteractedRef.current = true;
     cancelHold();
     setNotice('');
     setFailedImages([]);
+    setLoadedImageKey(null);
     setNativeImageWidth(null);
     setFigureIndex(0);
-    setPosition((current) => Math.max(0, Math.min(items.length - 1, current + delta)));
+    setPosition(Math.max(0, Math.min(items.length - 1, target)));
+    setContentsOpen(false);
     contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
   }, [cancelHold, items.length]);
 
+  const move = useCallback((delta: number) => {
+    navigateTo(position + delta);
+  }, [navigateTo, position]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.key === 'Escape' && contentsOpen) {
+        event.preventDefault();
+        setContentsOpen(false);
+        contentsButtonRef.current?.focus();
+        return;
+      }
+      if (contentsOpen || event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, button, a, [contenteditable="true"]')) return;
       if (event.key === 'ArrowRight') { event.preventDefault(); move(1); }
@@ -213,7 +234,42 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [move]);
+  }, [move, contentsOpen]);
+
+  // A modal index should not allow keyboard focus or mobile scrolling behind
+  // the panel. The selected story receives focus separately after navigation.
+  useEffect(() => {
+    if (!contentsOpen) return;
+    const panel = contentsPanelRef.current;
+    if (!panel) return;
+    const priorOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const current = panel.querySelector<HTMLButtonElement>('[data-frontier-contents-entry][aria-current="true"]');
+    (current ?? panel.querySelector<HTMLButtonElement>('button'))?.focus({ preventScroll: true });
+    const onTab = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const focusable = [...panel.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]')]
+        .filter((element) => element.getClientRects().length > 0);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!panel.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onTab);
+    return () => {
+      document.removeEventListener('keydown', onTab);
+      document.body.style.overflow = priorOverflow;
+    };
+  }, [contentsOpen]);
 
   useEffect(() => {
     if (!item || !hydrated) return;
@@ -257,8 +313,10 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     setEditionAt(edition.generatedAt);
     setActiveQuery('');
     setFailedImages([]);
+    setLoadedImageKey(null);
     setNativeImageWidth(null);
     setFigureIndex(0);
+    setContentsOpen(false);
     setLatestReady(null);
     setNotice('');
     contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
@@ -291,15 +349,10 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
         const initiallyVisible = selectDailyRun(initialItems, {}, EDITION_LIMIT);
         if (!frontierHasNewStories(initiallyVisible.map((entry) => entry.id), next.map((entry) => entry.id))) return;
         const edition = { items: next, generatedAt: payload.generatedAt };
-        // A saved rating indicates an existing reading session even if this
-        // particular tab was just reloaded. Don't reset that reader's place.
-        const alreadyReading = initialItems[0] &&
-          Boolean(store.history[initialItems[0].id]?.interestScore);
-        if (!readerInteractedRef.current && !alreadyReading) {
-          applyLatest(edition);
-        } else {
-          setLatestReady(edition);
-        }
+        // Reading without clicking or scrolling is still reading. Never swap
+        // an article underneath someone after an asynchronous cache refresh.
+        // A visible "Latest ready" action lets them choose when to switch.
+        setLatestReady(edition);
       } catch {
         // A valid snapshot is still on screen. No noisy errors on a background
         // fetch failure; manual refresh remains available.
@@ -319,11 +372,32 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     };
   }, [generatedAt, initialItems, applyLatest]);
 
+  // Warm one upcoming publisher image without mounting additional DOM media.
+  // Avoid speculative downloads for Data Saver and slow connections.
+  useEffect(() => {
+    const next = items[position + 1];
+    if (!next || document.visibilityState !== 'visible') return;
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string }
+    }).connection;
+    if (connection?.saveData || connection?.effectiveType === '2g') return;
+    const url = frontierSourceFigures(next)[0]?.url;
+    if (!url) return;
+    const timer = window.setTimeout(() => {
+      if (document.visibilityState !== 'visible') return;
+      const cached = new window.Image();
+      cached.decoding = 'async';
+      cached.src = url;
+    }, 950);
+    return () => window.clearTimeout(timer);
+  }, [items, position]);
+
   const retrieve = useCallback(async (query: string, fresh: boolean) => {
     readerInteractedRef.current = true;
     requestRef.current?.abort();
     backgroundRef.current?.abort();
     setLatestReady(null);
+    setContentsOpen(false);
     cancelHold();
     const controller = new AbortController();
     requestRef.current = controller;
@@ -357,6 +431,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       setActiveQuery(query);
       setNotice('');
       setFailedImages([]);
+       setLoadedImageKey(null);
     setNativeImageWidth(null);
       setFigureIndex(0);
       contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
@@ -385,6 +460,13 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       <header className={styles.masthead}>
         <Link href="/" className={styles.brand}>FRONTIER<span className={styles.brandDot}>.</span></Link>
         <div className={styles.topActions}>
+          <button ref={contentsButtonRef} type="button" className={styles.contentsToggle}
+            aria-expanded={contentsOpen} aria-controls="frontier-edition-contents" aria-label="Browse edition"
+            onClick={() => { readerInteractedRef.current = true; setContentsOpen((open) => !open); }}
+            title="Browse this edition">
+            <ListFilter size={17} aria-hidden="true" />
+            <span>Contents</span>
+          </button>
           <form role="search" onSubmit={onSearch} className={styles.search}>
             <Search aria-hidden="true" size={17} />
             <input aria-label="Search live topics" placeholder="Search" value={searchDraft}
@@ -404,6 +486,49 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
           <a href="/frontier/advanced" className={styles.advanced} title="Explore the complete frontier">Explore <span aria-hidden="true">↗</span></a>
         </div>
       </header>
+      {contentsOpen ? (
+        <div className={styles.contentsLayer}>
+          <button className={styles.contentsBackdrop} type="button" tabIndex={-1}
+            aria-label="Dismiss edition contents" onClick={() => {
+              setContentsOpen(false); contentsButtonRef.current?.focus();
+            }} />
+          <nav ref={contentsPanelRef} id="frontier-edition-contents" className={styles.contentsPanel}
+            role="dialog" aria-modal="true" aria-label="Edition contents"
+            data-frontier-contents-panel="true">
+            <div className={styles.contentsHeader}>
+              <div><strong>In this edition</strong><span>{items.length} stories · Curated order</span></div>
+              <button type="button" aria-label="Close edition contents" onClick={() => {
+                setContentsOpen(false); contentsButtonRef.current?.focus();
+              }}><X size={18} aria-hidden="true" /></button>
+            </div>
+            <div className={styles.contentsGroups}>
+              {editionContents.map((group) => (
+                <section key={group.id} className={styles.contentsGroup} aria-label={group.label}>
+                  <h2>{group.label}<span>{group.entries.length}</span></h2>
+                  {group.entries.map((entry) => (
+                    <button key={entry.item.id} type="button" className={styles.contentsEntry}
+                      data-frontier-contents-entry={entry.position}
+                      aria-current={entry.position === position ? 'true' : undefined}
+                      onClick={() => {
+                        navigateTo(entry.position);
+                        window.requestAnimationFrame(() => headlineRef.current?.focus({ preventScroll: true }));
+                      }}>
+                      <span className={styles.contentsOrdinal}>{String(entry.position + 1).padStart(2, '0')}</span>
+                      <span className={styles.contentsEntryText}>
+                        <strong>{entry.item.title}</strong>
+                        <small>{entry.item.sourceLabel} · {frontierReaderFormat(entry.item)}</small>
+                      </span>
+                    </button>
+                  ))}
+                </section>
+              ))}
+            </div>
+            <a className={styles.contentsExplore} href="/frontier/advanced">
+              Explore the full frontier <ExternalLink size={14} aria-hidden="true" />
+            </a>
+          </nav>
+        </div>
+      ) : null}
       <div className={styles.progressTrack} role="progressbar" aria-valuenow={position + (items.length ? 1 : 0)}
         aria-valuemin={0} aria-valuemax={items.length || 1} aria-label="Article progress">
         <span style={{ width: progress + '%' }} />
@@ -416,17 +541,19 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
           <article className={styles.article}>
             <div className={styles.headline}>
               <div className={styles.headlineMeta}>
-                <span className={styles.kicker}>{item.lane.replace(/_/g, ' ')} <span className={styles.separator}>/</span> {item.sourceLabel}</span>
+                <span className={styles.kicker}>{item.lane.replace(/_/g, ' ')} <span className={styles.separator}>/</span> {item.sourceLabel} <span className={styles.separator}>·</span> {frontierReaderFormat(item)}</span>
                 <span className={styles.counter}>{String(position + 1).padStart(2, '0')} / {String(items.length).padStart(2, '0')}</span>
               </div>
-              <h1>{item.title}</h1>
+              <h1 ref={headlineRef} tabIndex={-1}>{item.title}</h1>
               {item.authors?.length ? <p className={styles.byline}>{item.authors.slice(0, 3).join(', ')}</p> : null}
             </div>
 
             <div className={styles.storyBody}>
               <figure className={styles.visual} data-frontier-figure-count={figures.length}>
-                <div className={styles.visualViewport}>
+                <div className={styles.visualViewport} data-frontier-media={canShowImage ? 'source-image' : 'source-only'}>
                   {canShowImage && image ? (
+                    <>
+                      {!imageReady ? <div className={styles.imagePlaceholder} aria-hidden="true" /> : null}
                     <Image
                       unoptimized
                       src={image}
@@ -435,7 +562,9 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                       height={760}
                       sizes="(max-width: 900px) 100vw, 56vw"
                       priority={position === 0 && figureIndex === 0}
+                      key={imageKey}
                       className={styles.heroImage}
+                      data-frontier-media-ready={imageReady ? 'true' : 'false'}
                       style={nativeImageWidth && nativeImageWidth < 720 ? { maxWidth: nativeImageWidth + 'px' } : undefined}
                       onLoad={(event) => {
                         const width = event.currentTarget.naturalWidth;
@@ -444,13 +573,15 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                           return;
                         }
                         setNativeImageWidth(width);
+                        setLoadedImageKey(imageKey);
                       }}
                       onError={() => setFailedImages((current) => current.includes(image) ? current : [...current, image])}
                     />
+                    </>
                   ) : (
-                    <div className={styles.editorial} aria-label="Editorial article cover">
-                      <span className={styles.editorialKicker}>{item.lane.replace(/_/g, ' ')}</span>
-                      <strong className={styles.editorialTitle}>{item.title}</strong>
+                    <div className={styles.editorial} aria-label="Article without source imagery">
+                      <span className={styles.editorialKicker}>{frontierReaderFormat(item)}</span>
+                      <span className={styles.editorialMark} aria-hidden="true">✧</span>
                       <span className={styles.editorialDomain}>{cleanUrlHost(item.url)}</span>
                     </div>
                   )}
@@ -461,7 +592,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                       <button key={figure.url} type="button" aria-label={'View source figure ' + (index + 1)}
                         aria-pressed={index === figureIndex}
                         onClick={() => { readerInteractedRef.current = true; setFigureIndex(index); setFailedImages([]);
-    setNativeImageWidth(null); }}>
+                          setLoadedImageKey(null); setNativeImageWidth(null); }}>
                         {String(index + 1).padStart(2, '0')}
                       </button>
                     ))}
@@ -480,51 +611,20 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                 onTouchStart={() => { readerInteractedRef.current = true; }}>
                 <section className={styles.briefSection} aria-label="Source-grounded summary">
                   <p className={styles.summary}>{sourceBrief.lead || 'This source did not include a synopsis. Read the original for the full story.'}</p>
-                  {sourceBrief.hasFullerContext ? (
+                  {sourceBrief.details.length ? (
+                    <div className={styles.sourcePoints}>
+                      <h2>From the source</h2>
+                      <ul>{sourceBrief.details.slice(0, 2).map((part, index) =>
+                        <li key={index}>{part}</li>)}</ul>
+                    </div>
+                  ) : null}
+                  {sourceBrief.details.length > 2 ? (
                     <details className={styles.sourceDetail}>
-                      <summary>More context</summary>
-                      <div className={styles.detailBody}>{sourceBrief.details.map((part, index) => <p key={index}>{part}</p>)}</div>
+                      <summary>Read more source context</summary>
+                      <div className={styles.detailBody}>{sourceBrief.details.slice(2).map((part, index) => <p key={index}>{part}</p>)}</div>
                     </details>
                   ) : null}
                 </section>
-
-                <div className={styles.interactionArea}>
-                  <div className={styles.ratingZone}>
-                    <button
-                      type="button"
-                      className={styles.holdButton}
-                      data-frontier-balloon={holdValue !== null ? 'inflating' : (rating ? 'rated' : 'idle')}
-                      style={{ ['--orb-scale' as string]: orbScale, ['--orb-progress' as string]: orbProgress }}
-                      disabled={!item}
-                      aria-label="Hold to rate interest from one to ten; release to save"
-                      onPointerDown={onHoldPointerDown}
-                      onPointerUp={finishHold}
-                      onPointerCancel={cancelHold}
-                      onLostPointerCapture={cancelHold}
-                      onKeyDown={onHoldKeyDown}
-                      onKeyUp={onHoldKeyUp}
-                      onContextMenu={(event) => event.preventDefault()}
-                    >
-                      <span className={styles.orbRing} aria-hidden="true"><span className={styles.orbCore}>
-                        <span className={styles.orbValue}>{currentVisualGrade === null || currentVisualGrade === undefined ? '✧' : currentVisualGrade}</span>
-                        <span className={styles.orbDenominator}>{currentVisualGrade === null || currentVisualGrade === undefined ? '' : '/10'}</span>
-                      </span></span>
-                      <span className={styles.orbCopy}>{holdValue !== null ? 'Release to save'
-                        : rating ? rating + '/10 · Hold to revise' : 'Hold to rate'}</span>
-                    </button>
-                    <details className={styles.precision} onToggle={() => { readerInteractedRef.current = true; }}>
-                      <summary>Choose exact score</summary>
-                      <div className={styles.precisionContent}>
-                        <label htmlFor="frontier-interest-slider">Interest: {sliderScore}/10</label>
-                        <input id="frontier-interest-slider" type="range" min={1} max={10} step={1}
-                          value={sliderScore}
-                          onChange={(event) => { if (item) setSliderDraft({ id: item.id, value: Number(event.target.value) }); }} />
-                        <button type="button" onClick={() => commitRating(sliderScore, 'slider')}>Save</button>
-                      </div>
-                    </details>
-                    <span className={styles.notice} role="status" aria-live="polite">{notice}</span>
-                  </div>
-                </div>
 
                 {item.metrics?.length || item.sportsState || item.artifacts?.length ? (
                   <details className={styles.evidenceDetails}>
@@ -584,6 +684,43 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                     {isSaved ? 'Saved' : 'Save'}
                   </button>
                   <span className={styles.sourceDate}>{sourceDate(item.publishedAt)}</span>
+                </div>
+                <div className={styles.interactionArea}>
+                  <div className={styles.ratingZone}>
+                    <button
+                      type="button"
+                      className={styles.holdButton}
+                      data-frontier-balloon={holdValue !== null ? 'inflating' : (rating ? 'rated' : 'idle')}
+                      style={{ ['--orb-scale' as string]: orbScale, ['--orb-progress' as string]: orbProgress }}
+                      disabled={!item}
+                      aria-label="Hold to rate interest from one to ten; release to save"
+                      onPointerDown={onHoldPointerDown}
+                      onPointerUp={finishHold}
+                      onPointerCancel={cancelHold}
+                      onLostPointerCapture={cancelHold}
+                      onKeyDown={onHoldKeyDown}
+                      onKeyUp={onHoldKeyUp}
+                      onContextMenu={(event) => event.preventDefault()}
+                    >
+                      <span className={styles.orbRing} aria-hidden="true"><span className={styles.orbCore}>
+                        <span className={styles.orbValue}>{currentVisualGrade === null || currentVisualGrade === undefined ? '✧' : currentVisualGrade}</span>
+                        <span className={styles.orbDenominator}>{currentVisualGrade === null || currentVisualGrade === undefined ? '' : '/10'}</span>
+                      </span></span>
+                      <span className={styles.orbCopy}>{holdValue !== null ? 'Release to save'
+                        : rating ? rating + '/10 · Hold to revise' : 'Hold to rate'}</span>
+                    </button>
+                    <details className={styles.precision} onToggle={() => { readerInteractedRef.current = true; }}>
+                      <summary>Choose exact score</summary>
+                      <div className={styles.precisionContent}>
+                        <label htmlFor="frontier-interest-slider">Interest: {sliderScore}/10</label>
+                        <input id="frontier-interest-slider" type="range" min={1} max={10} step={1}
+                          value={sliderScore}
+                          onChange={(event) => { if (item) setSliderDraft({ id: item.id, value: Number(event.target.value) }); }} />
+                        <button type="button" onClick={() => commitRating(sliderScore, 'slider')}>Save</button>
+                      </div>
+                    </details>
+                    <span className={styles.notice} role="status" aria-live="polite">{notice}</span>
+                  </div>
                 </div>
               </div>
             </div>
