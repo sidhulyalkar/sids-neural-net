@@ -16,6 +16,19 @@ export const SHRINE_GALLERY = {
   photoCount: 49,
 } as const;
 
+/** The same picture size, eye line, frontal distance and approach clearance. */
+export const GALLERY_VIEWING={
+  imageWidth:1.75,
+  imageHeight:2.15,
+  imageCenterAboveFloor:1.78,
+  standOff:2.45,
+  clearRadius:.68,
+  frameOutsideArtwork:.26,
+  doorSideOffset:2.45,
+  doubleHangOffset:1.67,
+  eyeHeight:1.58,
+} as const;
+
 /** Explicit vertical separation avoids any coplanar z-fighting at thresholds. */
 export const GALLERY_FLOOR_GEOMETRY={
   slabCenterOffset:-.22,
@@ -116,34 +129,68 @@ export function galleryDoorSide(roomIndex: number, side: GallerySide): boolean {
   });
 }
 
-export function galleryPhotoSlots(): readonly GalleryPhotoSlot[] {
-  const sides: GallerySide[] = ["north", "east", "south", "west"];
-  const h = SHRINE_GALLERY.halfRoom - 0.12;
-  const slots = GALLERY_ROOMS.flatMap((room, roomIndex) =>
-    sides.map((side, i) => {
-      const hasDoor = galleryDoorSide(roomIndex, side);
-      const offset = hasDoor ? (i % 2 ? 2.25 : -2.25) : 0;
-      return {
-        id: `photo-${String(roomIndex * 4 + i + 1).padStart(3, "0")}`,
-        roomIndex, side,
-        x: side === "east" ? room.x + h : side === "west" ? room.x - h : room.x + offset,
-        z: side === "south" ? room.z + h : side === "north" ? room.z - h : room.z + offset,
-        y: SHRINE_GALLERY.floorY + 2.12,
-        yaw: side === "north" ? 0 : side === "south" ? Math.PI :
-          side === "east" ? -Math.PI / 2 : Math.PI / 2,
-        width: hasDoor ? 1.85 : 2.85,
-      };
-    }));
-  // A final photograph belongs to a small entrance alcove rather than being
-  // duplicated. Its plinth is entirely inside the first chamber.
-  slots.push({
-    id: "photo-049", roomIndex: 0, side: "north",
-    x: GALLERY_ROOMS[0].x - 2.1,
-    z: GALLERY_ROOMS[0].z + 2.05,
-    y: SHRINE_GALLERY.floorY + 2.16,
-    yaw: -Math.PI / 4, width: 1.6,
-  });
+/** One straight-on picture per wall. The entrance room's unobstructed
+ * south wall hosts two matching prints; no freestanding 49th plinth.
+ */
+export function galleryPhotoSlots():readonly GalleryPhotoSlot[]{
+  const sides:GallerySide[]=["north","east","south","west"];
+  const h=SHRINE_GALLERY.halfRoom-.12;
+  const slots:GalleryPhotoSlot[]=[];
+  for(const [roomIndex,room] of GALLERY_ROOMS.entries()){
+    for(const [sideIndex,side] of sides.entries()){
+      const door=galleryDoorSide(roomIndex,side);
+      const offset=roomIndex===0&&side==="south"
+        ? GALLERY_VIEWING.doubleHangOffset
+        : door?(sideIndex%2?1:-1)*GALLERY_VIEWING.doorSideOffset:0;
+      const lateral=side==="north"||side==="south";
+      slots.push({
+        id:`photo-${String(roomIndex*4+sideIndex+1).padStart(3,"0")}`,
+        roomIndex,side,
+        x:lateral?room.x+offset:room.x+(side==="east"?h:-h),
+        z:lateral?room.z+(side==="south"?h:-h):room.z+offset,
+        y:SHRINE_GALLERY.floorY+GALLERY_VIEWING.imageCenterAboveFloor,
+        yaw:side==="north"?0:side==="south"?Math.PI:
+          side==="east"?-Math.PI/2:Math.PI/2,
+        width:GALLERY_VIEWING.imageWidth,
+      });
+    }
+  }
+  // Two symmetrical pieces on room zero's solid south wall, with
+  // independently accessible viewing zones for both.
+  const south=slots.find(s=>s.id==="photo-003")!;
+  slots.push({...south,id:"photo-049",
+    x:GALLERY_ROOMS[0].x-GALLERY_VIEWING.doubleHangOffset});
   return slots;
+}
+
+/** Foot position for a perpendicular, repeatable photograph viewing angle. */
+export function galleryPhotoViewpoint(slot:GalleryPhotoSlot):Point{
+  return {
+    x:slot.x+Math.sin(slot.yaw)*GALLERY_VIEWING.standOff,
+    z:slot.z+Math.cos(slot.yaw)*GALLERY_VIEWING.standOff,
+  };
+}
+
+/** Every frame has a full-width standing circle and straight unobstructed
+ * sightline inside its actual chamber, including door-adjacent frames.
+ */
+export function galleryPhotoClearance(slot:GalleryPhotoSlot):boolean{
+  const room=GALLERY_ROOMS[slot.roomIndex];
+  if(!room)return false;
+  const point=galleryPhotoViewpoint(slot);
+  const inner=SHRINE_GALLERY.halfRoom-.46;
+  const radius=GALLERY_VIEWING.clearRadius;
+  if(Math.abs(point.x-room.x)+radius>inner||
+    Math.abs(point.z-room.z)+radius>inner)return false;
+  for(let i=0;i<=12;i++){
+    const d=GALLERY_VIEWING.standOff-
+      i/12*(GALLERY_VIEWING.standOff-.72);
+    const x=slot.x+Math.sin(slot.yaw)*d;
+    const z=slot.z+Math.cos(slot.yaw)*d;
+    if(Math.abs(x-room.x)>inner||Math.abs(z-room.z)>inner)
+      return false;
+  }
+  return true;
 }
 
 export function galleryShaftTopY(): number {
