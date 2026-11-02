@@ -47,7 +47,7 @@ try{
   assert.equal(await scene.getAttribute("data-hidden-gallery-in-bounds"),"true");
   await page.waitForFunction(()=>{
     const c=document.querySelector("canvas[data-hidden-gallery-phase='inside']");
-    return !!c && Number(c.dataset.hiddenGalleryHd)>=2;
+    return !!c && Number(c.dataset.hiddenGalleryHD)>=2;
   },null,{timeout:30000});
   await page.waitForTimeout(1200);
   await page.screenshot({path:path.join(out,"gallery-next-room.png")});
