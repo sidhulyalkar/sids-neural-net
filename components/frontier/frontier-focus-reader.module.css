@@ -344,3 +344,15 @@
     max-height:34svh;
   }
 }
+
+/* Touch screens have no hover. Keep one accessible nav row underneath the
+   headline rather than a fixed arrow obstructing scores, descriptions, or art. */
+@media (max-width:520px) {
+  .headline .navigation { position:static; inset:auto; z-index:auto;
+    width:100%; margin:11px auto 0; padding:0 3px; display:flex;
+    justify-content:space-between; align-items:center; pointer-events:auto; }
+  .headline .navigation button { position:static; top:auto; left:auto; right:auto;
+    width:35px; height:35px; min-width:35px; opacity:1;
+    transform:none; background:#162430; backdrop-filter:none; }
+  .headline .navigation button:disabled { opacity:0!important; }
+}
