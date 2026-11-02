@@ -187,6 +187,46 @@ export function galleryConstrainMove(from: Point, to: Point): Point {
   }
   return current;
 }
+export type GalleryWalkState={point:Point;heading:Point;speed:number};
+const GALLERY_WALK_SPEED=2.6;
+
+/** Frame-rate tolerant WALKING, not swimming. Each long frame is broken into
+ * small collision-constrained steps, so a slow GPU does not make the exhibit
+ * impossible to traverse and no step may tunnel through a closed wall.
+ */
+export function galleryStepWalk(
+  current:GalleryWalkState,input:Point,deltaSeconds:number,
+  destination?:Point|null,
+):GalleryWalkState{
+  const dt=Math.max(0,Math.min(Number.isFinite(deltaSeconds)?deltaSeconds:0,.5));
+  const magnitude=Math.hypot(input.x,input.z);
+  const walking=magnitude>.001;
+  const heading=walking
+    ? {x:input.x/magnitude,z:input.z/magnitude}
+    : current.heading;
+  let point=current.point;
+  let speed=Math.max(0,Math.min(GALLERY_WALK_SPEED,current.speed));
+  let remaining=dt;
+  while(remaining>1e-7){
+    const step=Math.min(.04,remaining);
+    remaining-=step;
+    speed=walking?Math.min(GALLERY_WALK_SPEED,speed+9*step):
+      Math.max(0,speed-12*step);
+    if(speed<1e-7)continue;
+    const limit=destination?Math.hypot(
+      destination.x-point.x,destination.z-point.z):Infinity;
+    const advance=Math.min(speed*step,limit);
+    if(advance<=1e-7){speed=0;break;}
+    const next=galleryConstrainMove(point,{
+      x:point.x+heading.x*advance,z:point.z+heading.z*advance,
+    });
+    const moved=Math.hypot(next.x-point.x,next.z-point.z);
+    point=next;
+    if(moved<advance*.2){speed=0;break;}
+  }
+  return {point,heading,speed};
+}
+
 export function galleryNearShaft(p: Point): boolean {
   return Math.hypot(p.x - SHRINE_GALLERY.entrance.x,
     p.z - SHRINE_GALLERY.entrance.z) < 1.15;
