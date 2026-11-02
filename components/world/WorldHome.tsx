@@ -321,13 +321,19 @@ export function WorldHome({ content }: { content: WorldContent }) {
     setPanel(value);
   }, [setPanel]);
   const onWorldInteract=useCallback((id:string)=>{
+    if(id.startsWith("gallery-paper:")){
+      const index=Number(id.slice("gallery-paper:".length));
+      const paper=Number.isInteger(index)?content.publications[index]:undefined;
+      if(paper)router.push("/publications#"+encodeURIComponent(paper.id));
+      return;
+    }
     if(id.startsWith("gallery-photo:")){
       const photoId=id.slice("gallery-photo:".length);
       router.push(photoArchiveHref(photoId));
       return;
     }
     open(id);
-  },[open,router]);
+  },[open,router,content.publications]);
   const close = useCallback(() => {
     setPanel(null);
     // Return keyboard users to the action that opened the dialog.
@@ -534,6 +540,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             waterAction={waterAction}
             waterActionSerial={waterActionSerial}
             gameTitles={content.games.map(game => game.title)}
+            publicationCards={content.publications}
             onAquatic={setAquatic}
             onGalleryPhase={setGalleryPhase}
             onReady={onReady}
