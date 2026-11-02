@@ -20,11 +20,13 @@ export type FrontierEditorialAdmission = {
     | 'missing-substance'
     | 'generic-description'
     | 'promotional-copy'
+    | 'promotional-title'
     | 'unsupported-link-post';
 };
 
 const PROMOTIONAL_OPENING = /^(?:use (?:our|my) (?:code|link)|sponsored by|paid partnership|become a member|join (?:our|this|the) channel|subscribe(?: to)?|shop (?:our|the) merch|save \d{1,2}%|sign up for|click (?:here|the link)|support (?:us|at|on) patreon)\b/i;
 const GENERIC_COPY = /^(?:recent(?:ly)? (?:active |substantive )?(?:development|update|open.source project)|worth (?:inspecting|checking) at the source|click (?:here|through) to (?:learn|read) more|read (?:the )?full (?:article|story)|no description (?:provided|available)|link only|watch (?:the )?full video)[^.!?]*[.!?]?$/i;
+const PROMOTIONAL_TITLE = /^(?:sign up for|subscribe to|join (?:our|the) newsletter|download (?:our|the) free guide|newsletter signup|free trial|limited.time offer)\b/i;
 const URL = /https?:\/\/\S+/gi;
 const WORD = /[\p{L}\p{N}][\p{L}\p{N}'-]*/gu;
 const COMMUNITY = new Set(['hackernews', 'lobsters', 'reddit', 'social']);
@@ -61,6 +63,7 @@ export function assessFrontierEditorialAdmission(item: FrontierItem): FrontierEd
 
   const title = item.title?.replace(/\s+/g, ' ').trim() ?? '';
   if (title.length < 4) return rejected('missing-title');
+  if (PROMOTIONAL_TITLE.test(title)) return rejected('promotional-title');
 
   const summary = cleanFrontierEditorialText(item.summary ?? '', item.sourceKind)
     .replace(/\s+/g, ' ').trim();
@@ -92,8 +95,8 @@ export function assessFrontierEditorialAdmission(item: FrontierItem): FrontierEd
     // A specific release/commit or a real project description can be short;
     // neither stars nor the source's preassigned score count as evidence.
     const versionOrChange = /(?:\bv?\d+\.\d+(?:\.\d+)?\b|\b(?:release|fix|add|introduce|support|implement|benchmark)\b)/i.test(title);
-    const substantiveSummary = summary.length >= 42 && wordCount(summary) >= 7 && meaningfulCopy(summary);
-    const conciseProject = summary.length >= 28 && wordCount(summary) >= 5
+    const substantiveSummary = summary.length >= 50 && wordCount(summary) >= 8 && meaningfulCopy(summary);
+    const conciseProject = summary.length >= 50 && wordCount(summary) >= 8
       && meaningfulCopy(summary) && /\//.test(title);
     return substantiveSummary || conciseProject || (versionOrChange && summary.length >= 35 && wordCount(summary) >= 6 && meaningfulCopy(summary))
       ? admitted('specific-repository') : rejected('missing-substance');
