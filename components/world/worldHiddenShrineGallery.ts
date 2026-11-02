@@ -439,9 +439,11 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
         await image.decode();
         if(disposed)return;
         const tx=i%columns*tileW,ty=Math.floor(i/columns)*tileH;
-        const availW=tileW-12,availH=tileH-12;
-        const scale=Math.min(availW/image.naturalWidth,availH/image.naturalHeight);
-        const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
+        // Atlas texels are later displayed on a 1.75:2.15 rectangle,
+        // not a square. Fit in that *physical* aspect to avoid stretching
+        // thumbnails before the original-size photo has loaded.
+        const fit=galleryImageContainScale(image.naturalWidth,image.naturalHeight);
+        const w=(tileW-12)*fit.width,h=(tileH-12)*fit.height;
         ctx.fillStyle="#252923";ctx.fillRect(tx,ty,tileW,tileH);
         ctx.drawImage(image,tx+(tileW-w)/2,ty+(tileH-h)/2,w,h);
         loaded++;
