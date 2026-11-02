@@ -54,6 +54,8 @@ test("the website and three-dimensional galleries share bidirectional navigation
   assert.match(renderer,/rawDelta,destination/);
   assert.match(renderer,/const swimming = aquatic !== "land" && galleryPhase!=="inside"/);
   assert.match(renderer,/playerY=SHRINE_GALLERY\.floorY\+\.04/);
+  assert.match(renderer,/camera\.position\.set\(player\.x\+2\.45,playerY\+1\.65,player\.z\)/);
+  assert.match(renderer,/lastGalleryCameraPhase="outside"/);
 });
 
 test("waterfall research museum has a source-backed panel for every real paper",()=>{
