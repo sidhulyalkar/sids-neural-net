@@ -7,6 +7,8 @@ import {
   SHRINE_GALLERY, GALLERY_DOORS, GALLERY_ROOMS, GALLERY_ROUTE,
   galleryDoorSide, galleryPhotoSlots, galleryConstrainMove,
   galleryWalkable, galleryNearShaft, galleryShaftTopY, shrineReachable,
+  galleryFloorFootprint, galleryDoorThresholds, galleryCeilingTiles,
+  GALLERY_FLOOR_GEOMETRY,
 } from "../lib/world/hiddenShrineGallery";
 
 test("the shrine is a discoverable WEST-coast underwater entrance near the UCSD trident",()=>{
@@ -52,6 +54,85 @@ test("one shared authored door graph connects every gallery room in both directi
     assert.deepEqual(galleryConstrainMove(a,b),b);
     assert.deepEqual(galleryConstrainMove(b,a),a);
   }
+});
+
+
+test("one monolithic floor covers every room and all eleven doorway crossings",()=>{
+  const floor=galleryFloorFootprint();
+  const area=floor.width*floor.depth;
+  assert.ok(Math.abs(area-SHRINE_GALLERY.roomStep**2*12)<1e-7);
+  const within=(p:{x:number;z:number})=>
+    p.x>=floor.minX-1e-8&&p.x<=floor.maxX+1e-8&&
+    p.z>=floor.minZ-1e-8&&p.z<=floor.maxZ+1e-8;
+  for(const room of GALLERY_ROOMS)assert.ok(within(room));
+  for(const {from,to} of GALLERY_DOORS){
+    const a=GALLERY_ROOMS[from],b=GALLERY_ROOMS[to];
+    for(let i=0;i<=20;i++){
+      const t=i/20;
+      assert.ok(within({x:a.x*(1-t)+b.x*t,z:a.z*(1-t)+b.z*t}));
+    }
+  }
+  const slabTop=GALLERY_FLOOR_GEOMETRY.slabCenterOffset+
+    GALLERY_FLOOR_GEOMETRY.slabThickness/2;
+  const sillBottom=GALLERY_FLOOR_GEOMETRY.sillCenterOffset-
+    GALLERY_FLOOR_GEOMETRY.sillThickness/2;
+  assert.ok(sillBottom-slabTop>=.01,
+    "Raised door trim must have positive vertical separation from slab top");
+  const sills=galleryDoorThresholds();
+  assert.equal(sills.length,GALLERY_DOORS.length);
+  for(const sill of sills){
+    assert.ok(within(sill));
+    assert.ok(sill.width>0&&sill.depth>0);
+    assert.ok((sill.width<.4)!==(sill.depth<.4),
+      "A sill crosses one doorway axis only");
+  }
+});
+
+test("disjoint ceiling patches cover the whole grid except the entrance shaft",()=>{
+  const tiles=galleryCeilingTiles();
+  assert.equal(tiles.length,GALLERY_ROOMS.length+3);
+  const floor=galleryFloorFootprint();
+  const apertureArea=2.8**2;
+  const tileArea=tiles.reduce((sum,t)=>sum+t.width*t.depth,0);
+  assert.ok(Math.abs(tileArea-(floor.width*floor.depth-apertureArea))<1e-6);
+  const EPS=1e-7;
+  for(let i=0;i<tiles.length;i++){
+    const a=tiles[i];
+    assert.ok(a.width>0&&a.depth>0);
+    for(let j=i+1;j<tiles.length;j++){
+      const b=tiles[j];
+      const overlapX=Math.min(a.x+a.width/2,b.x+b.width/2)-
+        Math.max(a.x-a.width/2,b.x-b.width/2);
+      const overlapZ=Math.min(a.z+a.depth/2,b.z+b.depth/2)-
+        Math.max(a.z-a.depth/2,b.z-b.depth/2);
+      assert.ok(overlapX<=EPS||overlapZ<=EPS,
+        \`Coplanar ceiling overlap between patches \${i} and \${j}\`);
+    }
+  }
+  for(const patch of tiles){
+    const xGap=Math.abs(patch.x-SHRINE_GALLERY.entrance.x)-
+      patch.width/2-1.4;
+    const zGap=Math.abs(patch.z-SHRINE_GALLERY.entrance.z)-
+      patch.depth/2-1.4;
+    assert.ok(xGap>=-EPS||zGap>=-EPS,
+      "The underwater shrine shaft must remain open");
+  }
+});
+
+test("rendered foundation has one slab and detailed gilded picture frames",()=>{
+  const source=readFileSync(new URL("../components/world/worldHiddenShrineGallery.ts",import.meta.url),"utf8");
+  assert.match(source,/const floor=galleryFloorFootprint\(\)/);
+  assert.match(source,/GALLERY_FLOOR_GEOMETRY\.slabCenterOffset/);
+  assert.match(source,/galleryCeilingTiles\(\)/);
+  assert.match(source,/galleryDoorThresholds\(\)/);
+  assert.doesNotMatch(source,/add\(r\.x,bottom-\.22/);
+  assert.doesNotMatch(source,/Stone bridge plates close/);
+  assert.match(source,/const ornamentBead=new THREE\.SphereGeometry/);
+  assert.match(source,/const ornamentStroke=new THREE\.CylinderGeometry/);
+  assert.match(source,/carvedStroke\(/);
+  assert.match(source,/halfW\+\.16/);
+  assert.match(source,/photoTargets\.push\(m\)/);
+  assert.doesNotMatch(source,/fillText\(slots\[i\]\.id/);
 });
 
 test("solid walls stop a diver from crossing between disconnected neighboring rooms",()=>{
