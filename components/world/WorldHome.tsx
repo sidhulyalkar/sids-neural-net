@@ -5,6 +5,9 @@ import {Bike, ChevronDown, Disc3, MountainSnow, Waves, Trees} from "lucide-react
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
+import {useRouter} from "next/navigation";
+import {parseGalleryDestination,photoArchiveHref} from "@/lib/world/galleryLinks";
+import type {GalleryPhase} from "@/lib/world/hiddenShrineGallery";
 import {
   Component,
   useCallback,
@@ -98,6 +101,8 @@ const ROUTE_LABELS: Record<string, string> = Object.fromEntries(
 type SportShortcut = "disc" | "race" | "jet" | "jump" | "park";
 
 export function WorldHome({ content }: { content: WorldContent }) {
+  const router=useRouter();
+  const [galleryPhase,setGalleryPhase]=useState<GalleryPhase>("outside");
   const [enabled, setEnabled] = useState(false);
   const [entered, setEntered] = useState(false);
   const [ready, setReady] = useState(false);
@@ -315,6 +320,14 @@ export function WorldHome({ content }: { content: WorldContent }) {
         : null;
     setPanel(value);
   }, [setPanel]);
+  const onWorldInteract=useCallback((id:string)=>{
+    if(id.startsWith("gallery-photo:")){
+      const photoId=id.slice("gallery-photo:".length);
+      router.push(photoArchiveHref(photoId));
+      return;
+    }
+    open(id);
+  },[open,router]);
   const close = useCallback(() => {
     setPanel(null);
     // Return keyboard users to the action that opened the dialog.
@@ -419,6 +432,16 @@ export function WorldHome({ content }: { content: WorldContent }) {
     setWaterActionSerial(n => n + 1);
     requestAnimationFrame(() => worldRoot.current?.querySelector("canvas")?.focus({ preventScroll: true }));
   }
+  // A shared link should actually enter its gallery, not stop at the island
+  // welcome screen and make the visitor discover the menu again.
+  useEffect(()=>{
+    const target=parseGalleryDestination(window.location.search);
+    if(!target)return;
+    setEnabled(true);setEntered(true);setFailed(false);setQuiet(false);
+    setActivity("run");
+    setCommand(prev=>({region:target==="photos"?"coast":"waterfall",
+      serial:(prev?.serial??0)+1,galleryDestination:target,activity:"run"}));
+  },[]);
   function enter() {
     setEnabled(true);
     setEntered(true);
@@ -512,10 +535,11 @@ export function WorldHome({ content }: { content: WorldContent }) {
             waterActionSerial={waterActionSerial}
             gameTitles={content.games.map(game => game.title)}
             onAquatic={setAquatic}
+            onGalleryPhase={setGalleryPhase}
             onReady={onReady}
             onError={onError}
             onLocation={onLocation}
-            onInteract={open}
+            onInteract={onWorldInteract}
             onChallenge={onChallenge}
             onBigAir={onBigAir}
             onDiscGolf={onDiscGolf}
@@ -742,7 +766,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               )}
             </aside>
           )}
-          {aquatic !== "land" && skim.phase==="off" && (
+          {aquatic !== "land" && galleryPhase!=="inside" && skim.phase==="off" && (
             <div className={styles.waterDock} role="group" aria-label="Swimming depth controls">
               <span className={styles.waterMode}>{aquatic === "surface" ? "Snorkeling" : "Diving"}</span>
               {aquatic === "surface" ? (
@@ -757,7 +781,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
             </div>
           )}
           <p className={styles.controls} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
-            {aquatic === "land" ? (
+            {galleryPhase==="inside" ? (
+              <>WASD / arrows to walk <span>·</span> Click photograph to view <span>·</span> E near entrance to exit <span>·</span> M for menu</>
+            ) : aquatic === "land" ? (
               <>WASD / arrows to move <span>·</span> Drag to look <span>·</span>{" "}
                 Space to {activityConfig(activity).action.toLowerCase()} <span>·</span> M for menu</>
             ) : aquatic === "surface" ? (
@@ -767,7 +793,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
             )}
           </p>
           <div className={styles.touchHelp} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
-            {aquatic === "land" ? "Tap ground to move · Drag to look" : "Tap water to swim · Drag to look"}
+            {galleryPhase==="inside" ? "Use joysticks to walk and look · Tap photograph to open" :
+              aquatic === "land" ? "Tap ground to move · Drag to look" : "Tap water to swim · Drag to look"}
           </div>
         </>
       )}
