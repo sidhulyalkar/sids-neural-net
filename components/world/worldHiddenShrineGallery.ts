@@ -4,7 +4,7 @@ import { GeometryBatch } from "./worldGeometry";
 import {
   SHRINE_GALLERY, GALLERY_ROOMS, galleryDoorSide,
   galleryPhotoSlots, galleryShaftTopY, galleryFloorFootprint,
-  galleryDoorThresholds, type GallerySide,
+  galleryDoorThresholds, galleryCeilingTiles, type GallerySide,
 } from "@/lib/world/hiddenShrineGallery";
 
 /**
@@ -115,21 +115,12 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   // and flickered at exactly the shared door thresholds.
   const floor=galleryFloorFootprint();
   add(floor.x,bottom-.22,floor.z,floor.width,.45,floor.depth,"#494d46");
+  // The ceiling uses the same disjoint-patch geometry invariant as the
+  // foundation, except for the deliberate 2.8m shaft opening.
+  for(const patch of galleryCeilingTiles()){
+    add(patch.x,top+.28,patch.z,patch.width,.62,patch.depth,"#353b37");
+  }
   for (const [i,r] of GALLERY_ROOMS.entries()) {
-    // Ceiling tiles meet at their edges without intersecting. The entry
-    // tile has a square shaft cutout assembled from four DISJOINT pieces.
-    const ceilingSpan=SHRINE_GALLERY.roomStep;
-    if(i===0){
-      const aperture=2.8;
-      const strip=(ceilingSpan-aperture)/2;
-      const offset=(ceilingSpan+aperture)/4;
-      for(const sign of [-1,1]){
-        add(r.x+sign*offset,top+.28,r.z,
-          strip,.62,ceilingSpan,"#353b37");
-        add(r.x,top+.28,r.z+sign*offset,
-          aperture,.62,strip,"#353b37");
-      }
-    }else add(r.x,top+.28,r.z,ceilingSpan,.62,ceilingSpan,"#353b37");
     for (const side of ["north","east","south","west"] as const)
       wall(r,side,galleryDoorSide(i,side));
     // Natural dressed-stone shoulders, subtle variation in place of cyan glass.
@@ -217,7 +208,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     };
     const bead=(dx:number,dy:number,offset:number,size:number,color:string)=>{
       frameBatch.add(ornamentBead,color,facePoint(dx,dy,offset),
-        v(size,size*.85,size*.55));
+        v(size,size*.85,size*.55),new THREE.Euler(0,slot.yaw,0));
     };
     const carvedStroke=(path:readonly [number,number][],color:string,width=.019)=>{
       for(let k=1;k<path.length;k++){
