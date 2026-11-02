@@ -318,3 +318,29 @@
   .featuredSports { padding:13px 14px; }
   .featuredSports .gameRow { font-size:11px; }
 }
+
+/* A missing publisher image is not editorial space. Let the actual reporting
+   own the column rather than showing a large decorative placeholder. Structured
+   scoreboards also prioritize source data over decorative cover images. */
+.storyBody[data-frontier-source-image="false"],
+.storyBody[data-frontier-sports-state="true"] {
+  display:block;
+  width:min(100%,760px);
+  margin-inline:auto;
+}
+.storyBody[data-frontier-source-image="false"] > .visual,
+.storyBody[data-frontier-sports-state="true"] > .visual { display:none; }
+.storyBody[data-frontier-source-image="false"] > .content,
+.storyBody[data-frontier-sports-state="true"] > .content { width:100%; }
+.storyBody[data-frontier-source-image="false"] .briefSection,
+.storyBody[data-frontier-sports-state="true"] .briefSection { padding-top:14px; }
+@media (max-width:900px) {
+  /* Method descriptions, abstracts and repo release notes need text in view
+     sooner; videos and photography keep their larger authentic artwork. */
+  .article[data-frontier-story-format="research"] .visualViewport,
+  .article[data-frontier-story-format="repository"] .visualViewport {
+    aspect-ratio:1.75;
+    min-height:150px;
+    max-height:34svh;
+  }
+}
