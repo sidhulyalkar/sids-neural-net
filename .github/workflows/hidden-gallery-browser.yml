@@ -1,0 +1,76 @@
+name: Hidden Gallery Walk and Archive Browser QA
+
+on:
+  pull_request:
+    paths:
+      - 'components/world/worldRenderer.ts'
+      - 'components/world/worldHiddenShrineGallery.ts'
+      - 'components/world/worldPaperGallery.ts'
+      - 'components/world/WorldHome.tsx'
+      - 'components/world/WorldScene.tsx'
+      - 'lib/world/hiddenShrineGallery.ts'
+      - 'lib/world/galleryLinks.ts'
+      - 'app/photography/page.tsx'
+      - 'app/publications/page.tsx'
+      - 'components/visual-archive/VisualArchiveGallery.tsx'
+      - 'components/publications/PublicationFocusArchive.tsx'
+      - 'tests/world-gallery-archive-links.test.ts'
+      - 'tests/world-hidden-shrine-gallery.test.ts'
+      - 'scripts/playtest-hidden-galleries.mjs'
+      - '.github/workflows/hidden-gallery-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hidden-gallery-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gallery-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Typecheck, lint, world and deep-link contracts
+        run: |
+          npm run typecheck
+          npx eslint components/world/worldRenderer.ts components/world/worldHiddenShrineGallery.ts components/world/worldPaperGallery.ts components/world/WorldHome.tsx components/world/WorldScene.tsx lib/world/hiddenShrineGallery.ts lib/world/galleryLinks.ts app/photography/page.tsx app/publications/page.tsx components/visual-archive/VisualArchiveGallery.tsx components/publications/PublicationFocusArchive.tsx tests/world-gallery-archive-links.test.ts tests/world-hidden-shrine-gallery.test.ts --max-warnings=0
+          node --import tsx --test tests/world-hidden-shrine-gallery.test.ts tests/world-gallery-archive-links.test.ts
+      - name: Install isolated Playwright
+        run: |
+          mkdir -p /tmp/gallery-browser
+          npm install --prefix /tmp/gallery-browser --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/gallery-browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start local world
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/hidden-gallery-next.log 2>&1 &
+          for i in {1..100}; do
+            if curl -fsS http://127.0.0.1:3000/photography >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 120 /tmp/hidden-gallery-next.log
+          exit 1
+      - name: Verify walking, photo links, and paper museum
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/gallery-browser/node_modules/playwright
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/hidden-gallery
+        run: node scripts/playtest-hidden-galleries.mjs
+      - name: Upload gallery screenshots and metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hidden-gallery-${{ github.sha }}
+          path: artifacts/world/hidden-gallery/
+          if-no-files-found: warn
+      - name: Show server logs on failure
+        if: failure()
+        run: tail -n 120 /tmp/hidden-gallery-next.log || true
