@@ -90,6 +90,7 @@ jobs:
           name: frontier-head-qualification-${{ github.sha }}
           path: |
             artifacts/qualification/head.json
+            artifacts/frontier-editorial-review/rejected-candidates.json
             artifacts/frontier-editorial-review/sample.json
             artifacts/frontier-editorial-review/sample.csv
             artifacts/frontier-editorial-review/labels.template.json
