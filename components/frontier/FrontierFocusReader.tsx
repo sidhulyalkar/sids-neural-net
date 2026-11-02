@@ -56,6 +56,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const [notice, setNotice] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
   const contentsButtonRef = useRef<HTMLButtonElement>(null);
+  const contentsPanelRef = useRef<HTMLElement>(null);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const requestRef = useRef<AbortController | null>(null);
   const backgroundRef = useRef<AbortController | null>(null);
@@ -234,6 +235,41 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [move, contentsOpen]);
+
+  // A modal index should not allow keyboard focus or mobile scrolling behind
+  // the panel. The selected story receives focus separately after navigation.
+  useEffect(() => {
+    if (!contentsOpen) return;
+    const panel = contentsPanelRef.current;
+    if (!panel) return;
+    const priorOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const current = panel.querySelector<HTMLButtonElement>('[data-frontier-contents-entry][aria-current="true"]');
+    (current ?? panel.querySelector<HTMLButtonElement>('button'))?.focus({ preventScroll: true });
+    const onTab = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const focusable = [...panel.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]')]
+        .filter((element) => element.getClientRects().length > 0);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!panel.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onTab);
+    return () => {
+      document.removeEventListener('keydown', onTab);
+      document.body.style.overflow = priorOverflow;
+    };
+  }, [contentsOpen]);
 
   useEffect(() => {
     if (!item || !hydrated) return;
@@ -453,8 +489,12 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       {contentsOpen ? (
         <div className={styles.contentsLayer}>
           <button className={styles.contentsBackdrop} type="button" tabIndex={-1}
-            aria-label="Dismiss edition contents" onClick={() => setContentsOpen(false)} />
-          <nav id="frontier-edition-contents" className={styles.contentsPanel} aria-label="Edition contents" data-frontier-contents-panel="true">
+            aria-label="Dismiss edition contents" onClick={() => {
+              setContentsOpen(false); contentsButtonRef.current?.focus();
+            }} />
+          <nav ref={contentsPanelRef} id="frontier-edition-contents" className={styles.contentsPanel}
+            role="dialog" aria-modal="true" aria-label="Edition contents"
+            data-frontier-contents-panel="true">
             <div className={styles.contentsHeader}>
               <div><strong>In this edition</strong><span>{items.length} stories · Curated order</span></div>
               <button type="button" aria-label="Close edition contents" onClick={() => {
@@ -510,7 +550,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
             <div className={styles.storyBody}>
               <figure className={styles.visual} data-frontier-figure-count={figures.length}>
-                <div className={styles.visualViewport}>
+                <div className={styles.visualViewport} data-frontier-media={canShowImage ? 'source-image' : 'source-only'}>
                   {canShowImage && image ? (
                     <>
                       {!imageReady ? <div className={styles.imagePlaceholder} aria-hidden="true" /> : null}
@@ -539,9 +579,9 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                     />
                     </>
                   ) : (
-                    <div className={styles.editorial} aria-label="Editorial article cover">
-                      <span className={styles.editorialKicker}>{item.lane.replace(/_/g, ' ')}</span>
-                      <strong className={styles.editorialTitle}>{item.title}</strong>
+                    <div className={styles.editorial} aria-label="Article without source imagery">
+                      <span className={styles.editorialKicker}>{frontierReaderFormat(item)}</span>
+                      <span className={styles.editorialMark} aria-hidden="true">✧</span>
                       <span className={styles.editorialDomain}>{cleanUrlHost(item.url)}</span>
                     </div>
                   )}
