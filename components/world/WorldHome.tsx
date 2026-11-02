@@ -806,7 +806,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
           )}
           <p className={styles.controls} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
             {galleryPhase==="inside" ? (
-              <>WASD / arrows to walk <span>·</span> Click photograph to view <span>·</span> E near entrance to exit <span>·</span> M for menu</>
+              <>WASD / arrows to walk <span>·</span> F to focus photograph <span>·</span> Esc to resume <span>·</span> Click to open <span>·</span> E to exit near shrine</>
             ) : aquatic === "land" ? (
               <>WASD / arrows to move <span>·</span> Drag to look <span>·</span>{" "}
                 Space to {activityConfig(activity).action.toLowerCase()} <span>·</span> M for menu</>
