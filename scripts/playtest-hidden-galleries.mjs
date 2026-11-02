@@ -62,13 +62,32 @@ try{
   await page.screenshot({path:path.join(out,"gallery-walking.png")});
   // Continue through the real first doorway. A movement-only test within the
   // starting room cannot detect wall popping and interior visibility glitches.
+  // SwiftShader can render at 1-3 FPS on hosted runners. Check actual
+  // passage through the doorway, not a fixed number of wall-clock seconds.
+  const entranceX=Number(initial.split(",")[0]);
+  assert.ok(Number.isFinite(entranceX),"Gallery exposes numeric position");
   await page.keyboard.down("w");
-  await page.waitForTimeout(3200);
-  await page.keyboard.up("w");
+  try{
+    await page.waitForFunction(x=>{
+      const canvas=document.querySelector("canvas[data-hidden-gallery-phase='inside']");
+      const movedX=Number(canvas?.dataset.player?.split(",")[0]);
+      return Number.isFinite(movedX)&&movedX<x-6;
+    },entranceX,{timeout:60000,polling:250});
+  }catch(error){
+    const trace=await page.evaluate(()=>({
+      phase:document.querySelector("canvas")?.dataset.hiddenGalleryPhase??null,
+      position:document.querySelector("canvas")?.dataset.player??null,
+      worldState:document.querySelector("[data-world-state]")?.getAttribute("data-world-state"),
+    }));
+    console.error("GALLERY DOOR TRACE",JSON.stringify({entranceX,trace}));
+    await page.screenshot({path:path.join(out,"gallery-door-blocked.png")});
+    throw error;
+  }finally{
+    await page.keyboard.up("w");
+  }
   await page.waitForTimeout(1100);
   const nextRoom=await scene.getAttribute("data-player");
-  assert.ok(Number(nextRoom.split(",")[0])<Number(initial.split(",")[0])-6,
-    "A continuous walk must pass through at least one room portal");
+  console.log("GALLERY DOOR PASS",JSON.stringify({initial,nextRoom}));
   assert.equal(await scene.getAttribute("data-hidden-gallery-in-bounds"),"true");
   await page.waitForFunction(()=>{
     const c=document.querySelector("canvas[data-hidden-gallery-phase='inside']");
