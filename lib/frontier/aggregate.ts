@@ -2,6 +2,7 @@ import frontierSnapshot from '@/content/frontier/latest.json';
 import { getActiveSportsFeed } from './activeSportsSources';
 import { needsEnglishTranslation, normalizeFeedToEnglish } from './english';
 import { cleanFrontierItem, isFrontierEditoriallyUsable } from './editorialQuality';
+import { isFrontierEditoriallyQualified } from './editorialAdmission';
 import { getSharedExpandedPublicFeed } from './expandedSourcesShared';
 import { getAdaptiveLiveDiscovery } from './liveDiscovery';
 import { enrichFrontierMediaGeometry } from './media/geometry';
@@ -152,7 +153,7 @@ export function prepareFrontierCandidatePool(items: FrontierItem[]): FrontierCan
   const rightsSafe = plausible.filter((item) => !isRightsFragileNflYoutube(item));
   const enriched = rightsSafe.map(enrichFrontierSemantics);
   const deduped = dedupe(enriched);
-  const admitted = vetFrontierItems(deduped.filter(isFrontierEditoriallyUsable));
+  const admitted = vetFrontierItems(deduped.filter((item) => isFrontierEditoriallyUsable(item) && isFrontierEditoriallyQualified(item)));
   const retained = [...admitted]
     .sort((a, b) => frontierCandidatePriority(b) - frontierCandidatePriority(a))
     .slice(0, MAX_INTEGRATED_CANDIDATES);
