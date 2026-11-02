@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
+const { mkdirSync } = require('node:fs');
 
 const TARGET = process.env.FRONTIER_FOCUS_AUDIT_URL || 'http://127.0.0.1:3000/frontier';
 const FIRST_PAINT_BUDGET_MS = 9000;
@@ -393,8 +394,47 @@ async function auditFormatAwareEvidence() {
             'Citation counts and popularity must never be called research results');
         }
       }
+
+      // Check actual rendered geometry across desktop and small phones, not
+      // only semantic labels. Persist screenshots for visual PR review.
+      for (const width of [1080, 390, 320]) {
+        await page.setViewportSize({ width, height: width < 500 ? 780 : 800 });
+        const geometry = await article.evaluate((element) => {
+          const headline = element.querySelector('h1').getBoundingClientRect();
+          const body = element.querySelector('[data-frontier-source-image]').getBoundingClientRect();
+          const synopsis = element.querySelector('section[aria-label="Source-grounded summary"]').getBoundingClientRect();
+          const scores = element.querySelector('section[aria-label="Source sports evidence"]');
+          const figure = element.querySelector('figure');
+          return {
+            viewport: innerWidth,
+            scrollWidth: document.documentElement.scrollWidth,
+            bodyWidth: body.width,
+            synopsisWidth: synopsis.width,
+            synopsisAfterTitle: synopsis.top >= headline.top,
+            hiddenNonSourceCover: figure ? getComputedStyle(figure).display === 'none' : true,
+            sportsBeforeSummary: !scores || scores.getBoundingClientRect().bottom <= synopsis.top,
+          };
+        });
+        assert(geometry.scrollWidth <= geometry.viewport + 2,
+          fixture.expected + ' must not overflow at ' + width + 'px: ' + JSON.stringify(geometry));
+        assert(geometry.bodyWidth <= geometry.viewport,
+          fixture.expected + ' content exceeds viewport: ' + JSON.stringify(geometry));
+        assert(geometry.synopsisAfterTitle,
+          fixture.expected + ' synopsis must not overlap the headline');
+        assert(geometry.sportsBeforeSummary,
+          'Structured scores must appear before the article synopsis');
+        assert(geometry.hiddenNonSourceCover,
+          'A source-only or structured sports story should not show a decorative placeholder');
+        mkdirSync('artifacts/browser-smoke/frontier-format-layout', { recursive: true });
+        await page.screenshot({
+          path: 'artifacts/browser-smoke/frontier-format-layout/' + fixture.expected + '-' + width + '.png',
+          fullPage: true, animations: 'disabled',
+        });
+      }
+      await page.setViewportSize({ width: 1080, height: 800 });
     }
-    return { formatCases: fixtures.length, sourceAlignedLabels: true, separatedActivityMetrics: true };
+    return { formatCases: fixtures.length, viewportWidths: [1080, 390, 320],
+      screenshots: fixtures.length * 3, sourceAlignedLabels: true, separatedActivityMetrics: true };
   } finally {
     await page.close();
     await browser.close();
