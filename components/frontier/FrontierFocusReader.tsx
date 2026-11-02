@@ -641,6 +641,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                     {isSaved ? 'Saved' : 'Save'}
                   </button>
                   <span className={styles.sourceDate}>{sourceDate(item.publishedAt)}</span>
+                </div>
                 <div className={styles.interactionArea}>
                   <div className={styles.ratingZone}>
                     <button
@@ -677,8 +678,6 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                     </details>
                     <span className={styles.notice} role="status" aria-live="polite">{notice}</span>
                   </div>
-                </div>
-
                 </div>
               </div>
             </div>
