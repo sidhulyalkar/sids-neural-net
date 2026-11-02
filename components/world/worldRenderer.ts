@@ -55,7 +55,7 @@ import { createMarineSchools } from "./worldSchools";
 import { createWorldTridents } from "./worldTridents";
 import { createHiddenShrineGallery } from "./worldHiddenShrineGallery";
 import { createWorldPaperGallery } from "./worldPaperGallery";
-import { SHRINE_GALLERY, galleryConstrainMove, galleryStepWalk, galleryNearShaft, galleryWalkable, shrineReachable, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
+import { SHRINE_GALLERY, GALLERY_VIEWING, galleryConstrainMove, galleryStepWalk, galleryNearShaft, galleryWalkable, shrineReachable, galleryPhotoSlots, galleryPhotoViewpoint, galleryPhotoClearance, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
@@ -3221,6 +3221,8 @@ export function createWorld(
   let galleryPhase:GalleryPhase="outside";
   let lastGalleryCameraPhase:GalleryPhase="outside";
   let lastNotifiedGalleryPhase:GalleryPhase="outside";
+  const gallerySlots=galleryPhotoSlots();
+  let galleryFocusIndex:number|null=null;
   let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
   let grind: {
     log: GrindRail;
@@ -3710,6 +3712,29 @@ export function createWorld(
     if(e.target !== canvas && !(jetSki&&
       (e.target===document.body||host.contains(e.target as Node))))return;
     const key = e.key.toLowerCase();
+    // F aligns the lens to an identical museum viewing pose near a framed
+    // photograph. ESC returns to ordinary first-person walking immediately.
+    if(galleryPhase==="inside"){
+      if(key==="escape"&&galleryFocusIndex!==null){
+        galleryFocusIndex=null;e.preventDefault();return;
+      }
+      if(!e.repeat&&key==="f"){
+        e.preventDefault();
+        if(galleryFocusIndex!==null){galleryFocusIndex=null;return;}
+        let nearest=-1,score=Infinity;
+        for(let i=0;i<gallerySlots.length;i++){
+          const slot=gallerySlots[i];
+          if(!galleryPhotoClearance(slot))continue;
+          const view=galleryPhotoViewpoint(slot);
+          const d=Math.hypot(view.x-player.x,view.z-player.z);
+          if(d<score){score=d;nearest=i;}
+        }
+        if(score<=2.0)galleryFocusIndex=nearest;
+        return;
+      }
+      if(["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(key))
+        galleryFocusIndex=null;
+    }
     if(skimHeat.phase!=="off"){
       if(!e.repeat&&key==="enter"&&skimHeat.phase==="finished"){
         e.preventDefault();doSkimAction("restart");return;
@@ -4469,6 +4494,7 @@ export function createWorld(
             }
           }
         } else if(galleryPhase==="inside"){
+          if(Math.hypot(dx,dz)>.01||destination)galleryFocusIndex=null;
           // Walk on the actual stone floor: no submerged vertical controls,
           // no floaty swim velocity, and no sea-floor support sampling.
           const next=galleryStepWalk({...travel,point:player},
@@ -5271,6 +5297,8 @@ export function createWorld(
       canvas.dataset.paperInside = String(paperInside);
       canvas.dataset.hiddenGalleryPhase=galleryPhase;
       canvas.dataset.hiddenGalleryLocomotion=galleryPhase==="inside"?"walking":"swimming";
+      canvas.dataset.hiddenGalleryCamera=galleryPhase==="inside"?"eye-level":"third-person";
+      canvas.dataset.hiddenGalleryPhotoFocus=galleryFocusIndex===null?"":gallerySlots[galleryFocusIndex].id;
       if(galleryPhase!==lastNotifiedGalleryPhase){
         if(galleryPhase==="outside")hiddenShrineGallery.releaseHighResolution();
         lastNotifiedGalleryPhase=galleryPhase;
@@ -5282,7 +5310,9 @@ export function createWorld(
       canvas.dataset.hiddenGalleryPhotosReady=String(hiddenShrineGallery.loadedPhotos());
       const nearShrine=distance(player,SHRINE_GALLERY.entrance)<3.5;
       const hint=galleryPhase==="inside"
-        ? (galleryNearShaft(player)?"Press E to return through the shrine":"Walk the gallery · click a photograph to view")
+        ? (galleryNearShaft(player)?"Press E to return through the shrine":
+          galleryFocusIndex===null?"Walk · F to align a nearby picture · click to open":
+          "Photo view · F or Esc to walk · click to open")
         : galleryPhase==="descending"?"Descending into the hidden gallery"
         : galleryPhase==="ascending"?"Ascending to the seabed"
         : aquatic==="dive" && nearShrine
@@ -5540,7 +5570,7 @@ export function createWorld(
         // never the player's actual collision or equipment states.
         const cameraInsideAvatar=caveInside&&
           camera.position.distanceTo(explorer.position)<2.55;
-        explorer.visible=!jetChoosing&&!cameraInsideAvatar;
+        explorer.visible=!jetChoosing&&!cameraInsideAvatar&&galleryPhase!=="inside";
         jetskiVisual.activeSki.visible=jetChoosing;
         if(jetChoosing){
           jetskiVisual.activeSki.position.set(JET_SKI_DOCK.x+.25,SEA_SURFACE+.2,JET_SKI_PIER.centerZ-.15);
@@ -5667,22 +5697,27 @@ export function createWorld(
         targetLook.set(player.x-Math.sin(yaw)*2.4,playerY+1.85,player.z-Math.cos(yaw)*2.4);
       }
       if(galleryPhase!=="outside"){
-        const insideGallery=galleryPhase==="inside";
-        const desired=insideGallery
-          ? galleryConstrainMove(player,{
-              x:player.x+Math.sin(yaw)*2.55,
-              z:player.z+Math.cos(yaw)*2.55,
-            })
-          : {x:SHRINE_GALLERY.entrance.x+.48,
-              z:SHRINE_GALLERY.entrance.z+.48};
-        targetCamera.set(desired.x,
-          THREE.MathUtils.clamp(playerY+1.55,
-            SHRINE_GALLERY.floorY+1.2,
-            insideGallery?SHRINE_GALLERY.roofY-.45:
+        if(galleryPhase==="inside"){
+          // Human eye-level, first-person museum exploration: the avatar
+          // cannot fill the screen or occlude the wall art.
+          const focus=galleryFocusIndex===null?null:gallerySlots[galleryFocusIndex];
+          const viewpoint=focus?galleryPhotoViewpoint(focus):player;
+          targetCamera.set(viewpoint.x,
+            SHRINE_GALLERY.floorY+GALLERY_VIEWING.eyeHeight,viewpoint.z);
+          targetLook.set(
+            focus?focus.x:player.x-Math.sin(yaw)*3,
+            focus?focus.y:SHRINE_GALLERY.floorY+GALLERY_VIEWING.eyeHeight,
+            focus?focus.z:player.z-Math.cos(yaw)*3
+          );
+        }else{
+          targetCamera.set(SHRINE_GALLERY.entrance.x+.48,
+            THREE.MathUtils.clamp(playerY+1.55,
+              SHRINE_GALLERY.floorY+1.2,
               SEA_SURFACE-maxDiveDepth(SHRINE_GALLERY.entrance)+1.15),
-          desired.z);
-        targetLook.set(player.x-Math.sin(yaw)*(insideGallery?1.1:.4),
-          playerY+1.5,player.z-Math.cos(yaw)*(insideGallery?1.1:.4));
+            SHRINE_GALLERY.entrance.z+.48);
+          targetLook.set(player.x-Math.sin(yaw)*.4,
+            playerY+1.5,player.z-Math.cos(yaw)*.4);
+        }
       }
       // Camera choreography, never gameplay authority:
       // flight -> landing reveal -> visible dog chase -> Shasta eye view.
@@ -6520,8 +6555,11 @@ export function createWorld(
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
     }
     if(galleryPhase!=="outside"){
+      const anchor=galleryPhase==="inside"&&galleryFocusIndex!==null
+        ? galleryPhotoViewpoint(gallerySlots[galleryFocusIndex])
+        : player;
       const bounded=galleryPhase==="inside"
-        ? galleryConstrainMove(player,{x:camera.position.x,z:camera.position.z})
+        ? galleryConstrainMove(anchor,{x:camera.position.x,z:camera.position.z})
         : {x:SHRINE_GALLERY.entrance.x+.48,z:SHRINE_GALLERY.entrance.z+.48};
       camera.position.x=bounded.x;camera.position.z=bounded.z;
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,
@@ -7236,6 +7274,7 @@ export function createWorld(
           skateGroveStartHeading():{x:0,z:r.id==="north-shore"?1:-1} };
         airHeight = verticalSpeed = swimDepth = targetDepth = 0;
         galleryPhase="outside";lastGalleryCameraPhase="outside";
+        galleryFocusIndex=null;
         climb = null;
         grind = null;
         setAquaticMode("land");
@@ -7270,10 +7309,11 @@ export function createWorld(
           playerY=SHRINE_GALLERY.floorY+.04;
           travel={point:player,speed:0,heading:{x:-1,z:0}};
           yaw=Math.PI/2;pitch=.32;zoom=7;
-          // Open down the west doorway, not toward a near wall-mounted print.
-          // Both camera and follow target share this straight, interior-safe pose.
-          camera.position.set(player.x+2.45,playerY+1.65,player.z);
-          look.set(player.x-1.1,playerY+1.5,player.z);
+          // A human-height view faces into the first doorway, leaving the
+          // photography visible rather than the player's entire backpack.
+          galleryFocusIndex=null;
+          camera.position.set(player.x,SHRINE_GALLERY.floorY+GALLERY_VIEWING.eyeHeight,player.z);
+          look.set(player.x-3,SHRINE_GALLERY.floorY+GALLERY_VIEWING.eyeHeight,player.z);
           camera.lookAt(look);
           // First world frame snaps to the validated gallery camera rather
           // than slowly blending across walls under a throttled WebGL renderer.
