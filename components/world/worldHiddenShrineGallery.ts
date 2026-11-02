@@ -136,8 +136,8 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   // The last frame has its own freestanding stone back inside the vestibule.
   const entrancePhoto=galleryPhotoSlots().at(-1)!;
   batched.add(box,"#5c584e",
-    v(entrancePhoto.x,SHRINE_GALLERY.floorY+1.35,entrancePhoto.z),
-    v(1.82,2.7,.36),new THREE.Euler(0,entrancePhoto.yaw,0));
+    v(entrancePhoto.x,SHRINE_GALLERY.floorY+1.9,entrancePhoto.z),
+    v(1.82,3.3,.2),new THREE.Euler(0,entrancePhoto.yaw,0));
   const stoneGeometry=batched.finish();
   geometries.push(stoneGeometry);
   const stoneMesh=new THREE.Mesh(stoneGeometry,stone);
