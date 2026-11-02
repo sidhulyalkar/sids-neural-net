@@ -5272,6 +5272,7 @@ export function createWorld(
       canvas.dataset.hiddenGalleryPhase=galleryPhase;
       canvas.dataset.hiddenGalleryLocomotion=galleryPhase==="inside"?"walking":"swimming";
       if(galleryPhase!==lastNotifiedGalleryPhase){
+        if(galleryPhase==="outside")hiddenShrineGallery.releaseHighResolution();
         lastNotifiedGalleryPhase=galleryPhase;
         callbacks.onGalleryPhase(galleryPhase);
       }
