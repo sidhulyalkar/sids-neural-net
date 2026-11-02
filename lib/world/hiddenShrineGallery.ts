@@ -52,6 +52,31 @@ export function galleryFloorFootprint(){
   };
 }
 
+export type GalleryCeilingTile={
+  roomIndex:number;x:number;z:number;width:number;depth:number;
+};
+/** All ceiling patches are mutually nonoverlapping, with one 2.8m
+ * shaft aperture in room zero. A deterministic plan is easier to validate
+ * than independent roof slabs and connector pieces in rendering code.
+ */
+export function galleryCeilingTiles():readonly GalleryCeilingTile[]{
+  const size=SHRINE_GALLERY.roomStep;
+  const aperture=2.8;
+  const strip=(size-aperture)/2;
+  const offset=(size+aperture)/4;
+  return GALLERY_ROOMS.flatMap((room,roomIndex)=>{
+    if(roomIndex!==0)return [{
+      roomIndex,x:room.x,z:room.z,width:size,depth:size,
+    }];
+    return [-1,1].flatMap(sign=>[
+      {roomIndex,x:room.x+sign*offset,z:room.z,
+        width:strip,depth:size},
+      {roomIndex,x:room.x,z:room.z+sign*offset,
+        width:aperture,depth:strip},
+    ]);
+  });
+}
+
 export type GalleryThreshold = {
   from:number;to:number;
   x:number;z:number;width:number;depth:number;
