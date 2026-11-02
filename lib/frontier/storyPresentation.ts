@@ -32,9 +32,10 @@ const PREPRINT = new Set<FrontierSourceKind>(['arxiv', 'biorxiv', 'medrxiv']);
 const ACTIVITY_METRIC_LABELS = new Set([
   'stars', 'forks', 'watchers', 'issues', 'hf upvotes', 'upvotes',
   'citations', 'citation count', 'cited by',
-  'points', 'score', 'comments', 'replies', 'likes',
+  'comments', 'replies', 'likes',
   'views', 'subscribers',
 ]);
+const DISCUSSION_ACTIVITY_LABELS = new Set(['points', 'score']);
 const SPORTS_METRIC_LABELS = new Set([
   'live', 'final', 'upcoming', 'scheduled', 'postponed',
 ]);
@@ -61,7 +62,10 @@ function sourceMetricGroups(item: FrontierItem): FrontierMetricSection[] {
     // interpreting citations, votes and Github stars as performance results.
     if (!metric.label?.trim() || !metric.value?.trim()) continue;
     const label = normalizedMetricLabel(metric.label);
-    if (ACTIVITY_METRIC_LABELS.has(label) || SPORTS_METRIC_LABELS.has(label)) {
+    const discussionScore = DISCUSSION.has(item.sourceKind) && DISCUSSION_ACTIVITY_LABELS.has(label);
+    const sportsSchedule = Boolean(item.sportsState || item.sourceKind === 'sports_state')
+      && SPORTS_METRIC_LABELS.has(label);
+    if (ACTIVITY_METRIC_LABELS.has(label) || discussionScore || sportsSchedule) {
       activity.push(metric);
     } else {
       reported.push(metric);
