@@ -106,6 +106,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [enabled, setEnabled] = useState(false);
   const [entered, setEntered] = useState(false);
   const [ready, setReady] = useState(false);
+  // The WebGL initialization callback is authoritative even if React cannot
+  // flush the state update before a saturated software-rendering frame.
+  const rendererReadyRef=useRef(false);
   const [failed, setFailed] = useState(false);
   const [activity, setActivity] = useState<Activity>("run");
   const [sportsOpen, setSportsOpen] = useState(false);
@@ -262,11 +265,15 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const enterButton = useRef<HTMLButtonElement>(null);
   const trigger = useRef<HTMLElement | null>(null);
   const onError = useCallback(() => {
+    rendererReadyRef.current=false;
     setFailed(true);
     setEnabled(false);
     setReady(false);
   }, []);
-  const onReady = useCallback(() => setReady(true), []);
+  const onReady = useCallback(() => {
+    rendererReadyRef.current=true;
+    setReady(true);
+  }, []);
   const onChallenge=useCallback((next:TrialState)=>{
     setTrial(next);
     if(next.phase==="complete" && Number.isFinite(next.elapsedMs) &&
@@ -364,7 +371,14 @@ export function WorldHome({ content }: { content: WorldContent }) {
   }, []);
   useEffect(() => {
     if (!enabled || ready || failed) return;
-    const timeout = window.setTimeout(onError, 15000);
+    // The old 15s watchdog could fire after WebGL had reported ready but
+    // before React committed its state under a heavily throttled GPU.
+    const galleryEntry=parseGalleryDestination(window.location.search);
+    const timeout=window.setTimeout(()=>{
+      if(rendererReadyRef.current)return;
+      console.warn("[world] renderer readiness watchdog elapsed");
+      onError();
+    },galleryEntry?45000:15000);
     return () => window.clearTimeout(timeout);
   }, [enabled, ready, failed, onError]);
   useEffect(() => {
