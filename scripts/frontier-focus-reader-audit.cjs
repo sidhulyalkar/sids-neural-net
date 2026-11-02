@@ -296,6 +296,106 @@ async function auditSourceOnlyPresentation() {
   }
 }
 
+async function auditFormatAwareEvidence() {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 1080, height: 800 }, reducedMotion: 'reduce' });
+  try {
+    const base = new URL(TARGET);
+    const snapshotResponse = await page.request.get(base.origin + '/api/frontier/feed');
+    assert(snapshotResponse.ok(), 'Format audit needs a real snapshot');
+    const snapshot = await snapshotResponse.json();
+    assert(snapshot.items?.length > 0, 'Format audit needs at least one genuine source record');
+    const original = snapshot.items[0];
+    const fixtures = [
+      {
+        id: 'frontier-format-audit-research', sourceKind: 'openalex', expected: 'research',
+        summaryLabel: 'Abstract / source excerpt', action: 'Open research record',
+        metrics: [{ label: 'citations', value: '0' }], activity: 'Citation activity',
+        sportsState: undefined,
+      },
+      {
+        id: 'frontier-format-audit-code', sourceKind: 'github', expected: 'repository',
+        summaryLabel: 'Repository description', action: 'View repository',
+        metrics: [{ label: 'stars', value: '180' }, { label: 'latency', value: '24 ms' }],
+        activity: 'Repository activity', reported: 'Numbers reported by the source',
+        sportsState: undefined,
+      },
+      {
+        id: 'frontier-format-audit-video', sourceKind: 'youtube', expected: 'video',
+        summaryLabel: 'Creator description', action: 'Watch original',
+        metrics: [], sportsState: undefined,
+      },
+      {
+        id: 'frontier-format-audit-sports', sourceKind: 'sports_state', expected: 'sports',
+        summaryLabel: 'Source coverage', action: 'View score source',
+        metrics: [{ label: 'live', value: '1' }],
+        sportsState: {
+          kind: 'scoreboard', league: 'nba', leagueLabel: 'NBA',
+          games: [{ id: 'fixture-game', date: original.publishedAt, status: 'Halftime',
+            live: true, completed: false, competitors: [
+              { name: 'Home', shortName: 'Home', abbreviation: 'H', score: '44' },
+              { name: 'Away', shortName: 'Away', abbreviation: 'A', score: '42' },
+            ] }],
+        },
+      },
+    ];
+    let currentFixture = fixtures[0];
+    await page.route('**/api/frontier/feed?latest=1', async (route) => {
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        headers: { 'X-Frontier-Live': 'cached-latest' },
+        body: JSON.stringify({
+          generatedAt: new Date().toISOString(),
+          items: [{
+            ...original, id: currentFixture.id, sourceKind: currentFixture.sourceKind,
+            summary: original.summary || 'The linked source reports the current work and its technical details.',
+            metrics: currentFixture.metrics, sportsState: currentFixture.sportsState,
+            media: { type: 'none' }, figures: [],
+          }],
+          sources: snapshot.sources,
+        }),
+      });
+    });
+    await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
+    for (const fixture of fixtures) {
+      currentFixture = fixture;
+      await page.getByRole('button', { name: 'Refresh live edition' }).click();
+      const article = page.locator('article[data-frontier-story-format="' + fixture.expected + '"]');
+      await article.waitFor({ timeout: 8000 });
+      assert.equal(await page.locator('article').count(), 1, 'Only one format-specific article is mounted');
+      assert.equal(await page.locator('figure img').count(), 0, 'Media-free fixtures must not download invented imagery');
+      assert.equal(await article.getByRole('heading', { name: fixture.summaryLabel }).count(), 1,
+        'Each format must identify the true source text category');
+      assert.equal(await article.getByRole('link', { name: fixture.action }).count(), 1,
+        'Each format must show the right source action label');
+      if (fixture.sportsState) {
+        assert.equal(await article.getByRole('region', { name: 'Source sports evidence' }).count(), 1,
+          'Actual scores must be visible without expanding a detail panel');
+        assert.match((await article.getByRole('region', { name: 'Source sports evidence' }).textContent()) || '',
+          /44\s*:\s*42/);
+      }
+      if (fixture.activity || fixture.reported) {
+        await article.locator('details').filter({ hasText: 'Data & references' }).locator('summary').click();
+        if (fixture.activity) {
+          assert.equal(await article.getByText(fixture.activity, { exact: true }).count(), 1);
+          assert.equal(await article.locator('[data-frontier-metric-kind="activity"]').count(), 1);
+        }
+        if (fixture.reported) {
+          assert.equal(await article.getByText(fixture.reported, { exact: true }).count(), 1);
+          assert.equal(await article.locator('[data-frontier-metric-kind="reported"]').count(), 1);
+        } else {
+          assert.equal(await article.locator('[data-frontier-metric-kind="reported"]').count(), 0,
+            'Citation counts and popularity must never be called research results');
+        }
+      }
+    }
+    return { formatCases: fixtures.length, sourceAlignedLabels: true, separatedActivityMetrics: true };
+  } finally {
+    await page.close();
+    await browser.close();
+  }
+}
+
 async function main() {
   const results = [];
   results.push(await audit(1440, 900));
@@ -303,6 +403,7 @@ async function main() {
   results.push(await audit(320, 700));
   results.push(await auditBackgroundLatest());
   results.push(await auditSourceOnlyPresentation());
+  results.push(await auditFormatAwareEvidence());
   console.log('FRONTIER focus reader audit:', JSON.stringify(results));
 }
 
