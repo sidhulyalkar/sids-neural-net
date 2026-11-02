@@ -27,6 +27,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   geometries.push(box);
   const stone = new THREE.MeshStandardMaterial({
     vertexColors: true, side: THREE.DoubleSide, roughness: 0.96,
+    depthWrite:true, depthTest:true,
   });
   const wood = new THREE.MeshStandardMaterial({ color: "#58402d", roughness: .96 });
   const edge = new THREE.MeshStandardMaterial({ color: "#9b805d", roughness: .9 });
@@ -142,12 +143,16 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   geometries.push(stoneGeometry);
   const stoneMesh=new THREE.Mesh(stoneGeometry,stone);
   stoneMesh.name="opaque-gallery-stone-shell";
+  stoneMesh.frustumCulled=false;
+  stoneMesh.renderOrder=0;
   interior.add(stoneMesh);
 
   // The atlas is a SINGLE GPU texture. Each failed thumbnail only replaces its
   // own tile with a labelled fallback, never hiding other photographs.
   const slots=galleryPhotoSlots();
-  const columns=7,tileW=256,tileH=208;
+  // 2688² atlas supplies safe image fallbacks while nearby photos use their
+  // ORIGINAL high-resolution web files, loaded only around the viewer.
+  const columns=7,tileW=384,tileH=384;
   const canvas=document.createElement("canvas");
   canvas.width=columns*tileW;canvas.height=columns*tileH;
   const ctx=canvas.getContext("2d");
@@ -155,24 +160,57 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     for(let i=0;i<slots.length;i++){
       const col=i%columns,row=Math.floor(i/columns);
       ctx.fillStyle="#252923";ctx.fillRect(col*tileW,row*tileH,tileW,tileH);
-      ctx.fillStyle="#c9b08a";ctx.font="12px sans-serif";
-      ctx.fillText(slots[i].id,col*tileW+12,row*tileH+tileH-10);
+      // Intentionally no titles or file numbers beneath wall-mounted art.
     }
   }
   const atlas=new THREE.CanvasTexture(canvas);
   atlas.colorSpace=THREE.SRGBColorSpace;
   atlas.minFilter=THREE.LinearMipmapLinearFilter;
-  atlas.anisotropy=4;
+  atlas.anisotropy=8;
   textures.push(atlas);
-  const photoMat=new THREE.MeshBasicMaterial({map:atlas,side:THREE.DoubleSide});
+  const photoMat=new THREE.MeshBasicMaterial({
+    map:atlas,side:THREE.DoubleSide,depthWrite:true,depthTest:true,
+    polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,
+  });
   materials.push(photoMat);
   const photoTargets:THREE.Mesh[]=[];
+  const hdMeshes:THREE.Mesh[]=[];
+  const hdResources=new Map<number,{texture:THREE.Texture;material:THREE.Material}>();
+  const loading=new Set<number>();
+  const photoEntries=new Map(visualArchive.map(p=>[p.id,p]));
+  let disposed=false;
+  let lastFocusedRoom=-1;
+  const highResCap=8;
+  // Shared plane UVs for full-resolution overlays: never sample a small atlas
+  // tile from a native photo texture by mistake.
+  const fullUvs=[0,0,1,0,1,1,0,0,1,1,0,1];
   slots.forEach((slot,i)=>{
     const imageHeight=2.15;
     const normalX=Math.sin(slot.yaw),normalZ=Math.cos(slot.yaw);
-    const px=slot.x+normalX*.16,pz=slot.z+normalZ*.16;
-    frameBatch.add(box,"#a18159",v(slot.x,slot.y,slot.z),
-      v(slot.width+.22,imageHeight+.24,.21),new THREE.Euler(0,slot.yaw,0));
+    const px=slot.x+normalX*.275,pz=slot.z+normalZ*.275;
+    const front = (dx:number,dy:number,offset:number,sx:number,sy:number,sz:number,color:string)=>{
+      const x=slot.x+Math.cos(slot.yaw)*dx+Math.sin(slot.yaw)*offset;
+      const z=slot.z-Math.sin(slot.yaw)*dx+Math.cos(slot.yaw)*offset;
+      frameBatch.add(box,color,v(x,slot.y+dy,z),v(sx,sy,sz),
+        new THREE.Euler(0,slot.yaw,0));
+    };
+    // A layered carved walnut/antique-brass frame, crowned at the top.
+    // All pieces are baked into ONE draw call, not 49 independent material sets.
+    front(0,0,0,slot.width+.40,imageHeight+.48,.19,"#543b2b");
+    front(0,0,.11,slot.width+.31,imageHeight+.39,.09,"#b79055");
+    front(0,0,.15,slot.width+.12,imageHeight+.17,.055,"#221a14");
+    for(const sign of [-1,1]){
+      front(sign*(slot.width/2+.135),0,.20,.075,imageHeight+.31,.07,"#e1b976");
+      front(0,sign*(imageHeight/2+.13),.20,slot.width+.24,.07,.07,"#e1b976");
+      for(const vSign of [-1,1]){
+        front(sign*(slot.width/2+.16),vSign*(imageHeight/2+.16),
+          .23,.14,.14,.095,"#f0d198");
+      }
+      // Symmetrical carved wing details above and below the photographs.
+      front(sign*.29,sign*(imageHeight/2+.20),.25,.35,.075,.08,"#aa7843");
+    }
+    front(0,imageHeight/2+.22,.245,.19,.19,.10,"#eed095");
+    front(0,-imageHeight/2-.22,.245,.17,.13,.09,"#eed095");
     const col=i%columns,row=Math.floor(i/columns);
     const u0=(col+.012)/columns,u1=(col+.988)/columns;
     const v0=1-(row+.988)/columns,v1=1-(row+.012)/columns;
@@ -191,11 +229,30 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     const m=new THREE.Mesh(geometry,photoMat);
     m.name="gallery-"+slot.id;
     m.userData.discovery=slot.id;
+    m.frustumCulled=false;
+    m.renderOrder=2;
     photoTargets.push(m);
     interior.add(m);
+    const hiGeo=geometry.clone();
+    hiGeo.setAttribute("uv",new THREE.Float32BufferAttribute(fullUvs,2));
+    hiGeo.translate(normalX*.018,0,normalZ*.018);
+    geometries.push(hiGeo);
+    const hd=new THREE.Mesh(hiGeo,new THREE.MeshBasicMaterial({
+      color:"#ffffff",side:THREE.DoubleSide,depthWrite:true,depthTest:true,
+    }));
+    materials.push(hd.material as THREE.Material);
+    hd.visible=false;
+    hd.frustumCulled=false;
+    hd.renderOrder=3;
+    hd.name="high-resolution-"+slot.id;
+    hdMeshes.push(hd);
+    interior.add(hd);
   });
   const frames=frameBatch.finish();geometries.push(frames);
-  interior.add(new THREE.Mesh(frames,stone));
+  const frameMesh=new THREE.Mesh(frames,stone);
+  frameMesh.frustumCulled=false;
+  frameMesh.renderOrder=1;
+  interior.add(frameMesh);
 
   for(let i=0;i<GALLERY_ROOMS.length;i+=2){
     const r=GALLERY_ROOMS[i];
@@ -209,9 +266,55 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     plank(interior,r.x,bottom+3.55,r.z,.34,.17,.34,material);
   }
   // Start only a bounded number of decodes concurrently.
-  let disposed=false;
-  const entries=new Map(visualArchive.map(p=>[p.id,p]));
   let next=0,loaded=0;
+  // Only keep full-resolution images in the nearby rooms. Offscreen images
+  // remain legible at atlas quality and never flash blank while HD loads.
+  function updateNearPhotos(player:{x:number;z:number}){
+    let focused=0,best=Infinity;
+    for(const [i,room] of GALLERY_ROOMS.entries()){
+      const d=Math.hypot(player.x-room.x,player.z-room.z);
+      if(d<best){best=d;focused=i;}
+    }
+    if(focused===lastFocusedRoom)return;
+    lastFocusedRoom=focused;
+    const candidates=slots.map((slot,i)=>({
+      i,dist:Math.hypot(slot.x-player.x,slot.z-player.z)
+    })).sort((a,b)=>a.dist-b.dist)
+      .filter(o=>o.dist<14).slice(0,highResCap);
+    const selected=new Set(candidates.map(o=>o.i));
+    for(const [i,resource] of hdResources){
+      if(selected.has(i))continue;
+      hdMeshes[i].visible=false;
+      hdMeshes[i].material=materials[materials.length-1]; // placeholder is never displayed
+      resource.material.dispose();resource.texture.dispose();
+      hdResources.delete(i);
+    }
+    for(const {i} of candidates){
+      if(hdResources.has(i)||loading.has(i))continue;
+      const entry=photoEntries.get(slots[i].id);
+      if(!entry)continue;
+      loading.add(i);
+      const image=new Image();
+      image.decoding="async";image.src=entry.src;
+      void image.decode().then(()=>{
+        if(disposed||lastFocusedRoom<0)return;
+        const tex=new THREE.Texture(image);
+        tex.colorSpace=THREE.SRGBColorSpace;
+        tex.minFilter=THREE.LinearMipmapLinearFilter;
+        tex.magFilter=THREE.LinearFilter;
+        tex.anisotropy=8;
+        tex.needsUpdate=true;
+        const material=new THREE.MeshBasicMaterial({
+          map:tex,side:THREE.DoubleSide,depthWrite:true,
+          polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,
+        });
+        hdResources.set(i,{texture:tex,material});
+        hdMeshes[i].material=material;
+        hdMeshes[i].visible=true;
+      }).catch(()=>{}).finally(()=>loading.delete(i));
+    }
+  }
+  const entries=photoEntries;
   const worker=async()=>{
     while(next<slots.length && !disposed){
       const i=next++,entry=entries.get(slots[i].id);
@@ -222,13 +325,11 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
         await image.decode();
         if(disposed)return;
         const tx=i%columns*tileW,ty=Math.floor(i/columns)*tileH;
-        const availW=tileW-18,availH=tileH-34;
+        const availW=tileW-12,availH=tileH-12;
         const scale=Math.min(availW/image.naturalWidth,availH/image.naturalHeight);
         const w=image.naturalWidth*scale,h=image.naturalHeight*scale;
         ctx.fillStyle="#252923";ctx.fillRect(tx,ty,tileW,tileH);
-        ctx.drawImage(image,tx+(tileW-w)/2,ty+(availH-h)/2,w,h);
-        ctx.fillStyle="#cdb38a";ctx.font="12px sans-serif";
-        ctx.fillText(slots[i].id,tx+12,ty+tileH-10);
+        ctx.drawImage(image,tx+(tileW-w)/2,ty+(tileH-h)/2,w,h);
         loaded++;
       }catch{/* The labelled fallback for this image remains visible. */}
     }
@@ -240,8 +341,14 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     exterior, interior, photoTargets, stoneMesh,
     photoCount:slots.length,
     loadedPhotos:()=>loaded,
+    highResolutionPhotos:()=>hdResources.size,
+    updateNearPhotos,
     dispose(){
       disposed=true;
+      for(const resource of hdResources.values()){
+        resource.material.dispose();resource.texture.dispose();
+      }
+      hdResources.clear();
       exterior.removeFromParent();interior.removeFromParent();
       geometries.forEach(g=>g.dispose());
       materials.forEach(m=>m.dispose());
