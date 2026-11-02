@@ -8,7 +8,7 @@ import {
   galleryDoorSide, galleryPhotoSlots, galleryConstrainMove,
   galleryWalkable, galleryNearShaft, galleryShaftTopY, shrineReachable,
   galleryFloorFootprint, galleryDoorThresholds, galleryCeilingTiles,
-  GALLERY_FLOOR_GEOMETRY,
+  GALLERY_FLOOR_GEOMETRY, galleryStepWalk,
 } from "../lib/world/hiddenShrineGallery";
 
 test("the shrine is a discoverable WEST-coast underwater entrance near the UCSD trident",()=>{
