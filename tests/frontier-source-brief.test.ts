@@ -37,6 +37,16 @@ test('long summaries preserve every source sentence and its original order', () 
   assert(brief.details.length > 0);
 });
 
+test('long unpunctuated source excerpts remain complete without overwhelming the first screen', () => {
+  const original = ('The researchers documented cortical recordings with held-out benchmarks and explicit limitations while ' +
+    'explaining their preprocessing methodology and the observed variability between recordings ').repeat(8).trim();
+  const brief = buildFrontierSourceBrief(original, 'openalex');
+  assert.ok(brief.lead.length <= 360, 'Visible lead should remain bounded for long source run-ons');
+  assert.ok(brief.details.length >= 2, 'Remaining claims should be available as source context');
+  assert.equal([brief.lead, ...brief.details].join(' '), original,
+    'Presentation must preserve every word in original order');
+});
+
 test('source figures are deduplicated, attributed and capped without generating extra media', () => {
   const result = frontierSourceFigures({
     ...item,
