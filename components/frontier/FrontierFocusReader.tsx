@@ -509,6 +509,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
               <figure className={styles.visual} data-frontier-figure-count={figures.length}>
                 <div className={styles.visualViewport}>
                   {canShowImage && image ? (
+                    <>
+                      {!imageReady ? <div className={styles.imagePlaceholder} aria-hidden="true" /> : null}
                     <Image
                       unoptimized
                       src={image}
@@ -517,7 +519,9 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                       height={760}
                       sizes="(max-width: 900px) 100vw, 56vw"
                       priority={position === 0 && figureIndex === 0}
+                      key={imageKey}
                       className={styles.heroImage}
+                      data-frontier-media-ready={imageReady ? 'true' : 'false'}
                       style={nativeImageWidth && nativeImageWidth < 720 ? { maxWidth: nativeImageWidth + 'px' } : undefined}
                       onLoad={(event) => {
                         const width = event.currentTarget.naturalWidth;
@@ -526,9 +530,11 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                           return;
                         }
                         setNativeImageWidth(width);
+                        setLoadedImageKey(imageKey);
                       }}
                       onError={() => setFailedImages((current) => current.includes(image) ? current : [...current, image])}
                     />
+                    </>
                   ) : (
                     <div className={styles.editorial} aria-label="Editorial article cover">
                       <span className={styles.editorialKicker}>{item.lane.replace(/_/g, ' ')}</span>
@@ -543,7 +549,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                       <button key={figure.url} type="button" aria-label={'View source figure ' + (index + 1)}
                         aria-pressed={index === figureIndex}
                         onClick={() => { readerInteractedRef.current = true; setFigureIndex(index); setFailedImages([]);
-    setNativeImageWidth(null); }}>
+                          setLoadedImageKey(null); setNativeImageWidth(null); }}>
                         {String(index + 1).padStart(2, '0')}
                       </button>
                     ))}
@@ -562,51 +568,20 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                 onTouchStart={() => { readerInteractedRef.current = true; }}>
                 <section className={styles.briefSection} aria-label="Source-grounded summary">
                   <p className={styles.summary}>{sourceBrief.lead || 'This source did not include a synopsis. Read the original for the full story.'}</p>
-                  {sourceBrief.hasFullerContext ? (
+                  {sourceBrief.details.length ? (
+                    <div className={styles.sourcePoints}>
+                      <h2>From the source</h2>
+                      <ul>{sourceBrief.details.slice(0, 2).map((part, index) =>
+                        <li key={index}>{part}</li>)}</ul>
+                    </div>
+                  ) : null}
+                  {sourceBrief.details.length > 2 ? (
                     <details className={styles.sourceDetail}>
-                      <summary>More context</summary>
-                      <div className={styles.detailBody}>{sourceBrief.details.map((part, index) => <p key={index}>{part}</p>)}</div>
+                      <summary>Read more source context</summary>
+                      <div className={styles.detailBody}>{sourceBrief.details.slice(2).map((part, index) => <p key={index}>{part}</p>)}</div>
                     </details>
                   ) : null}
                 </section>
-
-                <div className={styles.interactionArea}>
-                  <div className={styles.ratingZone}>
-                    <button
-                      type="button"
-                      className={styles.holdButton}
-                      data-frontier-balloon={holdValue !== null ? 'inflating' : (rating ? 'rated' : 'idle')}
-                      style={{ ['--orb-scale' as string]: orbScale, ['--orb-progress' as string]: orbProgress }}
-                      disabled={!item}
-                      aria-label="Hold to rate interest from one to ten; release to save"
-                      onPointerDown={onHoldPointerDown}
-                      onPointerUp={finishHold}
-                      onPointerCancel={cancelHold}
-                      onLostPointerCapture={cancelHold}
-                      onKeyDown={onHoldKeyDown}
-                      onKeyUp={onHoldKeyUp}
-                      onContextMenu={(event) => event.preventDefault()}
-                    >
-                      <span className={styles.orbRing} aria-hidden="true"><span className={styles.orbCore}>
-                        <span className={styles.orbValue}>{currentVisualGrade === null || currentVisualGrade === undefined ? '✧' : currentVisualGrade}</span>
-                        <span className={styles.orbDenominator}>{currentVisualGrade === null || currentVisualGrade === undefined ? '' : '/10'}</span>
-                      </span></span>
-                      <span className={styles.orbCopy}>{holdValue !== null ? 'Release to save'
-                        : rating ? rating + '/10 · Hold to revise' : 'Hold to rate'}</span>
-                    </button>
-                    <details className={styles.precision} onToggle={() => { readerInteractedRef.current = true; }}>
-                      <summary>Choose exact score</summary>
-                      <div className={styles.precisionContent}>
-                        <label htmlFor="frontier-interest-slider">Interest: {sliderScore}/10</label>
-                        <input id="frontier-interest-slider" type="range" min={1} max={10} step={1}
-                          value={sliderScore}
-                          onChange={(event) => { if (item) setSliderDraft({ id: item.id, value: Number(event.target.value) }); }} />
-                        <button type="button" onClick={() => commitRating(sliderScore, 'slider')}>Save</button>
-                      </div>
-                    </details>
-                    <span className={styles.notice} role="status" aria-live="polite">{notice}</span>
-                  </div>
-                </div>
 
                 {item.metrics?.length || item.sportsState || item.artifacts?.length ? (
                   <details className={styles.evidenceDetails}>
@@ -666,6 +641,44 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                     {isSaved ? 'Saved' : 'Save'}
                   </button>
                   <span className={styles.sourceDate}>{sourceDate(item.publishedAt)}</span>
+                <div className={styles.interactionArea}>
+                  <div className={styles.ratingZone}>
+                    <button
+                      type="button"
+                      className={styles.holdButton}
+                      data-frontier-balloon={holdValue !== null ? 'inflating' : (rating ? 'rated' : 'idle')}
+                      style={{ ['--orb-scale' as string]: orbScale, ['--orb-progress' as string]: orbProgress }}
+                      disabled={!item}
+                      aria-label="Hold to rate interest from one to ten; release to save"
+                      onPointerDown={onHoldPointerDown}
+                      onPointerUp={finishHold}
+                      onPointerCancel={cancelHold}
+                      onLostPointerCapture={cancelHold}
+                      onKeyDown={onHoldKeyDown}
+                      onKeyUp={onHoldKeyUp}
+                      onContextMenu={(event) => event.preventDefault()}
+                    >
+                      <span className={styles.orbRing} aria-hidden="true"><span className={styles.orbCore}>
+                        <span className={styles.orbValue}>{currentVisualGrade === null || currentVisualGrade === undefined ? '✧' : currentVisualGrade}</span>
+                        <span className={styles.orbDenominator}>{currentVisualGrade === null || currentVisualGrade === undefined ? '' : '/10'}</span>
+                      </span></span>
+                      <span className={styles.orbCopy}>{holdValue !== null ? 'Release to save'
+                        : rating ? rating + '/10 · Hold to revise' : 'Hold to rate'}</span>
+                    </button>
+                    <details className={styles.precision} onToggle={() => { readerInteractedRef.current = true; }}>
+                      <summary>Choose exact score</summary>
+                      <div className={styles.precisionContent}>
+                        <label htmlFor="frontier-interest-slider">Interest: {sliderScore}/10</label>
+                        <input id="frontier-interest-slider" type="range" min={1} max={10} step={1}
+                          value={sliderScore}
+                          onChange={(event) => { if (item) setSliderDraft({ id: item.id, value: Number(event.target.value) }); }} />
+                        <button type="button" onClick={() => commitRating(sliderScore, 'slider')}>Save</button>
+                      </div>
+                    </details>
+                    <span className={styles.notice} role="status" aria-live="polite">{notice}</span>
+                  </div>
+                </div>
+
                 </div>
               </div>
             </div>
