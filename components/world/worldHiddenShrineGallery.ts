@@ -100,7 +100,16 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   }
   for (const [i,r] of GALLERY_ROOMS.entries()) {
     add(r.x,bottom-.22,r.z,2*h+.18,.45,2*h+.18,"#494d46");
-    add(r.x,top+.28,r.z,2*h+.28,.62,2*h+.28,"#353b37");
+    if(i===0){
+      // Keep a 2.8m square opening directly under the physical shrine shaft.
+      const margin=(2*h-2.8)/2;
+      for(const side of [-1,1]){
+        add(r.x+side*(1.4+margin/2),top+.28,r.z,
+          margin,.62,2*h+.28,"#353b37");
+        add(r.x,top+.28,r.z+side*(1.4+margin/2),
+          2.8,.62,margin,"#353b37");
+      }
+    }else add(r.x,top+.28,r.z,2*h+.28,.62,2*h+.28,"#353b37");
     for (const side of ["north","east","south","west"] as const)
       wall(r,side,galleryDoorSide(i,side));
     // Natural dressed-stone shoulders, subtle variation in place of cyan glass.
@@ -124,6 +133,11 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     add(e.x+side*1.5,top+shaftHeight/2,e.z,.32,shaftHeight,3.2,"#625a4b");
     add(e.x,top+shaftHeight/2,e.z+side*1.5,3.2,shaftHeight,.32,"#625a4b");
   }
+  // The last frame has its own freestanding stone back inside the vestibule.
+  const entrancePhoto=galleryPhotoSlots().at(-1)!;
+  batched.add(box,"#5c584e",
+    v(entrancePhoto.x,SHRINE_GALLERY.floorY+1.35,entrancePhoto.z),
+    v(1.82,2.7,.36),new THREE.Euler(0,entrancePhoto.yaw,0));
   const stoneGeometry=batched.finish();
   geometries.push(stoneGeometry);
   const stoneMesh=new THREE.Mesh(stoneGeometry,stone);
@@ -180,9 +194,6 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     photoTargets.push(m);
     interior.add(m);
   });
-  // The extra image is mounted on a small free-standing stone slab.
-  const last=slots.at(-1)!;
-  add(last.x,bottom+1.3,last.z,.4,2.6,1.65,"#5c584e",-Math.PI/4);
   const frames=frameBatch.finish();geometries.push(frames);
   interior.add(new THREE.Mesh(frames,stone));
 
@@ -226,7 +237,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     if(!disposed)atlas.needsUpdate=true;
   });
   return {
-    exterior, interior, photoTargets,
+    exterior, interior, photoTargets, stoneMesh,
     photoCount:slots.length,
     loadedPhotos:()=>loaded,
     dispose(){
