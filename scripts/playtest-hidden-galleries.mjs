@@ -51,6 +51,7 @@ try{
   assert.equal(await scene.getAttribute("data-hidden-gallery-locomotion"),"walking");
   const initial=await scene.getAttribute("data-player");
   assert.equal(await scene.getAttribute("data-hidden-gallery-camera"),"eye-level");
+  assert.equal(await scene.getAttribute("data-hidden-gallery-fov"),"68.0");
   await page.screenshot({path:path.join(out,"gallery-start.png")});
   // The same accessible F interaction aligns each photograph to its 2.45m
   // standing position. Escape restores uninterrupted gallery walking.
@@ -61,12 +62,14 @@ try{
     return !!c?.dataset.hiddenGalleryPhotoFocus;
   },null,{timeout:10000});
   const focused=await scene.getAttribute("data-hidden-gallery-photo-focus");
+  assert.equal(await scene.getAttribute("data-hidden-gallery-fov"),"74.0");
   assert.match(focused,/^photo-\d{3}$/);
   await page.screenshot({path:path.join(out,"gallery-photo-focus.png")});
   await page.keyboard.press("Escape");
   await page.waitForFunction(()=>{
     const c=document.querySelector("canvas");
-    return c?.dataset.hiddenGalleryPhotoFocus==="";
+    return c?.dataset.hiddenGalleryPhotoFocus===""&&
+      c?.dataset.hiddenGalleryFov==="68.0";
   },null,{timeout:10000});
   await page.keyboard.down("w");
   await page.waitForTimeout(850);
