@@ -6879,6 +6879,8 @@ export function createWorld(
       hideUpland?submergedSurfaceDecor.length:0);
     hiddenShrineGallery.exterior.visible=aquatic!=="land" &&
       distance(player,SHRINE_GALLERY.entrance)<27;
+    if(galleryPhase==="inside")hiddenShrineGallery.updateNearPhotos(player);
+    canvas.dataset.hiddenGalleryHD=String(hiddenShrineGallery.highResolutionPhotos());
     hiddenShrineGallery.interior.visible=galleryPhase!=="outside";
     renderer.render(scene, camera);
     // This per-mode diagnostic is sampled from the *current underwater
