@@ -30,7 +30,7 @@ export function buildFrontierSourceBrief(summary: string, sourceKind = ''): Fron
   const lead: string[] = [];
   let total = 0;
   let index = 0;
-  while (index < sentences.length && (total < 360 || lead.length === 0) && lead.length < 3) {
+  while (index < sentences.length && (total < 220 || lead.length === 0) && lead.length < 2) {
     lead.push(sentences[index]);
     total += sentences[index].length;
     index += 1;
