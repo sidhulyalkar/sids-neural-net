@@ -32,6 +32,14 @@ async function audit(width, height) {
     assert(firstPaintMs <= FIRST_PAINT_BUDGET_MS, 'First readable story exceeded budget');
     const heading = await page.locator('article h1').first().textContent();
     assert(heading?.trim(), 'The first article must have a real title on initial navigation');
+    // Capture the *real archived first story* in addition to the controlled
+    // cross-format fixtures. This makes image sizing and textual hierarchy
+    // reviewable without a hand-maintained or fabricated article.
+    mkdirSync('artifacts/browser-smoke/frontier-first-story', { recursive: true });
+    await page.screenshot({
+      path: 'artifacts/browser-smoke/frontier-first-story/' + width + '-' + height + '.png',
+      fullPage: true, animations: 'disabled',
+    });
     assert.equal(await page.locator('article').count(), 1, 'Never mount a whole off-screen feed');
     assert((await page.locator('figure img').count()) <= 1, 'Figure tabs cannot mount every source image');
     assert((await page.locator('figure img').count()) <= 1, 'Only the current source image is mounted');
