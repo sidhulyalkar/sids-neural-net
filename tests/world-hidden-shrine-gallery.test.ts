@@ -8,7 +8,8 @@ import {
   galleryDoorSide, galleryPhotoSlots, galleryConstrainMove,
   galleryWalkable, galleryNearShaft, galleryShaftTopY, shrineReachable,
   galleryFloorFootprint, galleryDoorThresholds, galleryCeilingTiles,
-  GALLERY_FLOOR_GEOMETRY, galleryStepWalk,
+  GALLERY_FLOOR_GEOMETRY, galleryStepWalk, GALLERY_VIEWING,
+  galleryPhotoViewpoint, galleryPhotoClearance,
 } from "../lib/world/hiddenShrineGallery";
 
 test("the shrine is a discoverable WEST-coast underwater entrance near the UCSD trident",()=>{
@@ -189,6 +190,66 @@ test("all actual archive photographs appear exactly once in the hidden cave",()=
     assert.ok(photo.y<SHRINE_GALLERY.roofY);
     assert.ok(photo.y>SHRINE_GALLERY.floorY);
   }
+});
+
+test("all 49 photographs have the same eye-level straight-on viewing pose",()=>{
+  const slots=galleryPhotoSlots();
+  assert.equal(slots.length,49);
+  const v=GALLERY_VIEWING;
+  assert.ok(v.standOff>=2.2&&v.standOff<=3.0);
+  const degrees=Math.atan2(v.imageCenterAboveFloor-v.eyeHeight,v.standOff)*180/Math.PI;
+  assert.ok(Math.abs(degrees)<8,"Art hangs near the visitor's eye line");
+  for(const slot of slots){
+    assert.equal(slot.width,v.imageWidth);
+    assert.equal(slot.y,SHRINE_GALLERY.floorY+v.imageCenterAboveFloor);
+    const position=galleryPhotoViewpoint(slot);
+    assert.ok(galleryWalkable(position),slot.id+" has a walkable front-on viewpoint");
+    assert.ok(galleryPhotoClearance(slot),slot.id+" has no blocked viewing corridor");
+    const delta={x:position.x-slot.x,z:position.z-slot.z};
+    assert.ok(Math.abs(Math.hypot(delta.x,delta.z)-v.standOff)<1e-8);
+    const normal={x:Math.sin(slot.yaw),z:Math.cos(slot.yaw)};
+    assert.ok(Math.abs(delta.x/v.standOff-normal.x)<1e-9);
+    assert.ok(Math.abs(delta.z/v.standOff-normal.z)<1e-9);
+    const room=GALLERY_ROOMS[slot.roomIndex];
+    const inner=SHRINE_GALLERY.halfRoom-.46;
+    assert.ok(Math.abs(position.x-room.x)+v.clearRadius<=inner+1e-9);
+    assert.ok(Math.abs(position.z-room.z)+v.clearRadius<=inner+1e-9);
+  }
+});
+
+test("frames are outside door apertures and cannot block corridor approaches",()=>{
+  const v=GALLERY_VIEWING;
+  const slots=galleryPhotoSlots();
+  for(const slot of slots){
+    if(!galleryDoorSide(slot.roomIndex,slot.side))continue;
+    const room=GALLERY_ROOMS[slot.roomIndex];
+    const lateral=slot.side==="north"||slot.side==="south";
+    const offset=Math.abs(lateral?slot.x-room.x:slot.z-room.z);
+    const nearestFrameEdge=offset-slot.width/2-v.frameOutsideArtwork;
+    assert.ok(nearestFrameEdge>SHRINE_GALLERY.doorHalfWidth+.08,
+      slot.id+" frame must leave meaningful clear space at doorway");
+  }
+  const double=slots.filter(s=>s.roomIndex===0&&s.side==="south");
+  assert.deepEqual(double.map(s=>s.id).sort(),["photo-003","photo-049"]);
+  const separation=Math.abs(double[0].x-double[1].x);
+  assert.ok(separation>v.imageWidth+2*v.frameOutsideArtwork+.4,
+    "Paired photos have independent frame clearance");
+  const lineOfSightSpacing=Math.hypot(
+    galleryPhotoViewpoint(double[0]).x-galleryPhotoViewpoint(double[1]).x,
+    galleryPhotoViewpoint(double[0]).z-galleryPhotoViewpoint(double[1]).z,
+  );
+  assert.ok(lineOfSightSpacing>2*v.clearRadius+.5);
+  assert.ok(!slots.some(s=>s.id==="photo-049"&&Math.abs(s.yaw)!==Math.PI),
+    "The 49th picture must be straight wall-mounted, not diagonal freestanding");
+});
+
+test("no freestanding plinth or corner columns occlude the equal-view artwork",()=>{
+  const source=readFileSync(
+    new URL("../components/world/worldHiddenShrineGallery.ts",import.meta.url),"utf8");
+  assert.match(source,/GALLERY_VIEWING\.imageHeight/);
+  assert.doesNotMatch(source,/const entrancePhoto=galleryPhotoSlots/);
+  assert.doesNotMatch(source,/for\(const dx of \[-h\+\.38,h-\.38\]\)/);
+  assert.match(source,/All 49 frames are wall-mounted|all 49 frames are wall-mounted/i);
 });
 
 test("render integration keeps opaque wall architecture and cavern-specific dive logic",()=>{
