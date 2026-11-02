@@ -3975,6 +3975,8 @@ export function createWorld(
   }
   function contextLost(e: Event) {
     e.preventDefault();
+    console.error("[world] WebGL context lost; gallery phase:",galleryPhase,
+      "resident native photos:",hiddenShrineGallery.highResolutionPhotos());
     callbacks.onError();
   }
   canvas.addEventListener("pointerdown", onDown);
