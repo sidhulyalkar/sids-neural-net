@@ -91,12 +91,14 @@ export function buildFrontierStoryPresentation(item: FrontierItem): FrontierStor
     research: ['Abstract / source excerpt', 'More research context', 'Open research source', 'Research source'],
     repository: ['Repository description', 'More technical context', 'View repository', 'Repository'],
     video: ['Creator description', 'More creator context', 'Watch original', 'Creator'],
-    sports: ['Source coverage', 'More source context', 'View official source', 'Scores / standings'],
+    sports: ['Source coverage', 'More source context', 'View score source', 'Scores / standings'],
     discussion: ['Linked discussion excerpt', 'More discussion context', 'Open discussion', 'Community'],
     game: ['Source description', 'More source context', 'View original', 'Game source'],
     article: ['Source overview', 'More source context', 'Read original', 'Publisher'],
   } as const;
-  const [summaryLabel, detailLabel, sourceActionLabel, sourceMetaLabel] = sections[format];
+  const [summaryLabel, detailLabel, defaultSourceActionLabel, sourceMetaLabel] = sections[format];
+  const sourceActionLabel = item.sourceKind === 'openalex'
+    ? 'Open research record' : defaultSourceActionLabel;
   let evidenceNote: string | undefined;
   if (PREPRINT.has(item.sourceKind)) {
     evidenceNote = 'Preprint source · peer review not established by this record';
