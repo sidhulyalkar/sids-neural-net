@@ -83,7 +83,7 @@ test("render integration keeps opaque wall architecture and cavern-specific dive
   assert.match(scene,/sealed-stone-photo-gallery/);
   assert.match(scene,/opaque-gallery-stone-shell/);
   assert.match(scene,/CanvasTexture/);
-  assert.doesNotMatch(scene,/glass|transparent:\s*true|opacity:\s*0\.\d/i);
+  assert.doesNotMatch(scene,/MeshPhysicalMaterial|transmission:|transparent:\s*true|opacity:\s*0\.\d/i);
   assert.match(runtime,/galleryPhase==="descending"/);
   assert.match(runtime,/galleryConstrainMove/);
   assert.match(runtime,/hiddenShrineGallery\.interior\.visible=galleryPhase!=="outside"/);
