@@ -548,6 +548,20 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
               </div>
               <h1 ref={headlineRef} tabIndex={-1}>{item.title}</h1>
               {item.authors?.length ? <p className={styles.byline}>{item.authors.slice(0, 3).join(', ')}</p> : null}
+          <nav className={styles.navigation} aria-label="Article navigation">
+            <button type="button" className={styles.previous} data-frontier-previous="true"
+              onClick={() => move(-1)} disabled={position === 0 || loading}
+              aria-label="Previous article" title="Previous article">
+              <ArrowLeft size={22} aria-hidden="true" /><span className={styles.srOnly}>Back</span>
+            </button>
+            <button type="button" className={styles.next} data-frontier-next="true"
+              aria-label={hasNext ? 'Next article' : 'Get fresh edition'}
+              onClick={() => hasNext ? move(1) : void retrieve(activeQuery, true)}
+              disabled={!item || loading} title={hasNext ? 'Next article' : 'Get fresh edition'}>
+              <span className={styles.srOnly}>{hasNext ? 'Next' : 'New edition'}</span>
+              <ArrowRight size={22} aria-hidden="true" />
+            </button>
+          </nav>
             </div>
 
             <div className={styles.storyBody}
@@ -738,20 +752,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
               </div>
             </div>
           </article>
-          <nav className={styles.navigation} aria-label="Article navigation">
-            <button type="button" className={styles.previous} data-frontier-previous="true"
-              onClick={() => move(-1)} disabled={position === 0 || loading}
-              aria-label="Previous article" title="Previous article">
-              <ArrowLeft size={22} aria-hidden="true" /><span className={styles.srOnly}>Back</span>
-            </button>
-            <button type="button" className={styles.next} data-frontier-next="true"
-              aria-label={hasNext ? 'Next article' : 'Get fresh edition'}
-              onClick={() => hasNext ? move(1) : void retrieve(activeQuery, true)}
-              disabled={!item || loading} title={hasNext ? 'Next article' : 'Get fresh edition'}>
-              <span className={styles.srOnly}>{hasNext ? 'Next' : 'New edition'}</span>
-              <ArrowRight size={22} aria-hidden="true" />
-            </button>
-          </nav>
+
         </div>
       ) : (
         <div className={styles.empty}>
