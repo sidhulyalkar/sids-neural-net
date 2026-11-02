@@ -38,8 +38,9 @@ function focusRuntimeWindow(iframe: HTMLIFrameElement | null) {
   try {
     const canvas = iframe.contentDocument?.querySelector('canvas');
     if (canvas instanceof HTMLElement) {
-      // Stretchicorn / packed runtimes bind onkeydown on window, but also pause on
-      // window blur. Keeping the canvas focused keeps key events inside the frame.
+      // Packed runtimes may dynamically replace the originally focusable canvas.
+      // Restore keyboard focusability before moving focus into the iframe.
+      if (canvas.tabIndex < 0) canvas.tabIndex = 0;
       canvas.focus({ preventScroll: true });
     } else {
       iframe.contentWindow?.focus();
