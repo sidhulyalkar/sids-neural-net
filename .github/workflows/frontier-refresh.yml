@@ -82,6 +82,7 @@ jobs:
             content/frontier/latest.json
             content/frontier/discovery-ledger.json
             artifacts/frontier-slate/counterfactual.json
+            artifacts/frontier-editorial-review/rejected-candidates.json
             artifacts/frontier-editorial-review/sample.json
             artifacts/frontier-editorial-review/sample.csv
             artifacts/frontier-editorial-review/labels.template.json
