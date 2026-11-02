@@ -42,6 +42,26 @@ async function audit(width, height) {
       'An old snapshot may trigger at most one nonblocking cached-latest lookup');
 
     // Nav labels differ visually across sizes; use the stable accessible name.
+    // Contents is only a navigational index: it never mounts a second article
+    // or additional figure, and jumping deep in the edition preserves order.
+    const contentsToggle = page.getByRole('button', { name: 'Browse edition' });
+    await contentsToggle.click();
+    assert.equal(await contentsToggle.getAttribute('aria-expanded'), 'true');
+    const contents = page.locator('[data-frontier-contents-panel="true"]');
+    assert.equal(await contents.count(), 1, 'Exactly one edition contents panel');
+    assert((await contents.locator('[data-frontier-contents-entry]').count()) >= 3,
+      'Edition contents must include the available curated stories');
+    await contents.locator('[data-frontier-contents-entry="2"]').click();
+    assert.equal(await contents.count(), 0, 'Contents closes after a direct jump');
+    assert.notEqual(await page.locator('article h1').first().textContent(), heading,
+      'Jumping to a story must change the focused article');
+    assert.equal(await page.locator('article').count(), 1, 'Contents must never mount hidden articles');
+    assert((await page.locator('figure img').count()) <= 1, 'Contents cannot duplicate media');
+    await contentsToggle.click();
+    await page.locator('[data-frontier-contents-entry="0"]').click();
+    assert.equal(await page.locator('article h1').first().textContent(), heading,
+      'Return to opening story must retain original editorial order');
+
     const nextButton = page.locator('[data-frontier-next="true"]');
     assert((await nextButton.textContent())?.trim() === 'Next', 'Snapshot should include multiple articles, got: ' + (await nextButton.textContent()));
     assert(await nextButton.isEnabled(), 'Daily edition should contain multiple navigable articles');
