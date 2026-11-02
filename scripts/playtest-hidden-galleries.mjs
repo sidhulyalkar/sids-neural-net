@@ -21,7 +21,20 @@ try{
     return !!canvas && canvas.dataset.hiddenGalleryLocomotion==="walking" &&
       canvas.dataset.hiddenGalleryInBounds==="true";
   },null,{timeout:90000});
-  const scene=page.locator("canvas[data-hidden-gallery-phase='inside']");
+  // Pin the canvas element, not a selector whose attribute changes during
+  // React initialization or recovery. The latter can vanish between two
+  // Playwright commands even when the same WebGL canvas is still present.
+  const scene=page.locator("canvas").first();
+  await page.waitForTimeout(900);
+  const boot=await page.evaluate(()=>{
+    const canvas=document.querySelector("canvas");
+    return {phase:canvas?.dataset.hiddenGalleryPhase??null,
+      locomotion:canvas?.dataset.hiddenGalleryLocomotion??null,
+      worldState:document.querySelector("[data-world-state]")?.getAttribute("data-world-state"),
+      canvases:document.querySelectorAll("canvas").length};
+  });
+  console.log("GALLERY BOOT",JSON.stringify(boot));
+  assert.equal(boot.phase,"inside","The gallery should remain entered after initialization");
   assert.equal(await scene.getAttribute("data-hidden-gallery-photos"),"49");
   assert.equal(await scene.getAttribute("data-hidden-gallery-locomotion"),"walking");
   const initial=await scene.getAttribute("data-player");
