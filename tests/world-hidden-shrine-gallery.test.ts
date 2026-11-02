@@ -106,7 +106,7 @@ test("disjoint ceiling patches cover the whole grid except the entrance shaft",(
       const overlapZ=Math.min(a.z+a.depth/2,b.z+b.depth/2)-
         Math.max(a.z-a.depth/2,b.z-b.depth/2);
       assert.ok(overlapX<=EPS||overlapZ<=EPS,
-        \`Coplanar ceiling overlap between patches \${i} and \${j}\`);
+        `Coplanar ceiling overlap between patches ${i} and ${j}`);
     }
   }
   for(const patch of tiles){
