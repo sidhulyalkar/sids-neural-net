@@ -54,7 +54,7 @@ import {
 import { createMarineSchools } from "./worldSchools";
 import { createWorldTridents } from "./worldTridents";
 import { createHiddenShrineGallery } from "./worldHiddenShrineGallery";
-import { SHRINE_GALLERY, galleryConstrainMove, galleryNearShaft, galleryWalkable, galleryShaftTopY, shrineReachable, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
+import { SHRINE_GALLERY, galleryConstrainMove, galleryNearShaft, galleryWalkable, shrineReachable, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
@@ -3605,9 +3605,9 @@ export function createWorld(
       return;
     }
     if(galleryPhase==="inside"){
-      const photoHit=ray.intersectObjects(hiddenShrineGallery.photoTargets,false)
-        .find(hit=>hit.distance<7);
-      if(photoHit){
+      const photoHit=ray.intersectObjects([
+        ...hiddenShrineGallery.photoTargets,hiddenShrineGallery.stoneMesh],false)[0];
+      if(photoHit && photoHit.distance<7 && photoHit.object.userData.discovery){
         const photoId=photoHit.object.userData.discovery as string;
         callbacks.onInteract(photoId);
         return;
@@ -5307,9 +5307,11 @@ export function createWorld(
       let galleryPhotoId:string|null=null;
       if(galleryPhase==="inside"){
         ray.setFromCamera(gazePointer,camera);
-        const photoHit=ray.intersectObjects(hiddenShrineGallery.photoTargets,false)
-          .find(hit=>hit.distance<6);
-        galleryPhotoId=photoHit?.object.userData.discovery as string|undefined ?? null;
+        const photoHit=ray.intersectObjects([
+          ...hiddenShrineGallery.photoTargets,hiddenShrineGallery.stoneMesh],false)[0];
+        galleryPhotoId=photoHit&&photoHit.distance<6
+          ? (photoHit.object.userData.discovery as string|undefined ?? null)
+          : null;
       }
       discovery = galleryPhase==="inside" ? galleryPhotoId :
         aquatic === "land" ? (gazeGame ?? layeredNearby) : trident?.id ?? null;
@@ -5633,16 +5635,22 @@ export function createWorld(
         targetLook.set(player.x-Math.sin(yaw)*2.4,playerY+1.85,player.z-Math.cos(yaw)*2.4);
       }
       if(galleryPhase!=="outside"){
-        const desired=galleryConstrainMove(player,{
-          x:player.x+Math.sin(yaw)*2.55,
-          z:player.z+Math.cos(yaw)*2.55,
-        });
+        const insideGallery=galleryPhase==="inside";
+        const desired=insideGallery
+          ? galleryConstrainMove(player,{
+              x:player.x+Math.sin(yaw)*2.55,
+              z:player.z+Math.cos(yaw)*2.55,
+            })
+          : {x:SHRINE_GALLERY.entrance.x+.48,
+              z:SHRINE_GALLERY.entrance.z+.48};
         targetCamera.set(desired.x,
           THREE.MathUtils.clamp(playerY+1.5,
-            SHRINE_GALLERY.floorY+1.2,SHRINE_GALLERY.roofY-.45),
+            SHRINE_GALLERY.floorY+1.2,
+            insideGallery?SHRINE_GALLERY.roofY-.45:
+              SEA_SURFACE-maxDiveDepth(SHRINE_GALLERY.entrance)+1.15),
           desired.z);
-        targetLook.set(player.x-Math.sin(yaw)*1.1,
-          playerY+1.6,player.z-Math.cos(yaw)*1.1);
+        targetLook.set(player.x-Math.sin(yaw)*(insideGallery?1.1:.4),
+          playerY+1.5,player.z-Math.cos(yaw)*(insideGallery?1.1:.4));
       }
       // Camera choreography, never gameplay authority:
       // flight -> landing reveal -> visible dog chase -> Shasta eye view.
@@ -6480,11 +6488,14 @@ export function createWorld(
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
     }
     if(galleryPhase!=="outside"){
-      const bounded=galleryConstrainMove(player,{
-        x:camera.position.x,z:camera.position.z});
+      const bounded=galleryPhase==="inside"
+        ? galleryConstrainMove(player,{x:camera.position.x,z:camera.position.z})
+        : {x:SHRINE_GALLERY.entrance.x+.48,z:SHRINE_GALLERY.entrance.z+.48};
       camera.position.x=bounded.x;camera.position.z=bounded.z;
       camera.position.y=THREE.MathUtils.clamp(camera.position.y,
-        SHRINE_GALLERY.floorY+1.15,SHRINE_GALLERY.roofY-.45);
+        SHRINE_GALLERY.floorY+1.15,
+        galleryPhase==="inside"?SHRINE_GALLERY.roofY-.45:
+          SEA_SURFACE-maxDiveDepth(SHRINE_GALLERY.entrance)+1.15);
     }
     // Last-resort cutaway also covers an obstructed interpolated pose or
     // a lie surrounded by foliage where no unobstructed boom exists.
