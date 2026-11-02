@@ -6573,6 +6573,17 @@ export function createWorld(
       sceneryCamera.cutaway(camera.position,lastDiscCameraSolve.focus):
       (sceneryCamera.restore(),0);
     canvas.dataset.discGolfCameraCutaways=String(cutawayCount);
+    // A 47° outdoor lens crops the carved photo pediment at 2.45m. The
+    // 74° inspection lens includes the entire frame with comfortable margin;
+    // a slightly narrower 68° lens preserves depth cues while walking.
+    const museumFov=galleryPhase==="inside"
+      ? galleryFocusIndex===null?68:74
+      : 47;
+    if(camera.fov!==museumFov){
+      camera.fov=museumFov;
+      camera.updateProjectionMatrix();
+    }
+    canvas.dataset.hiddenGalleryFov=camera.fov.toFixed(1);
     camera.lookAt(look);
     if(lastDiscCameraSolve){
       camera.updateMatrixWorld();
