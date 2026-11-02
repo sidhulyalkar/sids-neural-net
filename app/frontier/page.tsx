@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { FrontierFocusReader } from '@/components/frontier/FrontierFocusReader';
 import { getFrontierColdSnapshotFeed } from '@/lib/frontier/snapshotFeed';
-import { createInitialProfile } from '@/lib/frontier/config';
-import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
+import { selectFrontierColdEdition } from '@/lib/frontier/coldEdition';
 
 export const metadata: Metadata = {
   title: 'FRONTIER · Focus Reader',
@@ -26,7 +25,6 @@ export default function FrontierPage() {
   // Qualify the FULL archived inventory before building the first edition.
   // Cutting to 36 by provider score first would permanently hide highly
   // relevant niche neuroscience/research candidates from cold-start readers.
-  const ranked = rankFrontierItems(feed.items, createInitialProfile(), {}, new Date());
-  const edition = selectDailyRun(ranked, {}, 36);
+  const edition = selectFrontierColdEdition(feed.items, 36);
   return <FrontierFocusReader initialItems={edition} generatedAt={feed.generatedAt} />;
 }
