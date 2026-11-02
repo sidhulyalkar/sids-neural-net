@@ -35,6 +35,40 @@ export const GALLERY_DOORS: readonly GalleryDoor[] = GALLERY_ROUTE.slice(1).map(
   from: GALLERY_ROUTE[i], to,
 }));
 
+/** The room centers form a fully occupied 4×3 rectilinear grid.
+ * One continuous stone foundation eliminates coplanar threshold slabs and
+ * guarantees a watertight walking surface throughout all eleven passages.
+ */
+export function galleryFloorFootprint(){
+  const half=SHRINE_GALLERY.roomStep/2;
+  const minX=Math.min(...GALLERY_ROOMS.map(r=>r.x))-half;
+  const maxX=Math.max(...GALLERY_ROOMS.map(r=>r.x))+half;
+  const minZ=Math.min(...GALLERY_ROOMS.map(r=>r.z))-half;
+  const maxZ=Math.max(...GALLERY_ROOMS.map(r=>r.z))+half;
+  return {
+    x:(minX+maxX)/2,z:(minZ+maxZ)/2,
+    width:maxX-minX,depth:maxZ-minZ,
+    minX,maxX,minZ,maxZ,
+  };
+}
+
+export type GalleryThreshold = {
+  from:number;to:number;
+  x:number;z:number;width:number;depth:number;
+};
+/** Only decorative raised doorway sills, never a second floor at floor level. */
+export function galleryDoorThresholds():readonly GalleryThreshold[]{
+  return GALLERY_DOORS.map(({from,to})=>{
+    const a=GALLERY_ROOMS[from],b=GALLERY_ROOMS[to];
+    const horizontal=Math.abs(a.x-b.x)>1;
+    return {
+      from,to,x:(a.x+b.x)/2,z:(a.z+b.z)/2,
+      width:horizontal?.26:1.75,
+      depth:horizontal?1.75:.26,
+    };
+  });
+}
+
 export function galleryDoorSide(roomIndex: number, side: GallerySide): boolean {
   const room = GALLERY_ROOMS[roomIndex];
   return GALLERY_DOORS.some(({ from, to }) => {
