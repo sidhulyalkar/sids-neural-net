@@ -55,7 +55,7 @@ import { createMarineSchools } from "./worldSchools";
 import { createWorldTridents } from "./worldTridents";
 import { createHiddenShrineGallery } from "./worldHiddenShrineGallery";
 import { createWorldPaperGallery } from "./worldPaperGallery";
-import { SHRINE_GALLERY, galleryConstrainMove, galleryNearShaft, galleryWalkable, shrineReachable, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
+import { SHRINE_GALLERY, galleryConstrainMove, galleryStepWalk, galleryNearShaft, galleryWalkable, shrineReachable, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
@@ -4471,20 +4471,10 @@ export function createWorld(
         } else if(galleryPhase==="inside"){
           // Walk on the actual stone floor: no submerged vertical controls,
           // no floaty swim velocity, and no sea-floor support sampling.
-          const wallClockStep=Math.max(0,Math.min(rawDelta,.12));
-          const next=stepSwim({...travel,point:player},
+          const next=galleryStepWalk({...travel,point:player},
             {x:dx,z:dz},rawDelta,destination);
-          const proposedDistance=Math.hypot(
-            next.point.x-player.x,next.point.z-player.z);
-          const stride=Math.min(1,2.6*wallClockStep/Math.max(.00001,proposedDistance));
-          const moved=galleryConstrainMove(player,{
-            x:player.x+(next.point.x-player.x)*stride,
-            z:player.z+(next.point.z-player.z)*stride,
-          });
-          const advanced=Math.hypot(moved.x-player.x,moved.z-player.z);
-          travel={...next,point:moved,speed:advanced<.001?0:
-            Math.min(2.6,advanced/Math.max(.001,wallClockStep))};
-          player=moved;
+          travel=next;
+          player=next.point;
           playerY=SHRINE_GALLERY.floorY+.04;
           swimDepth=targetDepth=SEA_SURFACE-playerY;
         } else {
