@@ -388,8 +388,10 @@ async function auditFormatAwareEvidence() {
         body: JSON.stringify({
           generatedAt: new Date().toISOString(),
           items: [{
-            ...original, id: currentFixture.id, sourceKind: currentFixture.sourceKind,
-            summary: original.summary || 'The linked source reports the current work and its technical details.',
+            // Use a real archived record of each respective source type for
+            // the screenshot. Only metrics/scores are controlled fixtures.
+            ...(snapshot.items.find((item) => item.sourceKind === currentFixture.sourceKind) || original),
+            id: currentFixture.id, sourceKind: currentFixture.sourceKind,
             metrics: currentFixture.metrics, sportsState: currentFixture.sportsState,
             media: { type: 'none' }, figures: [],
           }],
