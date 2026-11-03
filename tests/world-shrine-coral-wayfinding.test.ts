@@ -9,8 +9,10 @@ import { SHRINE_GALLERY, shrineReachable } from "../lib/world/hiddenShrineGaller
 import {
   SHRINE_CORAL_WAYFINDING, SHRINE_CORAL_GUIDES, CORAL_ARROW_COLONIES,
   coralColonyPositions, shrineCoralLayoutValid,
+  SHRINE_DIVE_MARKER, shrineDiveMarkerValid,
 } from "../lib/world/shrineCoralWayfinding";
 import { createShrineCoralWayfinding } from "../components/world/worldShrineCoralWayfinding";
+import { createShrineDiveMarker } from "../components/world/worldShrineDiveMarker";
 
 test("western trident moves away from the hidden shrine without affecting its discoverability",()=>{
   const trident=UNDERWATER_TRIDENTS.find(t=>t.id==="trident-kelp")!;
@@ -76,10 +78,12 @@ test("coral sculptures are bounded, opaque, merged and disposable",()=>{
   assert.equal(root.children.length,1);
   const trail=root.getObjectByName("shrine-coral-arrow-trail");
   assert.equal(trail,renderer.root);
-  assert.equal(trail!.children.length,2,
-    "no per-colony draw calls: two merged meshes for living reef art");
+  assert.equal(trail!.children.length,3,
+    "two merged coral meshes and one physical DIVE marker group");
+  assert.equal(renderer.diveMarker.root.name,"shrine-dive-depth-cue");
+  assert.equal(renderer.diveMarker.text,"DIVE");
   let totalVertices=0;
-  for(const item of trail!.children){
+  for(const item of trail!.children.filter(item=>item instanceof THREE.Mesh)){
     assert.ok(item instanceof THREE.Mesh);
     const m=item as THREE.Mesh;
     const pos=m.geometry.getAttribute("position");
@@ -99,6 +103,61 @@ test("coral sculptures are bounded, opaque, merged and disposable",()=>{
   assert.equal(root.children.length,0);
 });
 
+test("carved DIVE and downward arrow sit above the sea floor facing approaching divers",()=>{
+  assert.equal(SHRINE_DIVE_MARKER.text,"DIVE");
+  assert.equal(shrineDiveMarkerValid(),true);
+  const cue=SHRINE_DIVE_MARKER;
+  const shaft=SHRINE_GALLERY.entrance;
+  const distance=Math.hypot(cue.point.x-shaft.x,cue.point.z-shaft.z);
+  const halfDiagonal=Math.hypot(cue.width/2,cue.height/2)+.24;
+  assert.ok(distance-halfDiagonal>SHRINE_CORAL_WAYFINDING.shrineClearance,
+    "whole stone marker clears the shrine posts and descent aperture");
+  assert.equal(waterZone(cue.point),"kelp");
+  assert.ok(maxDiveDepth(cue.point)>5);
+  assert.ok(cue.baseAboveSeabed>.15&&cue.baseAboveSeabed<.5);
+  const approach={
+    x:SHRINE_CORAL_WAYFINDING.trident.x-cue.point.x,
+    z:SHRINE_CORAL_WAYFINDING.trident.z-cue.point.z,
+  };
+  const dot=(approach.x*cue.facing.x+approach.z*cue.facing.z)/
+    Math.hypot(approach.x,approach.z);
+  assert.ok(dot>.95,"DIVE reads toward the incoming reef trail");
+});
+
+test("DIVE lettering is real textured-free world geometry with downward arrow",()=>{
+  const group=new THREE.Group();
+  const marker=createShrineDiveMarker(group);
+  assert.equal(marker.text,"DIVE");
+  assert.ok(marker.segmentCount>=25,"D,I,V,E glyphs and arrow comprise readable strokes");
+  assert.equal(group.children.length,1);
+  assert.equal(marker.root.children.length,2,"two batched materials, no mesh per letter");
+  assert.equal(marker.root.userData.word,"DIVE");
+  assert.equal(marker.root.userData.target,"wooden-shrine-descent");
+  assert.ok(marker.root.rotation.x<0,"sign leans toward divers above the seabed");
+  assert.ok(Math.abs(marker.root.position.y-
+    (seaFloorHeight(SHRINE_DIVE_MARKER.point.x,SHRINE_DIVE_MARKER.point.z)+
+     SHRINE_DIVE_MARKER.baseAboveSeabed+SHRINE_DIVE_MARKER.height/2))<1e-6);
+  let vertexCount=0;
+  for(const mesh of marker.root.children){
+    assert.ok(mesh instanceof THREE.Mesh);
+    const m=mesh as THREE.Mesh;
+    const positions=m.geometry.getAttribute("position");
+    const colors=m.geometry.getAttribute("color");
+    assert.equal(colors.count,positions.count);
+    const material=m.material as THREE.MeshStandardMaterial;
+    assert.ok(material.vertexColors&&!material.transparent&&material.depthWrite);
+    vertexCount+=positions.count;
+    for(let i=0;i<positions.count;i++){
+      assert.ok(Number.isFinite(positions.getX(i)));
+      assert.ok(Number.isFinite(positions.getY(i)));
+      assert.ok(Number.isFinite(positions.getZ(i)));
+    }
+  }
+  assert.ok(vertexCount<12000,"keep coral typography cheap for mobile");
+  marker.dispose();
+  assert.equal(group.children.length,0);
+});
+
 test("coral trail shares the existing kelp scene visibility gate and has no artificial collision",()=>{
   const scene=readFileSync(new URL("../components/world/worldRenderer.ts",import.meta.url),"utf8");
   const coral=readFileSync(new URL(
@@ -107,5 +166,6 @@ test("coral trail shares the existing kelp scene visibility gate and has no arti
   assert.match(scene,/shrineCorals\.dispose\(\)/);
   assert.match(scene,/reefRoot\.visible = aquatic !== "land" && currentWaterZone === "kelp"/);
   assert.match(scene,/canvas\.dataset\.shrineCoralArrows/);
+  assert.match(scene,/canvas\.dataset\.shrineDiveCue/);
   assert.doesNotMatch(coral,/obstacles\.push|collider|raycast\s*=|addEventListener/);
 });
