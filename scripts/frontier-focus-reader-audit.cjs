@@ -179,6 +179,11 @@ async function audit(width, height) {
     assert.equal(await signal.getAttribute('data-frontier-signal'), 'rated');
     assert.equal(await signal.getByText('1 · Not for me').count(), 1);
     assert.equal(await signal.getByText('10 · Fascinating').count(), 1);
+    mkdirSync('artifacts/browser-smoke/frontier-signal-trail', { recursive: true });
+    await page.screenshot({
+      path: 'artifacts/browser-smoke/frontier-signal-trail/rated-7-' + width + '.png',
+      fullPage: true, animations: 'disabled',
+    });
 
     // Keyboard has direct access to every step on the same input.
     await rating.focus();
@@ -550,6 +555,11 @@ async function auditRealMobileTouchSignal() {
     assert(bounds.scrollWidth <= bounds.viewport + 2, 'Touch rating must not cause horizontal overflow');
     assert.equal(await page.locator('[data-frontier-active-tip="true"]').count(), 1,
       'Touch selection preserves the single selected point');
+    mkdirSync('artifacts/browser-smoke/frontier-signal-trail', { recursive: true });
+    await page.screenshot({
+      path: 'artifacts/browser-smoke/frontier-signal-trail/touch-rated-4-390.png',
+      fullPage: true, animations: 'disabled',
+    });
     return { realTouch: true, deviceWidth: 390, selected: [1, 10, 4], noOverflow: true };
   } finally {
     await context.close();
