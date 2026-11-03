@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent, FocusEvent, ChangeEvent } from 'react';
-import { SIGNAL_TRAIL_PATH, SIGNAL_TRAIL_POINTS, signalScoreLabel, validSignalScore } from '@/lib/frontier/signalTrail';
+import { SIGNAL_TRAIL_PATH, SIGNAL_TRAIL_POINTS, signalScoreAtX, signalScoreLabel, validSignalScore } from '@/lib/frontier/signalTrail';
 import styles from './frontier-signal-trail.module.css';
 
 type Props = {
@@ -22,6 +22,8 @@ export function FrontierSignalTrail({ itemId, rating, onRate, notice }: Props) {
   const instructionId = useId();
   const [draft, setDraft] = useState<number | null>(null);
   const lastCommitRef = useRef<{ score: number; at: number } | null>(null);
+  const pointerActiveRef = useRef(false);
+  const keyboardActiveRef = useRef(false);
   const selected = draft ?? rating ?? null;
   const numericValue = selected ?? 5;
   const points = selected ? SIGNAL_TRAIL_POINTS.slice(0, selected) : [];
@@ -37,27 +39,66 @@ export function FrontierSignalTrail({ itemId, rating, onRate, notice }: Props) {
     onRate(score);
   };
 
+  const fromPointer = (event: PointerEvent<HTMLInputElement>) => {
+    const trail = event.currentTarget.parentElement?.getBoundingClientRect();
+    if (!trail) return null;
+    return signalScoreAtX(event.clientX, trail.left, trail.width);
+  };
   const onChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setDraft(Number(event.currentTarget.value));
+    // The native input retains its accessible value. Pointer coordinates
+    // determine the graphic's exact node, not browser thumb geometry.
+    if (pointerActiveRef.current) return;
+    const value = Number(event.currentTarget.value);
+    setDraft(value);
+    // Some screen-reader/voice commands emit input/change without a matching
+    // keyup or pointerup. In that case a score must still be saved.
+    if (!keyboardActiveRef.current) commit(value);
+  };
+  const onPointerDown = (event: PointerEvent<HTMLInputElement>) => {
+    if (event.button !== 0) return;
+    pointerActiveRef.current = true;
+    const score = fromPointer(event);
+    if (score !== null) setDraft(score);
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* native pointer release still works */ }
+  };
+  const onPointerMove = (event: PointerEvent<HTMLInputElement>) => {
+    if (!pointerActiveRef.current) return;
+    const score = fromPointer(event);
+    if (score !== null) setDraft((prior) => prior === score ? prior : score);
   };
   const onPointerUp = (event: PointerEvent<HTMLInputElement>) => {
-    commit(Number(event.currentTarget.value));
+    if (!pointerActiveRef.current) return;
+    pointerActiveRef.current = false;
+    const score = fromPointer(event);
+    if (score !== null) commit(score);
+    try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* no capture to release */ }
+  };
+  const onPointerCancel = () => {
+    pointerActiveRef.current = false;
+    setDraft(rating ?? null);
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (COMMIT_KEYS.has(event.key)) keyboardActiveRef.current = true;
   };
   const onKeyUp = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (COMMIT_KEYS.has(event.key)) commit(Number(event.currentTarget.value));
+    if (!COMMIT_KEYS.has(event.key)) return;
+    keyboardActiveRef.current = false;
+    commit(Number(event.currentTarget.value));
   };
   const onBlur = (event: FocusEvent<HTMLInputElement>) => {
-    // Screen readers and voice controls may change a native range without
-    // producing pointerup/keyup. Preserve that edit when focus leaves.
-    if (draft !== null && draft !== rating) commit(Number(event.currentTarget.value));
+    keyboardActiveRef.current = false;
+    if (!pointerActiveRef.current && draft !== null && draft !== rating) {
+      commit(Number(event.currentTarget.value));
+    }
   };
 
   return (
     <div className={styles.signal} data-frontier-signal={state} data-frontier-rating={rating ?? 'unrated'} data-frontier-article={itemId}>
       <div className={styles.heading}>
         <label className={styles.label} htmlFor={instructionId}>How interesting?</label>
-        <div className={styles.score} aria-hidden="true">
-          {selected ?? '·'}<span>/10</span>
+        <div className={styles.scoreGroup} aria-hidden="true">
+          <span className={styles.interpretation}>{selected === null ? 'Choose your signal' : signalScoreLabel(selected)}</span>
+          <span className={styles.score}>{selected ?? '–'}<span>/10</span></span>
         </div>
       </div>
       <div className={styles.trail}>
@@ -67,7 +108,9 @@ export function FrontierSignalTrail({ itemId, rating, onRate, notice }: Props) {
           {points.length > 1 ? <polyline className={styles.activeLine}
             points={points.map(([x, y]) => `${x},${y}`).join(' ')} fill="none" /> : null}
           {SIGNAL_TRAIL_POINTS.map(([x, y], index) => (
-            <g key={index} data-active={selected !== null && index < selected ? 'true' : 'false'}>
+            <g key={index}
+              data-active={selected !== null && index < selected ? 'true' : 'false'}
+              data-frontier-active-tip={selected !== null && index + 1 === selected ? 'true' : 'false'}>
               <circle className={styles.halo} cx={x} cy={y} r={index < (selected ?? 0) ? 9 : 6} />
               <circle className={styles.point} cx={x} cy={y} r={index < (selected ?? 0) ? 4.7 : 3.3} />
             </g>
@@ -81,8 +124,12 @@ export function FrontierSignalTrail({ itemId, rating, onRate, notice }: Props) {
             ? 'Not rated. Select a score from one to ten.'
             : `${selected} of 10: ${signalScoreLabel(selected)}`}
           onChange={onChange}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerCancel={() => setDraft(null)}
+          onPointerCancel={onPointerCancel}
+          onLostPointerCapture={onPointerCancel}
+          onKeyDown={onKeyDown}
           onKeyUp={onKeyUp}
           onBlur={onBlur}
           onClick={(event) => {
@@ -91,13 +138,9 @@ export function FrontierSignalTrail({ itemId, rating, onRate, notice }: Props) {
           }}
         />
       </div>
-      <div className={styles.bottom}>
-        <span id={instructionId + '-hint'} className={styles.hint}>
-          {selected === null ? 'Tap a point or drag · ← → to adjust'
-            : draft !== null && draft !== rating ? 'Release to save'
-              : signalScoreLabel(selected)}
-        </span>
-        <span className={styles.saved} aria-hidden="true">{rating ? 'Rated' : 'Not rated'}</span>
+      <div className={styles.bottom} id={instructionId + '-hint'}>
+        <span className={styles.hint}>1 · Not for me</span>
+        <span className={styles.saved}>10 · Fascinating</span>
       </div>
       <span className={styles.notice} role="status" aria-live="polite">{notice}</span>
     </div>
