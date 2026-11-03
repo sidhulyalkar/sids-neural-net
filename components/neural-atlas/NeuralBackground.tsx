@@ -8,7 +8,7 @@ export function NeuralBackground() {
       <div
         className="absolute -left-[15%] -top-[10%] h-[70vh] w-[50vw] opacity-[0.12]"
         style={{
-          backgroundImage: 'url(/images/neuron-bg-1.jpg)',
+          backgroundImage: 'radial-gradient(ellipse at 30% 35%, rgba(102,227,255,0.34), rgba(10,28,46,0.16) 48%, transparent 75%)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           maskImage: 'radial-gradient(ellipse 80% 80% at 30% 30%, black 10%, transparent 70%)',
