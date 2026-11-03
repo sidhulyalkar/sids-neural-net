@@ -113,6 +113,39 @@ test('near-duplicate independent URLs share one slot, without confusing differen
   assert.equal(new Set(selected.map((entry) => entry.id)).size, selected.length);
 });
 
+test('numbered and versioned headlines remain independent, even with identical generic words', () => {
+  const first = item('mobile-audit-1', { title: 'Mobile feed paint audit 1' });
+  const second = item('mobile-audit-2', { title: 'Mobile feed paint audit 2' });
+  assert.equal(frontierSameStoryHeadline(first, second), false);
+  assert.equal(frontierSameStoryHeadline(
+    item('model-one', { title: 'Research benchmark shows decoder improvement for model v1.2' }),
+    item('model-two', { title: 'Research benchmark shows decoder improvement for model v1.3' }),
+  ), false);
+
+  // A 64-story deterministic audit corpus previously collapsed to one card
+  // because the algorithm discarded all one-digit identifiers.
+  const varied = Array.from({ length: 64 }, (_, index) => {
+    const number = index + 1;
+    const lanes: FrontierItem['lane'][] = [
+      'creative_tech', 'ai_frontier', 'methods', 'builder_signal',
+      'broad_science', 'neuro_frontier', 'ml_data', 'wildcards',
+      'gaming', 'team_pulse', 'sports', 'world_soccer',
+    ];
+    return item('mobile-audit-' + number, {
+      title: 'Mobile feed paint audit ' + number,
+      lane: lanes[index % lanes.length],
+      sourceKind: 'local',
+      importance: number === 1 ? 0.92 : 0.7,
+      novelty: 0.82,
+      quality: 1,
+      baseScore: 1 - number * 0.003,
+    });
+  });
+  const selected = selectAdaptiveDailyAllocation(varied, 48);
+  assert.equal(selected.length, 48, 'A legitimate deep browse must retain 48 independent numbered articles');
+  assert.equal(new Set(selected.map((entry) => entry.id)).size, 48);
+});
+
 test('ranking breakdown exposes auditable editorial prior and preserves exact component sum', () => {
   const obj = item('audit');
   const breakdown = frontierPersonalizedScoreBreakdown(obj, createInitialProfile(), undefined, when);
