@@ -53,6 +53,7 @@ import {
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
 import { createWorldTridents } from "./worldTridents";
+import { createShrineCoralWayfinding } from "./worldShrineCoralWayfinding";
 import { createHiddenShrineGallery } from "./worldHiddenShrineGallery";
 import { createWorldPaperGallery } from "./worldPaperGallery";
 import { SHRINE_GALLERY, GALLERY_VIEWING, galleryConstrainMove, galleryStepWalk, galleryNearShaft, galleryWalkable, shrineReachable, galleryPhotoSlots, galleryPhotoViewpoint, galleryPhotoClearance, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
@@ -2833,6 +2834,10 @@ export function createWorld(
   const reefGarden = createReefGarden(tropicalReefRoot);
   const marineSchools = createMarineSchools(reefRoot,tropicalReefRoot);
   const goldenTridents = createWorldTridents(reefRoot,tropicalReefRoot);
+  const shrineCorals=createShrineCoralWayfinding(reefRoot);
+  canvas.dataset.shrineCoralArrows=String(shrineCorals.count);
+  canvas.dataset.shrineCoralColonies=String(shrineCorals.colonyCount);
+  canvas.dataset.westernTridentRelocated="true";
   canvas.dataset.schoolingFish = String(marineSchools.count);
   canvas.dataset.goldenTridents = String(goldenTridents.count);
 
@@ -7437,6 +7442,7 @@ export function createWorld(
       reefGarden.dispose();
       marineSchools.dispose();
       goldenTridents.dispose();
+      shrineCorals.dispose();
       hiddenShrineGallery.dispose();
       paperGallery.dispose();
       shrineHint.remove();
