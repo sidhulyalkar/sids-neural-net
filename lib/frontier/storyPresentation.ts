@@ -101,8 +101,14 @@ export function buildFrontierStoryPresentation(item: FrontierItem): FrontierStor
     article: ['Source overview', 'More source context', 'Read original', 'Publisher'],
   } as const;
   const [summaryLabel, detailLabel, defaultSourceActionLabel, sourceMetaLabel] = sections[format];
-  const sourceActionLabel = item.sourceKind === 'openalex'
-    ? 'Open research record' : defaultSourceActionLabel;
+  // OpenAlex often resolves directly to a journal page or PDF, not an
+  // OpenAlex metadata record. Describe the actual destination faithfully.
+  const sourceActionLabel = format === 'research' && /(?:\\.pdf|\\/pdf)(?:[?#]|$)/i.test(item.url)
+    ? 'Read original PDF'
+    : item.sourceKind === 'openalex'
+      ? /^https:\\/\\/(?:www\\.)?openalex\\.org\\//i.test(item.url)
+        ? 'Open research record' : 'Read original publication'
+      : defaultSourceActionLabel;
   let evidenceNote: string | undefined;
   if (PREPRINT.has(item.sourceKind)) {
     evidenceNote = 'Preprint source · peer review not established by this record';
