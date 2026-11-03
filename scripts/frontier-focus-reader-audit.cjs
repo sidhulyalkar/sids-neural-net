@@ -347,10 +347,17 @@ async function auditFormatAwareEvidence() {
     const snapshot = await snapshotResponse.json();
     assert(snapshot.items?.length > 0, 'Format audit needs at least one genuine source record');
     const original = snapshot.items[0];
+    const researchSource = snapshot.items.find((item) =>
+      item.sourceKind === 'openalex' && /(?:…|\.\.\.)\s*$/.test(item.summary || '')
+    ) || snapshot.items.find((item) => item.sourceKind === 'openalex') || original;
+    const researchAction = /(?:\.pdf|\/pdf)(?:[?#]|$)/i.test(researchSource.url)
+      ? 'Read original PDF'
+      : /^https:\/\/(?:www\.)?openalex\.org\//i.test(researchSource.url)
+        ? 'Open research record' : 'Read original publication';
     const fixtures = [
       {
         id: 'frontier-format-audit-research', sourceKind: 'openalex', expected: 'research',
-        summaryLabel: 'Abstract / source excerpt', action: 'Open research record',
+        summaryLabel: 'Abstract / source excerpt', action: researchAction,
         metrics: [{ label: 'citations', value: '0' }], activity: 'Citation activity',
         sportsState: undefined,
       },
@@ -390,7 +397,8 @@ async function auditFormatAwareEvidence() {
           items: [{
             // Use a real archived record of each respective source type for
             // the screenshot. Only metrics/scores are controlled fixtures.
-            ...(snapshot.items.find((item) => item.sourceKind === currentFixture.sourceKind) || original),
+            ...(currentFixture.expected === 'research' ? researchSource
+              : snapshot.items.find((item) => item.sourceKind === currentFixture.sourceKind) || original),
             id: currentFixture.id, sourceKind: currentFixture.sourceKind,
             metrics: currentFixture.metrics, sportsState: currentFixture.sportsState,
             media: { type: 'none' }, figures: [],
@@ -411,6 +419,10 @@ async function auditFormatAwareEvidence() {
         'Each format must identify the true source text category');
       assert.equal(await article.getByRole('link', { name: fixture.action }).count(), 1,
         'Each format must show the right source action label');
+      if (fixture.expected === 'research' && /(?:…|\.\.\.)\s*$/.test(researchSource.summary || '')) {
+        assert.equal(await article.getByText('Source preview is incomplete.', { exact: false }).count(), 1,
+          'Truncated source abstract must be visibly labeled, not presented as a complete finding');
+      }
       if (fixture.sportsState) {
         assert.equal(await article.getByRole('region', { name: 'Source sports evidence' }).count(), 1,
           'Actual scores must be visible without expanding a detail panel');
