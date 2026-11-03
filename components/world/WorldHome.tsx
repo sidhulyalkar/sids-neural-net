@@ -72,7 +72,7 @@ const LINKS = [
 ];
 const INTRO: Record<RegionId, { title: string; text: string }> = {
   waterfall: { title: "Fern falls.", text: "Snowmelt from Granite ridge." },
-  canyon: { title: "Moss canyon.", text: "" },
+  canyon: { title: "Submerged Moss Canyon.", text: "Coral reef passage." },
   desert: {title:"Joshua basin.",text:"Warm granite, open washes and desert trails."},
   rainforest: {title:"Rainforest.",text:"A shaded path from canopy to coast."},
   cavern: { title: "Arcade cavern.", text: "Playable games carved into stone." },
@@ -89,7 +89,7 @@ const REGION_PHOTOS: Partial<Record<RegionId, readonly string[]>> = {
   mountain: ["lake", "shasta-lake"],
   grove: ["shasta-trail", "shasta-stream"],
   waterfall: ["shasta-water", "shasta-stream"],
-  canyon: ["shasta-field"],
+  // The underwater reef is not represented by Shasta’s dry-land field photo.
   desert: ["desert-ridges"],
   rainforest: ["rainforest-leaves"],
   lagoon: ["lagoon-shore"],
