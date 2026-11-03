@@ -42,7 +42,7 @@
   opacity:0; appearance:none; -webkit-appearance:none;
   cursor:crosshair; touch-action:pan-y; z-index:2;
 }
-.trail:focus-within { outline:2px solid #f0a999; outline-offset:1px; }
+.trail[data-frontier-focus-mode="keyboard"]:focus-within { outline:2px solid #f0a999; outline-offset:1px; }
 .bottom {
   display:flex; gap:8px; justify-content:space-between; align-items:baseline;
   min-height:20px; font-size:10px; color:#92a4b0;
