@@ -11,9 +11,25 @@ const out=process.env.WORLD_AUDIT_DIR??"artifacts/world/hidden-gallery";
 fs.mkdirSync(out,{recursive:true});
 const errors=[];
 const browser=await chromium.launch({headless:true,args:["--no-sandbox","--enable-unsafe-swiftshader"]});
-const report={routes:[],screenshots:[],errors};
+const report={routes:[],screenshots:[],errors,httpFailures:[],requestFailures:[]};
 try{
   const page=await browser.newPage({viewport:{width:1366,height:900}});
+  page.on("response",response=>{
+    if(response.status()<400)return;
+    const request=response.request();
+    const url=new URL(response.url());
+    const failure={status:response.status(),type:request.resourceType(),
+      path:url.pathname,query:url.search,method:request.method()};
+    report.httpFailures.push(failure);
+    console.error("GALLERY HTTP FAILURE",JSON.stringify(failure));
+  });
+  page.on("requestfailed",request=>{
+    const url=new URL(request.url());
+    const failure={type:request.resourceType(),path:url.pathname,
+      query:url.search,error:request.failure()?.errorText??"unknown"};
+    report.requestFailures.push(failure);
+    console.error("GALLERY REQUEST FAILURE",JSON.stringify(failure));
+  });
   page.on("pageerror",e=>{
     errors.push(e.message);
     console.error("GALLERY PAGE ERROR",e.stack??e.message);
@@ -237,6 +253,13 @@ try{
       Math.abs(p[0]+67)<4&&Math.abs(p[1]+65.2)<5;
   },null,{timeout:25000,polling:250});
   await page.waitForTimeout(2100);
+  // Underwater canyon discovery must remain available alongside
+  // priority trident interactions, not merely update a location label.
+  const canyonDiscovery=page.getByRole("button",{name:/Submerged Moss Canyon/});
+  await canyonDiscovery.waitFor({state:"visible",timeout:10000});
+  await canyonDiscovery.click();
+  await page.getByRole("heading",{name:"Submerged Moss Canyon.",exact:true}).waitFor();
+  await page.keyboard.press("Escape");
   await page.screenshot({path:path.join(out,"moss-canyon-entrance.png")});
   await scene.focus();
   await page.keyboard.down("w");
