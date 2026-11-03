@@ -1,5 +1,6 @@
 import * as THREE from "three/src/Three.Core.js";
 import { GeometryBatch } from "./worldGeometry";
+import { createShrineDiveMarker } from "./worldShrineDiveMarker";
 import {
   SHRINE_CORAL_GUIDES, coralColonyPositions,
   SHRINE_CORAL_WAYFINDING,
@@ -100,13 +101,16 @@ export function createShrineCoralWayfinding(reefRoot:THREE.Group){
     mesh.receiveShadow=true;
     root.add(mesh);
   }
+  const diveMarker=createShrineDiveMarker(root);
 
   return {
     root,
     count:SHRINE_CORAL_GUIDES.length,
     colonyCount,
     branchCount,
+    diveMarker,
     dispose(){
+      diveMarker.dispose();
       root.removeFromParent();
       for(const mesh of batches)mesh.geometry.dispose();
       for(const material of [materialRock,materialCoral])material.dispose();
