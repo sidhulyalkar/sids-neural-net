@@ -4,7 +4,7 @@ import {
 } from "./discGolf";
 import {
  REGIONS,MEMORY_POINTS,distance,
- coastlineX,eastCoastlineX,caveObstacles,type Point,
+ coastlineX,eastCoastlineX,type Point,
 } from "./model";
 import {BOULDER_HOLDS,RIDE_RAMPS,FALLEN_LOGS} from "./activities";
 import {biomeAt} from "./biomes";
@@ -56,7 +56,8 @@ export function discGolfFixedFeatureClearance(p:Point):number{
   ...RIDE_RAMPS.map(x=>distance(p,x.point)-x.radius),
   ...FALLEN_LOGS.map(x=>distanceToLine(p,x.a,x.b)-x.radius),
   ...fixedTrees.map(x=>distance(p,x)-x.radius),
-  ...caveObstacles().map(x=>distance(p,x)-x.radius),
+  // Underground museum/arcade walls are active on their cave layers only.
+  // A 2D surface fairway must never count these as real land obstacles.
   // Region/photo labels are semantic landmarks, not solid collision
   // objects. On the raised pier they do not obstruct the tee circle.
   ...(jetSkiPierHeight(p)===null?
@@ -64,13 +65,8 @@ export function discGolfFixedFeatureClearance(p:Point):number{
   ...(jetSkiPierHeight(p)===null?
     MEMORY_POINTS.map(x=>distance(p,x.point)-3):[]),
  ];
- // Canyon stone columns are authored outside the general tree scatter.
- for(const side of [-1,1]){
-  for(let i=0;i<8;i++){
-   const p0={x:29+side*(4.6+Math.sin(i)*.5),z:24+i*2.8};
-   results.push(distance(p,p0)-1.3);
-  }
- }
+ // No obsolete above-ground Moss Canyon stone pillars: they have been
+ // relocated into the west-shelf *underwater* reef and collide only in 3D.
  return Math.min(...results);
 }
 function coastMargin(p:Point){
