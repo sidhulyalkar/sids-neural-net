@@ -516,11 +516,53 @@ async function auditFormatAwareEvidence() {
   }
 }
 
+async function auditRealMobileTouchSignal() {
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 }, hasTouch: true,
+    isMobile: true, deviceScaleFactor: 2, reducedMotion: 'reduce',
+  });
+  const page = await context.newPage();
+  try {
+    await page.route('**/api/frontier/feed?latest=1', (route) => route.fulfill({
+      status: 200, contentType: 'application/json',
+      headers: { 'X-Frontier-Live': 'snapshot-fallback' },
+      body: JSON.stringify({ generatedAt: new Date().toISOString(), items: [], sources: [] }),
+    }));
+    await page.goto(TARGET, { waitUntil: 'domcontentloaded', timeout: FIRST_PAINT_BUDGET_MS });
+    const slider = page.getByRole('slider', { name: 'Rate how interesting this story is' });
+    await slider.scrollIntoViewIfNeeded();
+    const graph = await slider.evaluate((element) => {
+      const area = element.parentElement.getBoundingClientRect();
+      return { left: area.left, width: area.width, y: area.top + area.height / 2 };
+    });
+    for (const score of [1, 10, 4]) {
+      const x = graph.left + graph.width * (20 + (score - 1) * 320 / 9) / 360;
+      await page.touchscreen.tap(x, graph.y);
+      await page.waitForFunction((expected) =>
+        document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === String(expected),
+        score, { timeout: 3500 });
+      assert.equal(await slider.inputValue(), String(score), 'Touch selection must match its displayed constellation point');
+    }
+    const bounds = await page.evaluate(() => ({
+      viewport: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+    }));
+    assert(bounds.scrollWidth <= bounds.viewport + 2, 'Touch rating must not cause horizontal overflow');
+    assert.equal(await page.locator('[data-frontier-active-tip="true"]').count(), 1,
+      'Touch selection preserves the single selected point');
+    return { realTouch: true, deviceWidth: 390, selected: [1, 10, 4], noOverflow: true };
+  } finally {
+    await context.close();
+    await browser.close();
+  }
+}
+
 async function main() {
   const results = [];
   results.push(await audit(1440, 900));
   results.push(await audit(390, 844));
   results.push(await audit(320, 700));
+  results.push(await auditRealMobileTouchSignal());
   results.push(await auditBackgroundLatest());
   results.push(await auditSourceOnlyPresentation());
   results.push(await auditFormatAwareEvidence());
