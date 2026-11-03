@@ -84,11 +84,56 @@ export function coralColonyPositions(guide:ShrineCoralGuide){
   });
 }
 
+/** An understated carved, coral-inlaid DIVE marker sits off the last
+ * approach line, facing back toward the arriving swimmer. It is a genuine
+ * world object, never a fixed HUD label or a collider.
+ */
+export const SHRINE_DIVE_MARKER={
+  text:"DIVE",
+  point:{
+    x:from.x+(to.x-from.x)*.77+side.x*2.65,
+    z:from.z+(to.z-from.z)*.77+side.z*2.65,
+  } as Point,
+  facing:{x:-forward.x,z:-forward.z} as Point,
+  width:3.38,
+  height:1.72,
+  baseAboveSeabed:.24,
+  leanRadians:-.22,
+  label:"DIVE",
+} as const;
+
+/** Conservative bounds check for the entire tilted marker, not just center.
+ * The protective margin includes its carved rim and seabed rock footing.
+ */
+export function shrineDiveMarkerValid():boolean{
+  const marker=SHRINE_DIVE_MARKER;
+  const shrine=SHRINE_CORAL_WAYFINDING.shrine;
+  const halfDiagonal=Math.hypot(marker.width/2,marker.height/2)+.24;
+  const clear=Math.hypot(marker.point.x-shrine.x,marker.point.z-shrine.z);
+  if(clear-halfDiagonal<SHRINE_CORAL_WAYFINDING.shrineClearance)return false;
+  if(waterZone(marker.point)!=="kelp"||maxDiveDepth(marker.point)<5)return false;
+  const approach={
+    x:SHRINE_CORAL_WAYFINDING.trident.x-marker.point.x,
+    z:SHRINE_CORAL_WAYFINDING.trident.z-marker.point.z,
+  };
+  const approachLength=Math.hypot(approach.x,approach.z);
+  if((approach.x*marker.facing.x+approach.z*marker.facing.z)/
+    approachLength<.95)return false;
+  const last=SHRINE_CORAL_GUIDES.at(-1)!;
+  // Marker sits to the side of the final arrow, not atop its living colonies.
+  for(const coral of coralColonyPositions(last)){
+    if(Math.hypot(coral.point.x-marker.point.x,coral.point.z-marker.point.z)-
+      coral.radius<marker.width*.31)return false;
+  }
+  return true;
+}
+
 export function shrineCoralLayoutValid():boolean{
   const shrine=SHRINE_CORAL_WAYFINDING.shrine;
   const trident=SHRINE_CORAL_WAYFINDING.trident;
   const dist=Math.hypot(trident.x-shrine.x,trident.z-shrine.z);
   if(dist<18||dist>34)return false;
+  if(!shrineDiveMarkerValid())return false;
   if(SHRINE_CORAL_GUIDES.length!==4)return false;
   let previous=Infinity;
   for(const guide of SHRINE_CORAL_GUIDES){
