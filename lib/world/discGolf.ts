@@ -69,6 +69,20 @@ export const DISC_GOLF_HOLES:readonly DiscGolfHole[]=[
 ];
 // Do not attach v1.6 scorecards to the longer v1.7 course and par system.
 export const DISC_GOLF_VERSION="disc-golf-v1.12-pier-tee";
+/** Full playable island envelope. The old z>57 cutoff wrongly declared
+ * northern, above-ground throws out of bounds near the northern coast.
+ * This deliberately remains independent of the world module import graph.
+ */
+export const DISC_GOLF_PLAY_BOUNDS={
+  minX:-92,maxX:94,minZ:-96,maxZ:104,
+} as const;
+export function discGolfOutOfBounds(p:Point):boolean{
+  return !Number.isFinite(p.x)||!Number.isFinite(p.z)||
+    p.x<DISC_GOLF_PLAY_BOUNDS.minX||
+    p.x>DISC_GOLF_PLAY_BOUNDS.maxX||
+    p.z<DISC_GOLF_PLAY_BOUNDS.minZ||
+    p.z>DISC_GOLF_PLAY_BOUNDS.maxZ;
+}
 
 /** Capsule helpers shared by the seeded environment and course QA. */
 function inCorridor(p:Point,from:Point,to:Point,radius:number){
@@ -268,6 +282,9 @@ export function discGolfTreeContact(from:DiscPoint,to:DiscPoint,
  const aa=dx*dx+dz*dz;
  if(aa<1e-12)return null;
  const bb=2*(ox*dx+oz*dz),cc=ox*ox+oz*oz-r*r;
+ // A disc that already starts inside a canopy/trunk radius and flies OUT
+ // must not repeatedly hit t=0 and get trapped at the same lie.
+ if(cc<0&&ox*dx+oz*dz>=0)return null;
  const disc=bb*bb-4*aa*cc;
  if(disc<0)return null;
  const t=Math.max(0,(-bb-Math.sqrt(disc))/(2*aa));
@@ -402,7 +419,7 @@ export function stepDiscGolf(state:DiscGolfState,dt:number,
    s.resultAt=s.clock;
    break;
   }
-  if(s.flightTime>=10 || Math.abs(p.x)>93 || Math.abs(p.z)>95 || p.z>57){
+  if(s.flightTime>=10 || discGolfOutOfBounds(p)){
    s.phase="water";s.waterRedos+=1;s.strokes=Math.max(0,s.strokes-1);
    s.gatesCleared=state.gatesCleared;
    s.disc={...state.lie,y:ground(state.lie)+.18};
