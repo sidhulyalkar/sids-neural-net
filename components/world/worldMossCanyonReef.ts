@@ -43,6 +43,19 @@ export function createMossCanyonReef(parent:THREE.Group){
       v(x,y+rock.height*.49,z),
       dim(rock.radius*1.04,rock.height*.53,rock.radius*1.03),
       new THREE.Euler(.06*Math.sin(k),k*.19,.05*Math.cos(k)));
+    // Eroded shoulders break up the repeated boulder silhouettes.
+    // They are anchored on the OUTSIDE of each wall, never narrowing the
+    // intentionally unobstructed snorkeling corridor.
+    for(let shard=0;shard<3;shard++){
+      const angle=k*.83+shard*1.94;
+      const sx=x+side*(rock.radius*.30+shard*.09);
+      const sz=z+.54*Math.sin(angle);
+      const sy=y+rock.height*(.15+.17*shard);
+      rockBatch.add(rockShape,stonePalette[(k+shard+1)%stonePalette.length],
+        v(sx,sy,sz),dim(rock.radius*(.48-.06*shard),
+          rock.height*(.18+.035*shard),rock.radius*.53),
+        new THREE.Euler(.20*Math.cos(angle),angle,.14*Math.sin(angle)));
+    }
     // Patches grow on outward-facing shoulders, never the swim lane.
     const outward=side*(rock.radius*.51);
     const sideX=x+outward;
@@ -53,7 +66,7 @@ export function createMossCanyonReef(parent:THREE.Group){
       const localZ=z+.42*Math.sin(az);
       const localY=baseY-.32-(i%2)*.40;
       const color=palette[(k*3+i)%palette.length];
-      const radius=.28+.07*((k+i)%3);
+      const radius=.36+.08*((k+i)%3);
       coralBatch.add(bulbShape,color,v(localX,localY,localZ),
         dim(radius,.16+.05*(i%2),radius*.90),noRotation);
       // A rough-edged fan gives each colony recognizable reef relief.
@@ -62,14 +75,14 @@ export function createMossCanyonReef(parent:THREE.Group){
         const horizontal=side*.14*Math.cos(theta);
         const offsetZ=.17*Math.sin(theta);
         const start=v(localX,localY+.03,localZ);
-        const end=v(localX+horizontal,localY+.19+.05*b,
+        const end=v(localX+horizontal,localY+.27+.07*b,
           localZ+offsetZ);
         const delta=end.clone().sub(start);
         const length=delta.length();
         const rot=new THREE.Euler().setFromQuaternion(
           new THREE.Quaternion().setFromUnitVectors(axis,delta.normalize()));
         coralBatch.add(coralShape,color,start.add(end).multiplyScalar(.5),
-          dim(.065,length,.065),rot);
+          dim(.074,length,.074),rot);
       }
       coralCount++;
     }
@@ -82,15 +95,15 @@ export function createMossCanyonReef(parent:THREE.Group){
         (a===0?.35:.83);
       const tone=(k+a)%2?"#d7abbb":"#e2b293";
       anemoneBatch.add(discShape,tone,v(px,py,pz),
-        dim(.24,.07,.23),noRotation);
+        dim(.32,.08,.31),noRotation);
       anemoneBatch.add(bulbShape,"#a9788a",v(px,py+.055,pz),
-        dim(.10,.035,.10),noRotation);
+        dim(.12,.045,.12),noRotation);
       for(let t=0;t<9;t++){
         const angle=t*Math.PI*2/9+a*.3;
         const dx=Math.cos(angle),dz=Math.sin(angle);
-        const length=.23+.06*(1+Math.sin(t*1.8+k));
-        const start=v(px+dx*.13,py+.04,pz+dz*.13);
-        const end=v(px+dx*.24,py+.05+length,pz+dz*.24);
+        const length=.33+.085*(1+Math.sin(t*1.8+k));
+        const start=v(px+dx*.18,py+.05,pz+dz*.18);
+        const end=v(px+dx*.31,py+.07+length,pz+dz*.31);
         const delta=end.clone().sub(start);
         const rotation=new THREE.Euler().setFromQuaternion(
           new THREE.Quaternion().setFromUnitVectors(axis,delta.normalize()));
