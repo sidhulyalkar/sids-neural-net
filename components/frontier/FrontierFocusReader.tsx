@@ -653,6 +653,13 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                   {presentation?.evidenceNote ? (
                     <p className={styles.provenanceHint}>{presentation.evidenceNote}</p>
                   ) : null}
+                  {sourceBrief.previewTruncated ? (
+                    <p className={styles.previewNotice}>
+                      Source preview is incomplete. <a href={item.url} target="_blank" rel="noopener noreferrer">
+                        Read the full source <ExternalLink size={12} aria-hidden="true" />
+                      </a>
+                    </p>
+                  ) : null}
                   {sourceBrief.details.length ? (
                     <div className={styles.sourcePoints}>
                       <h2>From the source</h2>
