@@ -1,4 +1,5 @@
-import {MOSS_CANYON} from "@/lib/world/model";
+import {reefCanyonConstrainSwim,reefCanyonNear} from "@/lib/world/reefCanyon";
+import {createMossCanyonReef} from "./worldMossCanyonReef";
 import {bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
 import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcadeTrailFooting,arcadeEntranceCameraPose} from "@/lib/world/arcadeWayfinding";
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
@@ -1347,21 +1348,7 @@ export function createWorld(
     fin.rotation.x = -0.12;
   }
   snorkel.visible = false;
-  // A side canyon and waterfall make the expanded loop readable from a distance.
-  const canyonStone: Instance[] = [], canyonMoss: Instance[] = [], fernFronds: Instance[] = [];
-  for (const side of [-1, 1]) for (let i = 0; i < 8; i++) {
-    const x = MOSS_CANYON.center.x + side * (4.6 + Math.sin(i) * 0.5),
-      z = MOSS_CANYON.startZ + i * MOSS_CANYON.spacing;
-    const y = terrainHeight(x, z), h = 3.8 + Math.sin(i * 0.8) * 1.3;
-    canyonStone.push({ x, y: y + h * 0.45, z, sx: 1.8, sy: h, sz: 2.1, ry: i });
-    obstacles.push({ x, z, radius: 1.3, topY:y+h });
-    canyonMoss.push({ x: x - side * 0.8, y: y + h * 0.65, z, sx: 1.2, sy: 0.4, sz: 1.5 });
-    for (let j = 0; j < 3; j++) fernFronds.push({ x: x - side * 1.9, y: y + 0.45, z: z + j * 0.3, sx: 0.1, sy: 0.65, sz: 0.55, ry: j * 1.7 });
-  }
-  instances(rockGeo, mat("#687b75"), canyonStone);
-  instances(rockGeo, mat("#648d3d"), canyonMoss, false);
-  instances(cone, mat("#4d875d"), fernFronds, false); // Stylized fern forms; no species claim.
-  // Inspect actual generated collision footprints, not just analytic regions.
+  // Moss Canyon now lives below the western kelp shelf; its 3D collision\n  // and reef meshes share one authored model instead of above-ground rocks.\n  // Inspect actual generated collision footprints, not just analytic regions.
   // Browser QA can assert each starting throw and putting green is usable.
   const blockedGolfEnds=DISC_GOLF_HOLES.flatMap((h,index)=>{
     const blocked=(p:{x:number;z:number})=>obstacles.some(o=>
@@ -2846,6 +2833,10 @@ export function createWorld(
   const marineSchools = createMarineSchools(reefRoot,tropicalReefRoot);
   const goldenTridents = createWorldTridents(reefRoot,tropicalReefRoot);
   const shrineCorals=createShrineCoralWayfinding(reefRoot);
+  const mossCanyonReef=createMossCanyonReef(reefRoot);
+  canvas.dataset.mossCanyonRocks=String(mossCanyonReef.rockCount);
+  canvas.dataset.mossCanyonCorals=String(mossCanyonReef.coralCount);
+  canvas.dataset.mossCanyonAnemones=String(mossCanyonReef.anemoneCount);
   canvas.dataset.shrineCoralArrows=String(shrineCorals.count);
   canvas.dataset.shrineCoralColonies=String(shrineCorals.colonyCount);
   canvas.dataset.shrineDiveCue=shrineCorals.diveMarker.text;
@@ -4522,12 +4513,21 @@ export function createWorld(
           playerY=SHRINE_GALLERY.floorY+.04;
           swimDepth=targetDepth=SEA_SURFACE-playerY;
         } else {
-        const nextTravel = stepSwim(
+        const swimAttempt = stepSwim(
           { ...travel, point: player },
           { x: dx, z: dz },
           rawDelta,
           destination,
         );
+        // Rock geometry is collidable only below its submerged crown.
+        // This fixes snorkelers clipping straight through the new reef,
+        // without trapping surface swimmers above the same rock pillars.
+        const wetPoint=reefCanyonConstrainSwim(player,swimAttempt.point,playerY);
+        const nextTravel={
+          ...swimAttempt,point:wetPoint,
+          speed:Math.hypot(wetPoint.x-player.x,wetPoint.z-player.z)<.001
+            ?0:swimAttempt.speed,
+        };
         if (!isWater(nextTravel.point)||jetSkiPierHeight(nextTravel.point)!==null) {
           if (aquatic === "surface") {
             travel = nextTravel;
@@ -7306,9 +7306,14 @@ export function createWorld(
         galleryFocusIndex=null;
         climb = null;
         grind = null;
-        setAquaticMode("land");
+        const arrivalIsCanyon=r.id==="canyon"&&!flowStart&&!galleryStart;
+        setAquaticMode(arrivalIsCanyon?"dive":"land");
+        if(arrivalIsCanyon){
+          swimDepth=targetDepth=Math.min(3.2,maxDiveDepth(player));
+        }
         caveLayer = "surface";
-        playerY = jetPierStart ? (jetSkiPierHeight(player) ?? groundHeight(player)) : groundHeight(player);
+        playerY = arrivalIsCanyon?SEA_SURFACE-swimDepth:
+          jetPierStart ? (jetSkiPierHeight(player) ?? groundHeight(player)) : groundHeight(player);
         rideRecovery=initialRideRecovery(player);
         rideFlightContinuity=false;lastFlightExitAt=-Infinity;
         dog = { x: player.x + 2, z: player.z - 2 };
@@ -7456,6 +7461,7 @@ export function createWorld(
       marineSchools.dispose();
       goldenTridents.dispose();
       shrineCorals.dispose();
+      mossCanyonReef.dispose();
       hiddenShrineGallery.dispose();
       paperGallery.dispose();
       shrineHint.remove();
