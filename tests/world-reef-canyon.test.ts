@@ -92,6 +92,8 @@ test("canyon uses existing kelp gate, protected swim collision and underwater ar
   assert.match(scene,/createMossCanyonReef\(reefRoot\)/);
   assert.match(scene,/mossCanyonReef\.dispose\(\)/);
   assert.match(scene,/reefCanyonConstrainSwim\(player,swimAttempt\.point,playerY\)/);
+  assert.match(scene,/reefCanyonConstrainSwim\(player,\{/);
+  assert.match(scene,/camera\.position\.y,true\)/);
   assert.match(scene,/arrivalIsCanyon\?"dive":"land"/);
   assert.match(scene,/reefRoot\.visible = aquatic !== "land" && currentWaterZone === "kelp"/);
   assert.doesNotMatch(scene,/const canyonStone: Instance\[\]/);
