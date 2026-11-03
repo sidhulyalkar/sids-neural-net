@@ -48,6 +48,9 @@ try{
     completions:Number(el.dataset.skateLoopCompletions),
     phase:el.dataset.skateLoopPhase,activity:el.dataset.activity,
     result:el.dataset.skateLastResult,zone:el.dataset.skateGroveZone,
+    airborne:el.dataset.airborne,grinding:el.dataset.grinding,
+    trick:el.dataset.skateTrick,manual:el.dataset.skateManual,
+    caveLayer:el.dataset.caveLayer,recovery:el.dataset.rideRecoveryCount,
    });
    const key=(kind,k)=>{
     if(kind==="keydown")pressed.add(k);else pressed.delete(k);
@@ -76,8 +79,11 @@ try{
      key("keyup","a");key("keydown","w");
      stage="loop-approach";
     }
+    if(stage==="loop-approach"&&p[0]>13&&p[0]<23)trace.push(s);
     if(stage==="loop-approach"&&s.entries>=1){
      entered=s;stage="inverting";
+    }else if(stage==="loop-approach"&&p[0]<14){
+     fail("Rider crossed the real loop mouth without engaging the track");return;
     }
     // This must sample every rendered frame, not a stale host-side poll after
     // the vehicle has already passed the top of the loop.
