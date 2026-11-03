@@ -5320,9 +5320,13 @@ export function createWorld(
             )
           : 0
       ).toFixed(3);
-      const r: RegionId = isWater(player) ?
-        (waterZone(player)==="north-shore"?"north-shore":"coast") :
-        nearestRegion(player);
+      // The west-shelf canyon is a genuine underwater destination; don't
+      // flatten its location to the generic Wild Coast HUD just because
+      // the visitor is diving. Preserve the north-shore classification.
+      const r: RegionId = isWater(player)
+        ? reefCanyonNear(player) ? "canyon"
+          : waterZone(player)==="north-shore" ? "north-shore":"coast"
+        : nearestRegion(player);
       const caveProgress = THREE.MathUtils.clamp(
         (player.z - arcade.z) / ARCADE_CAVE.tunnelDepth,
         0,
