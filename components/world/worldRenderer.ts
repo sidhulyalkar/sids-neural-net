@@ -7410,7 +7410,9 @@ export function createWorld(
           caveLayer="paper";
           playerY=paperCaveFloorHeight(player);
           travel={point:player,speed:0,heading:{x:0,z:-1}};
-          yaw=Math.PI;pitch=.3;zoom=7;
+          // W must move deeper into the waterfall museum (-Z), not turn
+          // the visitor back toward its entrance.
+          yaw=0;pitch=.3;zoom=7;
           camera.position.set(-20,playerY+1.65,player.z);
           look.set(-20,playerY+1.65,player.z-3);camera.lookAt(look);
         }
