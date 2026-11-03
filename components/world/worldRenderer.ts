@@ -5768,6 +5768,15 @@ export function createWorld(
           floor + 1.05,
           SEA_SURFACE - 0.28,
         );
+        if(reefCanyonNear(player)){
+          // A camera skimming the surface puts a hard waterline through the
+          // middle of the coral corridor. Lower the lens into the scene while
+          // keeping it above the real seabed and below the foam plane.
+          targetCamera.y=THREE.MathUtils.clamp(
+            Math.min(targetCamera.y,playerY+1.35,SEA_SURFACE-1.3),
+            floor+1.05,SEA_SURFACE-.65,
+          );
+        }
       }
       if (caveInside || paperInside) {
         const isArcade = caveInside;
