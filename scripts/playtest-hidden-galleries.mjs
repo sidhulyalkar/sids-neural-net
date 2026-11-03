@@ -19,7 +19,7 @@ try{
     const request=response.request();
     const url=new URL(response.url());
     const failure={status:response.status(),type:request.resourceType(),
-      path:url.pathname,query:url.search,method:request.method()};
+      origin:url.origin,path:url.pathname,query:url.search,method:request.method()};
     report.httpFailures.push(failure);
     console.error("GALLERY HTTP FAILURE",JSON.stringify(failure));
   });
@@ -282,6 +282,14 @@ try{
     "gallery-still-3.png","photo-deep-link.png","paper-gallery.png",
     "paper-gallery-room2.png","paper-gallery-room3.png",
     "moss-canyon-entrance.png","moss-canyon-snorkeling.png"];
+  // A screenshot walkthrough is not green if visible background/gallery
+  // imagery returns missing-file responses. Ignore external origins and
+  // intentional navigation aborts; require every local image request to load.
+  const sameOrigin=new URL(base).origin;
+  const brokenImages=report.httpFailures.filter(f=>
+    f.type==="image" && f.status>=400 && f.origin===sameOrigin);
+  assert.deepEqual(brokenImages,[],
+    "Local gallery and site imagery must not return HTTP errors");
   assert.deepEqual(errors,[]);
   fs.writeFileSync(path.join(out,"report.json"),JSON.stringify(report,null,2)+"\n");
   console.log("GALLERY WALK / PHOTO DEEP LINK / PAPER MUSEUM BROWSER QA PASS");
