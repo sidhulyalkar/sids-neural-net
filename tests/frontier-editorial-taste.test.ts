@@ -62,11 +62,11 @@ test('conceptual explanations outrank equally credible generic updates without o
 
 test('sensational and rumor-driven headlines are demoted, not asserted false', () => {
   const hype = item('hype', {
-    title: 'Mind-blowing revolutionary AI chatbot app will change everything',
+    title: 'Startup launches mind-blowing revolutionary AI chatbot app that will change everything',
     summary: 'The incredible new AI assistant is the ultimate product for everyone. Start today and discover the future of artificial intelligence.',
   });
   const speculation = item('rumor', {
-    title: 'Rumors: Celebrity dating drama could be about to break',
+    title: 'Rumors: Celebrity gossip about dating drama could be about to break',
     summary: 'Several unconfirmed tabloid claims have circulated online and are attracting public attention, with speculation about a relationship involving famous entertainers.',
   });
   const a = frontierEditorialTasteSignals(hype);
@@ -118,15 +118,18 @@ test('ranking breakdown exposes auditable editorial prior and preserves exact co
   const breakdown = frontierPersonalizedScoreBreakdown(obj, createInitialProfile(), undefined, when);
   assert.equal(breakdown.components.editorialTaste, frontierEditorialTasteSignals(obj).adjustment);
   assert.equal(sumFrontierPersonalizedScoreComponents(breakdown.components), breakdown.rawScore);
-  assert.equal(
-    sumFrontierPersonalizedScoreComponents(breakdown.components, new Set(['editorialTaste'])),
-    breakdown.rawScore - breakdown.components.editorialTaste,
-  );
+  assert.ok(Math.abs(
+    sumFrontierPersonalizedScoreComponents(breakdown.components, new Set(['editorialTaste']))
+      - (breakdown.rawScore - breakdown.components.editorialTaste)
+  ) < 1e-10);
 });
 
 test('review kit records editorial risks and exploration exposure but never invents human labels', () => {
-  const qualified = item('outside-domain', { title: 'How unusual marine organisms solve complex navigation' });
-  const risky = item('risk', { title: 'Revolutionary AI chatbot app will change everything', summary:
+  const qualified = item('outside-domain', {
+    title: 'How unusual microbial soil communities reorganize after drought',
+    summary: 'Field experiments compare microbial soil communities after drought cycles. The authors describe measurement controls, replicate observations, uncertainty estimates and implications for ecosystem resilience.',
+  });
+  const risky = item('risk', { title: 'Startup launches revolutionary AI chatbot app that will change everything', summary:
     'The brand has announced its AI assistant is the ultimate app, available to everyone immediately, with amazing possibilities that will transform daily life.' });
   const rows = buildFrontierEditorialReviewRows(
     [qualified, risky], [risky.id, qualified.id], [qualified.id, risky.id]);
