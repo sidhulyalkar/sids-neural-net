@@ -5,6 +5,9 @@ on:
     paths:
       - 'components/world/worldRenderer.ts'
       - 'components/world/worldHiddenShrineGallery.ts'
+      - 'components/world/worldShrineCoralWayfinding.ts'
+      - 'lib/world/shrineCoralWayfinding.ts'
+      - 'lib/world/artifacts.ts'
       - 'components/world/worldPaperGallery.ts'
       - 'components/world/WorldHome.tsx'
       - 'components/world/WorldScene.tsx'
@@ -16,6 +19,7 @@ on:
       - 'components/publications/PublicationFocusArchive.tsx'
       - 'tests/world-gallery-archive-links.test.ts'
       - 'tests/world-hidden-shrine-gallery.test.ts'
+      - 'tests/world-shrine-coral-wayfinding.test.ts'
       - 'scripts/playtest-hidden-galleries.mjs'
       - '.github/workflows/hidden-gallery-browser.yml'
   workflow_dispatch:
@@ -42,8 +46,8 @@ jobs:
       - name: Typecheck, lint, world and deep-link contracts
         run: |
           npm run typecheck
-          npx eslint components/world/worldRenderer.ts components/world/worldHiddenShrineGallery.ts components/world/worldPaperGallery.ts components/world/WorldHome.tsx components/world/WorldScene.tsx lib/world/hiddenShrineGallery.ts lib/world/galleryLinks.ts app/photography/page.tsx app/publications/page.tsx components/visual-archive/VisualArchiveGallery.tsx components/publications/PublicationFocusArchive.tsx tests/world-gallery-archive-links.test.ts tests/world-hidden-shrine-gallery.test.ts --max-warnings=0
-          node --import tsx --test tests/world-hidden-shrine-gallery.test.ts tests/world-gallery-archive-links.test.ts
+          npx eslint components/world/worldRenderer.ts components/world/worldHiddenShrineGallery.ts components/world/worldShrineCoralWayfinding.ts components/world/worldPaperGallery.ts components/world/WorldHome.tsx components/world/WorldScene.tsx lib/world/hiddenShrineGallery.ts lib/world/shrineCoralWayfinding.ts lib/world/artifacts.ts lib/world/galleryLinks.ts app/photography/page.tsx app/publications/page.tsx components/visual-archive/VisualArchiveGallery.tsx components/publications/PublicationFocusArchive.tsx tests/world-gallery-archive-links.test.ts tests/world-hidden-shrine-gallery.test.ts tests/world-shrine-coral-wayfinding.test.ts --max-warnings=0
+          node --import tsx --test tests/world-hidden-shrine-gallery.test.ts tests/world-gallery-archive-links.test.ts tests/world-shrine-coral-wayfinding.test.ts
       - name: Install isolated Playwright
         run: |
           mkdir -p /tmp/gallery-browser
