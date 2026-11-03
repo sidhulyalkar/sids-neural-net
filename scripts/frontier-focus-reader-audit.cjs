@@ -149,18 +149,36 @@ async function audit(width, height) {
     assert.equal(await page.locator('[aria-label="Source-grounded summary"]').count(), 1);
     assert((await page.locator('[aria-label="Source metrics"]').count()) <= 1);
 
-    // A direct pointer tap saves its value immediately. No time threshold,
-    // radial hold, synthetic voting delay or second confirmation dialog.
+    // Exact pointer mapping follows the constellation's real rendered nodes,
+    // not arbitrary native range thumb offsets. Verify both ends and a drag.
     await rating.scrollIntoViewIfNeeded();
     const rect = await rating.boundingBox();
     assert(rect && rect.width >= 190 && rect.height >= 44, 'Minimum comfortable touch area');
-    await page.mouse.click(rect.x + rect.width * 0.70, rect.y + rect.height / 2);
-    const tapped = Number(await rating.inputValue());
-    assert(tapped >= 1 && tapped <= 10, 'Pointer tap must select an exact score');
-    await page.waitForFunction((value) =>
-      document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === String(value),
-      tapped, { timeout: 3000 });
+    const graph = await rating.evaluate((element) => {
+      const area = element.parentElement.getBoundingClientRect();
+      return { left: area.left, width: area.width, y: area.top + area.height / 2 };
+    });
+    const pointX = (score) => graph.left + graph.width * (20 + (score - 1) * 320 / 9) / 360;
+    await page.mouse.click(pointX(1), graph.y);
+    await page.waitForFunction(() =>
+      document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === '1');
+    assert.equal(await rating.inputValue(), '1');
+    await page.mouse.click(pointX(10), graph.y);
+    await page.waitForFunction(() =>
+      document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === '10');
+    assert.equal(await rating.inputValue(), '10');
+    await page.mouse.move(pointX(1), graph.y);
+    await page.mouse.down();
+    await page.mouse.move(pointX(7), graph.y, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForFunction(() =>
+      document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === '7');
+    assert.equal(await rating.inputValue(), '7');
+    assert.equal(await signal.locator('[data-frontier-active-tip="true"]').count(), 1,
+      'Exactly the selected constellation point receives the active highlight');
     assert.equal(await signal.getAttribute('data-frontier-signal'), 'rated');
+    assert.equal(await signal.getByText('1 · Not for me').count(), 1);
+    assert.equal(await signal.getByText('10 · Fascinating').count(), 1);
 
     // Keyboard has direct access to every step on the same input.
     await rating.focus();
