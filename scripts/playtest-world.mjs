@@ -247,7 +247,7 @@ try {
     await screenshot(page, `activity-${mode}`);
     if (mode === 'boulder') {
       const beforeHeight = Number(await page.locator('canvas').getAttribute('data-height'));
-      await page.getByRole('button', { name: 'Climb', exact: true }).click();
+      await page.getByRole('button', { name: 'Climb · Space', exact: true }).click();
       await page.waitForFunction(h => Number(document.querySelector('canvas')?.dataset.height) > h + 0.8, beforeHeight);
       results.push('Boulder action climbs a real ledge');
     } else {
