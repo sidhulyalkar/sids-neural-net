@@ -192,8 +192,30 @@ export function arcadeCaveTerrainMask(x: number, z: number): number {
 export function caveHalfWidth(z:number) {
   return 3.8 + smoothstep01((z + 75) / 5) * 2.5;
 }
-export const PAPER_CAVE = {x:-20,z:-30,backZ:-36,halfWidth:4} as const;
-export function paperCaveHalfWidth(z: number) { return 2.3 + 1.7 * smoothstep01((-z - 30) / 3); }
+/** A continuous three-room archive behind the *existing* waterfall portal.
+ * True research sources supply all exhibits; no synthetic publications.
+ * The floor and roof stay separate from outdoor terrain collision.
+ */
+export const PAPER_CAVE={
+  x:-20,z:-30,backZ:-58,halfWidth:4.45,
+  chambers:[
+    {id:"origin",centerZ:-34.3},
+    {id:"methods",centerZ:-43},
+    {id:"discoveries",centerZ:-52.5},
+  ],
+  thresholds:[-39,-48],
+} as const;
+export function paperCaveHalfWidth(z:number){
+  return 2.3+1.7*smoothstep01((-z-30)/3)+
+    .42*smoothstep01((-z-38)/1.8)-
+    .22*smoothstep01((-z-47)/2.0);
+}
+export function paperMuseumRoomIndex(p:Point):number{
+  if(!paperCaveInside(p))return -1;
+  if(p.z>PAPER_CAVE.thresholds[0])return 0;
+  if(p.z>PAPER_CAVE.thresholds[1])return 1;
+  return 2;
+}
 
 export type CaveLayer = "surface" | "arcade" | "paper";
 const ARCADE_PORTAL_Z = ARCADE_CAVE.entrance.z + 0.08;
@@ -238,7 +260,7 @@ function paperAccessTerrainMask(x: number, z: number) {
   return Math.max(0, Math.min(1, lateralMask * backFade * frontFade));
 }
 
-export function paperCaveInside(p:Point) {return Math.abs(p.x-PAPER_CAVE.x)<paperCaveHalfWidth(p.z)-.5 && p.z < -31 && p.z > -35.5;}
+export function paperCaveInside(p:Point) {return Math.abs(p.x-PAPER_CAVE.x)<paperCaveHalfWidth(p.z)-.5 && p.z < -30.55 && p.z > PAPER_CAVE.backZ+.48;}
 export function arcadeInside(p:Point) {return p.z>-81.5 && p.z<-63 && Math.abs(p.x-16)<caveHalfWidth(p.z)-.3;}
 /** The cave is carved inside an alpine biome. Its Shasta waiting behavior
  * follows actual cave-layer geometry, not the nearest open-air region label.
@@ -292,10 +314,16 @@ export function nextCaveLayer(
 export function caveObstacles(): Obstacle[] {
   const result: Obstacle[] = [];
   for (const side of [-1, 1]) {
-    for (let z = -30; z >= -36; z--) result.push({ x: -20 + side * (paperCaveHalfWidth(z) + .2), z, radius: .35 });
+    for (let z = -30; z >= PAPER_CAVE.backZ; z--) result.push({ x: -20 + side * (paperCaveHalfWidth(z) + .2), z, radius: .35 });
     for (let z = -81; z < -63; z++) result.push({ x: 16 + side * (caveHalfWidth(z) + .4), z, radius: .32 });
   }
-  for (let x = -24; x <= -16; x++) result.push({ x, z: -36.5, radius: .35 });
+  for(let x=-20-paperCaveHalfWidth(PAPER_CAVE.backZ);x<=-20+paperCaveHalfWidth(PAPER_CAVE.backZ);x+=.6)
+    result.push({x,z:PAPER_CAVE.backZ-.35,radius:.35});
+  // Vestibule arches keep distinct rooms while leaving generous central
+  // passage for the visitor and the gallery camera.
+  for(const z of PAPER_CAVE.thresholds)for(const side of [-1,1])
+    result.push({x:PAPER_CAVE.x+side*(paperCaveHalfWidth(z)-.72),
+      z,radius:.48});
   // No baffle obstacle at z=-74.5: the main arcade corridor is unobstructed.
   for (let x = 10; x < 23; x += .8) result.push({ x, z: -62.5, radius: .35 });
   return result;
