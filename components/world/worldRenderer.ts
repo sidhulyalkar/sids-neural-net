@@ -7363,7 +7363,7 @@ export function createWorld(
         travel = { point: player, speed: 0, heading:
           reverseStart?reversePose.heading:tubeStart?{x:-1,z:0}:loopStart?{x:-1,z:0}:flowStart?{x:1,z:0}:
           next.command.activity==="skate"&&insideSkatePark(player)?
-          skateGroveStartHeading():{x:0,z:r.id==="north-shore"?1:-1} };
+          skateGroveStartHeading():{x:0,z:r.id==="north-shore"||r.id==="canyon"?1:-1} };
         airHeight = verticalSpeed = swimDepth = targetDepth = 0;
         galleryPhase="outside";lastGalleryCameraPhase="outside";
         galleryFocusIndex=null;
@@ -7438,6 +7438,9 @@ export function createWorld(
           yaw = Math.atan2(-approachX, -approachZ);
         } else {
           yaw =
+            // The reef entry is south of the canyon: W faces north (+Z),
+            // rather than swimming away from the passage into open water.
+            r.id === "canyon" ? Math.PI :
             r.id === "rainforest" ? Math.PI/2 :
             r.id === "cavern"
               ? Math.PI
