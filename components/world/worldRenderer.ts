@@ -95,6 +95,8 @@ import {
   paperCaveFloorHeight,
   paperCaveInside,
   paperCaveHalfWidth,
+  paperMuseumRoomIndex,
+  PAPER_CAVE,
   caveObstacles,
   caveHalfWidth,
   mountainSurfaceHeight,
@@ -1369,8 +1371,10 @@ export function createWorld(
   const basin=mesh(geo(new THREE.CircleGeometry(2,20)),waterRibbonMat,[upper[0].x,upper[0].y,upper[0].z],[1,1,1]);basin.rotation.x=-Math.PI/2;
   const fallRings=Array.from({length:13},(_,i)=>{const t=i/12;return [new THREE.Vector3(-21.2-Math.sin(t*4)*.12,lip.y+(fallsY+.1-lip.y)*t,-30+t*.8),new THREE.Vector3(-18.8+Math.sin(t*6)*.18,lip.y+(fallsY+.1-lip.y)*t,-30+t*.8)];});
   const waterfall=mesh(geo(ringSurface(fallRings)),waterRibbonMat,[0,0,0],[1,1,1]);waterfall.castShadow=false;
-  const paperRings=Array.from({length:7},(_,i)=>{
-    const z=-30-i,w=paperCaveHalfWidth(z),floor=paperCaveFloorHeight({x:-20,z});
+  // The foundation and shell span all three rooms as continuous surfaces,
+  // preventing z-fighting across thresholds.
+  const paperRings=Array.from({length:1+Math.abs(PAPER_CAVE.backZ-PAPER_CAVE.z)},(_,i)=>{
+    const z=PAPER_CAVE.z-i,w=paperCaveHalfWidth(z),floor=paperCaveFloorHeight({x:-20,z});
     const roofLimit=Math.min(
       mountainSurfaceHeight(-20,z),
       mountainSurfaceHeight(-20-w*.6,z),
@@ -1389,8 +1393,10 @@ export function createWorld(
     ];
   });
   mesh(geo(ringSurface(paperRings)),mat("#465958",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
-  const paperBackFloor=paperCaveFloorHeight({x:-20,z:-36});
-  mesh(boxGeo,mat("#43504e"),[-20,paperBackFloor+2.15,-36.2],[8,4.3,.5]);
+  const paperBackFloor=paperCaveFloorHeight({x:-20,z:PAPER_CAVE.backZ});
+  mesh(boxGeo,mat("#43504e"),
+    [-20,paperBackFloor+2.15,PAPER_CAVE.backZ-.25],
+    [paperCaveHalfWidth(PAPER_CAVE.backZ)*2,4.3,.5]);
   const paperFloorRings=paperRings.map(ring=>{
     const z=ring[0].z,w=paperCaveHalfWidth(z)-.12,y=paperCaveFloorHeight({x:-20,z})-.08;
     return [new THREE.Vector3(-20-w,y,z),new THREE.Vector3(-20+w,y,z)];
@@ -1403,14 +1409,49 @@ export function createWorld(
   // Close the rock above and beside the mouth without closing the passage.
   const paperRockSkin = [...paperRockRings, paperRings[0]];
   mesh(geo(ringSurface(paperRockSkin)),mat("#78867a",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
-  const paperTablets:Instance[]=Array.from({length:4},(_,i)=>({x:-22.4+i*1.6,y:fallsY+1.9,z:-35.75,sx:1.05,sy:1.5,sz:.16}));
-  instances(boxGeo,mat("#8d9c96"),paperTablets,false);
-  const paperGlyphs:Instance[]=paperTablets.flatMap(p=>Array.from({length:12},(_,i)=>({x:p.x-.4+i*.07,y:p.y+Math.sin(i*1.8)*.19,z:p.z+.1,sx:.05,sy:.055,sz:.025})));
-  instances(boxGeo,mat("#394c4f"),paperGlyphs,false);
+  // Real carved arches partition the exhibit without closing the broad
+  // central doors or introducing another coplanar stone floor.
+  const museumArchBlocks:Instance[]=[];
+  const museumGoldInlays:Instance[]=[];
+  for(const z of PAPER_CAVE.thresholds){
+    const y=paperCaveFloorHeight({x:PAPER_CAVE.x,z});
+    const w=paperCaveHalfWidth(z);
+    for(const side of [-1,1]){
+      museumArchBlocks.push({
+        x:PAPER_CAVE.x+side*(w-.72),y:y+1.73,z,
+        sx:.62,sy:3.44,sz:.64,
+      });
+      museumGoldInlays.push({
+        x:PAPER_CAVE.x+side*(w-.72),y:y+2.85,z:z+.35,
+        sx:.45,sy:.10,sz:.055,
+      });
+    }
+    museumArchBlocks.push({
+      x:PAPER_CAVE.x,y:y+3.67,z,
+      sx:2*w-.5,sy:.45,sz:.70,
+    });
+    museumGoldInlays.push({
+      x:PAPER_CAVE.x,y:y+3.50,z:z+.36,
+      sx:2*w-1.1,sy:.055,sz:.045,
+    });
+  }
+  instances(boxGeo,mat("#6b685d"),museumArchBlocks,false);
+  instances(boxGeo,mat("#cfad7b"),museumGoldInlays,false);
   const paperGallery=createWorldPaperGallery(scene,publicationCards);
   markerObjects.push(...paperGallery.targets);
   canvas.dataset.paperGalleryCount=String(paperGallery.count);
-  const paperLight=new THREE.PointLight("#b2dce6",4,9,2);paperLight.position.set(-20,fallsY+3,-33);scene.add(paperLight);
+  canvas.dataset.paperGalleryRooms=String(paperGallery.roomCount);
+  const paperLight=new THREE.PointLight("#e7c395",2.6,11,2);
+  paperLight.position.set(-20,paperCaveFloorHeight({x:-20,z:-34})+3.2,-34);
+  scene.add(paperLight);
+  const museumRoomLights=PAPER_CAVE.chambers.slice(1).map(room=>{
+    const point=new THREE.PointLight("#e7c395",2.2,11,2);
+    point.position.set(PAPER_CAVE.x,
+      paperCaveFloorHeight({x:PAPER_CAVE.x,z:room.centerZ})+3,
+      room.centerZ);
+    scene.add(point);
+    return point;
+  });
   const pool=mesh(geo(new THREE.CircleGeometry(3.7,24)),waterRibbonMat,[-20,fallsY+.08,-27],[1,1,1]);pool.rotation.x=-Math.PI/2;
   const lower=downstreamPoints().map(p=>new THREE.Vector3(p.x,p.y,p.z));
   mesh(geo(ribbon(lower,lower.map(()=>1.2))),waterRibbonMat,[0,0,0],[1,1,1]);
@@ -5289,6 +5330,8 @@ export function createWorld(
       );
       const caveInside = aquatic === "land" && caveLayer === "arcade" && arcadeInside(player);
       const paperInside = aquatic === "land" && caveLayer === "paper" && paperCaveInside(player);
+      canvas.dataset.paperMuseumRoom=String(paperMuseumRoomIndex(player));
+      for(const light of museumRoomLights)light.visible=caveLayer==="paper";
       carvingBandMesh.visible = caveInside && caveProgress > .4;
       canvas.dataset.caveInside = String(caveInside);
       canvas.dataset.caveDepth = caveProgress.toFixed(3);
@@ -5588,7 +5631,8 @@ export function createWorld(
         // never the player's actual collision or equipment states.
         const cameraInsideAvatar=caveInside&&
           camera.position.distanceTo(explorer.position)<2.55;
-        explorer.visible=!jetChoosing&&!cameraInsideAvatar&&galleryPhase!=="inside";
+        explorer.visible=!jetChoosing&&!cameraInsideAvatar&&galleryPhase!=="inside"&&
+          !(caveLayer==="paper"&&paperCaveInside(player));
         jetskiVisual.activeSki.visible=jetChoosing;
         if(jetChoosing){
           jetskiVisual.activeSki.position.set(JET_SKI_DOCK.x+.25,SEA_SURFACE+.2,JET_SKI_PIER.centerZ-.15);
@@ -5706,13 +5750,21 @@ export function createWorld(
         // A camera just 0.5m behind the player at the threshold rendered the
         // explorer's backpack as a full-screen polygon. Allow a 2.6m exterior
         // throat boom; the layered cave floor still clamps vertical clearance.
-        const minZ = isArcade ? ARCADE_CAVE.entrance.z-2.4 : -35.4;
-        const maxZ = isArcade ? -63.7 : -30.3;
-        const desired = constrainMove(player,{x:player.x+Math.sin(yaw)*2.6,z:player.z+Math.cos(yaw)*2.6},caveSolids);
+        const minZ = isArcade ? ARCADE_CAVE.entrance.z-2.4 : PAPER_CAVE.backZ+.65;
+        const maxZ = isArcade ? -63.7 : PAPER_CAVE.z-.3;
+        const desired = isArcade
+          ? constrainMove(player,{
+              x:player.x+Math.sin(yaw)*2.6,
+              z:player.z+Math.cos(yaw)*2.6,
+            },caveSolids)
+          : player;
         const z=THREE.MathUtils.clamp(desired.z,minZ,maxZ);
         const half = isArcade ? caveHalfWidth(z)-.85 : paperCaveHalfWidth(z)-.85;
-        targetCamera.set(THREE.MathUtils.clamp(desired.x,centerX-half,centerX+half),playerY+2.15,z);
-        targetLook.set(player.x-Math.sin(yaw)*2.4,playerY+1.85,player.z-Math.cos(yaw)*2.4);
+        targetCamera.set(THREE.MathUtils.clamp(desired.x,centerX-half,centerX+half),
+          isArcade?playerY+2.15:playerY+1.65,z);
+        targetLook.set(player.x-Math.sin(yaw)*(isArcade?2.4:3),
+          playerY+(isArcade?1.85:1.65),
+          player.z-Math.cos(yaw)*(isArcade?2.4:3));
       }
       if(galleryPhase!=="outside"){
         if(galleryPhase==="inside"){
@@ -6567,10 +6619,11 @@ export function createWorld(
       const c=constrainMove(player,{x:camera.position.x,z:camera.position.z},caveSolids);
       const inArcade = caveLayer === "arcade" && arcadeInside(player);
       const centerX = inArcade ? 16 : -20;
-      const z = THREE.MathUtils.clamp(c.z, inArcade ? -81.6 : -35.4, inArcade ? -63.7 : -30.3);
+      const z = THREE.MathUtils.clamp(c.z, inArcade ? -81.6 : PAPER_CAVE.backZ+.65, inArcade ? -63.7 : PAPER_CAVE.z-.3);
       const half = (inArcade ? caveHalfWidth(z) : paperCaveHalfWidth(z)) - .85;
       camera.position.x=THREE.MathUtils.clamp(c.x,centerX-half,centerX+half);camera.position.z=z;
-      camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
+      camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,
+        inArcade?playerY+3:playerY+1.85);
     }
     if(galleryPhase!=="outside"){
       const anchor=galleryPhase==="inside"&&galleryFocusIndex!==null
@@ -6596,7 +6649,7 @@ export function createWorld(
     // a slightly narrower 68° lens preserves depth cues while walking.
     const museumFov=galleryPhase==="inside"
       ? galleryFocusIndex===null?68:74
-      : 47;
+      : caveLayer==="paper"&&paperCaveInside(player)?62:47;
     if(camera.fov!==museumFov){
       camera.fov=museumFov;
       camera.updateProjectionMatrix();
@@ -7358,8 +7411,8 @@ export function createWorld(
           playerY=paperCaveFloorHeight(player);
           travel={point:player,speed:0,heading:{x:0,z:-1}};
           yaw=Math.PI;pitch=.3;zoom=7;
-          camera.position.set(-20,playerY+2.4,-31.5);
-          look.set(-20,playerY+1.5,-34.5);camera.lookAt(look);
+          camera.position.set(-20,playerY+1.65,player.z);
+          look.set(-20,playerY+1.65,player.z-3);camera.lookAt(look);
         }
         // A deep-linked museum arrival owns its own heading. The generic
         // coastal/mountain orientation must never turn the first WASD stride
