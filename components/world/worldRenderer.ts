@@ -54,6 +54,7 @@ import {
 import { createMarineSchools } from "./worldSchools";
 import { createWorldTridents } from "./worldTridents";
 import { createShrineCoralWayfinding } from "./worldShrineCoralWayfinding";
+import { shrineDiveMarkerSightlineReserved } from "@/lib/world/shrineCoralWayfinding";
 import { createHiddenShrineGallery } from "./worldHiddenShrineGallery";
 import { createWorldPaperGallery } from "./worldPaperGallery";
 import { SHRINE_GALLERY, GALLERY_VIEWING, galleryConstrainMove, galleryStepWalk, galleryNearShaft, galleryWalkable, shrineReachable, galleryPhotoSlots, galleryPhotoViewpoint, galleryPhotoClearance, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
@@ -2576,7 +2577,10 @@ export function createWorld(
   for (let i = 0; i < 58; i++) {
     const x = -74 + random() * 29, z = -24 + random() * 63;
     const floor = seaFloorHeight(x, z), size = 0.35 + random() * 1.45;
-    reefRocks.push({ x, y: floor + size * 0.35, z, sx: size, sy: size * 0.7, sz: size * 1.2, ry: random() * 6 });
+    const ry=random()*6;
+    // Keep large boulders out of the short approach to the DIVE plaque.
+    if(shrineDiveMarkerSightlineReserved({x,z},size*.72))continue;
+    reefRocks.push({ x, y: floor + size * 0.35, z, sx: size, sy: size * 0.7, sz: size * 1.2, ry });
   }
   instances(rockGeo, reefRockMat, reefRocks, false, reefRoot);
 
@@ -2585,19 +2589,26 @@ export function createWorld(
     const x = -70 + random() * 25, z = -22 + random() * 58;
     const floor = seaFloorHeight(x, z);
     const height = Math.max(2.3, SEA_SURFACE - floor - 0.5 - random() * 1.2);
-    kelpStems.push({
-      x, y: floor + height / 2, z,
-      sx: 0.055, sy: height, sz: 0.055,
-    });
+    const reserved=shrineDiveMarkerSightlineReserved({x,z},.4);
+    if(!reserved){
+      kelpStems.push({
+        x, y: floor + height / 2, z,
+        sx: 0.055, sy: height, sz: 0.055,
+      });
+    }
     for (let blade = 0; blade < 4; blade++) {
       const y = floor + height * (0.42 + blade * 0.15);
       const a = blade * 1.7 + i;
+      const length=.8+random()*.6;
+      // Always consume the same PRNG samples even when skipping vegetation,
+      // preserving all unrelated world placement after the kelp forest.
+      if(reserved)continue;
       kelpBlades.push({
         x: x + Math.cos(a) * 0.22,
         y,
         z: z + Math.sin(a) * 0.22,
         sx: 0.22,
-        sy: 0.8 + random() * 0.6,
+        sy: length,
         sz: 0.13,
         ry: a,
       });
