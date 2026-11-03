@@ -42,7 +42,7 @@ function splitLongSourceSentence(sentence: string): string[] {
 export function buildFrontierSourceBrief(summary: string, sourceKind = ''): FrontierSourceBrief {
   const text = cleanFrontierEditorialText(summary, sourceKind);
   if (!text) return { lead: '', details: [], hasFullerContext: false };
-  const previewTruncated = /(?:…|\\.\\.\\.)\\s*$/u.test(text);
+  const previewTruncated = /(?:…|\.\.\.)\s*$/u.test(text);
   const sentences = readableSentences(text).flatMap(splitLongSourceSentence);
   const metadata = previewTruncated ? { previewTruncated: true as const } : {};
   if (text.length <= 260 || sentences.length < 2) {
@@ -60,7 +60,7 @@ export function buildFrontierSourceBrief(summary: string, sourceKind = ''): Fron
   // Retain fully supplied sentences and link to the original publication for
   // the rest instead of turning a cut-off fragment into a standalone bullet.
   const details = sentences.slice(index);
-  if (previewTruncated && details.length && /(?:…|\\.\\.\\.)\\s*$/u.test(details[details.length - 1])) {
+  if (previewTruncated && details.length && /(?:…|\.\.\.)\s*$/u.test(details[details.length - 1])) {
     details.pop();
   }
   return { lead: lead.join(' '), details, hasFullerContext: details.length > 0, ...metadata };
