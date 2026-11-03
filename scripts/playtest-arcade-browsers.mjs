@@ -82,10 +82,22 @@ async function assertGameFocus(page, target, label) {
 }
 
 async function assertCanvasKeyboardFocus(frame, label) {
+  // WebKit can focus the outer iframe before its inner document accepts focus.
+  // Preserve the strict canvas-active assertion, with a short synchronization
+  // window instead of sampling mid-propagation.
+  const iframe = await frame.frameElement();
+  await iframe.focus();
   await frame.locator('#c').focus();
+  await frame.waitForFunction(
+    () => document.hasFocus() && document.activeElement?.id === 'c',
+    null,
+    { timeout: 1_500 }
+  ).catch(() => {});
   const focus = await frame.evaluate(() => ({
     documentHasFocus: document.hasFocus(),
     activeElementId: document.activeElement?.id || null,
+    activeElementTag: document.activeElement?.tagName || null,
+    canvasTabIndex: document.querySelector('#c')?.tabIndex ?? null,
   }));
   if (!focus.documentHasFocus || focus.activeElementId !== 'c') {
     throw new Error(`${label}: canvas keyboard focus failed: ${JSON.stringify(focus)}`);

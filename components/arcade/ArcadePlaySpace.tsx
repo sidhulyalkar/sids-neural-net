@@ -36,10 +36,14 @@ function focusRuntimeWindow(iframe: HTMLIFrameElement | null) {
     // ignore host focus failures
   }
   try {
+    // WebKit can focus the iframe element but leave its inner document's body
+    // active. Explicitly activate the same-origin frame window first.
+    iframe.contentWindow?.focus();
     const canvas = iframe.contentDocument?.querySelector('canvas');
     if (canvas instanceof HTMLElement) {
-      // Stretchicorn / packed runtimes bind onkeydown on window, but also pause on
-      // window blur. Keeping the canvas focused keeps key events inside the frame.
+      // Packed runtimes may dynamically replace the originally focusable canvas.
+      // Restore keyboard focusability before moving focus into the iframe.
+      if (canvas.tabIndex < 0) canvas.tabIndex = 0;
       canvas.focus({ preventScroll: true });
     } else {
       iframe.contentWindow?.focus();
