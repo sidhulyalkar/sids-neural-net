@@ -18,9 +18,8 @@ export function createShrineCoralWayfinding(reefRoot:THREE.Group){
   const rockGeo=new THREE.IcosahedronGeometry(1,1);
   const polypGeo=new THREE.IcosahedronGeometry(1,1);
   const stemGeo=new THREE.CylinderGeometry(.82,1,1,6,1);
-  const branchGeo=new THREE.CylinderGeometry(.50,.85,1,5,1);
   const crownGeo=new THREE.IcosahedronGeometry(1,0);
-  const sourceGeometry=[rockGeo,polypGeo,stemGeo,branchGeo,crownGeo];
+  const sourceGeometry=[rockGeo,polypGeo,stemGeo,crownGeo];
   const reefBatch=new GeometryBatch();
   const coralBatch=new GeometryBatch();
   const palette=[
