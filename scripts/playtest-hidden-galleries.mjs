@@ -233,6 +233,7 @@ try{
     const c=document.querySelector("canvas");
     const p=(c?.dataset.player??"").split(",").map(Number);
     return c?.dataset.aquatic==="dive"&&
+      c?.dataset.currentRegion==="canyon"&&
       Math.abs(p[0]+67)<4&&Math.abs(p[1]+65.2)<5;
   },null,{timeout:25000,polling:250});
   await page.waitForTimeout(2100);
