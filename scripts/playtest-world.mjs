@@ -335,6 +335,18 @@ try {
       { timeout: 90000 },
     );
     await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'true');
+  } catch(error) {
+    const diagnostics=await page.locator('canvas').evaluate(c=>({
+      player:c.dataset.player,heading:c.dataset.skateHeading,
+      activity:c.dataset.activity,speed:c.dataset.speed,
+      height:c.dataset.height,airborne:c.dataset.airborne,
+      grinding:c.dataset.grinding,grindId:c.dataset.grindId,
+      rampId:c.dataset.rampId,region:c.dataset.currentRegion,
+      drawCalls:c.dataset.drawCalls,cameraTargetError:c.dataset.cameraTargetError,
+      worldState:document.querySelector('[data-world-state]')?.getAttribute('data-world-state')
+    }));
+    console.error('SKI KICKER TRAVERSAL DIAGNOSTIC',JSON.stringify(diagnostics));
+    throw error;
   } finally {
     await page.keyboard.up('w');
   }
