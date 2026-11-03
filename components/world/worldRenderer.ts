@@ -1397,11 +1397,31 @@ export function createWorld(
   mesh(boxGeo,mat("#43504e"),
     [-20,paperBackFloor+2.15,PAPER_CAVE.backZ-.25],
     [paperCaveHalfWidth(PAPER_CAVE.backZ)*2,4.3,.5]);
+  // Seal the stone foundation *under* both side walls, rather than ending
+  // 12cm short and exposing a cyan water/terrain slit at every wall-floor
+  // join. This is one continuous floor, with no coplanar bridge patches.
   const paperFloorRings=paperRings.map(ring=>{
-    const z=ring[0].z,w=paperCaveHalfWidth(z)-.12,y=paperCaveFloorHeight({x:-20,z})-.08;
+    const z=ring[0].z,w=paperCaveHalfWidth(z)+.08,
+      y=paperCaveFloorHeight({x:-20,z})-.08;
     return [new THREE.Vector3(-20-w,y,z),new THREE.Vector3(-20+w,y,z)];
   });
-  mesh(geo(ringSurface(paperFloorRings)),mat("#4d5a57",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  mesh(geo(ringSurface(paperFloorRings)),
+    mat("#555a52",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  // Raised, warm limestone baseboards hide the wall joint while retaining
+  // two non-coplanar bands and just two extra static draw calls.
+  for(const side of [-1,1]){
+    const skirtingRings=paperRings.map(ring=>{
+      const z=ring[0].z,w=paperCaveHalfWidth(z),
+        y=paperCaveFloorHeight({x:-20,z});
+      return [
+        new THREE.Vector3(-20+side*(w-.32),y+.025,z),
+        new THREE.Vector3(-20+side*(w+.045),y+.27,z),
+      ];
+    });
+    mesh(geo(ringSurface(skirtingRings)),
+      mat("#857967",{side:THREE.DoubleSide,roughness:.94}),
+      [0,0,0],[1,1,1]);
+  }
   // Cave solids are active only on an underground navigation layer. Projecting
   // them into global x/z collision is what previously made the roof unwalkable.
   const caveSolids=caveObstacles();
