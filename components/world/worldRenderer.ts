@@ -6638,6 +6638,16 @@ export function createWorld(
         galleryPhase==="inside"?SHRINE_GALLERY.roofY-.45:
           SEA_SURFACE-maxDiveDepth(SHRINE_GALLERY.entrance)+1.15);
     }
+    // The follow camera also lives in 3D water. Solve against the same
+    // submerged rock silhouettes as the diver, or the lens can pass through
+    // anemone-covered walls even when the swimmer's body is properly blocked.
+    if(aquatic!=="land"&&reefCanyonNear(player)){
+      const clearCamera=reefCanyonConstrainSwim(player,{
+        x:camera.position.x,z:camera.position.z,
+      },camera.position.y,true);
+      camera.position.x=clearCamera.x;
+      camera.position.z=clearCamera.z;
+    }
     // Last-resort cutaway also covers an obstructed interpolated pose or
     // a lie surrounded by foliage where no unobstructed boom exists.
     const cutawayCount=lastDiscCameraSolve?
