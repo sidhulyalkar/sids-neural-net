@@ -48,6 +48,10 @@ try{
   }
   assert.equal(boot.phase,"inside","The gallery should remain entered after initialization");
   assert.equal(await scene.getAttribute("data-hidden-gallery-photos"),"49");
+  assert.equal(await scene.getAttribute("data-shrine-coral-arrows"),"4",
+    "all four decorative underwater arrows must be assembled");
+  assert.equal(await scene.getAttribute("data-shrine-coral-colonies"),"36");
+  assert.equal(await scene.getAttribute("data-western-trident-relocated"),"true");
   assert.equal(await scene.getAttribute("data-hidden-gallery-locomotion"),"walking");
   const initial=await scene.getAttribute("data-player");
   assert.equal(await scene.getAttribute("data-hidden-gallery-camera"),"eye-level");
