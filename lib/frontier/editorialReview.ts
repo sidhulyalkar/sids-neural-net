@@ -1,4 +1,6 @@
 import { assessFrontierEditorialAdmission } from './editorialAdmission';
+import { FRONTIER_EDITORIAL_PREFERENCES, frontierEditorialTasteSignals, frontierQualifiedExploration } from './editorialTaste';
+import { personalTasteRankingPrior } from './personalTaste';
 import { cleanFrontierItem, isFrontierEditoriallyUsable } from './editorialQuality';
 import type { FrontierItem } from './types';
 
@@ -14,6 +16,11 @@ export type FrontierEditorialReviewLabel = {
   sourceTraceable: boolean | null;
   /** Does the source substantiate the precise claim represented by the card? */
   claimsSupported: boolean | null;
+  /** Optional second-pass preference calibration fields; never auto-labeled. */
+  conceptualInsight?: boolean | null;
+  practicalUtility?: boolean | null;
+  avoidsNoise?: boolean | null;
+  unexpectedWorthwhile?: boolean | null;
   notes?: string;
 };
 
@@ -31,6 +38,7 @@ export type FrontierEditorialReviewRow = {
   qualifiedRank: number | null;
   baselineTop14: boolean;
   qualifiedTop14: boolean;
+  qualifiedExploration: boolean;
 };
 
 export type FrontierReviewRate = {
@@ -54,7 +62,18 @@ export type FrontierEditorialReviewReport = {
     sourceTraceableAt14: FrontierReviewRate;
     claimsSupportedAt14: FrontierReviewRate;
     falseExclusions: FrontierReviewRate;
+    conceptualInsightAt14: FrontierReviewRate;
+    practicalUtilityAt14: FrontierReviewRate;
+    avoidsNoiseAt14: FrontierReviewRate;
+    worthwhileExplorationAt14: FrontierReviewRate;
   };
+  calibration: {
+    preferenceVersion: string;
+    explorationTargetShare: number;
+    qualifiedExplorationCountAt14: number;
+    realizedExplorationShareAt14: number;
+  };
+  tasteReviewComplete: boolean;
   reasons: Record<string, number>;
   bySource: Record<string, { sampled: number; admitted: number; rejected: number }>;
   reviewComplete: boolean;
@@ -95,6 +114,10 @@ export function frontierEditorialReviewFlags(item: FrontierItem): string[] {
   if (item.lane === 'must_know' || item.lane === 'world_pulse') {
     flags.push('verify-consequential-claims');
   }
+  const taste = frontierEditorialTasteSignals(item);
+  if (taste.conceptual) flags.push('conceptual-angle');
+  if (taste.practical) flags.push('practical-angle');
+  for (const risk of taste.risks) flags.push('review-' + risk);
   return flags;
 }
 
@@ -134,6 +157,8 @@ export function buildFrontierEditorialReviewRows(
       qualifiedRank,
       baselineTop14: baselineRank !== null && baselineRank <= 14,
       qualifiedTop14: qualifiedRank !== null && qualifiedRank <= 14,
+      qualifiedExploration: admission.admitted && usable
+        && frontierQualifiedExploration(item, personalTasteRankingPrior(item)),
     };
   });
 }
@@ -184,7 +209,8 @@ export function sampleFrontierEditorialReview(
 }
 
 const LABEL_FIELDS = ['worthwhile', 'relevant', 'novel', 'sourceTraceable', 'claimsSupported'] as const;
-type LabelField = (typeof LABEL_FIELDS)[number];
+const TASTE_LABEL_FIELDS = ['conceptualInsight', 'practicalUtility', 'avoidsNoise', 'unexpectedWorthwhile'] as const;
+type LabelField = (typeof LABEL_FIELDS)[number] | (typeof TASTE_LABEL_FIELDS)[number];
 
 export function validateFrontierEditorialLabels(
   labels: readonly FrontierEditorialReviewLabel[],
@@ -195,7 +221,9 @@ export function validateFrontierEditorialLabels(
   for (const entry of labels) {
     if (!allowed.has(entry.id)) throw new Error('Unknown review candidate ID: ' + entry.id);
     if (map.has(entry.id)) throw new Error('Duplicate review candidate ID: ' + entry.id);
-    for (const field of LABEL_FIELDS) {
+    for (const field of [...LABEL_FIELDS, ...TASTE_LABEL_FIELDS]) {
+      if (TASTE_LABEL_FIELDS.includes(field as (typeof TASTE_LABEL_FIELDS)[number])
+        && entry[field] === undefined) continue; // compatibility with older frozen review templates
       if (entry[field] !== true && entry[field] !== false && entry[field] !== null) {
         throw new Error('Review label must be true, false, or null: ' + entry.id + ' / ' + field);
       }
@@ -252,7 +280,7 @@ export function evaluateFrontierEditorialReview(
     else source.rejected += 1;
     bySource[row.sourceKind] = source;
   }
-  const metrics = {
+  const baseMetrics = {
     worthwhileAt14: metric(qualified14, labelIndex, 'worthwhile'),
     relevantAt14: metric(qualified14, labelIndex, 'relevant'),
     novelAt14: metric(qualified14, labelIndex, 'novel'),
@@ -260,15 +288,31 @@ export function evaluateFrontierEditorialReview(
     claimsSupportedAt14: metric(qualified14, labelIndex, 'claimsSupported'),
     falseExclusions: metric(rejected, falseExclusionMap, 'worthwhile'),
   };
+  const tasteMetrics = {
+    conceptualInsightAt14: metric(qualified14, labelIndex, 'conceptualInsight'),
+    practicalUtilityAt14: metric(qualified14, labelIndex, 'practicalUtility'),
+    avoidsNoiseAt14: metric(qualified14, labelIndex, 'avoidsNoise'),
+    worthwhileExplorationAt14: metric(qualified14.filter((row) => row.qualifiedExploration),
+      labelIndex, 'unexpectedWorthwhile'),
+  };
+  const explorationCount = qualified14.filter((row) => row.qualifiedExploration).length;
+  const metrics = { ...baseMetrics, ...tasteMetrics };
   return {
     sampled: sample.length,
     labeled: [...labelIndex.values()].filter((label) => LABEL_FIELDS.some((field) => label[field] !== null)).length,
     baselineTop14Ids: sample.filter((row) => row.baselineTop14).map((row) => row.id),
     qualifiedTop14Ids: qualified14.map((row) => row.id),
     metrics,
+    calibration: {
+      preferenceVersion: FRONTIER_EDITORIAL_PREFERENCES.version,
+      explorationTargetShare: FRONTIER_EDITORIAL_PREFERENCES.explorationTargetShare,
+      qualifiedExplorationCountAt14: explorationCount,
+      realizedExplorationShareAt14: qualified14.length ? explorationCount / qualified14.length : 0,
+    },
+    tasteReviewComplete: Object.values(tasteMetrics).every((value) => value.rate !== null),
     reasons,
     bySource,
-    reviewComplete: Object.values(metrics).every((value) => value.rate !== null),
+    reviewComplete: Object.values(baseMetrics).every((value) => value.rate !== null),
     evidence: labels.some((label) => LABEL_FIELDS.some((field) => label[field] !== null))
       ? 'human-reviewed' : 'awaiting-human-labels',
   };
