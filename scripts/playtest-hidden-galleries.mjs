@@ -51,6 +51,10 @@ try{
   assert.equal(await scene.getAttribute("data-shrine-coral-arrows"),"4",
     "all four decorative underwater arrows must be assembled");
   assert.equal(await scene.getAttribute("data-shrine-coral-colonies"),"36");
+  assert.equal(await scene.getAttribute("data-shrine-dive-cue"),"DIVE",
+    "underwater visitors have an in-world depth instruction");
+  assert.ok(Number(await scene.getAttribute("data-shrine-dive-cue-segments"))>=18,
+    "DIVE lettering and the downward chevron use real geometry");
   assert.equal(await scene.getAttribute("data-western-trident-relocated"),"true");
   assert.equal(await scene.getAttribute("data-hidden-gallery-locomotion"),"walking");
   const initial=await scene.getAttribute("data-player");
