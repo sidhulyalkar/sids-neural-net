@@ -56,6 +56,9 @@ try{
   assert.ok(Number(await scene.getAttribute("data-shrine-dive-cue-segments"))>=18,
     "DIVE lettering and the downward chevron use real geometry");
   assert.equal(await scene.getAttribute("data-western-trident-relocated"),"true");
+  assert.equal(await scene.getAttribute("data-moss-canyon-rocks"),"16");
+  assert.equal(await scene.getAttribute("data-moss-canyon-corals"),"64");
+  assert.equal(await scene.getAttribute("data-moss-canyon-anemones"),"32");
   assert.equal(await scene.getAttribute("data-hidden-gallery-locomotion"),"walking");
   const initial=await scene.getAttribute("data-player");
   assert.equal(await scene.getAttribute("data-hidden-gallery-camera"),"eye-level");
@@ -191,11 +194,41 @@ try{
     const c=document.querySelector("canvas[data-cave-layer='paper']");
     return !!c&&c.dataset.paperGalleryCount==="8";
   },null,{timeout:90000});
+  assert.equal(await scene.getAttribute("data-paper-gallery-rooms"),"3");
+  assert.equal(await scene.getAttribute("data-paper-museum-room"),"0");
   await page.screenshot({path:path.join(out,"paper-gallery.png")});
-  report.routes.push({route:"/?gallery=papers",museum:"paper",papers:8});
+  await scene.focus();
+  await page.keyboard.down("w");
+  try{
+    await page.waitForFunction(()=>{
+      const c=document.querySelector("canvas");
+      return c?.dataset.paperMuseumRoom==="1";
+    },null,{timeout:110000,polling:350});
+    await page.screenshot({path:path.join(out,"paper-gallery-room2.png")});
+    await page.waitForFunction(()=>{
+      const c=document.querySelector("canvas");
+      return c?.dataset.paperMuseumRoom==="2";
+    },null,{timeout:120000,polling:350});
+    await page.screenshot({path:path.join(out,"paper-gallery-room3.png")});
+  }catch(error){
+    const trace=await page.evaluate(()=>({
+      room:document.querySelector("canvas")?.dataset.paperMuseumRoom,
+      position:document.querySelector("canvas")?.dataset.player,
+      caveLayer:document.querySelector("canvas")?.dataset.caveLayer,
+    }));
+    console.error("PAPER MUSEUM ROOM TRACE",JSON.stringify(trace));
+    await page.screenshot({path:path.join(out,"paper-museum-traversal-failed.png")});
+    throw error;
+  }finally{
+    await page.keyboard.up("w");
+  }
+  report.routes.push({
+    route:"/?gallery=papers",museum:"paper",papers:8,roomsTraversed:3,
+  });
   report.screenshots=["gallery-start.png","gallery-photo-focus.png","gallery-walking.png",
     "gallery-next-room.png","gallery-still-1.png","gallery-still-2.png",
-    "gallery-still-3.png","photo-deep-link.png","paper-gallery.png"];
+    "gallery-still-3.png","photo-deep-link.png","paper-gallery.png",
+    "paper-gallery-room2.png","paper-gallery-room3.png"];
   assert.deepEqual(errors,[]);
   fs.writeFileSync(path.join(out,"report.json"),JSON.stringify(report,null,2)+"\n");
   console.log("GALLERY WALK / PHOTO DEEP LINK / PAPER MUSEUM BROWSER QA PASS");
