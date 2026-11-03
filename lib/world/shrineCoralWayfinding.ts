@@ -105,6 +105,20 @@ export const SHRINE_DIVE_MARKER={
 /** Conservative bounds check for the entire tilted marker, not just center.
  * The protective margin includes its carved rim and seabed rock footing.
  */
+/** Reserve a small, finite viewing corridor in front of the DIVE plaque.
+ * Kelp and boulders can still grow beside it, but may not obscure the text.
+ * A footprint radius accounts for rocks larger than their center points.
+ */
+export function shrineDiveMarkerSightlineReserved(p:Point,radius=0):boolean{
+  const sign=SHRINE_DIVE_MARKER;
+  const dx=p.x-sign.point.x,dz=p.z-sign.point.z;
+  const towards=dx*sign.facing.x+dz*sign.facing.z;
+  const across=dx*(-sign.facing.z)+dz*sign.facing.x;
+  const r=Math.max(0,radius);
+  return towards>=-.72-r&&towards<=4.0+r&&
+    Math.abs(across)<=sign.width/2+.26+r;
+}
+
 export function shrineDiveMarkerValid():boolean{
   const marker=SHRINE_DIVE_MARKER;
   const shrine=SHRINE_CORAL_WAYFINDING.shrine;
