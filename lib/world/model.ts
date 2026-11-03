@@ -439,6 +439,14 @@ export function nearbyDiscovery(point: Point): string | null {
   if(wildlife)return wildlife.id;
   const memory = MEMORY_POINTS.find((m) => distance(point, m.point) < 3.2);
   if (memory) return memory.id;
+  // Moss Canyon is an entire underwater corridor rather than a single
+  // marker radius. Recognize the snorkeler at either end, including the
+  // safe southern entry created by regionLanding("canyon").
+  if(Math.abs(point.x-MOSS_CANYON.center.x)<MOSS_CANYON.clearHalfWidth &&
+     point.z>=MOSS_CANYON.startZ-4.2 &&
+     point.z<=MOSS_CANYON.startZ+
+       (MOSS_CANYON.segments-1)*MOSS_CANYON.spacing+4.2)
+    return "canyon";
   const region = REGIONS.find((r) => distance(point, r.point) < 6);
   return region?.id ?? null;
 }
