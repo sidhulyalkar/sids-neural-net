@@ -60,11 +60,25 @@ function titleTokens(title: string): Set<string> {
     .filter((word) => word.length >= 4 && !STOP_WORDS.has(word)));
 }
 
+/** Preserve experiment identifiers, model generations, years, and numbered
+ * updates before applying lexical duplicate detection. Counting only
+ * four-letter words would incorrectly merge all "Update 1" through
+ * "Update 64" or two distinct benchmark versions. */
+function numericIdentifiers(title: string): Set<string> {
+  const words = title.toLowerCase().match(/[\p{L}\p{N}]+(?:[._-][\p{L}\p{N}]+)*/gu) ?? [];
+  return new Set(words.filter((word) => /\p{N}/u.test(word)));
+}
+
+function equalSets(left: Set<string>, right: Set<string>): boolean {
+  return left.size === right.size && [...left].every((token) => right.has(token));
+}
+
 /** Conservative near-duplicate title detection. Preserve separate studies with
- * different sample names, models or meaningful qualifiers. */
+ * different sample names, models, versions or meaningful qualifiers. */
 export function frontierSameStoryHeadline(a: FrontierItem, b: FrontierItem): boolean {
   if (a.id === b.id) return true;
   if (a.url === b.url) return true;
+  if (!equalSets(numericIdentifiers(a.title), numericIdentifiers(b.title))) return false;
   const left = titleTokens(a.title);
   const right = titleTokens(b.title);
   if (left.size < 4 || right.size < 4) return false;
