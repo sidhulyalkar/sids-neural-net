@@ -24,6 +24,7 @@ export function FrontierSignalTrail({ itemId, rating, onRate, notice }: Props) {
   const lastCommitRef = useRef<{ score: number; at: number } | null>(null);
   const pointerActiveRef = useRef(false);
   const keyboardActiveRef = useRef(false);
+  const ignoreNativeUntilRef = useRef(0);
   const selected = draft ?? rating ?? null;
   const numericValue = selected ?? 5;
   const points = selected ? SIGNAL_TRAIL_POINTS.slice(0, selected) : [];
@@ -47,7 +48,7 @@ export function FrontierSignalTrail({ itemId, rating, onRate, notice }: Props) {
   const onChange = (event: ChangeEvent<HTMLInputElement>) => {
     // The native input retains its accessible value. Pointer coordinates
     // determine the graphic's exact node, not browser thumb geometry.
-    if (pointerActiveRef.current) return;
+    if (pointerActiveRef.current || performance.now() < ignoreNativeUntilRef.current) return;
     const value = Number(event.currentTarget.value);
     setDraft(value);
     // Some screen-reader/voice commands emit input/change without a matching
@@ -69,16 +70,23 @@ export function FrontierSignalTrail({ itemId, rating, onRate, notice }: Props) {
   const onPointerUp = (event: PointerEvent<HTMLInputElement>) => {
     if (!pointerActiveRef.current) return;
     pointerActiveRef.current = false;
+    // Native range inputs may emit their own change after pointerup, with a
+    // thumb coordinate slightly different from our visible point centers.
+    ignoreNativeUntilRef.current = performance.now() + 120;
     const score = fromPointer(event);
     if (score !== null) commit(score);
     try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* no capture to release */ }
   };
   const onPointerCancel = () => {
+    if (!pointerActiveRef.current) return;
     pointerActiveRef.current = false;
     setDraft(rating ?? null);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (COMMIT_KEYS.has(event.key)) keyboardActiveRef.current = true;
+    if (COMMIT_KEYS.has(event.key)) {
+      ignoreNativeUntilRef.current = 0;
+      keyboardActiveRef.current = true;
+    }
   };
   const onKeyUp = (event: KeyboardEvent<HTMLInputElement>) => {
     if (!COMMIT_KEYS.has(event.key)) return;
