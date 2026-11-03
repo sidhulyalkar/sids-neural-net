@@ -94,6 +94,10 @@ test("canyon uses existing kelp gate, protected swim collision and underwater ar
   assert.match(scene,/reefCanyonConstrainSwim\(player,swimAttempt\.point,playerY\)/);
   assert.match(scene,/reefCanyonConstrainSwim\(player,\{/);
   assert.match(scene,/camera\.position\.y,true\)/);
+  assert.match(scene,/Math\.min\(targetCamera\.y,playerY\+1\.35,SEA_SURFACE-1\.3\)/,
+    "reef follow camera must stay below the water plane");
+  assert.match(scene,/floor\+1\.05,SEA_SURFACE-\.65/,
+    "reef camera retains real seabed and surface bounds");
   assert.match(scene,/arrivalIsCanyon\?"dive":"land"/);
   assert.match(scene,/reefCanyonNear\(player\) \? "canyon"/);
   assert.match(scene,/canvas\.dataset\.currentRegion=r/);
