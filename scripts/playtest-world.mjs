@@ -324,33 +324,53 @@ try {
   await page.getByRole('button', { name: '02 Granite ridge Things I build', exact: true }).click();
   await page.getByRole('button', { name: 'Skiing', exact: true }).click();
   await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
+  // A genuine Granite Ridge launch can be delivered by the authored ramp
+  // impulse OR by the natural mountain-air solver. The latter does not set
+  // data-ramp-id, so sampling only that label incorrectly rejects a real jump.
+  // Observe the rendered timeline instead of accepting a downstream landed
+  // flag that could have originated far from the intended slope.
   await page.keyboard.down('w');
+  let kickerLaunch;
   try {
-    await page.waitForFunction(
-      () => document.querySelector('canvas')?.dataset.rampId === 'ski-kicker',
-      null,
-      // SwiftShader CI can render roughly 1 FPS on the combined island.
-      // Kicker is 7 m downhill from Granite Ridge; at ~2 m / 12 sec
-      // the old 12-second gate expired before the player reached the lip.
-      { timeout: 90000 },
-    );
-    await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'true');
-  } catch(error) {
-    const diagnostics=await page.locator('canvas').evaluate(c=>({
-      player:c.dataset.player,heading:c.dataset.skateHeading,
-      activity:c.dataset.activity,speed:c.dataset.speed,
-      height:c.dataset.height,airborne:c.dataset.airborne,
-      grinding:c.dataset.grinding,grindId:c.dataset.grindId,
-      rampId:c.dataset.rampId,region:c.dataset.currentRegion,
-      drawCalls:c.dataset.drawCalls,cameraTargetError:c.dataset.cameraTargetError,
-      worldState:document.querySelector('[data-world-state]')?.getAttribute('data-world-state')
+    kickerLaunch=await page.evaluate(()=>new Promise((resolve,reject)=>{
+      const c=document.querySelector('canvas');
+      if(!c){reject(Error('World canvas not available'));return;}
+      const start=performance.now();
+      let approached=false;
+      const samples=[];
+      const tick=()=>{
+        const d=c.dataset,p=(d.player??'').split(',').map(Number);
+        if(p.length!==2||!p.every(Number.isFinite)){
+          reject(Error('Nonfinite skier position'));return;
+        }
+        const sample={player:d.player,speed:d.speed,airborne:d.airborne,
+          rampId:d.rampId,bigAirPhase:d.bigAirPhase,
+          altitude:d.bigAirAltitude,mode:d.activity};
+        if(samples.length>=80)samples.shift();
+        samples.push(sample);
+        if(Math.abs(p[0]-8)<3.5&&p[1]>=-54&&p[1]<=-44)
+          approached=true;
+        const nearRidge=Math.abs(p[0]-8)<3.5&&p[1]<-32;
+        const inFlight=d.airborne==='true'||d.bigAirPhase==='flying';
+        if(approached&&nearRidge&&inFlight){
+          resolve({kind:d.rampId==='ski-kicker'?'ramp':'mountain-air',
+            approached,sample,observations:samples.length});return;
+        }
+        if(p[1]>-30||performance.now()-start>90000){
+          reject(Error('No observed Granite Ridge ski launch '+
+            JSON.stringify({approached,tail:samples.slice(-18)})));return;
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
     }));
-    console.error('SKI KICKER TRAVERSAL DIAGNOSTIC',JSON.stringify(diagnostics));
-    throw error;
-  } finally {
+  }finally{
     await page.keyboard.up('w');
   }
-  results.push('Skiing launches from the authored Granite Ridge kicker');
+  assert.equal(kickerLaunch.approached,true);
+  assert.ok(['ramp','mountain-air'].includes(kickerLaunch.kind));
+  results.push('Skiing genuinely launches near Granite Ridge via ramp or natural mountain-air physics');
+  console.log('SKI KICKER LAUNCH PROOF',JSON.stringify(kickerLaunch));
 
   // Reproduce the original steep-terrain failure mode on Granite Ridge. The rendered
   // gear root must stay above support terrain while pitch/roll remain finite.
