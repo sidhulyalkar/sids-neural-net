@@ -95,6 +95,8 @@ test("canyon uses existing kelp gate, protected swim collision and underwater ar
   assert.match(scene,/reefCanyonConstrainSwim\(player,\{/);
   assert.match(scene,/camera\.position\.y,true\)/);
   assert.match(scene,/arrivalIsCanyon\?"dive":"land"/);
+  assert.match(scene,/reefCanyonNear\(player\) \? "canyon"/);
+  assert.match(scene,/canvas\.dataset\.currentRegion=r/);
   assert.match(scene,/reefRoot\.visible = aquatic !== "land" && currentWaterZone === "kelp"/);
   assert.doesNotMatch(scene,/const canyonStone: Instance\[\]/);
 });
