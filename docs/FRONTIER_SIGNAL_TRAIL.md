@@ -21,10 +21,17 @@ reader held a button.
   and canonical coarse preference; revisions replace a vote rather than
   awarding another reaction or XP.
 
-The SVG star trail is decorative. **One native range input** owns all input,
-with 44+ CSS-pixel touch height. The ten nodes and their connecting line
-illuminate as a minimal visual confirmation. No canvas, WebGL, new media
-request, particles library, or additional background task is introduced.
+The SVG star trail is decorative. **One native range input** owns keyboard,
+focus and assistive semantics, with 44+ CSS-pixel touch height. Pointer
+selection uses the same node center coordinates as the ten rendered SVG dots,
+not slightly different browser-native thumb geometry. Touch cancellation
+restores the prior rating rather than recording an accidental preference.
+
+The trail is now centered within the desktop reading measure, with a stronger
+but restrained line, a unique selected-node halo, and visible 1-to-10 endpoint
+labels. The exact score and interpretation appear in the header; there is no
+extra popup, second confirmation, canvas, WebGL, new media request, particles
+library, or additional background task.
 
 ## Editorial layout
 
@@ -56,3 +63,9 @@ This UX-only PR stacks on #147 (and its #143 through #145 dependencies).
 Editorial benchmark and independent source review remain separate release
 gates. Do not treat a beautiful interaction as evidence of improved ranking
 quality without user evaluation.
+
+The browser audit additionally verifies exactly mapped taps on scores 1 and
+10, pointer dragging to 7, the active-tip highlight, and native touch
+interaction at phone width for scores 1, 10 and 4. Automated acceptance is
+not a substitute for real-device accessibility and perceived usability
+research.
