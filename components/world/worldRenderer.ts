@@ -5327,6 +5327,7 @@ export function createWorld(
         ? reefCanyonNear(player) ? "canyon"
           : waterZone(player)==="north-shore" ? "north-shore":"coast"
         : nearestRegion(player);
+      canvas.dataset.currentRegion=r;
       const caveProgress = THREE.MathUtils.clamp(
         (player.z - arcade.z) / ARCADE_CAVE.tunnelDepth,
         0,
