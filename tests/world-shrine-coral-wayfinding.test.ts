@@ -9,7 +9,7 @@ import { SHRINE_GALLERY, shrineReachable } from "../lib/world/hiddenShrineGaller
 import {
   SHRINE_CORAL_WAYFINDING, SHRINE_CORAL_GUIDES, CORAL_ARROW_COLONIES,
   coralColonyPositions, shrineCoralLayoutValid,
-  SHRINE_DIVE_MARKER, shrineDiveMarkerValid,
+  SHRINE_DIVE_MARKER, shrineDiveMarkerValid, shrineDiveMarkerSightlineReserved,
 } from "../lib/world/shrineCoralWayfinding";
 import { createShrineCoralWayfinding } from "../components/world/worldShrineCoralWayfinding";
 import { createShrineDiveMarker } from "../components/world/worldShrineDiveMarker";
@@ -122,6 +122,26 @@ test("carved DIVE and downward arrow sit above the sea floor facing approaching 
   const dot=(approach.x*cue.facing.x+approach.z*cue.facing.z)/
     Math.hypot(approach.x,approach.z);
   assert.ok(dot>.95,"DIVE reads toward the incoming reef trail");
+});
+
+test("DIVE sign has a readable corridor free of overlapping rocks and kelp",()=>{
+  const marker=SHRINE_DIVE_MARKER;
+  assert.ok(shrineDiveMarkerSightlineReserved(marker.point));
+  assert.ok(shrineDiveMarkerSightlineReserved({
+    x:marker.point.x+marker.facing.x*2.7,
+    z:marker.point.z+marker.facing.z*2.7,
+  }));
+  const farSide={x:marker.point.x-marker.facing.z*8,
+    z:marker.point.z+marker.facing.x*8};
+  assert.equal(shrineDiveMarkerSightlineReserved(farSide),false,
+    "nearby reef elsewhere should not be cleared unnecessarily");
+  const farBehind={x:marker.point.x-marker.facing.x*5,
+    z:marker.point.z-marker.facing.z*5};
+  assert.equal(shrineDiveMarkerSightlineReserved(farBehind),false);
+  const scene=readFileSync(new URL("../components/world/worldRenderer.ts",import.meta.url),"utf8");
+  assert.match(scene,/shrineDiveMarkerSightlineReserved\(\{x,z\},size\*\.72\)/);
+  assert.match(scene,/shrineDiveMarkerSightlineReserved\(\{x,z\},\.4\)/);
+  assert.match(scene,/const length=\.8\+random\(\)\*\.6/);
 });
 
 test("DIVE lettering is real textured-free world geometry with downward arrow",()=>{
