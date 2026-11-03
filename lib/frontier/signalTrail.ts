@@ -20,3 +20,14 @@ export const SIGNAL_TRAIL_POINTS = [
 
 export const SIGNAL_TRAIL_PATH = SIGNAL_TRAIL_POINTS
   .map(([x, y]) => `${x},${y}`).join(' ');
+
+/** Map the pointer to the actual SVG node centers, not an approximate
+ * browser-dependent range thumb track. Works at narrow/mobile widths and
+ * clamps intentional taps outside the first/last center to 1/10 or 10/10. */
+export function signalScoreAtX(clientX: number, trailLeft: number, trailWidth: number): number {
+  if (![clientX, trailLeft, trailWidth].every(Number.isFinite) || trailWidth <= 0) return 5;
+  const first = (SIGNAL_TRAIL_POINTS[0][0] / 360) * trailWidth;
+  const last = (SIGNAL_TRAIL_POINTS[SIGNAL_TRAIL_POINTS.length - 1][0] / 360) * trailWidth;
+  const proportion = Math.max(0, Math.min(1, (clientX - trailLeft - first) / (last - first)));
+  return 1 + Math.round(proportion * 9);
+}
