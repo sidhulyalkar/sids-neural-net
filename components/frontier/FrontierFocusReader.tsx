@@ -567,6 +567,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
             <div className={styles.storyBody}
               data-frontier-source-image={canShowImage ? 'true' : 'false'}
               data-frontier-sports-state={item.sportsState ? 'true' : 'false'}>
+              {canShowImage && image && !item.sportsState ? (
               <figure className={styles.visual} data-frontier-figure-count={figures.length}>
                 <div className={styles.visualViewport} data-frontier-media={canShowImage ? 'source-image' : 'source-only'}>
                   {canShowImage && image ? (
@@ -623,6 +624,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                   </figcaption>
                 ) : null}
               </figure>
+              ) : null}
 
               <div ref={contentRef} className={styles.content}
                 onScroll={() => { readerInteractedRef.current = true; }}
