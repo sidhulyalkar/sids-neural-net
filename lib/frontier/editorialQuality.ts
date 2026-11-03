@@ -10,8 +10,27 @@ const STORY_START = /\b(?:this (?:detailed |latest |new )?(?:video|episode|break
 const CREDIT_START = /\b(?:podcast:|patreon:|support at patreon|support us on|stats courtesy:|footage in this video|music by |follow us|our socials|website:\s*https?:|twitter:\s*@|book:\s*https?:|links? in (?:the )?(?:description|bio)|find additional .{1,75} content|become a member|join this channel)\b/i;
 const URL = /https?:\/\/[^\s]+/gi;
 
+const HTML_ENTITIES: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”',
+  ndash: '–', mdash: '—', hellip: '…',
+};
+
+/** RSS/Atom feeds often provide escaped HTML entities inside plain snippets. */
+function decodeEditorialEntities(text: string): string {
+  return text.replace(/&(#(?:x[0-9a-f]+|[0-9]+)|[a-z]+);/gi, (entity, key: string) => {
+    const value = key.toLowerCase();
+    if (!value.startsWith('#')) return HTML_ENTITIES[value] ?? entity;
+    const hex = value.startsWith('#x');
+    const code = Number.parseInt(value.slice(hex ? 2 : 1), hex ? 16 : 10);
+    return Number.isFinite(code) && code >= 32 && code <= 0x10ffff
+      && !(code >= 0xd800 && code <= 0xdfff)
+      ? String.fromCodePoint(code) : entity;
+  });
+}
+
 function normalized(text: string): string {
-  return (text ?? '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+  return decodeEditorialEntities((text ?? '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1'))
     .replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 

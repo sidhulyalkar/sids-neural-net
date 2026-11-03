@@ -33,8 +33,10 @@ function sourceDate(date: string): string {
 
 /** One DOM article and at most one image are mounted at any point in time. */
 export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
-  // Deterministic diverse first edition during SSR, before preference hydration.
-  const [items, setItems] = useState(() => selectDailyRun(initialItems, {}, EDITION_LIMIT));
+  // Server-rendered edition already came from the full evidence-qualified
+  // inventory. Do not re-select from its truncated 36-item output, which can
+  // subtly alter the canonical first 14 slots and break selection provenance.
+  const [items, setItems] = useState(() => initialItems.slice(0, EDITION_LIMIT));
   const [position, setPosition] = useState(0);
   const [editionAt, setEditionAt] = useState(generatedAt);
   const [searchDraft, setSearchDraft] = useState('');
