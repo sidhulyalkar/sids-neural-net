@@ -10,6 +10,8 @@ export type FrontierSourceBrief = {
   lead: string;
   details: string[];
   hasFullerContext: boolean;
+  /** True only when the supplied publisher preview itself ends with an ellipsis. */
+  previewTruncated?: true;
 };
 
 function readableSentences(value: string): string[] {
@@ -40,9 +42,11 @@ function splitLongSourceSentence(sentence: string): string[] {
 export function buildFrontierSourceBrief(summary: string, sourceKind = ''): FrontierSourceBrief {
   const text = cleanFrontierEditorialText(summary, sourceKind);
   if (!text) return { lead: '', details: [], hasFullerContext: false };
+  const previewTruncated = /(?:…|\\.\\.\\.)\\s*$/u.test(text);
   const sentences = readableSentences(text).flatMap(splitLongSourceSentence);
+  const metadata = previewTruncated ? { previewTruncated: true as const } : {};
   if (text.length <= 260 || sentences.length < 2) {
-    return { lead: text, details: [], hasFullerContext: false };
+    return { lead: text, details: [], hasFullerContext: false, ...metadata };
   }
   const lead: string[] = [];
   let total = 0;
@@ -52,8 +56,14 @@ export function buildFrontierSourceBrief(summary: string, sourceKind = ''): Fron
     total += sentences[index].length;
     index += 1;
   }
+  // An upstream excerpt ending in “…” is not a complete additional finding.
+  // Retain fully supplied sentences and link to the original publication for
+  // the rest instead of turning a cut-off fragment into a standalone bullet.
   const details = sentences.slice(index);
-  return { lead: lead.join(' '), details, hasFullerContext: details.length > 0 };
+  if (previewTruncated && details.length && /(?:…|\\.\\.\\.)\\s*$/u.test(details[details.length - 1])) {
+    details.pop();
+  }
+  return { lead: lead.join(' '), details, hasFullerContext: details.length > 0, ...metadata };
 }
 
 function allowedImageUrl(value: string): boolean {
