@@ -21,6 +21,7 @@ const COMMIT_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 
 export function FrontierSignalTrail({ itemId, rating, onRate, notice }: Props) {
   const instructionId = useId();
   const [draft, setDraft] = useState<number | null>(null);
+  const [keyboardFocus, setKeyboardFocus] = useState(false);
   const lastCommitRef = useRef<{ score: number; at: number } | null>(null);
   const pointerActiveRef = useRef(false);
   const keyboardActiveRef = useRef(false);
@@ -58,6 +59,7 @@ export function FrontierSignalTrail({ itemId, rating, onRate, notice }: Props) {
   const onPointerDown = (event: PointerEvent<HTMLInputElement>) => {
     if (event.button !== 0) return;
     pointerActiveRef.current = true;
+    setKeyboardFocus(false);
     const score = fromPointer(event);
     if (score !== null) setDraft(score);
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* native pointer release still works */ }
@@ -86,6 +88,7 @@ export function FrontierSignalTrail({ itemId, rating, onRate, notice }: Props) {
     if (COMMIT_KEYS.has(event.key)) {
       ignoreNativeUntilRef.current = 0;
       keyboardActiveRef.current = true;
+      setKeyboardFocus(true);
     }
   };
   const onKeyUp = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -93,7 +96,15 @@ export function FrontierSignalTrail({ itemId, rating, onRate, notice }: Props) {
     keyboardActiveRef.current = false;
     commit(Number(event.currentTarget.value));
   };
+  const onFocus = (event: FocusEvent<HTMLInputElement>) => {
+    // Tab and assistive keyboard users need a clear visible focus indicator.
+    // Pointer users do not need a full salmon box around the graphic.
+    if (!pointerActiveRef.current && event.currentTarget.matches(':focus-visible')) {
+      setKeyboardFocus(true);
+    }
+  };
   const onBlur = (event: FocusEvent<HTMLInputElement>) => {
+    setKeyboardFocus(false);
     keyboardActiveRef.current = false;
     if (!pointerActiveRef.current && draft !== null && draft !== rating) {
       commit(Number(event.currentTarget.value));
@@ -109,7 +120,7 @@ export function FrontierSignalTrail({ itemId, rating, onRate, notice }: Props) {
           <span className={styles.score}>{selected ?? '–'}<span>/10</span></span>
         </div>
       </div>
-      <div className={styles.trail}>
+      <div className={styles.trail} data-frontier-focus-mode={keyboardFocus ? 'keyboard' : 'pointer'}>
         <svg className={styles.graphic} viewBox="0 0 360 78" preserveAspectRatio="none"
           aria-hidden="true" focusable="false">
           <polyline className={styles.baseLine} points={SIGNAL_TRAIL_PATH} fill="none" />
@@ -137,6 +148,7 @@ export function FrontierSignalTrail({ itemId, rating, onRate, notice }: Props) {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerCancel}
           onLostPointerCapture={onPointerCancel}
+          onFocus={onFocus}
           onKeyDown={onKeyDown}
           onKeyUp={onKeyUp}
           onBlur={onBlur}
