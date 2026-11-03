@@ -298,3 +298,93 @@
 @media (max-width:520px) {
   .advanced { display:none; }
 }
+
+/* Source-specific evidence uses the same typographic system, never a new card feed. */
+.briefLabel { color:#a6b7c3; text-transform:uppercase; letter-spacing:.13em;
+  font-size:10px; font-weight:660; line-height:1.5; margin:0 0 12px; }
+.provenanceHint { color:#91a6b5; font-size:11px; line-height:1.45;
+  margin:12px 0 0; max-width:49ch; }
+.metricSection + .metricSection { margin-top:18px; }
+.featuredSports { padding:17px 18px; border:1px solid #344654;
+  border-radius:12px; background:#111f2b; }
+.featuredSports h2 { font-size:11px; line-height:1.4; margin:0 0 11px;
+  color:#f2cfbe; text-transform:uppercase; letter-spacing:.08em; font-weight:650; }
+.featuredSports .gameRows { border-top:1px solid #354652; }
+.featuredSports .gameRow strong { font-variant-numeric:tabular-nums; color:#f4f5f5; }
+.featuredSports>p { color:#96acb9; font-size:10px; line-height:1.4;
+  margin:13px 0 0; }
+.featuredSports+.briefSection { margin-top:14px; }
+@media (max-width:520px) {
+  .featuredSports { padding:13px 14px; }
+  .featuredSports .gameRow { font-size:11px; }
+}
+
+/* A missing publisher image is not editorial space. Let the actual reporting
+   own the column rather than showing a large decorative placeholder. Structured
+   scoreboards also prioritize source data over decorative cover images. */
+.storyBody[data-frontier-source-image="false"],
+.storyBody[data-frontier-sports-state="true"] {
+  display:block;
+  width:min(100%,760px);
+  margin-inline:auto;
+}
+.storyBody[data-frontier-source-image="false"] > .visual,
+.storyBody[data-frontier-sports-state="true"] > .visual { display:none; }
+.storyBody[data-frontier-source-image="false"] > .content,
+.storyBody[data-frontier-sports-state="true"] > .content { width:100%; }
+.storyBody[data-frontier-source-image="false"] .briefSection,
+.storyBody[data-frontier-sports-state="true"] .briefSection { padding-top:14px; }
+@media (max-width:900px) {
+  /* Method descriptions, abstracts and repo release notes need text in view
+     sooner; videos and photography keep their larger authentic artwork. */
+  .article[data-frontier-story-format="research"] .visualViewport,
+  .article[data-frontier-story-format="repository"] .visualViewport {
+    aspect-ratio:1.75;
+    min-height:150px;
+    max-height:34svh;
+  }
+}
+
+/* Touch screens have no hover. Keep one accessible nav row underneath the
+   headline rather than a fixed arrow obstructing scores, descriptions, or art. */
+@media (max-width:520px) {
+  .headline .navigation { position:static; inset:auto; z-index:auto;
+    width:100%; margin:11px auto 0; padding:0 3px; display:flex;
+    justify-content:space-between; align-items:center; pointer-events:auto; }
+  .headline .navigation button { position:static; top:auto; left:auto; right:auto;
+    width:35px; height:35px; min-width:35px; opacity:1;
+    transform:none; background:#162430; backdrop-filter:none; }
+  .headline .navigation button:disabled { opacity:0!important; }
+}
+
+/* The archive can include clipped metadata abstracts. Never imply a partial
+   phrase is a complete finding; send the reader to the original paper. */
+.previewNotice { color:#a5b8c7; font-size:11px; line-height:1.5;
+  margin:12px 0 0; }
+.previewNotice a { display:inline-flex; align-items:center; gap:5px;
+  color:#e6c4b8; text-decoration:underline; text-underline-offset:3px; }
+.previewNotice a:hover { color:#fff3e9; }
+
+/* A smaller, intentional interest control keeps its continuous hold gesture
+   but no longer takes more visual weight than the source evidence on phones. */
+@media (max-width:520px) {
+  .interactionArea { padding:10px 0 0; margin-top:6px; }
+  .ratingZone { width:100%; display:grid; align-items:center;
+    grid-template-columns:90px minmax(0,1fr); grid-template-rows:auto auto;
+    column-gap:13px; }
+  .holdButton { grid-column:1; grid-row:1/3; width:90px; min-height:103px;
+    gap:8px; justify-content:center; }
+  .orbRing { width:67px; }
+  .orbCore { width:calc(100% - 9px); }
+  .orbValue { font-size:23px; }
+  .orbDenominator { font-size:10px; }
+  .orbCopy { font-size:10px; line-height:1.3; max-width:90px;
+    white-space:normal; }
+  .precision { grid-column:2; grid-row:1; justify-self:start;
+    align-self:end; text-align:left; margin:0; }
+  .precision>summary { padding:7px 0; font-size:12px; }
+  .precisionContent { left:0; transform:none; width:min(224px,calc(100vw - 132px));
+    min-width:160px; }
+  .notice { grid-column:2; grid-row:2; text-align:left; align-self:start;
+    min-height:18px; padding-top:5px; }
+}

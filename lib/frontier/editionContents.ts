@@ -1,4 +1,5 @@
 import type { FrontierItem, FrontierLaneId } from './types';
+import { frontierStoryFormat } from './storyPresentation';
 
 export type FrontierEditionGroupId = 'research' | 'sports' | 'culture' | 'world' | 'other';
 export type FrontierEditionEntry = { item: FrontierItem; position: number };
@@ -34,14 +35,15 @@ export function buildFrontierEditionContents(items: readonly FrontierItem[]): Fr
   return result.filter((group) => group.entries.length > 0);
 }
 
+/** Header, contents index and story body derive format from one contract. */
 export function frontierReaderFormat(item: FrontierItem): string {
-  if (item.sportsState || item.sourceKind === 'sports_state') return 'Live data';
-  if (['arxiv', 'openalex', 'biorxiv', 'medrxiv', 'openreview', 'paperswithcode', 'huggingface'].includes(item.sourceKind)) {
-    return 'Research';
+  switch (frontierStoryFormat(item)) {
+    case 'research': return 'Research';
+    case 'repository': return 'Code';
+    case 'video': return 'Video';
+    case 'sports': return 'Scores & standings';
+    case 'discussion': return 'Discussion';
+    case 'game': return 'Game';
+    default: return 'Article';
   }
-  if (item.sourceKind === 'github') return 'Code';
-  if (item.sourceKind === 'youtube' || item.sourceKind === 'vimeo') return 'Video';
-  if (item.sourceKind === 'steam') return 'Game';
-  if (['hackernews', 'lobsters', 'reddit', 'social'].includes(item.sourceKind)) return 'Discussion';
-  return 'Article';
 }

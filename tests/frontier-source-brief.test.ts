@@ -47,6 +47,26 @@ test('long unpunctuated source excerpts remain complete without overwhelming the
     'Presentation must preserve every word in original order');
 });
 
+test('truncated publisher abstracts are not rendered as complete research findings', () => {
+  const publisherPreview = 'Introduction Finite element (FE) models are powerful tools for injury analysis and prediction. Their performance should be assessed with a standardized system to validate their use before employing them for injury prediction. It is necessary to develop an FE model that is able to reproduce the…';
+  const excerpt = buildFrontierSourceBrief(publisherPreview, 'openalex');
+  assert.equal(excerpt.previewTruncated, true);
+  assert.equal(excerpt.details.length, 0,
+    'An incomplete last sentence must never become an independent evidence point');
+  assert.match(excerpt.lead, /injury prediction\.$/);
+  assert.ok(!excerpt.lead.includes('reproduce the'), 'Truncated clause is not a completed finding');
+  const fullSource = buildFrontierSourceBrief(publisherPreview.replace(' the…', ' the original observations.'), 'openalex');
+  assert.equal(fullSource.previewTruncated, undefined);
+  assert.equal([fullSource.lead, ...fullSource.details].join(' '), publisherPreview.replace(' the…', ' the original observations.'));
+});
+
+test('short clipped previews remain visible but are explicitly flagged as incomplete', () => {
+  const short = buildFrontierSourceBrief('Researchers studied neural plasticity in…', 'rss');
+  assert.equal(short.previewTruncated, true);
+  assert.equal(short.hasFullerContext, false);
+  assert.equal(short.lead, 'Researchers studied neural plasticity in…');
+});
+
 test('source figures are deduplicated, attributed and capped without generating extra media', () => {
   const result = frontierSourceFigures({
     ...item,

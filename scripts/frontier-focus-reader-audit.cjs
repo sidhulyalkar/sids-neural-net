@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
+const { mkdirSync } = require('node:fs');
 
 const TARGET = process.env.FRONTIER_FOCUS_AUDIT_URL || 'http://127.0.0.1:3000/frontier';
 const FIRST_PAINT_BUDGET_MS = 9000;
@@ -31,6 +32,41 @@ async function audit(width, height) {
     assert(firstPaintMs <= FIRST_PAINT_BUDGET_MS, 'First readable story exceeded budget');
     const heading = await page.locator('article h1').first().textContent();
     assert(heading?.trim(), 'The first article must have a real title on initial navigation');
+    if (width <= 390) {
+      const geometry = await page.evaluate(() => {
+        const controls = document.querySelector('nav[aria-label="Article navigation"]');
+        const story = document.querySelector('article [data-frontier-source-image]');
+        const controlsRect = controls?.getBoundingClientRect();
+        const storyRect = story?.getBoundingClientRect();
+        return {
+          controlsBottom: controlsRect?.bottom ?? null,
+          contentTop: storyRect?.top ?? null,
+          controlsWidth: controlsRect?.width ?? null,
+          viewportWidth: innerWidth,
+        };
+      });
+      assert(geometry.controlsBottom !== null && geometry.contentTop !== null
+        && geometry.controlsBottom <= geometry.contentTop + 2,
+        'Mobile navigation must not cover source-backed story content: ' + JSON.stringify(geometry));
+      assert(geometry.controlsWidth <= geometry.viewportWidth,
+        'Mobile controls may not overflow horizontally: ' + JSON.stringify(geometry));
+    }
+    // Wait for the actual media paint when possible; a screenshot of the
+    // loading placeholder is not evidence of image rendering quality.
+    if (await page.locator('figure img').count()) {
+      await page.waitForFunction(() => {
+        const img = document.querySelector('figure img');
+        return !img || img.getAttribute('data-frontier-media-ready') === 'true';
+      }, undefined, { timeout: 3500 }).catch(() => {});
+    }
+    // Capture the *real archived first story* in addition to the controlled
+    // cross-format fixtures. This makes image sizing and textual hierarchy
+    // reviewable without a hand-maintained or fabricated article.
+    mkdirSync('artifacts/browser-smoke/frontier-first-story', { recursive: true });
+    await page.screenshot({
+      path: 'artifacts/browser-smoke/frontier-first-story/' + width + '-' + height + '.png',
+      fullPage: true, animations: 'disabled',
+    });
     assert.equal(await page.locator('article').count(), 1, 'Never mount a whole off-screen feed');
     assert((await page.locator('figure img').count()) <= 1, 'Figure tabs cannot mount every source image');
     assert((await page.locator('figure img').count()) <= 1, 'Only the current source image is mounted');
@@ -268,30 +304,188 @@ async function auditSourceOnlyPresentation() {
         });
         await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
         await page.getByRole('button', { name: 'Refresh live edition' }).click();
-        const sourceOnly = page.locator('[data-frontier-media="source-only"]');
-        await sourceOnly.waitFor({ timeout: 8000 });
+        const textFirst = page.locator('[data-frontier-source-image="false"]');
+        await textFirst.waitFor({ timeout: 8000 });
         assert.equal(await page.locator('article').count(), 1);
         assert.equal(await page.locator('figure img').count(), 0);
         assert.equal(await page.locator('article h1').count(), 1);
-        const layout = await sourceOnly.evaluate((element) => ({
-          height: element.getBoundingClientRect().height,
-          text: element.textContent || '',
-          documentWidth: document.documentElement.scrollWidth,
-          viewportWidth: window.innerWidth,
-        }));
-        assert(!layout.text.includes(fixture.title),
-          'No-image fallback must not repeat the oversized headline');
-        assert(layout.height <= (width <= 520 ? 155 : 275),
-          'No-image treatment should not dominate the article: ' + JSON.stringify(layout));
+        const layout = await textFirst.evaluate((element) => {
+          const title = document.querySelector('article h1').getBoundingClientRect();
+          const lead = element.querySelector('section[aria-label="Source-grounded summary"]').getBoundingClientRect();
+          const figure = element.querySelector('figure');
+          return {
+            hiddenCover: figure ? getComputedStyle(figure).display === 'none' : true,
+            contentWidth: element.getBoundingClientRect().width,
+            leadGap: Math.round(lead.top - title.bottom),
+            documentWidth: document.documentElement.scrollWidth,
+            viewportWidth: window.innerWidth,
+          };
+        });
+        assert(layout.hiddenCover, 'Missing source imagery must not reserve decorative space');
+        assert(layout.leadGap < 130, 'Source synopsis must follow headline promptly: ' + JSON.stringify(layout));
+        assert(layout.contentWidth <= 762, 'Source-only text should remain readable, not span the whole desktop');
         assert(layout.documentWidth <= layout.viewportWidth + 2,
           'Source-only layout must not overflow horizontally: ' + JSON.stringify(layout));
-        results.push({ width, compactSourcePlaceholder: true, height: layout.height });
+        results.push({ width, evidenceFirstWithoutArt: true, ...layout });
       } finally {
         await page.close();
       }
     }
     return results;
   } finally {
+    await browser.close();
+  }
+}
+
+async function auditFormatAwareEvidence() {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 1080, height: 800 }, reducedMotion: 'reduce' });
+  try {
+    const base = new URL(TARGET);
+    const snapshotResponse = await page.request.get(base.origin + '/api/frontier/feed');
+    assert(snapshotResponse.ok(), 'Format audit needs a real snapshot');
+    const snapshot = await snapshotResponse.json();
+    assert(snapshot.items?.length > 0, 'Format audit needs at least one genuine source record');
+    const original = snapshot.items[0];
+    const researchSource = snapshot.items.find((item) =>
+      item.sourceKind === 'openalex' && /(?:…|\.\.\.)\s*$/.test(item.summary || '')
+    ) || snapshot.items.find((item) => item.sourceKind === 'openalex') || original;
+    const researchAction = /(?:\.pdf|\/pdf)(?:[?#]|$)/i.test(researchSource.url)
+      ? 'Read original PDF'
+      : /^https:\/\/(?:www\.)?openalex\.org\//i.test(researchSource.url)
+        ? 'Open research record' : 'Read original publication';
+    const fixtures = [
+      {
+        id: 'frontier-format-audit-research', sourceKind: 'openalex', expected: 'research',
+        summaryLabel: 'Abstract / source excerpt', action: researchAction,
+        metrics: [{ label: 'citations', value: '0' }], activity: 'Citation activity',
+        sportsState: undefined,
+      },
+      {
+        id: 'frontier-format-audit-code', sourceKind: 'github', expected: 'repository',
+        summaryLabel: 'Repository description', action: 'View repository',
+        metrics: [{ label: 'stars', value: '180' }, { label: 'latency', value: '24 ms' }],
+        activity: 'Repository activity', reported: 'Numbers reported by the source',
+        sportsState: undefined,
+      },
+      {
+        id: 'frontier-format-audit-video', sourceKind: 'youtube', expected: 'video',
+        summaryLabel: 'Creator description', action: 'Watch original',
+        metrics: [], sportsState: undefined,
+      },
+      {
+        id: 'frontier-format-audit-sports', sourceKind: 'sports_state', expected: 'sports',
+        summaryLabel: 'Source coverage', action: 'View score source',
+        metrics: [{ label: 'live', value: '1' }],
+        sportsState: {
+          kind: 'scoreboard', league: 'nba', leagueLabel: 'NBA',
+          games: [{ id: 'fixture-game', date: original.publishedAt, status: 'Halftime',
+            live: true, completed: false, competitors: [
+              { name: 'Home', shortName: 'Home', abbreviation: 'H', score: '44' },
+              { name: 'Away', shortName: 'Away', abbreviation: 'A', score: '42' },
+            ] }],
+        },
+      },
+    ];
+    let currentFixture = fixtures[0];
+    await page.route('**/api/frontier/feed?latest=1', async (route) => {
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        headers: { 'X-Frontier-Live': 'cached-latest' },
+        body: JSON.stringify({
+          generatedAt: new Date().toISOString(),
+          items: [{
+            // Use a real archived record of each respective source type for
+            // the screenshot. Only metrics/scores are controlled fixtures.
+            ...(currentFixture.expected === 'research' ? researchSource
+              : snapshot.items.find((item) => item.sourceKind === currentFixture.sourceKind) || original),
+            id: currentFixture.id, sourceKind: currentFixture.sourceKind,
+            metrics: currentFixture.metrics, sportsState: currentFixture.sportsState,
+            media: { type: 'none' }, figures: [],
+          }],
+          sources: snapshot.sources,
+        }),
+      });
+    });
+    await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
+    for (const fixture of fixtures) {
+      currentFixture = fixture;
+      await page.getByRole('button', { name: 'Refresh live edition' }).click();
+      const article = page.locator('article[data-frontier-story-format="' + fixture.expected + '"]');
+      await article.waitFor({ timeout: 8000 });
+      assert.equal(await page.locator('article').count(), 1, 'Only one format-specific article is mounted');
+      assert.equal(await page.locator('figure img').count(), 0, 'Media-free fixtures must not download invented imagery');
+      assert.equal(await article.getByRole('heading', { name: fixture.summaryLabel }).count(), 1,
+        'Each format must identify the true source text category');
+      assert.equal(await article.getByRole('link', { name: fixture.action }).count(), 1,
+        'Each format must show the right source action label');
+      if (fixture.expected === 'research' && /(?:…|\.\.\.)\s*$/.test(researchSource.summary || '')) {
+        assert.equal(await article.getByText('Source preview is incomplete.', { exact: false }).count(), 1,
+          'Truncated source abstract must be visibly labeled, not presented as a complete finding');
+      }
+      if (fixture.sportsState) {
+        assert.equal(await article.getByRole('region', { name: 'Source sports evidence' }).count(), 1,
+          'Actual scores must be visible without expanding a detail panel');
+        assert.match((await article.getByRole('region', { name: 'Source sports evidence' }).textContent()) || '',
+          /44\s*:\s*42/);
+      }
+      if (fixture.activity || fixture.reported) {
+        await article.locator('details').filter({ hasText: 'Data & references' }).locator('summary').click();
+        if (fixture.activity) {
+          assert.equal(await article.getByText(fixture.activity, { exact: true }).count(), 1);
+          assert.equal(await article.locator('[data-frontier-metric-kind="activity"]').count(), 1);
+        }
+        if (fixture.reported) {
+          assert.equal(await article.getByText(fixture.reported, { exact: true }).count(), 1);
+          assert.equal(await article.locator('[data-frontier-metric-kind="reported"]').count(), 1);
+        } else {
+          assert.equal(await article.locator('[data-frontier-metric-kind="reported"]').count(), 0,
+            'Citation counts and popularity must never be called research results');
+        }
+      }
+
+      // Check actual rendered geometry across desktop and small phones, not
+      // only semantic labels. Persist screenshots for visual PR review.
+      for (const width of [1080, 390, 320]) {
+        await page.setViewportSize({ width, height: width < 500 ? 780 : 800 });
+        const geometry = await article.evaluate((element) => {
+          const headline = element.querySelector('h1').getBoundingClientRect();
+          const body = element.querySelector('[data-frontier-source-image]').getBoundingClientRect();
+          const synopsis = element.querySelector('section[aria-label="Source-grounded summary"]').getBoundingClientRect();
+          const scores = element.querySelector('section[aria-label="Source sports evidence"]');
+          const figure = element.querySelector('figure');
+          return {
+            viewport: innerWidth,
+            scrollWidth: document.documentElement.scrollWidth,
+            bodyWidth: body.width,
+            synopsisWidth: synopsis.width,
+            synopsisAfterTitle: synopsis.top >= headline.top,
+            hiddenNonSourceCover: figure ? getComputedStyle(figure).display === 'none' : true,
+            sportsBeforeSummary: !scores || scores.getBoundingClientRect().bottom <= synopsis.top,
+          };
+        });
+        assert(geometry.scrollWidth <= geometry.viewport + 2,
+          fixture.expected + ' must not overflow at ' + width + 'px: ' + JSON.stringify(geometry));
+        assert(geometry.bodyWidth <= geometry.viewport,
+          fixture.expected + ' content exceeds viewport: ' + JSON.stringify(geometry));
+        assert(geometry.synopsisAfterTitle,
+          fixture.expected + ' synopsis must not overlap the headline');
+        assert(geometry.sportsBeforeSummary,
+          'Structured scores must appear before the article synopsis');
+        assert(geometry.hiddenNonSourceCover,
+          'A source-only or structured sports story should not show a decorative placeholder');
+        mkdirSync('artifacts/browser-smoke/frontier-format-layout', { recursive: true });
+        await page.screenshot({
+          path: 'artifacts/browser-smoke/frontier-format-layout/' + fixture.expected + '-' + width + '.png',
+          fullPage: true, animations: 'disabled',
+        });
+      }
+      await page.setViewportSize({ width: 1080, height: 800 });
+    }
+    return { formatCases: fixtures.length, viewportWidths: [1080, 390, 320],
+      screenshots: fixtures.length * 3, sourceAlignedLabels: true, separatedActivityMetrics: true };
+  } finally {
+    await page.close();
     await browser.close();
   }
 }
@@ -303,6 +497,7 @@ async function main() {
   results.push(await audit(320, 700));
   results.push(await auditBackgroundLatest());
   results.push(await auditSourceOnlyPresentation());
+  results.push(await auditFormatAwareEvidence());
   console.log('FRONTIER focus reader audit:', JSON.stringify(results));
 }
 
