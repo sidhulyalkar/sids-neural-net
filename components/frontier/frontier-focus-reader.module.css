@@ -90,7 +90,7 @@
 .sourceDetail>summary:hover,.evidenceDetails>summary:hover { color:#f2f2f0; }
 .detailBody { max-height:220px; overflow-y:auto; padding:10px 2px; }
 .detailBody p { margin:0 0 10px; color:#b8c4ce; font-size:13px; line-height:1.6; }
-.interactionArea { display:flex; width:100%; justify-content:flex-start;
+.interactionArea { display:flex; width:100%; justify-content:center;
   padding:15px 0 4px; border-top:1px solid #ffffff19; margin-top:10px; }
 .evidenceDetails { border-top:1px solid #253442; padding-top:8px; }
 .evidenceSection { margin:18px 0; }
