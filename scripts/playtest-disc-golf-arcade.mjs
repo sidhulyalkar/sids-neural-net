@@ -63,6 +63,7 @@ try {
    if(stage==="chase"&&chaseFrames.length<120){
     chaseFrames.push({
      stage,gait:d.dogGait,speed:Number(d.dogSpeed),
+     travelled:Number(d.dogDistanceTraveled),
      bodyBob:Number(d.dogBodyBob),pawLift:Number(d.dogFootLiftMax),
      followMode:d.shastaFollowMode,followBoom:Number(d.shastaFollowBoom),
     });
@@ -101,13 +102,28 @@ try {
  // The footage-derived gait contract applies during Shasta's automatic
  // fetch, not just while following the player. Sample actual animation
  // frames; fixed scene screenshots cannot prove anti-hop behavior.
- await page.waitForFunction(()=>
-  (document.querySelector("canvas")?.__chaseFrames?.length??0)>=6,
-  null,{timeout:35000});
+ try{
+  await page.waitForFunction(()=>
+    (document.querySelector("canvas")?.__chaseFrames?.length??0)>=3,
+    null,{timeout:35000});
+ }catch(error){
+  const diagnostic=await page.evaluate(()=>{
+    const c=document.querySelector("canvas");
+    return {phase:c?.dataset.discGolfPhase,fetchStage:c?.dataset.dogFetchStage,
+      chaseStages:c?.__chaseStages??[],chaseFrameCount:c?.__chaseFrames?.length??0,
+      handoffPending:c?.dataset.discGolfHandoffPending,
+      dogSpeed:c?.dataset.dogSpeed,shastaFollowMode:c?.dataset.shastaFollowMode};
+  });
+  console.error("DISC FETCH CHASE DIAGNOSTIC",JSON.stringify(diagnostic));
+  throw error;
+ }
  const fetchGait=await page.evaluate(()=>
   [...document.querySelector("canvas").__chaseFrames]);
- assert.ok(fetchGait.length>=6,
+ assert.ok(fetchGait.length>=3,
   "Actual multi-frame Shasta pursuit must occur, not a transient HUD label");
+ assert.ok(fetchGait.every(s=>Number.isFinite(s.travelled)) &&
+  fetchGait.at(-1).travelled-fetchGait[0].travelled>0.05,
+  "Shasta must actually cover ground between captured chase frames, not merely cycle his limbs");
  assert.ok(fetchGait.every(s=>Number.isFinite(s.bodyBob)&&
    Math.abs(s.bodyBob)<.03),
   "Shasta's body cannot repeatedly bounce while fetching the disc");

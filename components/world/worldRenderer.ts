@@ -1,4 +1,5 @@
-import {MOSS_CANYON} from "@/lib/world/model";
+import {reefCanyonConstrainSwim,reefCanyonNear} from "@/lib/world/reefCanyon";
+import {createMossCanyonReef} from "./worldMossCanyonReef";
 import {bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
 import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcadeTrailFooting,arcadeEntranceCameraPose} from "@/lib/world/arcadeWayfinding";
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
@@ -53,6 +54,11 @@ import {
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
 import { createWorldTridents } from "./worldTridents";
+import { createShrineCoralWayfinding } from "./worldShrineCoralWayfinding";
+import { shrineDiveMarkerSightlineReserved } from "@/lib/world/shrineCoralWayfinding";
+import { createHiddenShrineGallery } from "./worldHiddenShrineGallery";
+import { createWorldPaperGallery } from "./worldPaperGallery";
+import { SHRINE_GALLERY, GALLERY_VIEWING, galleryConstrainMove, galleryStepWalk, galleryNearShaft, galleryWalkable, shrineReachable, galleryPhotoSlots, galleryPhotoViewpoint, galleryPhotoClearance, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
@@ -89,6 +95,8 @@ import {
   paperCaveFloorHeight,
   paperCaveInside,
   paperCaveHalfWidth,
+  paperMuseumRoomIndex,
+  PAPER_CAVE,
   caveObstacles,
   caveHalfWidth,
   mountainSurfaceHeight,
@@ -131,6 +139,7 @@ type Callbacks = {
   onBigAir: (flight:BigAirState) => void;
   onDiscGolf:(game:DiscGolfState)=>void;
   onJetSkiMode:(active:boolean)=>void;
+  onGalleryPhase:(phase:GalleryPhase)=>void;
 
   onSkim:(heat:SkimHeat)=>void;
   onSkimNearby:(board:number|null)=>void;
@@ -170,6 +179,7 @@ export function createWorld(
   callbacks: Callbacks,
   Renderer: typeof WebGLRenderer,
   gameTitles: string[],
+  publicationCards: {id:string;title:string;year:number|null;href:string}[],
 ): WorldRuntime {
   const renderer = new Renderer({
     antialias: true,
@@ -207,6 +217,13 @@ export function createWorld(
   arcadeTrailHud.setAttribute("aria-label","Arcade Cavern trail guidance");
   arcadeTrailHud.style.cssText="display:none;position:absolute;left:24px;top:91px;max-width:min(350px,calc(100% - 48px));z-index:6;pointer-events:none;padding:8px 13px;border-radius:10px;background:#17252add;color:#f4d29d;border:1px solid #ecb56a8a;box-shadow:0 6px 20px #0d181c55;text-align:center;font:650 11px/1.4 system-ui,sans-serif;letter-spacing:.055em";
   host.appendChild(arcadeTrailHud);
+  const shrineHint=document.createElement("div");
+  shrineHint.setAttribute("role","status");
+  shrineHint.setAttribute("aria-label","Hidden shrine swimming guidance");
+  shrineHint.style.cssText=arcadeTrailHud.style.cssText;
+  shrineHint.style.top="134px";
+  shrineHint.hidden=true;
+  host.appendChild(shrineHint);
   // A brief, non-blocking landing card is more rewarding than a permanent
   // dashboard. The island stays visible while the completed move is named.
   const skateResult=document.createElement("div");
@@ -554,6 +571,20 @@ export function createWorld(
     colors.push(groundColor.r, groundColor.g, groundColor.b);
   }
   terrain.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  // A real seabed aperture sits beneath the wooden shrine. Remove only the
+  // intersecting indexed triangles; elsewhere the original sea floor is intact.
+  const seabedIndices=terrain.getIndex();
+  if(seabedIndices){
+    const keep:number[]=[];
+    const opening=SHRINE_GALLERY.entrance;
+    for(let i=0;i<seabedIndices.count;i+=3){
+      const a=seabedIndices.getX(i),b=seabedIndices.getX(i+1),c=seabedIndices.getX(i+2);
+      const cx=(pos.getX(a)+pos.getX(b)+pos.getX(c))/3;
+      const cz=(pos.getZ(a)+pos.getZ(b)+pos.getZ(c))/3;
+      if(Math.hypot(cx-opening.x,cz-opening.z)>1.65)keep.push(a,b,c);
+    }
+    terrain.setIndex(keep);
+  }
   terrain.computeVertexNormals();
   const ground = mesh(
     terrain,
@@ -1207,6 +1238,9 @@ export function createWorld(
     ...WILDLIFE_DISCOVERIES.map(m=>({id:m.id,point:m.point})),
   ];
   const markerObjects: THREE.Mesh[] = [];
+  const hiddenShrineGallery=createHiddenShrineGallery(scene);
+  canvas.dataset.hiddenGalleryPhotos=String(hiddenShrineGallery.photoCount);
+  canvas.dataset.hiddenGalleryVersion="submerged-stone-shrine-v1";
   const cairnPieces: Instance[] = [], markerHitVolumes: Instance[] = [];
   const markerIds: string[] = [];
   const markerHitMat = mat("#ffffff", {
@@ -1316,21 +1350,7 @@ export function createWorld(
     fin.rotation.x = -0.12;
   }
   snorkel.visible = false;
-  // A side canyon and waterfall make the expanded loop readable from a distance.
-  const canyonStone: Instance[] = [], canyonMoss: Instance[] = [], fernFronds: Instance[] = [];
-  for (const side of [-1, 1]) for (let i = 0; i < 8; i++) {
-    const x = MOSS_CANYON.center.x + side * (4.6 + Math.sin(i) * 0.5),
-      z = MOSS_CANYON.startZ + i * MOSS_CANYON.spacing;
-    const y = terrainHeight(x, z), h = 3.8 + Math.sin(i * 0.8) * 1.3;
-    canyonStone.push({ x, y: y + h * 0.45, z, sx: 1.8, sy: h, sz: 2.1, ry: i });
-    obstacles.push({ x, z, radius: 1.3, topY:y+h });
-    canyonMoss.push({ x: x - side * 0.8, y: y + h * 0.65, z, sx: 1.2, sy: 0.4, sz: 1.5 });
-    for (let j = 0; j < 3; j++) fernFronds.push({ x: x - side * 1.9, y: y + 0.45, z: z + j * 0.3, sx: 0.1, sy: 0.65, sz: 0.55, ry: j * 1.7 });
-  }
-  instances(rockGeo, mat("#687b75"), canyonStone);
-  instances(rockGeo, mat("#648d3d"), canyonMoss, false);
-  instances(cone, mat("#4d875d"), fernFronds, false); // Stylized fern forms; no species claim.
-  // Inspect actual generated collision footprints, not just analytic regions.
+  // Moss Canyon now lives below the western kelp shelf; its 3D collision\n  // and reef meshes share one authored model instead of above-ground rocks.\n  // Inspect actual generated collision footprints, not just analytic regions.
   // Browser QA can assert each starting throw and putting green is usable.
   const blockedGolfEnds=DISC_GOLF_HOLES.flatMap((h,index)=>{
     const blocked=(p:{x:number;z:number})=>obstacles.some(o=>
@@ -1351,8 +1371,10 @@ export function createWorld(
   const basin=mesh(geo(new THREE.CircleGeometry(2,20)),waterRibbonMat,[upper[0].x,upper[0].y,upper[0].z],[1,1,1]);basin.rotation.x=-Math.PI/2;
   const fallRings=Array.from({length:13},(_,i)=>{const t=i/12;return [new THREE.Vector3(-21.2-Math.sin(t*4)*.12,lip.y+(fallsY+.1-lip.y)*t,-30+t*.8),new THREE.Vector3(-18.8+Math.sin(t*6)*.18,lip.y+(fallsY+.1-lip.y)*t,-30+t*.8)];});
   const waterfall=mesh(geo(ringSurface(fallRings)),waterRibbonMat,[0,0,0],[1,1,1]);waterfall.castShadow=false;
-  const paperRings=Array.from({length:7},(_,i)=>{
-    const z=-30-i,w=paperCaveHalfWidth(z),floor=paperCaveFloorHeight({x:-20,z});
+  // The foundation and shell span all three rooms as continuous surfaces,
+  // preventing z-fighting across thresholds.
+  const paperRings=Array.from({length:1+Math.abs(PAPER_CAVE.backZ-PAPER_CAVE.z)},(_,i)=>{
+    const z=PAPER_CAVE.z-i,w=paperCaveHalfWidth(z),floor=paperCaveFloorHeight({x:-20,z});
     const roofLimit=Math.min(
       mountainSurfaceHeight(-20,z),
       mountainSurfaceHeight(-20-w*.6,z),
@@ -1371,13 +1393,35 @@ export function createWorld(
     ];
   });
   mesh(geo(ringSurface(paperRings)),mat("#465958",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
-  const paperBackFloor=paperCaveFloorHeight({x:-20,z:-36});
-  mesh(boxGeo,mat("#43504e"),[-20,paperBackFloor+2.15,-36.2],[8,4.3,.5]);
+  const paperBackFloor=paperCaveFloorHeight({x:-20,z:PAPER_CAVE.backZ});
+  mesh(boxGeo,mat("#43504e"),
+    [-20,paperBackFloor+2.15,PAPER_CAVE.backZ-.25],
+    [paperCaveHalfWidth(PAPER_CAVE.backZ)*2,4.3,.5]);
+  // Seal the stone foundation *under* both side walls, rather than ending
+  // 12cm short and exposing a cyan water/terrain slit at every wall-floor
+  // join. This is one continuous floor, with no coplanar bridge patches.
   const paperFloorRings=paperRings.map(ring=>{
-    const z=ring[0].z,w=paperCaveHalfWidth(z)-.12,y=paperCaveFloorHeight({x:-20,z})-.08;
+    const z=ring[0].z,w=paperCaveHalfWidth(z)+.08,
+      y=paperCaveFloorHeight({x:-20,z})-.08;
     return [new THREE.Vector3(-20-w,y,z),new THREE.Vector3(-20+w,y,z)];
   });
-  mesh(geo(ringSurface(paperFloorRings)),mat("#4d5a57",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  mesh(geo(ringSurface(paperFloorRings)),
+    mat("#555a52",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
+  // Raised, warm limestone baseboards hide the wall joint while retaining
+  // two non-coplanar bands and just two extra static draw calls.
+  for(const side of [-1,1]){
+    const skirtingRings=paperRings.map(ring=>{
+      const z=ring[0].z,w=paperCaveHalfWidth(z),
+        y=paperCaveFloorHeight({x:-20,z});
+      return [
+        new THREE.Vector3(-20+side*(w-.32),y+.025,z),
+        new THREE.Vector3(-20+side*(w+.045),y+.27,z),
+      ];
+    });
+    mesh(geo(ringSurface(skirtingRings)),
+      mat("#857967",{side:THREE.DoubleSide,roughness:.94}),
+      [0,0,0],[1,1,1]);
+  }
   // Cave solids are active only on an underground navigation layer. Projecting
   // them into global x/z collision is what previously made the roof unwalkable.
   const caveSolids=caveObstacles();
@@ -1385,11 +1429,49 @@ export function createWorld(
   // Close the rock above and beside the mouth without closing the passage.
   const paperRockSkin = [...paperRockRings, paperRings[0]];
   mesh(geo(ringSurface(paperRockSkin)),mat("#78867a",{side:THREE.DoubleSide}),[0,0,0],[1,1,1]);
-  const paperTablets:Instance[]=Array.from({length:4},(_,i)=>({x:-22.4+i*1.6,y:fallsY+1.9,z:-35.75,sx:1.05,sy:1.5,sz:.16}));
-  instances(boxGeo,mat("#8d9c96"),paperTablets,false);
-  const paperGlyphs:Instance[]=paperTablets.flatMap(p=>Array.from({length:12},(_,i)=>({x:p.x-.4+i*.07,y:p.y+Math.sin(i*1.8)*.19,z:p.z+.1,sx:.05,sy:.055,sz:.025})));
-  instances(boxGeo,mat("#394c4f"),paperGlyphs,false);
-  const paperLight=new THREE.PointLight("#b2dce6",4,9,2);paperLight.position.set(-20,fallsY+3,-33);scene.add(paperLight);
+  // Real carved arches partition the exhibit without closing the broad
+  // central doors or introducing another coplanar stone floor.
+  const museumArchBlocks:Instance[]=[];
+  const museumGoldInlays:Instance[]=[];
+  for(const z of PAPER_CAVE.thresholds){
+    const y=paperCaveFloorHeight({x:PAPER_CAVE.x,z});
+    const w=paperCaveHalfWidth(z);
+    for(const side of [-1,1]){
+      museumArchBlocks.push({
+        x:PAPER_CAVE.x+side*(w-.72),y:y+1.73,z,
+        sx:.62,sy:3.44,sz:.64,
+      });
+      museumGoldInlays.push({
+        x:PAPER_CAVE.x+side*(w-.72),y:y+2.85,z:z+.35,
+        sx:.45,sy:.10,sz:.055,
+      });
+    }
+    museumArchBlocks.push({
+      x:PAPER_CAVE.x,y:y+3.67,z,
+      sx:2*w-.5,sy:.45,sz:.70,
+    });
+    museumGoldInlays.push({
+      x:PAPER_CAVE.x,y:y+3.50,z:z+.36,
+      sx:2*w-1.1,sy:.055,sz:.045,
+    });
+  }
+  instances(boxGeo,mat("#6b685d"),museumArchBlocks,false);
+  instances(boxGeo,mat("#cfad7b"),museumGoldInlays,false);
+  const paperGallery=createWorldPaperGallery(scene,publicationCards);
+  markerObjects.push(...paperGallery.targets);
+  canvas.dataset.paperGalleryCount=String(paperGallery.count);
+  canvas.dataset.paperGalleryRooms=String(paperGallery.roomCount);
+  const paperLight=new THREE.PointLight("#e7c395",2.6,11,2);
+  paperLight.position.set(-20,paperCaveFloorHeight({x:-20,z:-34})+3.2,-34);
+  scene.add(paperLight);
+  const museumRoomLights=PAPER_CAVE.chambers.slice(1).map(room=>{
+    const point=new THREE.PointLight("#e7c395",2.2,11,2);
+    point.position.set(PAPER_CAVE.x,
+      paperCaveFloorHeight({x:PAPER_CAVE.x,z:room.centerZ})+3,
+      room.centerZ);
+    scene.add(point);
+    return point;
+  });
   const pool=mesh(geo(new THREE.CircleGeometry(3.7,24)),waterRibbonMat,[-20,fallsY+.08,-27],[1,1,1]);pool.rotation.x=-Math.PI/2;
   const lower=downstreamPoints().map(p=>new THREE.Vector3(p.x,p.y,p.z));
   mesh(geo(ribbon(lower,lower.map(()=>1.2))),waterRibbonMat,[0,0,0],[1,1,1]);
@@ -2543,7 +2625,10 @@ export function createWorld(
   for (let i = 0; i < 58; i++) {
     const x = -74 + random() * 29, z = -24 + random() * 63;
     const floor = seaFloorHeight(x, z), size = 0.35 + random() * 1.45;
-    reefRocks.push({ x, y: floor + size * 0.35, z, sx: size, sy: size * 0.7, sz: size * 1.2, ry: random() * 6 });
+    const ry=random()*6;
+    // Keep large boulders out of the short approach to the DIVE plaque.
+    if(shrineDiveMarkerSightlineReserved({x,z},size*.72))continue;
+    reefRocks.push({ x, y: floor + size * 0.35, z, sx: size, sy: size * 0.7, sz: size * 1.2, ry });
   }
   instances(rockGeo, reefRockMat, reefRocks, false, reefRoot);
 
@@ -2552,19 +2637,26 @@ export function createWorld(
     const x = -70 + random() * 25, z = -22 + random() * 58;
     const floor = seaFloorHeight(x, z);
     const height = Math.max(2.3, SEA_SURFACE - floor - 0.5 - random() * 1.2);
-    kelpStems.push({
-      x, y: floor + height / 2, z,
-      sx: 0.055, sy: height, sz: 0.055,
-    });
+    const reserved=shrineDiveMarkerSightlineReserved({x,z},.4);
+    if(!reserved){
+      kelpStems.push({
+        x, y: floor + height / 2, z,
+        sx: 0.055, sy: height, sz: 0.055,
+      });
+    }
     for (let blade = 0; blade < 4; blade++) {
       const y = floor + height * (0.42 + blade * 0.15);
       const a = blade * 1.7 + i;
+      const length=.8+random()*.6;
+      // Always consume the same PRNG samples even when skipping vegetation,
+      // preserving all unrelated world placement after the kelp forest.
+      if(reserved)continue;
       kelpBlades.push({
         x: x + Math.cos(a) * 0.22,
         y,
         z: z + Math.sin(a) * 0.22,
         sx: 0.22,
-        sy: 0.8 + random() * 0.6,
+        sy: length,
         sz: 0.13,
         ry: a,
       });
@@ -2801,6 +2893,16 @@ export function createWorld(
   const reefGarden = createReefGarden(tropicalReefRoot);
   const marineSchools = createMarineSchools(reefRoot,tropicalReefRoot);
   const goldenTridents = createWorldTridents(reefRoot,tropicalReefRoot);
+  const shrineCorals=createShrineCoralWayfinding(reefRoot);
+  const mossCanyonReef=createMossCanyonReef(reefRoot);
+  canvas.dataset.mossCanyonRocks=String(mossCanyonReef.rockCount);
+  canvas.dataset.mossCanyonCorals=String(mossCanyonReef.coralCount);
+  canvas.dataset.mossCanyonAnemones=String(mossCanyonReef.anemoneCount);
+  canvas.dataset.shrineCoralArrows=String(shrineCorals.count);
+  canvas.dataset.shrineCoralColonies=String(shrineCorals.colonyCount);
+  canvas.dataset.shrineDiveCue=shrineCorals.diveMarker.text;
+  canvas.dataset.shrineDiveCueSegments=String(shrineCorals.diveMarker.segmentCount);
+  canvas.dataset.westernTridentRelocated="true";
   canvas.dataset.schoolingFish = String(marineSchools.count);
   canvas.dataset.goldenTridents = String(goldenTridents.count);
 
@@ -3186,6 +3288,11 @@ export function createWorld(
     rideBoostNoticeUntil=0;rideBoostNotice="";
   }
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
+  let galleryPhase:GalleryPhase="outside";
+  let lastGalleryCameraPhase:GalleryPhase="outside";
+  let lastNotifiedGalleryPhase:GalleryPhase="outside";
+  const gallerySlots=galleryPhotoSlots();
+  let galleryFocusIndex:number|null=null;
   let climb: { from: Point; to: Point; fromY: number; toY: number; progress: number } | null = null;
   let grind: {
     log: GrindRail;
@@ -3576,9 +3683,25 @@ export function createWorld(
       else destination=boardPoint(index);
       return;
     }
+    if(galleryPhase==="inside"){
+      const photoHit=ray.intersectObjects([
+        ...hiddenShrineGallery.photoTargets,hiddenShrineGallery.stoneMesh],false)[0];
+      if(photoHit && photoHit.distance<7 && photoHit.object.userData.discovery){
+        const photoId=photoHit.object.userData.discovery as string;
+        callbacks.onInteract("gallery-photo:"+photoId);
+        return;
+      }
+      return; // Under the seabed: never click the terrain above to teleport.
+    }
     const marker = ray.intersectObjects(markerObjects)[0];
     if (marker && marker.distance < 55) {
       const discoveryId = discoveryForHit(marker);
+      if(discoveryId?.startsWith("gallery-paper:")){
+        if(caveLayer==="paper"&&paperCaveInside(player))
+          callbacks.onInteract(discoveryId);
+        else destination={x:-20,z:-34};
+        return;
+      }
       if (discoveryId?.startsWith("game:")) {
         if (caveLayer === "arcade" && arcadeInside(player) && distance(player, arcadeWall) < 7.4) callbacks.onInteract(discoveryId);
         else destination = { x: arcadeWall.x, z: arcadeWall.z - 4.2 };
@@ -3659,6 +3782,29 @@ export function createWorld(
     if(e.target !== canvas && !(jetSki&&
       (e.target===document.body||host.contains(e.target as Node))))return;
     const key = e.key.toLowerCase();
+    // F aligns the lens to an identical museum viewing pose near a framed
+    // photograph. ESC returns to ordinary first-person walking immediately.
+    if(galleryPhase==="inside"){
+      if(key==="escape"&&galleryFocusIndex!==null){
+        galleryFocusIndex=null;e.preventDefault();return;
+      }
+      if(!e.repeat&&key==="f"){
+        e.preventDefault();
+        if(galleryFocusIndex!==null){galleryFocusIndex=null;return;}
+        let nearest=-1,score=Infinity;
+        for(let i=0;i<gallerySlots.length;i++){
+          const slot=gallerySlots[i];
+          if(!galleryPhotoClearance(slot))continue;
+          const view=galleryPhotoViewpoint(slot);
+          const d=Math.hypot(view.x-player.x,view.z-player.z);
+          if(d<score){score=d;nearest=i;}
+        }
+        if(score<=2.0)galleryFocusIndex=nearest;
+        return;
+      }
+      if(["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(key))
+        galleryFocusIndex=null;
+    }
     if(skimHeat.phase!=="off"){
       if(!e.repeat&&key==="enter"&&skimHeat.phase==="finished"){
         e.preventDefault();doSkimAction("restart");return;
@@ -3758,6 +3904,18 @@ export function createWorld(
   }
   function applyWaterAction(action: State["waterAction"]) {
     if (aquatic === "land") return;
+    if(galleryPhase==="descending"||galleryPhase==="ascending")return;
+    if(galleryPhase==="inside"){
+      if(galleryNearShaft(player)&&(action==="surface"||action==="shallower")){
+        galleryPhase="ascending";destination=null;
+      }
+      return;
+    }
+    if(action==="deeper" && aquatic==="dive" && shrineReachable(player,swimDepth)){
+      galleryPhase="descending";
+      destination=null;
+      return;
+    }
     const available = maxDiveDepth(player);
     if (action === "dive" && aquatic === "surface" && available > 0.8) {
       targetDepth = Math.min(1.1, available);
@@ -3912,6 +4070,8 @@ export function createWorld(
   }
   function contextLost(e: Event) {
     e.preventDefault();
+    console.error("[world] WebGL context lost; gallery phase:",galleryPhase,
+      "resident native photos:",hiddenShrineGallery.highResolutionPhotos());
     callbacks.onError();
   }
   canvas.addEventListener("pointerdown", onDown);
@@ -4385,12 +4545,50 @@ export function createWorld(
           lastBigAirUpdate=elapsed;
         }
       } else if (aquatic !== "land") {
-        const nextTravel = stepSwim(
+        if(galleryPhase==="descending"||galleryPhase==="ascending"){
+          const destY=galleryPhase==="descending"
+            ? SHRINE_GALLERY.floorY+1.15
+            : SEA_SURFACE-maxDiveDepth(SHRINE_GALLERY.entrance);
+          const speed=2.5*dt;
+          player={...SHRINE_GALLERY.entrance};
+          travel={...travel,point:player,speed:0};
+          playerY+=THREE.MathUtils.clamp(destY-playerY,-speed,speed);
+          swimDepth=targetDepth=SEA_SURFACE-playerY;
+          if(Math.abs(playerY-destY)<.06){
+            playerY=destY;swimDepth=targetDepth=SEA_SURFACE-playerY;
+            const entered=galleryPhase==="descending";
+            galleryPhase=entered?"inside":"outside";
+            if(entered){
+              playerY=SHRINE_GALLERY.floorY+.04;
+              swimDepth=targetDepth=SEA_SURFACE-playerY;
+            }
+          }
+        } else if(galleryPhase==="inside"){
+          if(Math.hypot(dx,dz)>.01||destination)galleryFocusIndex=null;
+          // Walk on the actual stone floor: no submerged vertical controls,
+          // no floaty swim velocity, and no sea-floor support sampling.
+          const next=galleryStepWalk({...travel,point:player},
+            {x:dx,z:dz},rawDelta,destination);
+          travel=next;
+          player=next.point;
+          playerY=SHRINE_GALLERY.floorY+.04;
+          swimDepth=targetDepth=SEA_SURFACE-playerY;
+        } else {
+        const swimAttempt = stepSwim(
           { ...travel, point: player },
           { x: dx, z: dz },
           rawDelta,
           destination,
         );
+        // Rock geometry is collidable only below its submerged crown.
+        // This fixes snorkelers clipping straight through the new reef,
+        // without trapping surface swimmers above the same rock pillars.
+        const wetPoint=reefCanyonConstrainSwim(player,swimAttempt.point,playerY);
+        const nextTravel={
+          ...swimAttempt,point:wetPoint,
+          speed:Math.hypot(wetPoint.x-player.x,wetPoint.z-player.z)<.001
+            ?0:swimAttempt.speed,
+        };
         if (!isWater(nextTravel.point)||jetSkiPierHeight(nextTravel.point)!==null) {
           if (aquatic === "surface") {
             travel = nextTravel;
@@ -4418,6 +4616,7 @@ export function createWorld(
             swimDepth = targetDepth = 0;
           }
           playerY = SEA_SURFACE - (aquatic === "dive" ? Math.max(0.52, swimDepth) : 0.42);
+        }
         }
       } else {
         const previousHeading={...travel.heading};
@@ -4701,9 +4900,10 @@ export function createWorld(
         canvas.dataset.joshuaPlace=String(joshuaRacePlace(trial,player));
         canvas.dataset.joshuaProgress=joshuaPlayerFraction(trial,player).toFixed(3);
       }else canvas.dataset.joshuaGhosts="0";
-      const swimming = aquatic !== "land";
+      const swimming = aquatic !== "land" && galleryPhase!=="inside";
       const walking = travel.speed > 0.05
-        ? Math.sin(elapsed * (swimming ? 9 : mode === "run" ? 14 : 10))
+        ? Math.sin(elapsed * (galleryPhase==="inside"?7.2:
+          swimming ? 9 : mode === "run" ? 14 : 10))
         : 0;
       const surfing=skimHeat.phase==="riding";
       const skimEquipped=skimHeat.phase!=="off"&&skimHeat.phase!=="finished";
@@ -4746,7 +4946,8 @@ export function createWorld(
       canvas.dataset.skimBoardContact=(skimContact?.centerY??0).toFixed(3);
       canvas.dataset.skimWashDepth=(skimContact?.wash??0).toFixed(3);
       snorkel.visible = swimming;
-      const running = !swimming && !surfing && (mode === "run" || mode === "boulder");
+      const running = galleryPhase==="inside" ||
+        (!swimming && !surfing && (mode === "run" || mode === "boulder"));
       const discGolfAiming=discGolf.phase!=="off" &&
         discGolf.phase!=="flying"&&!discGolf.presentationPending;
       const discGolfHeading=discGolfAiming?
@@ -4824,7 +5025,9 @@ export function createWorld(
         // Match wheel/stance samples to the exact support layer selected by
         // movement physics. Sampling an overhead beam as the ground here would
         // visually lift the avatar even when the collision solver stayed below.
-        const rigSupport=(p:Point)=>caveLayer==="surface"?
+        const rigSupport=(p:Point)=>galleryPhase==="inside"?
+          SHRINE_GALLERY.floorY:
+          caveLayer==="surface"?
           airborneSupportHeight(playerY,supportHeight(p),
             terrainHeight(p.x,p.z)):supportHeight(p);
         const bikeContact = mode==="bike"&&airHeight<=.001&&!climb&&!grind
@@ -5137,9 +5340,14 @@ export function createWorld(
             )
           : 0
       ).toFixed(3);
-      const r: RegionId = isWater(player) ?
-        (waterZone(player)==="north-shore"?"north-shore":"coast") :
-        nearestRegion(player);
+      // The west-shelf canyon is a genuine underwater destination; don't
+      // flatten its location to the generic Wild Coast HUD just because
+      // the visitor is diving. Preserve the north-shore classification.
+      const r: RegionId = isWater(player)
+        ? reefCanyonNear(player) ? "canyon"
+          : waterZone(player)==="north-shore" ? "north-shore":"coast"
+        : nearestRegion(player);
+      canvas.dataset.currentRegion=r;
       const caveProgress = THREE.MathUtils.clamp(
         (player.z - arcade.z) / ARCADE_CAVE.tunnelDepth,
         0,
@@ -5147,6 +5355,8 @@ export function createWorld(
       );
       const caveInside = aquatic === "land" && caveLayer === "arcade" && arcadeInside(player);
       const paperInside = aquatic === "land" && caveLayer === "paper" && paperCaveInside(player);
+      canvas.dataset.paperMuseumRoom=String(paperMuseumRoomIndex(player));
+      for(const light of museumRoomLights)light.visible=caveLayer==="paper";
       carvingBandMesh.visible = caveInside && caveProgress > .4;
       canvas.dataset.caveInside = String(caveInside);
       canvas.dataset.caveDepth = caveProgress.toFixed(3);
@@ -5154,6 +5364,8 @@ export function createWorld(
       // The underground mural uses only seven draw batches but must not
       // consume them on the coast, skatepark or other distant islands.
       // Keep it visible on approach as well as while inside the chamber.
+      paperGallery.root.visible=caveLayer==="paper" ||
+        (aquatic==="land"&&Math.hypot(player.x+20,player.z+32)<15);
       arcadeGraffiti.root.visible = caveLayer==="arcade" ||
         (aquatic==="land" && distance(player,arcade)<29);
       canvas.dataset.arcadeGraffitiVisible=String(arcadeGraffiti.root.visible);
@@ -5169,6 +5381,30 @@ export function createWorld(
       canvas.dataset.jetSkiPier=String(nearJetSkiBoarding(player)&&aquatic==="land");
       canvas.dataset.jetSkiDeckHeight=jetSkiPierHeight(player)?.toFixed(2)??"";
       canvas.dataset.paperInside = String(paperInside);
+      canvas.dataset.hiddenGalleryPhase=galleryPhase;
+      canvas.dataset.hiddenGalleryLocomotion=galleryPhase==="inside"?"walking":"swimming";
+      canvas.dataset.hiddenGalleryCamera=galleryPhase==="inside"?"eye-level":"third-person";
+      canvas.dataset.hiddenGalleryPhotoFocus=galleryFocusIndex===null?"":gallerySlots[galleryFocusIndex].id;
+      if(galleryPhase!==lastNotifiedGalleryPhase){
+        if(galleryPhase==="outside")hiddenShrineGallery.releaseHighResolution();
+        lastNotifiedGalleryPhase=galleryPhase;
+        callbacks.onGalleryPhase(galleryPhase);
+      }
+      canvas.dataset.hiddenGalleryDepth=(SEA_SURFACE-playerY).toFixed(2);
+      canvas.dataset.hiddenGalleryInBounds=String(
+        galleryPhase!=="inside"||galleryWalkable(player));
+      canvas.dataset.hiddenGalleryPhotosReady=String(hiddenShrineGallery.loadedPhotos());
+      const nearShrine=distance(player,SHRINE_GALLERY.entrance)<3.5;
+      const hint=galleryPhase==="inside"
+        ? (galleryNearShaft(player)?"Press E to return through the shrine":
+          galleryFocusIndex===null?"Walk · F to align a nearby picture · click to open":
+          "Photo view · F or Esc to walk · click to open")
+        : galleryPhase==="descending"?"Descending into the hidden gallery"
+        : galleryPhase==="ascending"?"Ascending to the seabed"
+        : aquatic==="dive" && nearShrine
+          ? "Find the shrine opening, dive to the seabed, then choose Deeper":"";
+      shrineHint.textContent=hint;
+      shrineHint.hidden=!hint||!state.entered||state.paused;
       canvas.dataset.caveChamber = String(caveInside && caveProgress > 0.58);
       let rawGazeGame: string | null = null;
       const cavernCameraSettled =
@@ -5208,7 +5444,28 @@ export function createWorld(
       const layeredNearby =
         nearby === "paper-archive" && caveLayer !== "paper" ? null : nearby;
       const trident=nearbyUnderwaterTrident(player,playerY,aquatic);
-      discovery = aquatic === "land" ? (gazeGame ?? layeredNearby) : trident?.id ?? null;
+      let paperArtwork:string|null=null;
+      if(paperInside){
+        ray.setFromCamera(gazePointer,camera);
+        const paperHit=ray.intersectObjects(paperGallery.targets,false)
+          .find(hit=>hit.distance<7);
+        paperArtwork=paperHit?.object.userData.discovery as string|undefined??null;
+      }
+      let galleryPhotoId:string|null=null;
+      if(galleryPhase==="inside"){
+        ray.setFromCamera(gazePointer,camera);
+        const photoHit=ray.intersectObjects([
+          ...hiddenShrineGallery.photoTargets,hiddenShrineGallery.stoneMesh],false)[0];
+        galleryPhotoId=photoHit&&photoHit.distance<6
+          ? (photoHit.object.userData.discovery as string|undefined ?? null)
+          : null;
+      }
+      discovery = galleryPhase==="inside" ?
+        (galleryPhotoId ? "gallery-photo:"+galleryPhotoId : null) :
+        aquatic === "land" ? (paperArtwork ?? gazeGame ?? layeredNearby) :
+        // Preserve dive-gated tridents first, but expose the canyon discovery
+        // throughout its authored swim corridor instead of suppressing it underwater.
+        (trident?.id ?? (nearby === "canyon" && r === "canyon" ? "canyon" : null));
       const nextKey = `${r}:${discovery}`;
       if (nextKey !== locationKey) {
         locationKey = nextKey;
@@ -5402,7 +5659,8 @@ export function createWorld(
         // never the player's actual collision or equipment states.
         const cameraInsideAvatar=caveInside&&
           camera.position.distanceTo(explorer.position)<2.55;
-        explorer.visible=!jetChoosing&&!cameraInsideAvatar;
+        explorer.visible=!jetChoosing&&!cameraInsideAvatar&&galleryPhase!=="inside"&&
+          !(caveLayer==="paper"&&paperCaveInside(player));
         jetskiVisual.activeSki.visible=jetChoosing;
         if(jetChoosing){
           jetskiVisual.activeSki.position.set(JET_SKI_DOCK.x+.25,SEA_SURFACE+.2,JET_SKI_PIER.centerZ-.15);
@@ -5513,6 +5771,15 @@ export function createWorld(
           floor + 1.05,
           SEA_SURFACE - 0.28,
         );
+        if(reefCanyonNear(player)){
+          // A camera skimming the surface puts a hard waterline through the
+          // middle of the coral corridor. Lower the lens into the scene while
+          // keeping it above the real seabed and below the foam plane.
+          targetCamera.y=THREE.MathUtils.clamp(
+            Math.min(targetCamera.y,playerY+1.35,SEA_SURFACE-1.3),
+            floor+1.05,SEA_SURFACE-.65,
+          );
+        }
       }
       if (caveInside || paperInside) {
         const isArcade = caveInside;
@@ -5520,13 +5787,44 @@ export function createWorld(
         // A camera just 0.5m behind the player at the threshold rendered the
         // explorer's backpack as a full-screen polygon. Allow a 2.6m exterior
         // throat boom; the layered cave floor still clamps vertical clearance.
-        const minZ = isArcade ? ARCADE_CAVE.entrance.z-2.4 : -35.4;
-        const maxZ = isArcade ? -63.7 : -30.3;
-        const desired = constrainMove(player,{x:player.x+Math.sin(yaw)*2.6,z:player.z+Math.cos(yaw)*2.6},caveSolids);
+        const minZ = isArcade ? ARCADE_CAVE.entrance.z-2.4 : PAPER_CAVE.backZ+.65;
+        const maxZ = isArcade ? -63.7 : PAPER_CAVE.z-.3;
+        const desired = isArcade
+          ? constrainMove(player,{
+              x:player.x+Math.sin(yaw)*2.6,
+              z:player.z+Math.cos(yaw)*2.6,
+            },caveSolids)
+          : player;
         const z=THREE.MathUtils.clamp(desired.z,minZ,maxZ);
         const half = isArcade ? caveHalfWidth(z)-.85 : paperCaveHalfWidth(z)-.85;
-        targetCamera.set(THREE.MathUtils.clamp(desired.x,centerX-half,centerX+half),playerY+2.15,z);
-        targetLook.set(player.x-Math.sin(yaw)*2.4,playerY+1.85,player.z-Math.cos(yaw)*2.4);
+        targetCamera.set(THREE.MathUtils.clamp(desired.x,centerX-half,centerX+half),
+          isArcade?playerY+2.15:playerY+1.65,z);
+        targetLook.set(player.x-Math.sin(yaw)*(isArcade?2.4:3),
+          playerY+(isArcade?1.85:1.65),
+          player.z-Math.cos(yaw)*(isArcade?2.4:3));
+      }
+      if(galleryPhase!=="outside"){
+        if(galleryPhase==="inside"){
+          // Human eye-level, first-person museum exploration: the avatar
+          // cannot fill the screen or occlude the wall art.
+          const focus=galleryFocusIndex===null?null:gallerySlots[galleryFocusIndex];
+          const viewpoint=focus?galleryPhotoViewpoint(focus):player;
+          targetCamera.set(viewpoint.x,
+            SHRINE_GALLERY.floorY+GALLERY_VIEWING.eyeHeight,viewpoint.z);
+          targetLook.set(
+            focus?focus.x:player.x-Math.sin(yaw)*3,
+            focus?focus.y:SHRINE_GALLERY.floorY+GALLERY_VIEWING.eyeHeight,
+            focus?focus.z:player.z-Math.cos(yaw)*3
+          );
+        }else{
+          targetCamera.set(SHRINE_GALLERY.entrance.x+.48,
+            THREE.MathUtils.clamp(playerY+1.55,
+              SHRINE_GALLERY.floorY+1.2,
+              SEA_SURFACE-maxDiveDepth(SHRINE_GALLERY.entrance)+1.15),
+            SHRINE_GALLERY.entrance.z+.48);
+          targetLook.set(player.x-Math.sin(yaw)*.4,
+            playerY+1.5,player.z-Math.cos(yaw)*.4);
+        }
       }
       // Camera choreography, never gameplay authority:
       // flight -> landing reveal -> visible dog chase -> Shasta eye view.
@@ -6334,6 +6632,10 @@ export function createWorld(
       camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
       look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
     }
+    if(galleryPhase!==lastGalleryCameraPhase){
+      camera.position.copy(targetCamera);look.copy(targetLook);
+      lastGalleryCameraPhase=galleryPhase;
+    }
     // The *interpolated* lens can cross foliage even if both ends of
     // the blend are clear. Reject that intermediate pose and snap onto the
     // validated shot so a second throw is never framed from inside a leaf.
@@ -6354,10 +6656,34 @@ export function createWorld(
       const c=constrainMove(player,{x:camera.position.x,z:camera.position.z},caveSolids);
       const inArcade = caveLayer === "arcade" && arcadeInside(player);
       const centerX = inArcade ? 16 : -20;
-      const z = THREE.MathUtils.clamp(c.z, inArcade ? -81.6 : -35.4, inArcade ? -63.7 : -30.3);
+      const z = THREE.MathUtils.clamp(c.z, inArcade ? -81.6 : PAPER_CAVE.backZ+.65, inArcade ? -63.7 : PAPER_CAVE.z-.3);
       const half = (inArcade ? caveHalfWidth(z) : paperCaveHalfWidth(z)) - .85;
       camera.position.x=THREE.MathUtils.clamp(c.x,centerX-half,centerX+half);camera.position.z=z;
-      camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,playerY+3);
+      camera.position.y=THREE.MathUtils.clamp(camera.position.y,playerY+1.5,
+        inArcade?playerY+3:playerY+1.85);
+    }
+    if(galleryPhase!=="outside"){
+      const anchor=galleryPhase==="inside"&&galleryFocusIndex!==null
+        ? galleryPhotoViewpoint(gallerySlots[galleryFocusIndex])
+        : player;
+      const bounded=galleryPhase==="inside"
+        ? galleryConstrainMove(anchor,{x:camera.position.x,z:camera.position.z})
+        : {x:SHRINE_GALLERY.entrance.x+.48,z:SHRINE_GALLERY.entrance.z+.48};
+      camera.position.x=bounded.x;camera.position.z=bounded.z;
+      camera.position.y=THREE.MathUtils.clamp(camera.position.y,
+        SHRINE_GALLERY.floorY+1.15,
+        galleryPhase==="inside"?SHRINE_GALLERY.roofY-.45:
+          SEA_SURFACE-maxDiveDepth(SHRINE_GALLERY.entrance)+1.15);
+    }
+    // The follow camera also lives in 3D water. Solve against the same
+    // submerged rock silhouettes as the diver, or the lens can pass through
+    // anemone-covered walls even when the swimmer's body is properly blocked.
+    if(aquatic!=="land"&&reefCanyonNear(player)){
+      const clearCamera=reefCanyonConstrainSwim(player,{
+        x:camera.position.x,z:camera.position.z,
+      },camera.position.y,true);
+      camera.position.x=clearCamera.x;
+      camera.position.z=clearCamera.z;
     }
     // Last-resort cutaway also covers an obstructed interpolated pose or
     // a lie surrounded by foliage where no unobstructed boom exists.
@@ -6365,6 +6691,17 @@ export function createWorld(
       sceneryCamera.cutaway(camera.position,lastDiscCameraSolve.focus):
       (sceneryCamera.restore(),0);
     canvas.dataset.discGolfCameraCutaways=String(cutawayCount);
+    // A 47° outdoor lens crops the carved photo pediment at 2.45m. The
+    // 74° inspection lens includes the entire frame with comfortable margin;
+    // a slightly narrower 68° lens preserves depth cues while walking.
+    const museumFov=galleryPhase==="inside"
+      ? galleryFocusIndex===null?68:74
+      : caveLayer==="paper"&&paperCaveInside(player)?62:47;
+    if(camera.fov!==museumFov){
+      camera.fov=museumFov;
+      camera.updateProjectionMatrix();
+    }
+    canvas.dataset.hiddenGalleryFov=camera.fov.toFixed(1);
     camera.lookAt(look);
     if(lastDiscCameraSolve){
       camera.updateMatrixWorld();
@@ -6404,9 +6741,11 @@ export function createWorld(
     // kelp shelf and warm lagoon never render/animate together.
     const underwater = aquatic === "dive";
     const currentWaterZone = waterZone(player);
-    reefRoot.visible = aquatic !== "land" && currentWaterZone === "kelp";
-    tropicalReefRoot.visible = aquatic !== "land" && currentWaterZone === "lagoon";
-    bubbles.visible = aquatic !== "land";
+    reefRoot.visible = aquatic !== "land" && currentWaterZone === "kelp"
+      && galleryPhase==="outside";
+    tropicalReefRoot.visible = aquatic !== "land" && currentWaterZone === "lagoon"
+      && galleryPhase==="outside";
+    bubbles.visible = aquatic !== "land" && galleryPhase==="outside";
     shasta.visible = !underwater;
     dogContact.visible = !underwater;
     waterMaterial.opacity = underwater ? 0.48 : aquatic === "surface" ? 0.58 : 0.76;
@@ -6415,11 +6754,14 @@ export function createWorld(
     const underwaterFog =
       currentWaterZone === "lagoon" ? "#2f8f91" : "#196b72";
     if (scene.background instanceof THREE.Color)
-      scene.background.set(underwater ? underwaterColor : "#67b7ef");
+      scene.background.set(galleryPhase!=="outside" ? "#272c29" :
+        underwater ? underwaterColor : "#67b7ef");
     if (scene.fog instanceof THREE.Fog) {
-      if (underwater) scene.fog.color.set(underwaterFog);
-      scene.fog.near = underwater ? 7 : 85;
-      scene.fog.far = underwater ? (currentWaterZone === "lagoon" ? 70 : 58) : 270;
+      if(galleryPhase!=="outside")scene.fog.color.set("#444037");
+      else if (underwater) scene.fog.color.set(underwaterFog);
+      scene.fog.near = galleryPhase!=="outside" ? 12 : underwater ? 7 : 85;
+      scene.fog.far = galleryPhase!=="outside" ? 55 :
+        underwater ? (currentWaterZone === "lagoon" ? 70 : 58) : 270;
     }
 
     // Ski-mode snowfall follows the player anywhere in the world.
@@ -6724,6 +7066,11 @@ export function createWorld(
       decoration.visible=!hideUpland;
     canvas.dataset.underwaterDecorCulled=String(
       hideUpland?submergedSurfaceDecor.length:0);
+    hiddenShrineGallery.exterior.visible=aquatic!=="land" &&
+      distance(player,SHRINE_GALLERY.entrance)<27;
+    if(galleryPhase==="inside")hiddenShrineGallery.updateNearPhotos(player);
+    canvas.dataset.hiddenGalleryHD=String(hiddenShrineGallery.highResolutionPhotos());
+    hiddenShrineGallery.interior.visible=galleryPhase!=="outside";
     renderer.render(scene, camera);
     // This per-mode diagnostic is sampled from the *current underwater
     // render*, not a stale land-mode FPS window.
@@ -7028,12 +7375,15 @@ export function createWorld(
         skateTrick={...idleSkateTrick(),best:skateTrick.best};
         skateHasBeenAirborne=false;skateCarveLean=0;skateResultAt=-Infinity;
         skateBowlExits=0;skateLastTakeoff="";
-        skateLoopRide=null;skateTunnelRide=null;skateRailGapRide=null;lastSkateLoopEnd=elapsed;
+        // Region travel is not a completed loop. Do not impose an exit
+        // cooldown on the first high-speed run-in to either loop mouth.
+        skateLoopRide=null;skateTunnelRide=null;skateRailGapRide=null;lastSkateLoopEnd=-Infinity;
         skateBowlFlightActive=false;skateBowlLandings=skateBowlFailedLandings=0;
         skateBowlLastLanding="";skateBowlLastLandingSpeed=0;
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
         const jetPierStart=next.command.sportDestination==="jet-pier";
+        const galleryStart=next.command.galleryDestination;
         const flowStart=next.command.skateDestination==="canyon-flow"&&
           next.command.activity==="skate";
         jetSki=null;jetRivals=[];jetHud.style.display="none";
@@ -7052,13 +7402,20 @@ export function createWorld(
         travel = { point: player, speed: 0, heading:
           reverseStart?reversePose.heading:tubeStart?{x:-1,z:0}:loopStart?{x:-1,z:0}:flowStart?{x:1,z:0}:
           next.command.activity==="skate"&&insideSkatePark(player)?
-          skateGroveStartHeading():{x:0,z:r.id==="north-shore"?1:-1} };
+          skateGroveStartHeading():{x:0,z:r.id==="north-shore"||r.id==="canyon"?1:-1} };
         airHeight = verticalSpeed = swimDepth = targetDepth = 0;
+        galleryPhase="outside";lastGalleryCameraPhase="outside";
+        galleryFocusIndex=null;
         climb = null;
         grind = null;
-        setAquaticMode("land");
+        const arrivalIsCanyon=r.id==="canyon"&&!flowStart&&!galleryStart;
+        setAquaticMode(arrivalIsCanyon?"dive":"land");
+        if(arrivalIsCanyon){
+          swimDepth=targetDepth=Math.min(3.2,maxDiveDepth(player));
+        }
         caveLayer = "surface";
-        playerY = jetPierStart ? (jetSkiPierHeight(player) ?? groundHeight(player)) : groundHeight(player);
+        playerY = arrivalIsCanyon?SEA_SURFACE-swimDepth:
+          jetPierStart ? (jetSkiPierHeight(player) ?? groundHeight(player)) : groundHeight(player);
         rideRecovery=initialRideRecovery(player);
         rideFlightContinuity=false;lastFlightExitAt=-Infinity;
         dog = { x: player.x + 2, z: player.z - 2 };
@@ -7080,13 +7437,49 @@ export function createWorld(
         lastDogSpeed = 0;
         lastDogRenderY = dogGroundY;
         destination = null;
-        if (next.command.activity === "ski") {
+        if(galleryStart==="photos"){
+          player={x:SHRINE_GALLERY.entrance.x,z:SHRINE_GALLERY.entrance.z};
+          galleryPhase="inside";caveLayer="surface";
+          swimDepth=targetDepth=SEA_SURFACE-SHRINE_GALLERY.floorY-.04;
+          setAquaticMode("dive");
+          playerY=SHRINE_GALLERY.floorY+.04;
+          travel={point:player,speed:0,heading:{x:-1,z:0}};
+          yaw=Math.PI/2;pitch=.32;zoom=7;
+          // A human-height view faces into the first doorway, leaving the
+          // photography visible rather than the player's entire backpack.
+          galleryFocusIndex=null;
+          camera.position.set(player.x,SHRINE_GALLERY.floorY+GALLERY_VIEWING.eyeHeight,player.z);
+          look.set(player.x-3,SHRINE_GALLERY.floorY+GALLERY_VIEWING.eyeHeight,player.z);
+          camera.lookAt(look);
+          // First world frame snaps to the validated gallery camera rather
+          // than slowly blending across walls under a throttled WebGL renderer.
+          lastGalleryCameraPhase="outside";
+        }else if(galleryStart==="papers"){
+          player={x:-20,z:-33.8};
+          caveLayer="paper";
+          playerY=paperCaveFloorHeight(player);
+          travel={point:player,speed:0,heading:{x:0,z:-1}};
+          // W must move deeper into the waterfall museum (-Z), not turn
+          // the visitor back toward its entrance.
+          yaw=0;pitch=.3;zoom=7;
+          camera.position.set(-20,playerY+1.65,player.z);
+          look.set(-20,playerY+1.65,player.z-3);camera.lookAt(look);
+        }
+        // A deep-linked museum arrival owns its own heading. The generic
+        // coastal/mountain orientation must never turn the first WASD stride
+        // into a sideways collision with an interior stone wall.
+        if(galleryStart==="photos"||galleryStart==="papers"){
+          // yaw is already authored by the corresponding room entrance.
+        }else if (next.command.activity === "ski") {
           const kicker = RIDE_RAMPS.find((ramp) => ramp.id === "ski-kicker")!;
           const approachX = kicker.point.x - player.x;
           const approachZ = kicker.point.z - player.z;
           yaw = Math.atan2(-approachX, -approachZ);
         } else {
           yaw =
+            // The reef entry is south of the canyon: W faces north (+Z),
+            // rather than swimming away from the passage into open water.
+            r.id === "canyon" ? Math.PI :
             r.id === "rainforest" ? Math.PI/2 :
             r.id === "cavern"
               ? Math.PI
@@ -7174,6 +7567,11 @@ export function createWorld(
       reefGarden.dispose();
       marineSchools.dispose();
       goldenTridents.dispose();
+      shrineCorals.dispose();
+      mossCanyonReef.dispose();
+      hiddenShrineGallery.dispose();
+      paperGallery.dispose();
+      shrineHint.remove();
       disposed = true;
       cancelAnimationFrame(raf);
       observer.disconnect();

@@ -60,6 +60,7 @@ export function PublicationFocusArchive({ publications, enhancements }: Publicat
 
           return (
             <article
+              id={publication.id}
               key={publication.id}
               className="publication-paper-block min-w-0 overflow-hidden p-5"
             >

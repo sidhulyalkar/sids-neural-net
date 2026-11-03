@@ -97,11 +97,12 @@ try {
   for (const [name, prompt, title] of [
     ['01 Redwood grove A little about me', 'Redwood grove', 'Redwood grove.'],
     ['02 Granite ridge Things I build', 'Granite ridge', 'Granite ridge.'],
-    ['03 Mystic grove Things I explore', 'Mystic grove', 'Mystic grove.'],
+    // Navigation says Mystic grove; its editorial modal heading is Strange grove.
+    ['03 Mystic grove Things I explore', 'Mystic grove', 'Strange grove.'],
     ['04 Wild coast Cold-water coast', 'Wild coast', 'Wild coast.'],
     ['05 Lagoon reef South Pacific reef', 'Lagoon reef', 'Lagoon reef.'],
     ['06 Fern falls Follow the water', 'Fern falls', 'Fern falls.'],
-    ['07 Moss canyon A quieter trail', 'Moss canyon', 'Moss canyon.'],
+    ['07 Submerged Moss Canyon Swim through a living reef passage', 'Submerged Moss Canyon', 'Submerged Moss Canyon.'],
     ['08 Arcade cavern Play my games', 'Arcade cavern', 'Arcade cavern.'],
     ['09 Joshua basin Granite and desert trails', 'Joshua basin', 'Joshua basin.'],
     ['10 Rainforest Canopy to coast', 'Rainforest', 'Rainforest.'],
@@ -246,7 +247,7 @@ try {
     await screenshot(page, `activity-${mode}`);
     if (mode === 'boulder') {
       const beforeHeight = Number(await page.locator('canvas').getAttribute('data-height'));
-      await page.getByRole('button', { name: 'Climb', exact: true }).click();
+      await page.getByRole('button', { name: 'Climb · Space', exact: true }).click();
       await page.waitForFunction(h => Number(document.querySelector('canvas')?.dataset.height) > h + 0.8, beforeHeight);
       results.push('Boulder action climbs a real ledge');
     } else {
@@ -323,21 +324,53 @@ try {
   await page.getByRole('button', { name: '02 Granite ridge Things I build', exact: true }).click();
   await page.getByRole('button', { name: 'Skiing', exact: true }).click();
   await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
+  // A genuine Granite Ridge launch can be delivered by the authored ramp
+  // impulse OR by the natural mountain-air solver. The latter does not set
+  // data-ramp-id, so sampling only that label incorrectly rejects a real jump.
+  // Observe the rendered timeline instead of accepting a downstream landed
+  // flag that could have originated far from the intended slope.
   await page.keyboard.down('w');
+  let kickerLaunch;
   try {
-    await page.waitForFunction(
-      () => document.querySelector('canvas')?.dataset.rampId === 'ski-kicker',
-      null,
-      // SwiftShader CI can render roughly 1 FPS on the combined island.
-      // Kicker is 7 m downhill from Granite Ridge; at ~2 m / 12 sec
-      // the old 12-second gate expired before the player reached the lip.
-      { timeout: 90000 },
-    );
-    await page.waitForFunction(() => document.querySelector('canvas')?.dataset.airborne === 'true');
-  } finally {
+    kickerLaunch=await page.evaluate(()=>new Promise((resolve,reject)=>{
+      const c=document.querySelector('canvas');
+      if(!c){reject(Error('World canvas not available'));return;}
+      const start=performance.now();
+      let approached=false;
+      const samples=[];
+      const tick=()=>{
+        const d=c.dataset,p=(d.player??'').split(',').map(Number);
+        if(p.length!==2||!p.every(Number.isFinite)){
+          reject(Error('Nonfinite skier position'));return;
+        }
+        const sample={player:d.player,speed:d.speed,airborne:d.airborne,
+          rampId:d.rampId,bigAirPhase:d.bigAirPhase,
+          altitude:d.bigAirAltitude,mode:d.activity};
+        if(samples.length>=80)samples.shift();
+        samples.push(sample);
+        if(Math.abs(p[0]-8)<3.5&&p[1]>=-54&&p[1]<=-44)
+          approached=true;
+        const nearRidge=Math.abs(p[0]-8)<3.5&&p[1]<-32;
+        const inFlight=d.airborne==='true'||d.bigAirPhase==='flying';
+        if(approached&&nearRidge&&inFlight){
+          resolve({kind:d.rampId==='ski-kicker'?'ramp':'mountain-air',
+            approached,sample,observations:samples.length});return;
+        }
+        if(p[1]>-30||performance.now()-start>90000){
+          reject(Error('No observed Granite Ridge ski launch '+
+            JSON.stringify({approached,tail:samples.slice(-18)})));return;
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }));
+  }finally{
     await page.keyboard.up('w');
   }
-  results.push('Skiing launches from the authored Granite Ridge kicker');
+  assert.equal(kickerLaunch.approached,true);
+  assert.ok(['ramp','mountain-air'].includes(kickerLaunch.kind));
+  results.push('Skiing genuinely launches near Granite Ridge via ramp or natural mountain-air physics');
+  console.log('SKI KICKER LAUNCH PROOF',JSON.stringify(kickerLaunch));
 
   // Reproduce the original steep-terrain failure mode on Granite Ridge. The rendered
   // gear root must stay above support terrain while pitch/roll remain finite.

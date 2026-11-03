@@ -126,6 +126,13 @@ jobs:
           lib/world/shastaPersonality.ts
           tests/world-shasta-gait-personality.test.ts
           lib/world/model.ts
+          lib/world/reefCanyon.ts
+          lib/world/researchMuseum.ts
+          components/world/worldMossCanyonReef.ts
+          components/world/worldPaperGallery.ts
+          tests/world-reef-canyon.test.ts
+          tests/world-research-museum.test.ts
+          tests/world-disc-golf-boundaries.test.ts
           components/world/worldHabitats.ts
           components/world/worldRenderer.ts
           components/world/worldSkimWake.ts

@@ -7,7 +7,15 @@ import {MYSTIC_GROVE} from "./mysticGrove";
 export type RegionId = "grove" | "mountain" | "neural" | "coast" | "lagoon" | "waterfall" | "canyon" | "cavern" | "desert" | "rainforest" | "north-shore";
 export type Point = { x: number; z: number };
 
-export const MOSS_CANYON = {center:{x:46,z:-76},startZ:-85,segments:8,spacing:2.8} as const;
+/** Submerged temperate-reef canyon on the western kelp shelf.
+ * These coordinates anchor its art, swimming collision and menu arrival.
+ * The separate skateboard CANYON_FLOW is intentionally unchanged.
+ */
+export const MOSS_CANYON={
+  center:{x:-67,z:-52},startZ:-62,segments:8,spacing:2.8,
+  rimHalfWidth:4.95,clearHalfWidth:3.05,wallRadius:1.22,
+  maxWallHeight:5.0,
+} as const;
 
 export const REGIONS: {
   id: RegionId;
@@ -22,7 +30,7 @@ export const REGIONS: {
   { id: "coast", name: "Wild coast", meaning: "Cold-water coast", point: { x: -29, z: 13 }, href: "/photography" },
   { id: "lagoon", name: "Lagoon reef", meaning: "South Pacific reef", point: { x: 58, z: 13 }, href: "/photography" },
   { id: "waterfall", name: "Fern falls", meaning: "Follow the water", point: { x: -20, z: -24 }, href: "/photography" },
-  { id: "canyon", name: "Moss canyon", meaning: "A quieter trail", point: MOSS_CANYON.center, href: "/about" },
+  { id: "canyon", name: "Submerged Moss Canyon", meaning: "Swim through a living reef passage", point: MOSS_CANYON.center, href: "/photography" },
   { id: "cavern", name: "Arcade cavern", meaning: "Play my games", point: { x: 16, z: -82 }, href: "/arcade" },
   { id: "desert", name: "Joshua basin", meaning: "Granite and desert trails", point: { x: 22, z: -33 }, href: "/photography" },
   { id: "rainforest", name: "Rainforest", meaning: "Canopy to coast", point: { x: 44, z: 33 }, href: "/photography" },
@@ -184,8 +192,30 @@ export function arcadeCaveTerrainMask(x: number, z: number): number {
 export function caveHalfWidth(z:number) {
   return 3.8 + smoothstep01((z + 75) / 5) * 2.5;
 }
-export const PAPER_CAVE = {x:-20,z:-30,backZ:-36,halfWidth:4} as const;
-export function paperCaveHalfWidth(z: number) { return 2.3 + 1.7 * smoothstep01((-z - 30) / 3); }
+/** A continuous three-room archive behind the *existing* waterfall portal.
+ * True research sources supply all exhibits; no synthetic publications.
+ * The floor and roof stay separate from outdoor terrain collision.
+ */
+export const PAPER_CAVE={
+  x:-20,z:-30,backZ:-58,halfWidth:4.45,
+  chambers:[
+    {id:"origin",centerZ:-34.3},
+    {id:"methods",centerZ:-43},
+    {id:"discoveries",centerZ:-52.5},
+  ],
+  thresholds:[-39,-48],
+} as const;
+export function paperCaveHalfWidth(z:number){
+  return 2.3+1.7*smoothstep01((-z-30)/3)+
+    .42*smoothstep01((-z-38)/1.8)-
+    .22*smoothstep01((-z-47)/2.0);
+}
+export function paperMuseumRoomIndex(p:Point):number{
+  if(!paperCaveInside(p))return -1;
+  if(p.z>PAPER_CAVE.thresholds[0])return 0;
+  if(p.z>PAPER_CAVE.thresholds[1])return 1;
+  return 2;
+}
 
 export type CaveLayer = "surface" | "arcade" | "paper";
 const ARCADE_PORTAL_Z = ARCADE_CAVE.entrance.z + 0.08;
@@ -230,7 +260,7 @@ function paperAccessTerrainMask(x: number, z: number) {
   return Math.max(0, Math.min(1, lateralMask * backFade * frontFade));
 }
 
-export function paperCaveInside(p:Point) {return Math.abs(p.x-PAPER_CAVE.x)<paperCaveHalfWidth(p.z)-.5 && p.z < -31 && p.z > -35.5;}
+export function paperCaveInside(p:Point) {return Math.abs(p.x-PAPER_CAVE.x)<paperCaveHalfWidth(p.z)-.5 && p.z < -30.55 && p.z > PAPER_CAVE.backZ+.48;}
 export function arcadeInside(p:Point) {return p.z>-81.5 && p.z<-63 && Math.abs(p.x-16)<caveHalfWidth(p.z)-.3;}
 /** The cave is carved inside an alpine biome. Its Shasta waiting behavior
  * follows actual cave-layer geometry, not the nearest open-air region label.
@@ -284,10 +314,16 @@ export function nextCaveLayer(
 export function caveObstacles(): Obstacle[] {
   const result: Obstacle[] = [];
   for (const side of [-1, 1]) {
-    for (let z = -30; z >= -36; z--) result.push({ x: -20 + side * (paperCaveHalfWidth(z) + .2), z, radius: .35 });
+    for (let z = -30; z >= PAPER_CAVE.backZ; z--) result.push({ x: -20 + side * (paperCaveHalfWidth(z) + .2), z, radius: .35 });
     for (let z = -81; z < -63; z++) result.push({ x: 16 + side * (caveHalfWidth(z) + .4), z, radius: .32 });
   }
-  for (let x = -24; x <= -16; x++) result.push({ x, z: -36.5, radius: .35 });
+  for(let x=-20-paperCaveHalfWidth(PAPER_CAVE.backZ);x<=-20+paperCaveHalfWidth(PAPER_CAVE.backZ);x+=.6)
+    result.push({x,z:PAPER_CAVE.backZ-.35,radius:.35});
+  // Vestibule arches keep distinct rooms while leaving generous central
+  // passage for the visitor and the gallery camera.
+  for(const z of PAPER_CAVE.thresholds)for(const side of [-1,1])
+    result.push({x:PAPER_CAVE.x+side*(paperCaveHalfWidth(z)-.72),
+      z,radius:.48});
   // No baffle obstacle at z=-74.5: the main arcade corridor is unobstructed.
   for (let x = 10; x < 23; x += .8) result.push({ x, z: -62.5, radius: .35 });
   return result;
@@ -403,6 +439,14 @@ export function nearbyDiscovery(point: Point): string | null {
   if(wildlife)return wildlife.id;
   const memory = MEMORY_POINTS.find((m) => distance(point, m.point) < 3.2);
   if (memory) return memory.id;
+  // Moss Canyon is an entire underwater corridor rather than a single
+  // marker radius. Recognize the snorkeler at either end, including the
+  // safe southern entry created by regionLanding("canyon").
+  if(Math.abs(point.x-MOSS_CANYON.center.x)<MOSS_CANYON.clearHalfWidth &&
+     point.z>=MOSS_CANYON.startZ-4.2 &&
+     point.z<=MOSS_CANYON.startZ+
+       (MOSS_CANYON.segments-1)*MOSS_CANYON.spacing+4.2)
+    return "canyon";
   const region = REGIONS.find((r) => distance(point, r.point) < 6);
   return region?.id ?? null;
 }
@@ -424,6 +468,8 @@ export function regionLanding(region: RegionId): Point {
   if (region === "rainforest") return { ...target.point };
   if (region === "cavern")
     return { ...ARCADE_CAVE.approach };
+  if (region === "canyon")
+    return {x:MOSS_CANYON.center.x,z:MOSS_CANYON.startZ-3.2};
   return { x: target.point.x, z };
 }
 
@@ -507,4 +553,5 @@ export type WorldCommand = {
   activity?: import("./activities").Activity;
   skateDestination?: "canyon-flow" | "loop-rollin" | "loop-reverse" | "hollow-log";
   sportDestination?: "jet-pier";
+  galleryDestination?: import("./galleryLinks").GalleryDestination;
 };

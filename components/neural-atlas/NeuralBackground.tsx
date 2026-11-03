@@ -8,7 +8,7 @@ export function NeuralBackground() {
       <div
         className="absolute -left-[15%] -top-[10%] h-[70vh] w-[50vw] opacity-[0.12]"
         style={{
-          backgroundImage: 'url(/images/neuron-bg-1.jpg)',
+          backgroundImage: 'radial-gradient(ellipse at 30% 35%, rgba(102,227,255,0.34), rgba(10,28,46,0.16) 48%, transparent 75%)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           maskImage: 'radial-gradient(ellipse 80% 80% at 30% 30%, black 10%, transparent 70%)',
@@ -20,7 +20,7 @@ export function NeuralBackground() {
       <div
         className="absolute -bottom-[15%] -right-[10%] h-[75vh] w-[55vw] opacity-[0.10]"
         style={{
-          backgroundImage: 'url(/images/neuron-bg-2.jpg)',
+          backgroundImage: 'radial-gradient(ellipse at 65% 70%, rgba(175,195,200,0.32), rgba(12,24,40,0.14) 45%, transparent 73%)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           maskImage: 'radial-gradient(ellipse 85% 85% at 70% 70%, black 10%, transparent 65%)',
@@ -32,7 +32,7 @@ export function NeuralBackground() {
       <div
         className="absolute right-[5%] top-[20%] h-[50vh] w-[35vw] opacity-[0.06]"
         style={{
-          backgroundImage: 'url(/images/neuron-bg-3.jpg)',
+          backgroundImage: 'radial-gradient(ellipse at 60% 45%, rgba(167,139,250,0.28), rgba(15,18,41,0.12) 45%, transparent 72%)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           maskImage: 'radial-gradient(ellipse 70% 70% at 60% 50%, black 5%, transparent 60%)',

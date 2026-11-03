@@ -10,6 +10,8 @@ import type { TrialState } from "@/lib/world/trials";
 import type { BigAirState } from "@/lib/world/bigAir";
 import type { DiscGolfState,DiscShot,DiscGolfSwingStage } from "@/lib/world/discGolf";
 import type { SkimHeat } from "@/lib/world/skimboarding";
+import type {WorldContent} from "@/lib/world/model";
+import type { GalleryPhase } from "@/lib/world/hiddenShrineGallery";
 
 type Props = {
   activity: Activity;
@@ -31,12 +33,14 @@ type Props = {
   waterAction: "dive" | "deeper" | "shallower" | "surface";
   waterActionSerial: number;
   gameTitles: string[];
+  publicationCards: WorldContent["publications"];
   entered: boolean;
   paused: boolean;
   command: WorldCommand | null;
   onReady: () => void;
   onError: () => void;
   onAquatic: (mode: AquaticMode) => void;
+  onGalleryPhase: (phase:GalleryPhase)=>void;
   onLocation: (region: RegionId, discovery: string | null) => void;
   onInteract: (discovery: string) => void;
   onChallenge: (state:TrialState) => void;
@@ -64,6 +68,7 @@ export default function WorldScene(props: Props) {
           onReady: () => callbacks.current.onReady(),
           onError: () => callbacks.current.onError(),
           onAquatic: (mode) => callbacks.current.onAquatic(mode),
+          onGalleryPhase: (phase) => callbacks.current.onGalleryPhase(phase),
           onLocation: (r, d) => callbacks.current.onLocation(r, d),
           onInteract: (d) => callbacks.current.onInteract(d),
           onChallenge: (trial) => callbacks.current.onChallenge(trial),
@@ -72,10 +77,17 @@ export default function WorldScene(props: Props) {
           onJetSkiMode:(active)=>callbacks.current.onJetSkiMode(active),
           onSkim:(heat)=>callbacks.current.onSkim(heat),
           onSkimNearby:(board)=>callbacks.current.onSkimNearby(board),
-        }, WebGLRenderer, callbacks.current.gameTitles);
+        }, WebGLRenderer, callbacks.current.gameTitles,
+          callbacks.current.publicationCards);
         runtime.current.setState(callbacks.current);
-      } catch { callbacks.current.onError(); }
-    }).catch(() => { if (!cancelled) callbacks.current.onError(); });
+      } catch (error) {
+        console.error("[world] initialization or initial command failed",error);
+        callbacks.current.onError();
+      }
+    }).catch((error) => {
+      console.error("[world] WebGL renderer import failed",error);
+      if (!cancelled) callbacks.current.onError();
+    });
     return () => {
       cancelled = true;
       runtime.current?.dispose();

@@ -1,4 +1,6 @@
 import { Metadata } from 'next';
+import Link from 'next/link';
+import {galleryWorldHref} from '@/lib/world/galleryLinks';
 import graphData from '@/data/generated/neural-graph.json';
 import { NeuralGraphSchema } from '@/lib/data/schemas';
 import { ComicSectionLayout } from '@/components/neural-atlas/ComicSectionLayout';
@@ -54,6 +56,14 @@ export default async function PublicationsPage() {
           </NodeDetailPanel>
         )}
       </div>
+      <nav aria-label="Visit paper museum in Sid's iLand" className="mt-16 border-t border-white/15 pt-7">
+        <Link href={galleryWorldHref("papers")} prefetch={false}
+          className="group inline-flex min-h-11 items-center gap-3 text-sm text-text-secondary transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet">
+          <span aria-hidden="true" className="text-lg text-violet/80">◇</span>
+          Enter the hidden waterfall research museum in Sid’s iLand
+          <span aria-hidden="true" className="transition-transform group-hover:translate-x-1">↗</span>
+        </Link>
+      </nav>
     </ComicSectionLayout>
   );
 }

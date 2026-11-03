@@ -5,6 +5,9 @@ import {Bike, ChevronDown, Disc3, MountainSnow, Waves, Trees} from "lucide-react
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
+import {useRouter} from "next/navigation";
+import {parseGalleryDestination,photoArchiveHref} from "@/lib/world/galleryLinks";
+import type {GalleryPhase} from "@/lib/world/hiddenShrineGallery";
 import {
   Component,
   useCallback,
@@ -69,7 +72,7 @@ const LINKS = [
 ];
 const INTRO: Record<RegionId, { title: string; text: string }> = {
   waterfall: { title: "Fern falls.", text: "Snowmelt from Granite ridge." },
-  canyon: { title: "Moss canyon.", text: "" },
+  canyon: { title: "Submerged Moss Canyon.", text: "Coral reef passage." },
   desert: {title:"Joshua basin.",text:"Warm granite, open washes and desert trails."},
   rainforest: {title:"Rainforest.",text:"A shaded path from canopy to coast."},
   cavern: { title: "Arcade cavern.", text: "Playable games carved into stone." },
@@ -86,7 +89,7 @@ const REGION_PHOTOS: Partial<Record<RegionId, readonly string[]>> = {
   mountain: ["lake", "shasta-lake"],
   grove: ["shasta-trail", "shasta-stream"],
   waterfall: ["shasta-water", "shasta-stream"],
-  canyon: ["shasta-field"],
+  // The underwater reef is not represented by Shasta’s dry-land field photo.
   desert: ["desert-ridges"],
   rainforest: ["rainforest-leaves"],
   lagoon: ["lagoon-shore"],
@@ -98,9 +101,14 @@ const ROUTE_LABELS: Record<string, string> = Object.fromEntries(
 type SportShortcut = "disc" | "race" | "jet" | "jump" | "park";
 
 export function WorldHome({ content }: { content: WorldContent }) {
+  const router=useRouter();
+  const [galleryPhase,setGalleryPhase]=useState<GalleryPhase>("outside");
   const [enabled, setEnabled] = useState(false);
   const [entered, setEntered] = useState(false);
   const [ready, setReady] = useState(false);
+  // The WebGL initialization callback is authoritative even if React cannot
+  // flush the state update before a saturated software-rendering frame.
+  const rendererReadyRef=useRef(false);
   const [failed, setFailed] = useState(false);
   const [activity, setActivity] = useState<Activity>("run");
   const [sportsOpen, setSportsOpen] = useState(false);
@@ -257,11 +265,15 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const enterButton = useRef<HTMLButtonElement>(null);
   const trigger = useRef<HTMLElement | null>(null);
   const onError = useCallback(() => {
+    rendererReadyRef.current=false;
     setFailed(true);
     setEnabled(false);
     setReady(false);
   }, []);
-  const onReady = useCallback(() => setReady(true), []);
+  const onReady = useCallback(() => {
+    rendererReadyRef.current=true;
+    setReady(true);
+  }, []);
   const onChallenge=useCallback((next:TrialState)=>{
     setTrial(next);
     if(next.phase==="complete" && Number.isFinite(next.elapsedMs) &&
@@ -315,6 +327,20 @@ export function WorldHome({ content }: { content: WorldContent }) {
         : null;
     setPanel(value);
   }, [setPanel]);
+  const onWorldInteract=useCallback((id:string)=>{
+    if(id.startsWith("gallery-paper:")){
+      const index=Number(id.slice("gallery-paper:".length));
+      const paper=Number.isInteger(index)?content.publications[index]:undefined;
+      if(paper)router.push("/publications#"+encodeURIComponent(paper.id));
+      return;
+    }
+    if(id.startsWith("gallery-photo:")){
+      const photoId=id.slice("gallery-photo:".length);
+      router.push(photoArchiveHref(photoId));
+      return;
+    }
+    open(id);
+  },[open,router,content.publications]);
   const close = useCallback(() => {
     setPanel(null);
     // Return keyboard users to the action that opened the dialog.
@@ -345,7 +371,14 @@ export function WorldHome({ content }: { content: WorldContent }) {
   }, []);
   useEffect(() => {
     if (!enabled || ready || failed) return;
-    const timeout = window.setTimeout(onError, 15000);
+    // The old 15s watchdog could fire after WebGL had reported ready but
+    // before React committed its state under a heavily throttled GPU.
+    const galleryEntry=parseGalleryDestination(window.location.search);
+    const timeout=window.setTimeout(()=>{
+      if(rendererReadyRef.current)return;
+      console.warn("[world] renderer readiness watchdog elapsed");
+      onError();
+    },galleryEntry?45000:15000);
     return () => window.clearTimeout(timeout);
   }, [enabled, ready, failed, onError]);
   useEffect(() => {
@@ -419,6 +452,19 @@ export function WorldHome({ content }: { content: WorldContent }) {
     setWaterActionSerial(n => n + 1);
     requestAnimationFrame(() => worldRoot.current?.querySelector("canvas")?.focus({ preventScroll: true }));
   }
+  // A shared link should actually enter its gallery, not stop at the island
+  // welcome screen and make the visitor discover the menu again.
+  useEffect(()=>{
+    const target=parseGalleryDestination(window.location.search);
+    if(!target)return;
+    const frame=requestAnimationFrame(()=>{
+      setEnabled(true);setEntered(true);setFailed(false);setQuiet(false);
+      setActivity("run");
+      setCommand(prev=>({region:target==="photos"?"coast":"waterfall",
+        serial:(prev?.serial??0)+1,galleryDestination:target,activity:"run"}));
+    });
+    return ()=>cancelAnimationFrame(frame);
+  },[]);
   function enter() {
     setEnabled(true);
     setEntered(true);
@@ -511,11 +557,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
             waterAction={waterAction}
             waterActionSerial={waterActionSerial}
             gameTitles={content.games.map(game => game.title)}
+            publicationCards={content.publications}
             onAquatic={setAquatic}
+            onGalleryPhase={setGalleryPhase}
             onReady={onReady}
             onError={onError}
             onLocation={onLocation}
-            onInteract={open}
+            onInteract={onWorldInteract}
             onChallenge={onChallenge}
             onBigAir={onBigAir}
             onDiscGolf={onDiscGolf}
@@ -569,10 +617,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
             </div>
           )}
           <div className={styles.location} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
-            <span className={styles.eyebrow}>
-              {String(REGIONS.indexOf(current) + 1).padStart(2, "0")} / {String(REGIONS.length).padStart(2, "0")}
-            </span>
-            <p>{current.name}</p>
+            {galleryPhase!=="inside" && (
+              <span className={styles.eyebrow}>
+                {String(REGIONS.indexOf(current) + 1).padStart(2, "0")} / {String(REGIONS.length).padStart(2, "0")}
+              </span>
+            )}
+            <p>{galleryPhase==="inside"?"Photography gallery":current.name}</p>
           </div>
           {nearby && ready && !worldGameActive && skim.phase==="off" && (
             <button className={styles.discovery} onClick={() => open(nearby)}>
@@ -742,7 +792,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               )}
             </aside>
           )}
-          {aquatic !== "land" && skim.phase==="off" && (
+          {aquatic !== "land" && galleryPhase!=="inside" && skim.phase==="off" && (
             <div className={styles.waterDock} role="group" aria-label="Swimming depth controls">
               <span className={styles.waterMode}>{aquatic === "surface" ? "Snorkeling" : "Diving"}</span>
               {aquatic === "surface" ? (
@@ -757,7 +807,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
             </div>
           )}
           <p className={styles.controls} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
-            {aquatic === "land" ? (
+            {galleryPhase==="inside" ? (
+              <>WASD / arrows to walk <span>·</span> F to focus photograph <span>·</span> Esc to resume <span>·</span> Click to open <span>·</span> E to exit near shrine</>
+            ) : aquatic === "land" ? (
               <>WASD / arrows to move <span>·</span> Drag to look <span>·</span>{" "}
                 Space to {activityConfig(activity).action.toLowerCase()} <span>·</span> M for menu</>
             ) : aquatic === "surface" ? (
@@ -767,7 +819,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
             )}
           </p>
           <div className={styles.touchHelp} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
-            {aquatic === "land" ? "Tap ground to move · Drag to look" : "Tap water to swim · Drag to look"}
+            {galleryPhase==="inside" ? "Use joysticks to walk and look · Tap photograph to open" :
+              aquatic === "land" ? "Tap ground to move · Drag to look" : "Tap water to swim · Drag to look"}
           </div>
         </>
       )}

@@ -22,12 +22,12 @@ test('bike wheels fit real mountain terrain uphill, downhill and cross-slope',()
   assert.ok(Number.isFinite(pose.y)&&pose.error<.002);
  }
 });
-test('moss canyon is dry, remote from skating, and navigation follows it',()=>{
+test('Moss Canyon is submerged and separate from the dry skatepark loop',()=>{
  assert.deepEqual(REGIONS.find(r=>r.id==='canyon')!.point,MOSS_CANYON.center);
  for(let i=0;i<MOSS_CANYON.segments;i++)for(const side of [-1,1]){
   const p={x:MOSS_CANYON.center.x+side*(4.6+Math.sin(i)*.5),z:MOSS_CANYON.startZ+i*MOSS_CANYON.spacing};
-  assert.equal(isWater(p),false);
-  assert.ok(Math.hypot(p.x-SKATE_LOOP.center.x,p.z-SKATE_LOOP.center.z)>100);
+  assert.equal(isWater(p),true);
+  assert.ok(Math.hypot(p.x-SKATE_LOOP.center.x,p.z-SKATE_LOOP.center.z)>90);
  }
 });
 test('spiral separates mouths and has an orthonormal continuous contact frame',()=>{

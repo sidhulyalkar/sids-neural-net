@@ -54,7 +54,16 @@ test("both cave routes permit entry and exit with solid walls and an open arcade
   }
   assert.ok(Math.abs(constrainMove({ x: 14, z: -77 }, { x: 14, z: -71 }, solids).z+71)<.001,
     "the old baffle footprint must allow a direct corridor traversal");
-  assert.ok(constrainMove({ x: -20, z: -34 }, { x: -20, z: -39 }, solids).z > -36.5);
+  // The research museum is now three linked chambers. The old -36.5
+  // end-wall contract was correctly invalidated by the extension.
+  for(const z of [-39,-43,-48,-52,-56]){
+    const moved=constrainMove({x:-20,z:-34},{x:-20,z},solids);
+    assert.ok(Math.abs(moved.z-z)<.001,
+      "Waterfall museum must keep its central walkway clear through "+z);
+  }
+  const blocked=constrainMove({x:-20,z:-55},{x:-20,z:-65},solids);
+  assert.ok(blocked.z>-59,
+    "the new terminal wall still keeps visitors inside the museum");
 });
 
 
