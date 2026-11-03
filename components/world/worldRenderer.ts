@@ -5462,7 +5462,10 @@ export function createWorld(
       }
       discovery = galleryPhase==="inside" ?
         (galleryPhotoId ? "gallery-photo:"+galleryPhotoId : null) :
-        aquatic === "land" ? (paperArtwork ?? gazeGame ?? layeredNearby) : trident?.id ?? null;
+        aquatic === "land" ? (paperArtwork ?? gazeGame ?? layeredNearby) :
+        // Preserve dive-gated tridents first, but expose the canyon discovery
+        // throughout its authored swim corridor instead of suppressing it underwater.
+        (trident?.id ?? (nearby === "canyon" && r === "canyon" ? "canyon" : null));
       const nextKey = `${r}:${discovery}`;
       if (nextKey !== locationKey) {
         locationKey = nextKey;
