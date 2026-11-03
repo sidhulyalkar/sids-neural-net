@@ -75,6 +75,12 @@ test("waterfall roof, portals and publication links remain separate from the new
   assert.match(scene,/waterfallCrownRings\(\)/);
   assert.match(scene,/PAPER_CAVE\.thresholds/);
   assert.match(scene,/const paperRings=Array\.from/);
+  assert.match(scene,/w=paperCaveHalfWidth\(z\)\+\.08/,
+    "floor must extend underneath the wall footprint, not leave a light slit");
+  assert.match(scene,/const skirtingRings=paperRings\.map/,
+    "stone baseboards cover the floor-wall join without overlapping floors");
+  assert.match(scene,/y\+\.27,z/,
+    "raised skirting is not coplanar with the underlying foundation");
   assert.match(scene,/Math\.abs\(PAPER_CAVE\.backZ-PAPER_CAVE\.z\)/);
   assert.match(scene,/canvas\.dataset\.paperGalleryRooms/);
   assert.match(scene,/canvas\.dataset\.paperMuseumRoom/);
