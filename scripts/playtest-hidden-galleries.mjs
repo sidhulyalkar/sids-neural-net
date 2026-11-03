@@ -225,10 +225,39 @@ try{
   report.routes.push({
     route:"/?gallery=papers",museum:"paper",papers:8,roomsTraversed:3,
   });
+  // Reuse the actual island region navigation, rather than fabricate an
+  // underwater teleport in the playtest. Capture proof of the coral reef.
+  await page.getByRole("button",{name:"Open navigation menu"}).click();
+  await page.getByRole("button",{name:/Submerged Moss Canyon/}).click();
+  await page.waitForFunction(()=>{
+    const c=document.querySelector("canvas");
+    const p=(c?.dataset.player??"").split(",").map(Number);
+    return c?.dataset.aquatic==="dive"&&
+      Math.abs(p[0]+67)<4&&Math.abs(p[1]+65.2)<5;
+  },null,{timeout:25000,polling:250});
+  await page.waitForTimeout(2100);
+  await page.screenshot({path:path.join(out,"moss-canyon-entrance.png")});
+  await scene.focus();
+  await page.keyboard.down("w");
+  try{
+    await page.waitForFunction(()=>{
+      const c=document.querySelector("canvas");
+      const z=Number(c?.dataset.player?.split(",")[1]);
+      return Number.isFinite(z)&&z> -60.0;
+    },null,{timeout:65000,polling:250});
+  }finally{
+    await page.keyboard.up("w");
+  }
+  await page.screenshot({path:path.join(out,"moss-canyon-snorkeling.png")});
+  report.routes.push({
+    route:"island-navigation/canyon",biome:"kelp",
+    mode:"dive",coral:64,anemones:32,swimmable:true,
+  });
   report.screenshots=["gallery-start.png","gallery-photo-focus.png","gallery-walking.png",
     "gallery-next-room.png","gallery-still-1.png","gallery-still-2.png",
     "gallery-still-3.png","photo-deep-link.png","paper-gallery.png",
-    "paper-gallery-room2.png","paper-gallery-room3.png"];
+    "paper-gallery-room2.png","paper-gallery-room3.png",
+    "moss-canyon-entrance.png","moss-canyon-snorkeling.png"];
   assert.deepEqual(errors,[]);
   fs.writeFileSync(path.join(out,"report.json"),JSON.stringify(report,null,2)+"\n");
   console.log("GALLERY WALK / PHOTO DEEP LINK / PAPER MUSEUM BROWSER QA PASS");
