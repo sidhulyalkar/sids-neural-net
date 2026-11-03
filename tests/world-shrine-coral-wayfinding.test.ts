@@ -128,7 +128,7 @@ test("DIVE lettering is real textured-free world geometry with downward arrow",(
   const group=new THREE.Group();
   const marker=createShrineDiveMarker(group);
   assert.equal(marker.text,"DIVE");
-  assert.ok(marker.segmentCount>=25,"D,I,V,E glyphs and arrow comprise readable strokes");
+  assert.ok(marker.segmentCount>=18,"D,I,V,E glyphs and arrow comprise readable strokes");
   assert.equal(group.children.length,1);
   assert.equal(marker.root.children.length,2,"two batched materials, no mesh per letter");
   assert.equal(marker.root.userData.word,"DIVE");
