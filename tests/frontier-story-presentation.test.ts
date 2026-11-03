@@ -18,7 +18,13 @@ test('source-kind presentation never invents conclusions or confuses preprints w
   assert.match(arxiv.evidenceNote ?? '', /Preprint source/);
   assert.equal(arxiv.sourceActionLabel, 'Open research source');
   const openalex = buildFrontierStoryPresentation({ ...sample, sourceKind: 'openalex' });
-  assert.equal(openalex.sourceActionLabel, 'Open research record');
+  assert.equal(openalex.sourceActionLabel, 'Read original publication');
+  assert.equal(buildFrontierStoryPresentation({
+    ...sample, sourceKind: 'openalex', url: 'https://www.frontiersin.org/articles/123/pdf',
+  }).sourceActionLabel, 'Read original PDF');
+  assert.equal(buildFrontierStoryPresentation({
+    ...sample, sourceKind: 'openalex', url: 'https://openalex.org/W123',
+  }).sourceActionLabel, 'Open research record');
   assert.match(openalex.evidenceNote ?? '', /metadata record/);
   assert.equal(openalex.sportsPriority, false);
 });
