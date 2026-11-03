@@ -2837,6 +2837,8 @@ export function createWorld(
   const shrineCorals=createShrineCoralWayfinding(reefRoot);
   canvas.dataset.shrineCoralArrows=String(shrineCorals.count);
   canvas.dataset.shrineCoralColonies=String(shrineCorals.colonyCount);
+  canvas.dataset.shrineDiveCue=shrineCorals.diveMarker.text;
+  canvas.dataset.shrineDiveCueSegments=String(shrineCorals.diveMarker.segmentCount);
   canvas.dataset.westernTridentRelocated="true";
   canvas.dataset.schoolingFish = String(marineSchools.count);
   canvas.dataset.goldenTridents = String(goldenTridents.count);
