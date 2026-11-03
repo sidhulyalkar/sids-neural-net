@@ -102,7 +102,7 @@ try {
     ['04 Wild coast Cold-water coast', 'Wild coast', 'Wild coast.'],
     ['05 Lagoon reef South Pacific reef', 'Lagoon reef', 'Lagoon reef.'],
     ['06 Fern falls Follow the water', 'Fern falls', 'Fern falls.'],
-    ['07 Moss canyon A quieter trail', 'Moss canyon', 'Moss canyon.'],
+    ['07 Submerged Moss Canyon Swim through a living reef passage', 'Submerged Moss Canyon', 'Submerged Moss Canyon.'],
     ['08 Arcade cavern Play my games', 'Arcade cavern', 'Arcade cavern.'],
     ['09 Joshua basin Granite and desert trails', 'Joshua basin', 'Joshua basin.'],
     ['10 Rainforest Canopy to coast', 'Rainforest', 'Rainforest.'],
