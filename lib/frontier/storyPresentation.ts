@@ -103,10 +103,10 @@ export function buildFrontierStoryPresentation(item: FrontierItem): FrontierStor
   const [summaryLabel, detailLabel, defaultSourceActionLabel, sourceMetaLabel] = sections[format];
   // OpenAlex often resolves directly to a journal page or PDF, not an
   // OpenAlex metadata record. Describe the actual destination faithfully.
-  const sourceActionLabel = format === 'research' && /(?:\\.pdf|\\/pdf)(?:[?#]|$)/i.test(item.url)
+  const sourceActionLabel = format === 'research' && /(?:\.pdf|\/pdf)(?:[?#]|$)/i.test(item.url)
     ? 'Read original PDF'
     : item.sourceKind === 'openalex'
-      ? /^https:\\/\\/(?:www\\.)?openalex\\.org\\//i.test(item.url)
+      ? /^https:\/\/(?:www\.)?openalex\.org\//i.test(item.url)
         ? 'Open research record' : 'Read original publication'
       : defaultSourceActionLabel;
   let evidenceNote: string | undefined;
