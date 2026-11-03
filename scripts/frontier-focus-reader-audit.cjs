@@ -308,6 +308,8 @@ async function auditSourceOnlyPresentation() {
         await textFirst.waitFor({ timeout: 8000 });
         assert.equal(await page.locator('article').count(), 1);
         assert.equal(await page.locator('figure img').count(), 0);
+        assert.equal(await textFirst.locator('figure').count(), 0,
+          'Text-only stories must not mount a hidden decorative figure');
         assert.equal(await page.locator('article h1').count(), 1);
         const layout = await textFirst.evaluate((element) => {
           const title = document.querySelector('article h1').getBoundingClientRect();
@@ -415,6 +417,8 @@ async function auditFormatAwareEvidence() {
       await article.waitFor({ timeout: 8000 });
       assert.equal(await page.locator('article').count(), 1, 'Only one format-specific article is mounted');
       assert.equal(await page.locator('figure img').count(), 0, 'Media-free fixtures must not download invented imagery');
+      assert.equal(await article.locator('figure').count(), 0,
+        'Media-free and structured-score stories should not mount hidden image wrappers');
       assert.equal(await article.getByRole('heading', { name: fixture.summaryLabel }).count(), 1,
         'Each format must identify the true source text category');
       assert.equal(await article.getByRole('link', { name: fixture.action }).count(), 1,

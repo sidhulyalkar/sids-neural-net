@@ -3,6 +3,7 @@ import { interestScoreReaction, validInterestScore } from './interestRating';
 import { behavioralAdjustment, behavioralExplorationBonus, formatForItem, aggregatePreference, timeBucket } from './behavior';
 import { buildConnectionExposureIndex, connectionPortfolioAdjustment } from './connectionPortfolio';
 import { FRONTIER_LANE_MAP } from './config';
+import { frontierEditorialTasteSignals } from './editorialTaste';
 import {
   buildDirectPreferenceEvidenceIndex,
   directPreferenceSignalsForItem,
@@ -200,6 +201,7 @@ export type FrontierPersonalizedScoreComponents = {
   exploration: number;
   sourceTrustPrior: number;
   tastePrior: number;
+  editorialTaste: number;
   connectionPrior: number;
   sessionIntent: number;
   consequentialInterrupt: number;
@@ -236,6 +238,7 @@ function zeroScoreComponents(): FrontierPersonalizedScoreComponents {
     exploration: 0,
     sourceTrustPrior: 0,
     tastePrior: 0,
+    editorialTaste: 0,
     connectionPrior: 0,
     sessionIntent: 0,
     consequentialInterrupt: 0,
@@ -263,6 +266,7 @@ export function sumFrontierPersonalizedScoreComponents(
   if (!omitted.has('exploration')) score += components.exploration;
   if (!omitted.has('sourceTrustPrior')) score += components.sourceTrustPrior;
   if (!omitted.has('tastePrior')) score += components.tastePrior;
+  if (!omitted.has('editorialTaste')) score += components.editorialTaste;
   if (!omitted.has('connectionPrior')) score += components.connectionPrior;
   if (!omitted.has('sessionIntent')) score += components.sessionIntent;
   if (!omitted.has('consequentialInterrupt')) score += components.consequentialInterrupt;
@@ -326,6 +330,7 @@ function computePersonalizedScoreBreakdown(
     exploration,
     sourceTrustPrior,
     tastePrior,
+    editorialTaste: frontierEditorialTasteSignals(item).adjustment,
     connectionPrior,
     sessionIntent: activeIntent,
     consequentialInterrupt,

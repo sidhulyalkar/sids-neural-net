@@ -1,4 +1,5 @@
 import { FRONTIER_LANE_MAP } from './config';
+import { FRONTIER_EDITORIAL_PREFERENCES, frontierQualifiedExploration, frontierSameStoryHeadline } from './editorialTaste';
 import { personalTasteRankingPrior } from './personalTaste';
 import type { FrontierItem, FrontierLaneId } from './types';
 
@@ -33,6 +34,7 @@ type CandidateMeta = {
   realm: FrontierRealm;
   sourceBucket: string;
   taste: number;
+  exploratory: boolean;
   allocationUtility: number;
   isUtility: boolean;
 };
@@ -41,6 +43,7 @@ type SelectionState = {
   selected: CandidateMeta[];
   used: Set<string>;
   editorialSelectedCount: number;
+  explorationCount: number;
   familyCounts: Map<FrontierEditorialFamily, number>;
   laneCounts: Map<FrontierLaneId, number>;
   sourceCounts: Map<string, number>;
@@ -221,6 +224,7 @@ function prepareCandidates(
       realm: FRONTIER_LANE_MAP[item.lane].realm,
       sourceBucket: frontierSourceBucket(item),
       taste,
+      exploratory: tastePolicy === 'production' && frontierQualifiedExploration(item, taste),
       allocationUtility: utilityFromEvidence(item, index, taste, tastePolicy),
       isUtility: isFrontierUtilityItem(item),
     };
@@ -284,6 +288,7 @@ function createSelectionState(): SelectionState {
     selected: [],
     used: new Set<string>(),
     editorialSelectedCount: 0,
+    explorationCount: 0,
     familyCounts: new Map(),
     laneCounts: new Map(),
     sourceCounts: new Map(),
@@ -302,6 +307,7 @@ function addCandidate(state: SelectionState, candidate: CandidateMeta | undefine
   if (candidate.isUtility) return;
 
   state.editorialSelectedCount += 1;
+  if (candidate.exploratory) state.explorationCount += 1;
   state.familyCounts.set(candidate.family, count(state.familyCounts, candidate.family) + 1);
   state.laneCounts.set(candidate.item.lane, count(state.laneCounts, candidate.item.lane) + 1);
   state.realmCounts.set(candidate.realm, count(state.realmCounts, candidate.realm) + 1);
@@ -323,6 +329,12 @@ function bestEligible(
     const { item, family, sourceBucket, taste } = candidate;
     if (candidate.isUtility || state.used.has(item.id)) continue;
     if (realm && candidate.realm !== realm) continue;
+    // Avoid near-identical articles competing for several slots, even when
+    // the URLs or publishers differ. Independent substantive reports remain
+    // eligible because the lexical threshold is intentionally conservative.
+    if (tastePolicy === 'production' && state.selected.some(
+      (chosen) => frontierSameStoryHeadline(chosen.item, item)
+    )) continue;
 
     const familyCount = count(state.familyCounts, family);
     if (familyCount >= familyCap) continue;
@@ -348,7 +360,13 @@ function bestEligible(
     const currentShare = state.editorialSelectedCount ? familyCount / state.editorialSelectedCount : 0;
     const deficit = Math.max(0, targetShare[family] - currentShare);
     const unseenFamily = familyCount === 0 ? 0.105 : 0;
+    // 25% is a soft exploration target, NOT a quota: only qualified novel
+    // candidates inside the learned rank window can receive a modest bonus.
+    const targetExplorations = Math.round(limit * FRONTIER_EDITORIAL_PREFERENCES.explorationTargetShare);
+    const exploreBonus = tastePolicy === 'production' && candidate.exploratory
+      && state.explorationCount < targetExplorations ? 0.085 : 0;
     const score = candidate.allocationUtility
+      + exploreBonus
       + deficit * 0.72
       + unseenFamily
       - sameLane * 0.065

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createInitialProfile } from '../lib/frontier/config';
+import { FRONTIER_EDITORIAL_PREFERENCES } from '../lib/frontier/editorialTaste';
 import { isFrontierEditoriallyQualified } from '../lib/frontier/editorialAdmission';
 import { cleanFrontierItem, isFrontierEditoriallyUsable } from '../lib/frontier/editorialQuality';
 import {
@@ -113,14 +114,18 @@ async function main() {
     baselineModel: 'provider-ordered trusted first 36: composition-only control',
     challengerModel: 'evidence-qualified full-corpus cold-start personalized rank then compose',
     humanSourceInspection: labelsPath ? 'user-provided-labels' : 'not-conducted',
+    preferenceCalibration: FRONTIER_EDITORIAL_PREFERENCES,
   };
   const template = sample.map((row) => ({
     id: row.id, worthwhile: null, relevant: null, novel: null,
-    sourceTraceable: null, claimsSupported: null, notes: '',
+    sourceTraceable: null, claimsSupported: null,
+    conceptualInsight: null, practicalUtility: null, avoidsNoise: null,
+    unexpectedWorthwhile: null, notes: '',
   } satisfies FrontierEditorialReviewLabel));
   const headers = [
     'id', 'title', 'url', 'sourceKind', 'lane', 'summary', 'admitted', 'reason',
     'flags', 'baselineRank', 'qualifiedRank', 'baselineTop14', 'qualifiedTop14',
+    'qualifiedExploration',
   ] as const;
   const csv = [
     headers.join(','),
@@ -149,6 +154,8 @@ async function main() {
     humanEvidence: report.evidence,
     complete: report.reviewComplete,
     metrics: report.metrics,
+    calibration: report.calibration,
+    tasteReviewComplete: report.tasteReviewComplete,
     outputDir: path.relative(process.cwd(), outputDir),
   }, null, 2));
 }
