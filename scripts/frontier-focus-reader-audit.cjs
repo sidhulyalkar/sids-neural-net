@@ -125,74 +125,78 @@ async function audit(width, height) {
     await back.click();
     assert.equal(await page.locator('article h1').first().textContent(), heading);
 
-    const rating = page.getByRole('button', { name: /Hold to rate interest/i });
-    const balloon = page.locator('[data-frontier-balloon]');
-    assert.equal(await balloon.count(), 1, 'Exactly one radial interest control is mounted');
+    const signal = page.locator('[data-frontier-signal]');
+    const rating = page.getByRole('slider', { name: 'Rate how interesting this story is' });
+    assert.equal(await signal.count(), 1, 'Exactly one signal constellation is mounted');
+    assert.equal(await rating.count(), 1, 'One native accessible rating control, no extra precision popup');
+    assert.equal(await page.locator('[data-frontier-balloon]').count(), 0, 'Old hold-to-charge orb is removed');
+    assert.equal(await page.getByText('Choose exact score').count(), 0, 'Exact scoring must not be buried in details');
     assert.equal(await page.locator('footer').count(), 0, 'Reader must not render a bulky bottom navigation footer');
-    assert.equal(await page.getByText('A quiet space for what is new').count(), 0, 'Remove redundant brand tagline');
-    assert.equal(await page.locator('article h1').count(), 1, 'Headline appears once, centered before the media');
+    assert.equal(await page.getByText('A quiet space for what is new').count(), 0);
+    assert.equal(await page.locator('article h1').count(), 1);
     const navigationArea = page.locator('nav[aria-label="Article navigation"]');
-    assert.equal(await navigationArea.count(), 1, 'Use an edge navigation overlay');
+    assert.equal(await navigationArea.count(), 1);
     const image = page.locator('figure img').first();
     if (await image.count()) {
       const sizing = await image.evaluate((el) => ({ fit: getComputedStyle(el).objectFit,
         naturalWidth: el.naturalWidth, naturalHeight: el.naturalHeight }));
-      assert.equal(sizing.fit, 'contain', 'Never crop article photos to fill an arbitrary frame');
+      assert.equal(sizing.fit, 'contain', 'Never crop original source photos');
     }
-    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'idle');
+    assert.equal(await signal.getAttribute('data-frontier-signal'), 'idle');
+    assert.equal(await rating.getAttribute('min'), '1');
+    assert.equal(await rating.getAttribute('max'), '10');
+    assert.equal(await signal.locator('svg circle').count(), 20, 'Ten nodes with ten understated halos');
     assert.equal(await page.locator('[aria-label="Source-grounded summary"]').count(), 1);
-    assert((await page.locator('[aria-label="Source metrics"]').count()) <= 1,
-      'No duplicate metric panel should be mounted');
-    await rating.hover();
-    await page.mouse.down();
-    await page.waitForTimeout(650);
-    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'inflating', 'Holding must animate the radial interest meter');
-    await page.mouse.up();
-    await page.waitForFunction(() => {
-      const text = document.querySelector('button[aria-label^="Hold to rate"]')?.textContent || '';
-      return /[1-9]\/10/.test(text) || /10\/10/.test(text);
-    }, null, { timeout: 5000 }).catch(async (error) => {
-      const diagnostics = await page.evaluate(() => ({
-        rating: document.querySelector('button[aria-label^="Hold to rate"]')?.textContent,
-        status: document.querySelector('[role="status"]')?.textContent,
-        active: document.activeElement?.tagName,
-      }));
-      throw new Error('Hold interaction did not save a score: ' + JSON.stringify(diagnostics) + '; ' + error.message);
-    });
-    assert.match((await rating.textContent()) || '', /\/10/, 'Explicit rating must persist in interface');
-    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'rated', 'Radial interest meter returns to saved state on release');
+    assert((await page.locator('[aria-label="Source metrics"]').count()) <= 1);
+
+    // A direct pointer tap saves its value immediately. No time threshold,
+    // radial hold, synthetic voting delay or second confirmation dialog.
+    await rating.scrollIntoViewIfNeeded();
+    const rect = await rating.boundingBox();
+    assert(rect && rect.width >= 190 && rect.height >= 44, 'Minimum comfortable touch area');
+    await page.mouse.click(rect.x + rect.width * 0.70, rect.y + rect.height / 2);
+    const tapped = Number(await rating.inputValue());
+    assert(tapped >= 1 && tapped <= 10, 'Pointer tap must select an exact score');
+    await page.waitForFunction((value) =>
+      document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === String(value),
+      tapped, { timeout: 3000 });
+    assert.equal(await signal.getAttribute('data-frontier-signal'), 'rated');
+
+    // Keyboard has direct access to every step on the same input.
+    await rating.focus();
+    await page.keyboard.press('End');
+    await page.keyboard.press('ArrowLeft');
+    assert.equal(await rating.inputValue(), '9');
+    await page.waitForFunction(() =>
+      document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === '9');
+    assert.equal(await signal.locator('svg [data-active="true"]').count(), 9);
+
     if (width <= 390) {
       const geometry = await page.evaluate(() => ({
-        documentWidth: document.documentElement.scrollWidth,
-        viewportWidth: innerWidth,
+        documentWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth,
       }));
       assert(geometry.documentWidth <= geometry.viewportWidth + 2,
         'Mobile focus reader must not require sideways scrolling: ' + JSON.stringify(geometry));
     }
 
-    const exact = page.locator('details').filter({ hasText: 'Choose exact score' });
-    await exact.locator('summary').click();
-    await exact.locator('input[type="range"]').focus();
-    await page.keyboard.press('End');
-    await page.keyboard.press('ArrowLeft');
-    await exact.getByRole('button', { name: 'Save' }).click();
-    assert.match((await rating.textContent()) || '', /9\/10/, 'Slider fallback must save exact score');
-
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('article h1').first().waitFor();
-    await page.waitForFunction(() => document.querySelector('button[aria-label^="Hold to rate"]')?.textContent?.includes('9/10'), undefined, { timeout: 4000 });
+    await page.waitForFunction(() =>
+      document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === '9',
+      undefined, { timeout: 4000 });
     await page.waitForTimeout(1_200);
     const candidateLookups = feedRequests.filter((url) => url.includes('candidates=1'));
     assert.equal(candidateLookups.length, 1,
       'Returning reader should load the wider public snapshot once, after first paint');
-    const beforeRevision = await page.evaluate(() => JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
-    const finalRating = page.locator('details').filter({ hasText: 'Choose exact score' });
-    await finalRating.locator('summary').click();
-    await finalRating.locator('input[type="range"]').focus();
+    const beforeRevision = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
+    const revised = page.getByRole('slider', { name: 'Rate how interesting this story is' });
+    await revised.focus();
     await page.keyboard.press('Home');
     await page.keyboard.press('ArrowRight');
-    await finalRating.getByRole('button', { name: 'Save' }).click();
-    assert.match((await rating.textContent()) || '', /2\/10/, 'Rating revision must replace the previous value');
+    assert.equal(await revised.inputValue(), '2');
+    await page.waitForFunction(() =>
+      document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === '2');
     const afterRevision = await page.evaluate(() => JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
     assert.equal(afterRevision.profile.meaningfulInteractions, beforeRevision.profile.meaningfulInteractions,
       'Revising a rating cannot add another learned interaction');
