@@ -7375,7 +7375,9 @@ export function createWorld(
         skateTrick={...idleSkateTrick(),best:skateTrick.best};
         skateHasBeenAirborne=false;skateCarveLean=0;skateResultAt=-Infinity;
         skateBowlExits=0;skateLastTakeoff="";
-        skateLoopRide=null;skateTunnelRide=null;skateRailGapRide=null;lastSkateLoopEnd=elapsed;
+        // Region travel is not a completed loop. Do not impose an exit
+        // cooldown on the first high-speed run-in to either loop mouth.
+        skateLoopRide=null;skateTunnelRide=null;skateRailGapRide=null;lastSkateLoopEnd=-Infinity;
         skateBowlFlightActive=false;skateBowlLandings=skateBowlFailedLandings=0;
         skateBowlLastLanding="";skateBowlLastLandingSpeed=0;
         lastSerial = next.command.serial;
