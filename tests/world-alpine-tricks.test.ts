@@ -37,6 +37,9 @@ test("both halfpipe coping edges launch only on actual outward crossings",()=>{
     "heading opposite to outward displacement does not launch");
   assert.equal(halfpipeLipCrossing(p.before,p.after,p.heading,5.79),null);
   assert.equal(halfpipeLipCrossing(p.before,p.after,p.heading,NaN),null);
+  assert.equal(halfpipeLipCrossing(p.before,p.after,{x:NaN,z:0},9),null);
+  assert.equal(halfpipeLipCrossing({...p.before,x:NaN},p.after,p.heading,9),null);
+  assert.equal(halfpipeLipCrossing(p.before,p.after,{x:0,z:0},9),null);
   assert.equal(halfpipeLipCrossing(p.before,p.after,p.heading,Infinity),null);
   assert.equal(halfpipeLipCrossing({...p.before,z:h.startZ+.8},
     {...p.after,z:h.startZ+.8},p.heading,9),null,
@@ -78,6 +81,8 @@ test("every alpine kicker is swept, direction-aware, and immune to standing/retr
   assert.equal(rampImpulseCrossing(after,after,f,"ski",7.5),null);
   assert.equal(rampImpulseCrossing(after,before,{x:-f.x,z:-f.z},"ski",7.5),null);
   assert.equal(alpineKickerCrossing(before,after,f,4.99),null);
+  assert.equal(alpineKickerCrossing(before,after,{x:NaN,z:0},9),null);
+  assert.equal(alpineKickerCrossing({...before,z:NaN},after,f,9),null);
   assert.equal(alpineKickerCrossing(
     {x:before.x+normal.x*1.5,z:before.z+normal.z*1.5},
     {x:after.x+normal.x*1.5,z:after.z+normal.z*1.5},f,8),null);
@@ -98,6 +103,8 @@ test("large snowpark box produces a single bounded pop off the far end",()=>{
   assert.equal(rampImpulseCrossing(before,after,forward,"ski",6)?.id,box.id);
   assert.equal(alpineBoxExitCrossing(after,before,{x:-forward.x,z:-forward.z},6),null);
   assert.equal(alpineBoxExitCrossing(before,after,forward,3),null);
+  assert.equal(alpineBoxExitCrossing(before,after,{x:Infinity,z:0},9),null);
+  assert.equal(alpineBoxExitCrossing(before,{...after,z:NaN},forward,9),null);
   assert.equal(alpineBoxExitCrossing(before,after,{x:side.x,z:side.z},7),null);
   const far={x:after.x+side.x*2,z:after.z+side.z*2};
   assert.equal(alpineBoxExitCrossing(before,far,forward,7),null);
