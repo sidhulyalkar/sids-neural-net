@@ -897,9 +897,11 @@ export function createWorld(
     { x: -13, z: 23, h: 21, r: 1.2 },
     // These boundary specimens use EXACTLY the same trunk/roots, canopy
     // culling and actual collision obstacles as the rest of the island.
-    ...SKATE_GROVE_FRAME_TREES.filter(tree=>!isWater(tree)&&
+    ...SKATE_GROVE_FRAME_TREES.filter((tree,index)=>!isWater(tree)&&
       !discGolfOpeningClearance(tree,2)&&!discGolfCourseClearance(tree,2)&&
-      !sportClearance(tree)),
+      // The first six are the existing authored skatepark frame trees.
+      // Preserve their composition; route clearance only applies to infill.
+      (index<6||!sportClearance(tree))),
   ];
   for (let i = 0; i < 27; i++) {
     const x = -25 + random() * 71,
