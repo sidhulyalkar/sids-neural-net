@@ -7411,7 +7411,7 @@ export function createWorld(
         const reverseStart=next.command.skateDestination==="loop-reverse"&&next.command.activity==="skate";
         const tubeStart=next.command.skateDestination==="hollow-log"&&next.command.activity==="skate";
         const reversePose=skateLoopSample(beginSkateLoop(0,0,SKATE_LOOP.center.z,0,-1));
-        player=alpineStart==="halfpipe"?{x:ALPINE_HALFPIPE.centerX,z:ALPINE_HALFPIPE.startZ-2.8}:
+        player=alpineStart==="halfpipe"?{x:ALPINE_HALFPIPE.centerX,z:ALPINE_HALFPIPE.endZ+2.8}:
           alpineStart==="glacier-west"?{x:GLACIER_PASSAGE.westX-5,z:GLACIER_PASSAGE.centerZ}:
           alpineStart==="glacier-east"?{x:GLACIER_PASSAGE.eastX+5,z:GLACIER_PASSAGE.centerZ}:
           jetPierStart?{x:JET_SKI_PIER.rampEndX+1.3,z:JET_SKI_PIER.centerZ}:
@@ -7421,7 +7421,7 @@ export function createWorld(
           regionLanding(r.id);
         clearInput();
         travel = { point: player, speed: 0, heading:
-          alpineStart==="halfpipe"?{x:0,z:1}:
+          alpineStart==="halfpipe"?{x:0,z:-1}:
           alpineStart==="glacier-west"?{x:1,z:0}:
           alpineStart==="glacier-east"?{x:-1,z:0}:
           reverseStart?reversePose.heading:tubeStart?{x:-1,z:0}:loopStart?{x:-1,z:0}:flowStart?{x:1,z:0}:
