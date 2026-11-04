@@ -11,7 +11,6 @@ import {
 } from "@/lib/world/alpineTerrainPark";
 
 const P=(x:number,y:number,z:number)=>new THREE.Vector3(x,y,z);
-const I=new THREE.Vector3(1,1,1);
 
 /** The surfaces here are entirely decorative. Every point is planted on a
  * real authored contact surface or a mature tree whose collider already
