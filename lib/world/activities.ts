@@ -5,7 +5,7 @@ import {airborneSupportHeight} from "./rideRecovery";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
 import {jetSkiPierHeight} from "./jetSkiPier";
-import {suppressedFaceKicker,withinMountainHalfpipe} from "./mountainHalfpipe";
+import {suppressedFaceKicker,mountainHalfpipeApproachClearance} from "./mountainHalfpipe";
 import {
   constrainMove,
   distance,
