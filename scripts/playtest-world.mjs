@@ -323,7 +323,7 @@ try {
   await page.getByRole('button', { name: '02 Granite ridge Things I build', exact: true }).click();
   await page.getByRole('button', { name: 'Skiing', exact: true }).click();
   await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
-  const ordinarySki=await page.evaluate(()=>new Promise((resolve,reject)=>{
+  const ordinarySki=page.evaluate(()=>new Promise((resolve,reject)=>{
     const c=document.querySelector('canvas');
     if(!c){reject(Error('World canvas unavailable'));return;}
     const samples=[];
