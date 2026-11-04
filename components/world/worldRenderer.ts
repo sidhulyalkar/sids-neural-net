@@ -11,6 +11,7 @@ import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkat
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {createWorldAlpineTerrainPark} from "./worldAlpineTerrainPark";
+import {createWorldAlpineMicroDetail} from "./worldAlpineMicroDetail";
 import {ALPINE_HALFPIPE,GLACIER_PASSAGE,alpineFeatureZone,glacierCeilingHeight,insideGlacierPassage} from "@/lib/world/alpineTerrainPark";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
 import {createMysticElectricity} from "./worldMysticElectricity";
@@ -1092,6 +1093,7 @@ export function createWorld(
   // Static procedural wood art is isolated and fully disposable.
   const skateGrove=createWorldSkateGrove(scene,groundHeight);
   const alpinePark=createWorldAlpineTerrainPark(scene);
+  const alpineDetail=createWorldAlpineMicroDetail(scene);
   // Small grasses share one geometry and one draw call.
   const grasses: Instance[] = [];
   for (let i = 0; i < 750; i++) {
@@ -1300,6 +1302,10 @@ export function createWorld(
     cameraCanopies.length+habitats.cameraOccluders.length+cameraRocks.length);
   const technicalFeatures = createTechnicalGeometry(scene);
   canvas.dataset.alpineFeatureCount=String(alpinePark.rails+alpinePark.jumps);
+  canvas.dataset.alpineDetailBatch="true";
+  canvas.dataset.alpineIceStrata=String(alpineDetail.statistics.iceBands);
+  canvas.dataset.alpineSnowGrooming=String(alpineDetail.statistics.corduroy);
+  canvas.dataset.alpineSequoiaBark=String(alpineDetail.statistics.sequoiaDetails);
   const flyingBirds=createBigAirBirds(scene);
   const discGolfObjects=createDiscGolfGeometry(scene);
   const jetskiVisual=createJetSkiDock(scene);
@@ -7581,6 +7587,7 @@ export function createWorld(
       mysticElectricity.dispose();
       mysticForest.dispose();
       skateGrove.dispose();
+      alpineDetail.dispose();
       alpinePark.dispose();
 
       shoreLife.dispose();
