@@ -7402,7 +7402,10 @@ export function createWorld(
         const reverseStart=next.command.skateDestination==="loop-reverse"&&next.command.activity==="skate";
         const tubeStart=next.command.skateDestination==="hollow-log"&&next.command.activity==="skate";
         const reversePose=skateLoopSample(beginSkateLoop(0,0,SKATE_LOOP.center.z,0,-1));
-        player=jetPierStart?{x:JET_SKI_PIER.rampEndX+1.3,z:JET_SKI_PIER.centerZ}:
+        player=alpineStart==="halfpipe"?{x:ALPINE_HALFPIPE.centerX,z:ALPINE_HALFPIPE.startZ-2.8}:
+          alpineStart==="glacier-west"?{x:GLACIER_PASSAGE.westX-5,z:GLACIER_PASSAGE.centerZ}:
+          alpineStart==="glacier-east"?{x:GLACIER_PASSAGE.eastX+5,z:GLACIER_PASSAGE.centerZ}:
+          jetPierStart?{x:JET_SKI_PIER.rampEndX+1.3,z:JET_SKI_PIER.centerZ}:
           reverseStart?{x:reversePose.point.x-reversePose.heading.x*7,z:reversePose.point.z-reversePose.heading.z*7}:
           tubeStart?{x:GROVE_TUNNEL.center.x+GROVE_TUNNEL.halfLength+3,z:GROVE_TUNNEL.center.z}:loopStart?{x:SKATE_LOOP.center.x+SKATE_LOOP.leadLength,z:SKATE_LOOP.center.z}:flowStart?{...CANYON_FLOW.start}:
           (next.command.activity && activityLanding(next.command.activity)) ||
