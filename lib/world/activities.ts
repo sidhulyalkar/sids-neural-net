@@ -1,3 +1,4 @@
+import {ALPINE_KICKERS,alpineSportClearance,alpineBoxSupport} from "./alpineTerrainPark";
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
 import {insideMeadowConnector,insideSkatePark,skateParkSurface,skateParkLipCrossing,redwoodBowlCarveHeading,SKATE_PARK_RAILS,SKATE_GROVE_FLOW,type SkateRail} from "./skatepark";
 import {skateRollingSpeed} from "./skateDynamics";
@@ -193,6 +194,7 @@ export const FALLEN_LOGS = [
 ] as const;
 
 export const RIDE_RAMPS = [
+  ...ALPINE_KICKERS.map(kicker=>({...kicker,modes:["ski","bike"] as Activity[]})),
   {id:"sequoia-return-kicker",point:{x:-7.1,z:57},radius:1.25,
    heading:{x:0,z:-1},lift:2.2,modes:["skate","bike"] as Activity[]},
   {id:"grove-home-kicker",point:{x:-6.8,z:53.3},radius:1.1,
@@ -293,6 +295,7 @@ export function groundHeight(p: Point) {
   for (const ramp of RIDE_RAMPS)
     height = Math.max(height, rampSurface(ramp, p) ?? -Infinity);
   height = Math.max(height, skateParkSurface(p) ?? -Infinity);
+  height=alpineBoxSupport(p,height);
   const beam = beamSupportHeight(p, terrainHeight(p.x,p.z));
   if (beam !== null) height = Math.max(height, beam);
   for (const hold of BOULDER_HOLDS) {
@@ -657,6 +660,7 @@ export function sportClearance(p: Point) {
   };
   return (
     insideSkatePark(p,2) || insideMeadowConnector(p,2) ||
+    alpineSportClearance(p) ||
     desertTrackClearance(p) ||
     technicalFeatureClearance(p) ||
     bigAirClearance(p) ||
