@@ -11,7 +11,7 @@ import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkat
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {createWorldMountainHalfpipe} from "./worldMountainHalfpipe";
-import {MOUNTAIN_HALFPIPE,suppressedFaceKicker,withinMountainHalfpipe} from "@/lib/world/mountainHalfpipe";
+import {suppressedFaceKicker,withinMountainHalfpipe} from "@/lib/world/mountainHalfpipe";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
 import {createMysticElectricity} from "./worldMysticElectricity";
 import {createWorldMysticGroveGeometry} from "./worldMysticGroveGeometry";
@@ -51,7 +51,7 @@ import {
   type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
 import {
-  BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,mountainJumpEligible,mountainSkiTakeoff,mountainJumpOutwardGain,
+  BIG_AIR,bigAirBirdCallout,bigAirCrossedLip,launchBigAir,mountainJumpEligible,mountainJumpOutwardGain,shouldLaunchAuthoredSkiJump,
   advanceBigAir,mountainJumpCameraPose,armBigAir,idleBigAir,type BigAirState,
 } from "@/lib/world/bigAir";
 import { createMarineSchools } from "./worldSchools";
@@ -3984,16 +3984,6 @@ export function createWorld(
       bigAir.phase==="flying"||
       climb||(grind&&state.activity!=="skate")||
       (airHeight>0.01&&!(state.activity==="skate"&&verticalSpeed>0.1)))return;
-    if(state.activity==="ski"&&!nearestGrind(player,1.45)&&
-      mountainJumpEligible(player,supportHeight(player),travel.speed)){
-      const ahead={x:player.x+travel.heading.x*2.1,
-        z:player.z+travel.heading.z*2.1};
-      const drop=Math.max(0,supportHeight(player)-supportHeight(ahead));
-      bigAir=launchBigAir(player,supportHeight(player),travel.speed,travel.heading,true,drop);
-      playerY=bigAir.y;airHeight=.04;verticalSpeed=bigAir.verticalSpeed;
-      callbacks.onBigAir(bigAir);
-      return;
-    }
     if(state.activity==="skate"&&airHeight>.08){launchAssistedSkateTrick();return;}
     if(grind&&state.activity==="skate"){launchAssistedSkateTrick();return;}
     if ((state.activity === "skate" || state.activity === "ski") && travel.speed > 2.2) {
@@ -4754,7 +4744,7 @@ export function createWorld(
               // without requiring a second, midair keypress from visitors.
               if(modeForRamp==="skate"&&insideSkatePark(player)&&
                 travel.speed>=6&&skateTrick.phase==="ground")launchAssistedSkateTrick();
-            } else if (!ramp) {
+            } else if (!ramp || modeForRamp==="ski") {
               lastRampId = "";
             }
           }
@@ -4855,14 +4845,13 @@ export function createWorld(
         z:player.z+travel.heading.z*2.1};
       const frontGround=supportHeight(ahead);
       const downhillDrop=previousGround-frontGround;
-      // Free skiing only follows real collision/gravity. A scenic drop
-      // never silently enrolls the visitor in Big Air or opens its HUD.
-      // The special jump can launch solely after the menu arms its marked lip.
-      const naturalLip=false;
+      // Free skiing follows ordinary collision/gravity. Only the explicit
+      // Ski Jump menu may arm the marked lip and trigger its flight/HUD.
       const markedLip=bigAir.phase==="armed"&&
         bigAirCrossedLip(previousPoint,player,travel.heading,state.activity,
           travel.speed,true);
-      if(skiEligible&&markedLip){
+      if(shouldLaunchAuthoredSkiJump(state.activity,bigAir.phase,
+        skiEligible&&markedLip)){
         bigAir=launchBigAir(player,supportHeight(player),travel.speed,
           travel.heading,!markedLip,Math.max(0,downhillDrop));
         playerY=bigAir.y;
