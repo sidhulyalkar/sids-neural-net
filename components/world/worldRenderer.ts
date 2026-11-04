@@ -4018,7 +4018,7 @@ export function createWorld(
           "chainId" in grind.log&&String(grind.log.chainId).startsWith("alpine-")))||
       (airHeight>0.01&&!(state.activity==="skate"&&verticalSpeed>0.1)))return;
     if(state.activity==="ski"&&alpineFreestyleSelected&&alpineTrick.phase!=="air"&&
-      bigAir.phase!=="flying"&&travel.speed>=4.2){
+      travel.speed>=4.2){
       let pop:AlpineTakeoff|null=null;
       if(grind&&"chainId" in grind.log&&
         String(grind.log.chainId).startsWith("alpine-")){
