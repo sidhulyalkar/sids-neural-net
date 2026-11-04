@@ -95,6 +95,14 @@ export function mountainFaceEditDelta(
    mountainSummitBoost(p);
 }
 
+/** Clear the entire natural approach, pipe, and receiving slope of
+ * procedurally placed trees and boulders, without touching mountain caves
+ * or any waterfall/stream coordinate outside this bounded ski face. */
+export function mountainHalfpipeApproachClearance(p:Point):boolean{
+ const h=MOUNTAIN_HALFPIPE;
+ return Math.abs(p.x-h.centerX)<=h.lipHalfWidth+h.featherWidth+1.0 &&
+   p.z>=h.startZ-3.0&&p.z<=h.endZ+3.0;
+}
 export function withinMountainHalfpipe(p:Point):boolean{
  return mountainHalfpipeInfluence(p)>.35;
 }
