@@ -120,7 +120,72 @@ flicker, side-wall collision, and both entrances. A physically complete
 cave needs wall-surface collision and longitudinal roof-contact behavior
 beyond the first slice.
 
-## 4. Placement algorithm for future features
+## 4. Ski tricks and physical edge qualification
+
+The alpine park now has its own **arcade ski-trick state machine** in
+`lib/world/alpineTricks.ts`. This models game behavior, not physiological
+biomechanics or real-world injury safety. Existing skateboard tricks and
+ski Big Air retain their independent state machines.
+
+### Controls
+
+- **Space:** deliberate pop in the moving halfpipe, or pop off a connected
+  alpine rail while grinding. The button is unavailable while already in air.
+- **J / L:** rotate by one bounded 180-degree step left / right while airborne.
+  Each input has a minimum spacing and each flight has a 720-degree ceiling.
+- **Q / E:** hold a left / right ski grab while airborne. Releasing the
+  button releases the grab.
+- **Touch:** compact context-only POP / spin-left / spin-right / hold GRAB
+  buttons appear for the selected alpine freestyle activity on coarse
+  pointers, never as a permanent overlay across the whole island.
+
+### Physical takeoffs
+
+1. **Halfpipe left/right coping:** rider crosses from *inside* to outside,
+   with meaningful lateral heading, speed, swept displacement bounds and
+   sufficient separation from roll-in transitions. A reverse or side arrival
+   does not launch.
+2. **Large snow kicker:** rider crosses the forward lip plane from the
+   approach side, inside a 1.275-unit lateral window. Standing, backing up,
+   riding alongside or jumping the wrong direction does not qualify.
+3. **Freestyle box:** the rider passes the actual far end in its travel
+   direction, not merely rides over its center or nears its decorative edge.
+4. **Curved grind rails:** pressing Space deliberately pops out of a rail.
+   Continuous rail-chain progress can trigger a low automatic exit hop.
+   Neither event teleports to another rail or pre-awards a score.
+
+### Landing and scoring
+
+A flight records its originating feature, physical airborne duration,
+peak clearance, grab duration, rotation, speed and grounded touchdown.
+Only an observed safe touchdown with plausible time for the queued rotations
+earns a score. Early flips, unsafe impact, water, interruption or a teleport
+bail and break the combo. High scores remain visible. No dwell-time
+confidence or HUD-only animation can substitute for physical contact.
+
+### Acceptance matrix
+
+`tests/world-alpine-tricks.test.ts` checks both lip sides, forward and
+reverse kickers, box exits, false-positive contact, bounded impulses,
+too-short flights, impossible instant 720° turns, correct grab release,
+combo expiration, bail resets, and natural gravity/touchdown. Existing
+authored mountain ramps retain their original behavior.
+
+`scripts/playtest-alpine-tricks.mjs` launches a real Playwright Chromium
+world, performs a moving halfpipe pop plus 180° and timed grab, traverses
+both pipe coping and snow-kicker takeoffs, crosses the box and sequoia-style
+curved grind rail, and requires physical landing data. A mobile browser
+case exercises the actual touch pop and spin interface. Every case includes
+a screenshot and recorded player/air/score trace for diagnosis.
+
+**Release gates:** the above browser run must pass on the same exact SHA
+as world geometry regression, typecheck, production build and other
+existing sports browser checks before merge. A real halfpipe landing
+alone does not qualify rail, box or mobile trick behavior.
+
+---
+
+## 5. Placement algorithm for future features
 
 1. Collect immutable footprints: traversable sea, museums, portals, photos,
    wildlife habitats, sport routes, trees, and ride-recovery anchors.
@@ -134,7 +199,7 @@ beyond the first slice.
    and browser acceptance from a single manifest.
 6. Reject visually floating or inaccessible features during automated audit.
 
-## 5. Progressive delivery and release gates
+## 6. Progressive delivery and release gates
 
 **Phase A: initial authored slice, current feature branch**
 
@@ -172,7 +237,7 @@ desktop / 30 FPS mobile, no missing image requests, no camera through an ice
 wall, no unsupported midair landings, and no regressions in the redwood loop,
 existing museums, marine reefs, Shasta, game arcade or beach sports.
 
-## 6. Release isolation
+## 7. Release isolation
 
 This feature branch is based on the **draft World PR #142** head and should
 target that branch in its own draft PR. It **must not** be merged into #142
