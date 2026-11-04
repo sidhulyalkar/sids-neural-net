@@ -21,10 +21,10 @@ export const MOUNTAIN_HALFPIPE={
 } as const;
 
 export const MOUNTAIN_SUMMIT={
-  centerX:7,
+  centerX:8,
   centerZ:-66,
-  radiusX:9.0,
-  radiusZ:9.5,
+  radiusX:6.25,
+  radiusZ:8.2,
   rise:4.25,
 } as const;
 
