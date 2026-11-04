@@ -81,7 +81,7 @@ test("alpine render geometry is watertight in attribute count and physics regist
       "distant tree bark must cull independently of glacier/snow detail");
     assert.ok(detail.groveMesh.geometry.getAttribute("position").count>20);
     const seen=new Set<string>();
-    for(const mesh of [...park.meshes,detail.mesh]){
+    for(const mesh of [...park.meshes,detail.mesh,detail.groveMesh]){
       assert.ok(!seen.has(mesh.name));
       seen.add(mesh.name);
       const a=mesh.geometry.getAttribute("position");
