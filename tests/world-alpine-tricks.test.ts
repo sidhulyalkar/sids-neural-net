@@ -12,6 +12,13 @@ const h=ALPINE_HALFPIPE;
 const z=(h.startZ+h.endZ)/2;
 const lip=h.rimHalfWidth-.32;
 const center=h.centerX;
+/** All trick evidence is integrated over valid simulation substeps, never
+ * an invalid one-second shortcut that the runtime rightly refuses. */
+const integrate=(state:ReturnType<typeof idleAlpineTrick>,seconds:number,clearance:number,step=.05)=>{
+ let left=seconds,next=state;
+ while(left>1e-9){const dt=Math.min(step,left);next=advanceAlpineTrick(next,dt,clearance);left-=dt}
+ return next;
+};
 const crossing=(side:-1|1,delta=.36)=>({
   before:{x:center+side*(lip-delta),z},
   after:{x:center+side*(lip+.12),z},
@@ -135,10 +142,10 @@ test("trick edge cases: short flight, no altitude, missed landings, early spins"
  assert.equal(result.phase,"bailed");
  assert.equal(result.score,0);
  assert.equal(result.bails,1);
- const zeroPeak=landAlpineTrick(advanceAlpineTrick(
+ const zeroPeak=landAlpineTrick(integrate(
    beginAlpineTrick(result,trigger,1,6),.8,0),1.8,7,true);
  assert.equal(zeroPeak.phase,"bailed");
- const unsafe=landAlpineTrick(advanceAlpineTrick(
+ const unsafe=landAlpineTrick(integrate(
    beginAlpineTrick(result,trigger,3,6),.5,.9),3.5,8,false);
  assert.equal(unsafe.phase,"bailed");
  const snap720=beginAlpineTrick(result,trigger,4,8);
@@ -153,7 +160,7 @@ test("feature combos reward real landings but expire, bails break lines",()=>{
  const trig={id:"alpine-halfpipe-pop",kind:"halfpipe" as const,impulse:4.6};
  const land=(takeoffAt:number,finishAt:number)=>{
    s=beginAlpineTrick(s,trig,takeoffAt,8);
-   s=advanceAlpineTrick(s,finishAt-takeoffAt,.8);
+   s=integrate(s,finishAt-takeoffAt,.8);
    s=landAlpineTrick(s,finishAt,7,true);
  };
  land(1,1.6);
@@ -173,16 +180,32 @@ test("180-degree switch landing persists across runs and another 180 recovers re
  const trig={id:"alpine-tabletop",kind:"kicker" as const,impulse:7};
  s=beginAlpineTrick(s,trig,1,9);
  s=alpineSpin(s,1,1.2);
- s=advanceAlpineTrick(s,.55,1.2);
+ s=integrate(s,.55,1.2);
  s=landAlpineTrick(s,1.55,8,true);
  assert.equal(s.stance,"switch");
  assert.ok(Math.abs(alpineTrickPose(s,2).yaw-Math.PI)<1e-9);
  s=beginAlpineTrick(s,trig,3,9);
  s=alpineSpin(s,-1,3.2);
- s=advanceAlpineTrick(s,.55,1.2);
+ s=integrate(s,.55,1.2);
  assert.ok(alpineTrickPose(s,3.5).yaw<Math.PI);
  s=landAlpineTrick(s,3.55,7.5,true);
  assert.equal(s.stance,"regular");
+});
+test("trick evidence is stable under 20, 30 and 60 Hz frame advances",()=>{
+ const trig={id:"alpine-halfpipe-left",kind:"halfpipe" as const,impulse:5.1};
+ const results=[1/20,1/30,1/60].map(step=>{
+   let s=beginAlpineTrick(idleAlpineTrick(),trig,0,8);
+   s=alpineGrab(s,"left");
+   s=integrate(s,.6,.82,step);
+   s=alpineGrab(s,"none");
+   return landAlpineTrick(s,.6,7,true);
+ });
+ assert.ok(results.every(s=>s.phase==="landed"));
+ assert.deepEqual(results.map(s=>s.score),[results[0].score,results[0].score,results[0].score]);
+ const inAir=beginAlpineTrick(idleAlpineTrick(),trig,1,8);
+ assert.strictEqual(advanceAlpineTrick(inAir,.7,1),inAir,
+   "oversized timing updates are rejected, not used to fabricate airtime");
+ assert.strictEqual(advanceAlpineTrick(inAir,NaN,1),inAir);
 });
 test("real jump physics supports a finite air arc and touchdown",()=>{
  const ground=12,launch=4.7;let y=ground+.03,v=launch,up=false,landed=false;
