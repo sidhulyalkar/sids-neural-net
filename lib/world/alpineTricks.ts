@@ -23,6 +23,9 @@ const length=(p:Point)=>Math.hypot(p.x,p.z);
 const dot=(a:Point,b:Point)=>a.x*b.x+a.z*b.z;
 const distance=(a:Point,b:Point)=>Math.hypot(b.x-a.x,b.z-a.z);
 const allowedSegment=(a:Point,b:Point)=>distance(a,b)>.001&&distance(a,b)<=2.25;
+const finiteMotion=(a:Point,b:Point,heading:Point,speed:number)=>
+  [a.x,a.z,b.x,b.z,heading.x,heading.z,speed].every(Number.isFinite)&&
+  length(heading)>.001&&allowedSegment(a,b);
 export function idleAlpineTrick():AlpineTrickState{
   return {phase:"idle",feature:"",kind:null,startedAt:-Infinity,
     takeoffSpeed:0,airtime:0,peakClearance:0,grab:"none",
@@ -40,7 +43,7 @@ export function halfpipeLipCrossing(
   before:Point,after:Point,heading:Point,speed:number,
 ):AlpineTakeoff|null{
   const h=ALPINE_HALFPIPE,lip=h.rimHalfWidth-.32;
-  if(!Number.isFinite(speed)||speed<5.8||!allowedSegment(before,after))return null;
+  if(speed<5.8||!finiteMotion(before,after,heading,speed))return null;
   if(alpineHalfpipeStrength(before)<.22)return null;
   if(Math.min(before.z,after.z)<h.startZ+3||
      Math.max(before.z,after.z)>h.endZ-3)return null;
@@ -57,7 +60,7 @@ export function halfpipeLipCrossing(
 export function alpineKickerCrossing(
   before:Point,after:Point,heading:Point,speed:number,
 ):AlpineTakeoff|null{
-  if(!Number.isFinite(speed)||speed<5||!allowedSegment(before,after))return null;
+  if(speed<5||!finiteMotion(before,after,heading,speed))return null;
   for(const kicker of ALPINE_KICKERS){
     const forward=kicker.heading,normal=length(forward);
     const f={x:forward.x/normal,z:forward.z/normal};
@@ -78,7 +81,7 @@ export function alpineKickerCrossing(
 export function alpineBoxExitCrossing(
  before:Point,after:Point,heading:Point,speed:number,
 ):AlpineTakeoff|null{
- if(!Number.isFinite(speed)||speed<4.2||!allowedSegment(before,after))return null;
+ if(speed<4.2||!finiteMotion(before,after,heading,speed))return null;
  for(const box of ALPINE_FEATURE_BOXES){
    const vx=box.to.x-box.from.x,vz=box.to.z-box.from.z;
    const len=Math.hypot(vx,vz),f={x:vx/len,z:vz/len};
