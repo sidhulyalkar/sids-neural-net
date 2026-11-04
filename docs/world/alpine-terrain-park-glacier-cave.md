@@ -96,6 +96,11 @@ wheel-or-ski contact** ideas, without forcing a preset path:
    or airborne contacts; cap wall-clock catch-up.
 7. Use the same surface normal for rendered lean, wheel/contact and camera.
 
+**Opt-in behavior:** The Halfpipe shortcut enables the authored alpine freestyle
+jump lips for that ski session. Ordinary skiing and the Glacier cave shortcut
+do not enable those added automatic launches; the original jump shortcut
+remains separate. This avoids surprising visitors who simply want to ski.
+
 ### Curved rails and boxes
 
 Reuse `SKATE_PARK_RAILS`, `advanceRailChain`, `nearestGrind`,
