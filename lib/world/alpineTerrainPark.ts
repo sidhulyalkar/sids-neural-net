@@ -20,7 +20,7 @@ export const GLACIER_PASSAGE={
 
 export const ALPINE_KICKERS=[
   {id:"alpine-tabletop",point:{x:-24,z:-79.2},heading:{x:0,z:-1},radius:3.05,lift:6.8},
-  {id:"alpine-transfer-hip",point:{x:-15,z:-72.5},heading:{x:-.24,z:-.97077},radius:2.8,lift:5.2},
+  {id:"alpine-transfer-hip",point:{x:-16,z:-56},heading:{x:.08,z:.99679},radius:2.8,lift:5.2},
 ] as const;
 
 export const ALPINE_FEATURE_BOXES=[
