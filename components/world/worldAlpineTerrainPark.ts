@@ -181,17 +181,41 @@ export function createWorldAlpineTerrainPark(scene:THREE.Scene){
         P(root.x,root.y-.13,root.z),.045,"#687d84");
     }
   }
+  // Make the wide box a continuous contact-matched slab, not a washboard
+  // of transverse cylinders. Fine top tessellation samples groundHeight,
+  // which already includes the tapered deck and its real landing support.
   for(const box of ALPINE_FEATURE_BOXES){
     const dx=box.to.x-box.from.x,dz=box.to.z-box.from.z,length=Math.hypot(dx,dz);
-    const side={x:dz/length,z:-dx/length};
-    // Fine sampled top matching box support across uneven mountain snow.
-    for(let i=0;i<28;i++){
-      const t=(i+.5)/28;
-      const x=box.from.x+dx*t,z=box.from.z+dz*t;
-      const y=groundHeight({x,z})-.045;
-      addBar(batch,cylinder,P(x+side.x*box.halfWidth,y,z+side.z*box.halfWidth),
-        P(x-side.x*box.halfWidth,y,z-side.z*box.halfWidth),
-        .12,"#bdcdd0");
+    const side={x:dz/length,z:-dx/length},tops:number[]=[];
+    const point=(t:number,cross:number)=>{
+      const x=box.from.x+dx*t+side.x*cross*box.halfWidth*.91;
+      const z=box.from.z+dz*t+side.z*cross*box.halfWidth*.91;
+      return P(x,groundHeight({x,z})+.038,z);
+    };
+    for(let i=0;i<36;i++)for(let k=0;k<6;k++){
+      const a=point(i/36,-1+2*k/6),
+        b=point((i+1)/36,-1+2*k/6),
+        c=point((i+1)/36,-1+2*(k+1)/6),
+        d=point(i/36,-1+2*(k+1)/6);
+      for(const p of [a,b,c,a,c,d])tops.push(p.x,p.y,p.z);
+    }
+    const top=new THREE.BufferGeometry();
+    top.setAttribute("position",new THREE.Float32BufferAttribute(tops,3));
+    top.computeVertexNormals();
+    batch.add(top,"#a6bdc3",P(0,0,0),new THREE.Vector3(1,1,1));
+    top.dispose();
+    // The polished edges and low steel feet are visibly supported, and
+    // are too far below the ski for phantom grind acquisition.
+    for(const sign of [-1,1]){
+      for(let i=0;i<36;i++){
+        const a=point(i/36,sign),b=point((i+1)/36,sign);
+        addBar(batch,cylinder,a,b,.045,"#d4e1e3");
+      }
+    }
+    for(const t of [.16,.5,.84]){
+      const p=point(t,0),y=terrainHeight(p.x,p.z);
+      addBar(batch,cylinder,P(p.x,y+.035,p.z),P(p.x,p.y-.07,p.z),
+        .09,"#77858b");
     }
   }
   // Halfpipe coping is a quiet snow/ice seam, following the same bank profile
