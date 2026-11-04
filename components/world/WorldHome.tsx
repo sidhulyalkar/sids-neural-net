@@ -487,6 +487,16 @@ export function WorldHome({ content }: { content: WorldContent }) {
         activity: "skate", skateDestination: ride,
       }));
     }
+    // Deterministic opposite-facing portals used by independent browser QA.
+    // The public sports drawer retains one uncluttered glacier shortcut.
+    const alpine=new URLSearchParams(window.location.search).get("ski-start");
+    if(alpine==="halfpipe"||alpine==="glacier-west"||alpine==="glacier-east"){
+      setActivity("ski");
+      setCommand(previous=>({
+        region:"mountain",serial:(previous?.serial??0)+1,
+        activity:"ski",alpineDestination:alpine,
+      }));
+    }
   }
   function jump(id: RegionId) {
     setEnabled(true);
