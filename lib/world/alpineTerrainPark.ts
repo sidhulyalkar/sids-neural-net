@@ -166,7 +166,9 @@ export function halfpipeBankSlope(p:Point):number{
   const h=ALPINE_HALFPIPE;
   const dx=p.x-h.centerX,t=Math.abs(dx);
   const start=h.floorHalfWidth,end=h.rimHalfWidth;
-  if(t<=start||t>=end)return 0;
+  // Roundoff from subtracting world coordinates must not turn a truly
+  // horizontal C1 edge into a microscopic, nonzero slope.
+  if(t<=start+1e-8||t>=end-1e-8)return 0;
   const u=(t-start)/(end-start);
   return (dx<0?-1:1)*h.bankHeight*6*u*(1-u)/(end-start);
 }
