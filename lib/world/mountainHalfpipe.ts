@@ -9,34 +9,25 @@ import type {Point} from "./model";
  * World geography and existing waterways remain wholly unaffected elsewhere.
  */
 export const MOUNTAIN_HALFPIPE={
-  centerX:7,
-  startZ:-60,
-  endZ:-35,
-  floorHalfWidth:1.75,
-  lipHalfWidth:5.25,
-  featherWidth:2.25,
-  bankRise:3.65,
-  centerCut:.58,
-  endBlend:3.65,
+  centerX:13.5,
+  startZ:-57.5,
+  endZ:-36,
+  floorHalfWidth:1.25,
+  lipHalfWidth:3.55,
+  featherWidth:1.25,
+  bankRise:3.1,
+  centerCut:.42,
+  endBlend:3.3,
 } as const;
 
 export const MOUNTAIN_SUMMIT={
-  centerX:8,
-  centerZ:-66,
-  radiusX:6.25,
-  radiusZ:8.2,
-  rise:4.25,
+  centerX:11,
+  centerZ:-70,
+  radiusX:4.2,
+  radiusZ:4.3,
+  rise:3.25,
 } as const;
 
-/** Previous timber kickers in this *one* occupied ski-face corridor conflict
- * with the new carved snow. Their entries are preserved in the legacy ramp
- * manifest, but no visual or collision surfaces should be generated here. */
-export const SUPPRESSED_FACE_KICKERS=[
- "ski-kicker","bowl-small","bowl-medium",
-] as const;
-export function suppressedFaceKicker(id:string):boolean{
- return (SUPPRESSED_FACE_KICKERS as readonly string[]).includes(id);
-}
 const clamp01=(x:number)=>Math.min(1,Math.max(0,x));
 export const smoothFace=(x:number)=>{
  const t=clamp01(x);
