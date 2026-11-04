@@ -898,7 +898,8 @@ export function createWorld(
     // These boundary specimens use EXACTLY the same trunk/roots, canopy
     // culling and actual collision obstacles as the rest of the island.
     ...SKATE_GROVE_FRAME_TREES.filter(tree=>!isWater(tree)&&
-      !discGolfOpeningClearance(tree,2)&&!discGolfCourseClearance(tree,2)),
+      !discGolfOpeningClearance(tree,2)&&!discGolfCourseClearance(tree,2)&&
+      !sportClearance(tree)),
   ];
   for (let i = 0; i < 27; i++) {
     const x = -25 + random() * 71,
