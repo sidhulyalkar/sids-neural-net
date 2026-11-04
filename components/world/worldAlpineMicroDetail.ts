@@ -17,19 +17,21 @@ const P=(x:number,y:number,z:number)=>new THREE.Vector3(x,y,z);
  * exists. The actual controls and support stay in the pure world modules. */
 export function createWorldAlpineMicroDetail(scene:THREE.Scene){
   const batch=new GeometryBatch();
+  const groveBatch=new GeometryBatch();
   const slender=new THREE.CylinderGeometry(1,1,1,6);
   const cone=new THREE.ConeGeometry(1,1,6);
   const pebble=new THREE.IcosahedronGeometry(1,0);
   let corduroy=0,iceBands=0,fixtures=0,sequoiaDetails=0,rockLayers=0;
 
-  const rod=(a:THREE.Vector3,b:THREE.Vector3,r:number,color:string)=>{
+  const rod=(a:THREE.Vector3,b:THREE.Vector3,r:number,color:string,
+    target:GeometryBatch=batch)=>{
     const axis=b.clone().sub(a);
     if(axis.lengthSq()<.000001)return;
     const mid=a.clone().add(b).multiplyScalar(.5);
     const rotation=new THREE.Euler().setFromQuaternion(
       new THREE.Quaternion().setFromUnitVectors(
         new THREE.Vector3(0,1,0),axis.clone().normalize()));
-    batch.add(slender,color,mid,new THREE.Vector3(r,axis.length(),r),rotation);
+    target.add(slender,color,mid,new THREE.Vector3(r,axis.length(),r),rotation);
   };
 
   // 1. GROOMED SNOW. The micro-ridges follow the actual C1 halfpipe bank
@@ -184,7 +186,7 @@ export function createWorldAlpineMicroDetail(scene:THREE.Scene){
         const taper0=1-part*.075,taper1=1-(part+1)*.075;
         rod(P(tree.x+(px-tree.x)*taper0,y0,tree.z+(pz-tree.z)*taper0),
           P(tree.x+(px-tree.x)*taper1,y1,tree.z+(pz-tree.z)*taper1),
-          .034,part%2?"#5c3025":"#985438");
+          .034,part%2?"#5c3025":"#985438",groveBatch);
         sequoiaDetails++;
       }
     }
@@ -193,7 +195,7 @@ export function createWorldAlpineMicroDetail(scene:THREE.Scene){
       const outward=tree.r*(1.45+.26*Math.sin(j*3.1));
       const x=tree.x+outward*Math.cos(a),z=tree.z+outward*Math.sin(a);
       rod(P(tree.x+Math.cos(a)*tree.r*.66,base+1.5,tree.z+Math.sin(a)*tree.r*.66),
-        P(x,terrainHeight(x,z)+.12,z),.16,"#74412e");
+        P(x,terrainHeight(x,z)+.12,z),.16,"#74412e",groveBatch);
       sequoiaDetails++;
     }
     // A few layered limb stems live inside the established tree crown,
@@ -205,24 +207,32 @@ export function createWorldAlpineMicroDetail(scene:THREE.Scene){
       rod(P(tree.x,y,tree.z),
         P(tree.x+Math.cos(angle)*reach,y+tree.h*.025,
           tree.z+Math.sin(angle)*reach),
-        tree.r*.085,"#6d3b2d");
+        tree.r*.085,"#6d3b2d",groveBatch);
       const tip=P(tree.x+Math.cos(angle)*reach,y+tree.h*.08,
         tree.z+Math.sin(angle)*reach);
-      batch.add(cone,k%3===0?"#56745b":"#4b6956",tip,
+      groveBatch.add(cone,k%3===0?"#56745b":"#4b6956",tip,
         new THREE.Vector3(reach*.34,tree.h*.06,reach*.34));
       sequoiaDetails+=2;
     }
   });
-  const geometry=batch.finish();
+  // Keep the two distant biomes in different frustum-cullable draw batches.
+  // A beach visitor must not render mountain ice and old-growth bark together.
+  const geometry=batch.finish(),groveGeometry=groveBatch.finish();
   const material=new THREE.MeshStandardMaterial({
     vertexColors:true,roughness:.82,metalness:.035,side:THREE.DoubleSide,
   });
   const mesh=new THREE.Mesh(geometry,material);
-  mesh.name="alpine-batched-ice-strata-grooming-rail-fixtures-sequoia-bark";
+  mesh.name="alpine-batched-snow-ice-rails-geological-strata";
   mesh.receiveShadow=true;scene.add(mesh);
+  const groveMesh=new THREE.Mesh(groveGeometry,material);
+  groveMesh.name="grove-batched-old-growth-bark-buttress-roots";
+  groveMesh.receiveShadow=true;scene.add(groveMesh);
   slender.dispose();cone.dispose();pebble.dispose();
   return {
-    mesh,statistics:{corduroy,iceBands,fixtures,sequoiaDetails,rockLayers},
-    dispose(){scene.remove(mesh);geometry.dispose();material.dispose();},
+    mesh,groveMesh,statistics:{corduroy,iceBands,fixtures,sequoiaDetails,rockLayers},
+    dispose(){
+      scene.remove(mesh);scene.remove(groveMesh);
+      geometry.dispose();groveGeometry.dispose();material.dispose();
+    },
   };
 }
