@@ -5356,8 +5356,11 @@ export function createWorld(
         discGolf.phase==="off"&&!jetSki&&bigAir.phase!=="flying";
       alpineHud.style.display=alpineControlsActive?"block":"none";
       alpineTouch.style.display=alpineControlsActive&&alpineCoarsePointer?"flex":"none";
+      const alpineRailPopReady=!!grind&&"chainId" in grind.log&&
+        String(grind.log.chainId).startsWith("alpine-");
       alpinePopButton.disabled=alpineTrick.phase==="air"||
-        alpineHalfpipeStrength(player)<.42||travel.speed<4.2;
+        travel.speed<4.2||
+        !(alpineRailPopReady||alpineHalfpipeStrength(player)>.42);
       const alpineIsAirborne=alpineTrick.phase==="air";
       alpineSpinLeft.disabled=!alpineIsAirborne;
       alpineSpinRight.disabled=!alpineIsAirborne;
