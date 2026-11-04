@@ -3,7 +3,7 @@ import {terrainHeight} from "@/lib/world/model";
 import {groundHeight} from "@/lib/world/activities";
 import {
   ALPINE_HALFPIPE,ALPINE_KICKERS,ALPINE_PARK_RAILS,ALPINE_FEATURE_BOXES,
-  GLACIER_PASSAGE,alpineSportClearance,
+  GLACIER_PASSAGE,alpineSportClearance,alpineHalfpipeStrength,glacierPassageStrength,
 } from "@/lib/world/alpineTerrainPark";
 import {GeometryBatch} from "./worldGeometry";
 
@@ -15,6 +15,7 @@ const P=(x:number,y:number,z:number)=>new THREE.Vector3(x,y,z);
 function sheet(
   minX:number,maxX:number,minZ:number,maxZ:number,
   nx:number,nz:number,sample:(x:number,z:number)=>V,
+  visible:(x:number,z:number)=>number,
 ){
   const positions:number[]=[],colors:number[]=[];
   for(let iz=0;iz<nz;iz++)for(let ix=0;ix<nx;ix++){
@@ -22,6 +23,9 @@ function sheet(
       x1=minX+(maxX-minX)*(ix+1)/nx;
     const z0=minZ+(maxZ-minZ)*iz/nz,
       z1=minZ+(maxZ-minZ)*(iz+1)/nz;
+    // Trim the fine snow overlay to actual sculpted ground. An unrestricted
+    // rectangular snow patch would visibly bleed into adjacent biomes.
+    if(visible((x0+x1)/2,(z0+z1)/2)<.015)continue;
     const a=sample(x0,z0),b=sample(x1,z0),
       c=sample(x1,z1),d=sample(x0,z1);
     for(const vertex of [a,b,c,a,c,d]){
@@ -138,13 +142,15 @@ export function createWorldAlpineTerrainPark(scene:THREE.Scene){
   const h=ALPINE_HALFPIPE;
   attach(sheet(h.centerX-h.rimHalfWidth-h.outerFeather,
       h.centerX+h.rimHalfWidth+h.outerFeather,h.startZ,h.endZ,48,84,
-      (x,z)=>[x,terrainHeight(x,z)+.065,z]),
+      (x,z)=>[x,terrainHeight(x,z)+.065,z],
+      (x,z)=>alpineHalfpipeStrength({x,z})),
     new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,
       roughness:.89,metalness:0}),
     "alpine-halfpipe-analytic-snow-skin");
   const g=GLACIER_PASSAGE;
   attach(sheet(g.westX-2,g.eastX+2,g.centerZ-3.8,g.centerZ+3.8,70,30,
-      (x,z)=>[x,terrainHeight(x,z)+.07,z]),
+      (x,z)=>[x,terrainHeight(x,z)+.07,z],
+      (x,z)=>glacierPassageStrength({x,z})),
     new THREE.MeshStandardMaterial({vertexColors:true,roughness:.54,
       side:THREE.DoubleSide,metalness:.06}),
     "glacier-passage-exact-ski-floor");
