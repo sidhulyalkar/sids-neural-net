@@ -179,7 +179,12 @@ async function audit(width, height) {
     assert.equal(await signal.getAttribute('data-frontier-signal'), 'rated');
     assert.equal(await signal.getByText('1 · Not for me').count(), 1);
     assert.equal(await signal.getByText('10 · Fascinating').count(), 1);
+    assert.equal(await signal.locator('[data-frontier-focus-mode]').getAttribute('data-frontier-focus-mode'), 'pointer',
+      'Mouse input must not display the entire keyboard-focus frame');
     mkdirSync('artifacts/browser-smoke/frontier-signal-trail', { recursive: true });
+    // Full-page capture from a scrolled viewport can falsely composite the
+    // offscreen global skip-link over the headline. Capture from top instead.
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
       path: 'artifacts/browser-smoke/frontier-signal-trail/rated-7-' + width + '.png',
       fullPage: true, animations: 'disabled',
@@ -189,6 +194,8 @@ async function audit(width, height) {
     await rating.focus();
     await page.keyboard.press('End');
     await page.keyboard.press('ArrowLeft');
+    assert.equal(await signal.locator('[data-frontier-focus-mode]').getAttribute('data-frontier-focus-mode'), 'keyboard',
+      'Keyboard score adjustment keeps a visible, deliberate focus indicator');
     assert.equal(await rating.inputValue(), '9');
     await page.waitForFunction(() =>
       document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === '9');
@@ -555,7 +562,10 @@ async function auditRealMobileTouchSignal() {
     assert(bounds.scrollWidth <= bounds.viewport + 2, 'Touch rating must not cause horizontal overflow');
     assert.equal(await page.locator('[data-frontier-active-tip="true"]').count(), 1,
       'Touch selection preserves the single selected point');
+    assert.equal(await page.locator('[data-frontier-focus-mode="pointer"]').count(), 1,
+      'Actual phone touch input must not draw a keyboard-only frame');
     mkdirSync('artifacts/browser-smoke/frontier-signal-trail', { recursive: true });
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
       path: 'artifacts/browser-smoke/frontier-signal-trail/touch-rated-4-390.png',
       fullPage: true, animations: 'disabled',
