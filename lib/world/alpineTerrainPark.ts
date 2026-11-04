@@ -114,12 +114,32 @@ export function glacierEntrance(p:Point):"west"|"east"|null{
   return null;
 }
 
+/** The exact inner blue-ice vault. The renderer MUST sample this profile,
+ * so overhead physics and the translucent mesh cannot silently drift apart.
+ * The outer shell is decorative; its thickness never reduces player headroom. */
+export function glacierVaultHeight(
+  p:Point,centerFloorY:number,outer=false,
+):number|null{
+  const g=GLACIER_PASSAGE;
+  const half=outer?g.outerHalfWidth:g.innerHalfWidth;
+  const lateral=Math.abs(p.z-g.centerZ)/half;
+  if(lateral>1)return null;
+  return centerFloorY+g.clearanceHeight*
+    Math.sqrt(Math.max(0,1-lateral*lateral))+(outer?.38:0);
+}
 export function glacierCeilingHeight(p:Point,floor:(p:Point)=>number):number|null{
   if(!insideGlacierPassage(p))return null;
-  const g=GLACIER_PASSAGE;
-  const s=Math.abs(p.z-g.centerZ)/g.innerHalfWidth;
-  return floor({x:p.x,z:g.centerZ})+
-    g.clearanceHeight*Math.sqrt(Math.max(0,1-s*s));
+  return glacierVaultHeight(p,floor({x:p.x,z:GLACIER_PASSAGE.centerZ}));
+}
+/** Grade of the analytic halfpipe wall, excluding its natural downhill
+ * component. C1 at the floor and lip; no artificial speed impulses. */
+export function halfpipeBankSlope(p:Point):number{
+  const h=ALPINE_HALFPIPE;
+  const dx=p.x-h.centerX,t=Math.abs(dx);
+  const start=h.floorHalfWidth,end=h.rimHalfWidth;
+  if(t<=start||t>=end)return 0;
+  const u=(t-start)/(end-start);
+  return (dx<0?-1:1)*h.bankHeight*6*u*(1-u)/(end-start);
 }
 
 /** Rail and box clearance also reserves a full-length safe approach/runout.
