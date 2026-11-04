@@ -159,9 +159,10 @@ export function createWorldAlpineTerrainPark(scene:THREE.Scene){
       side:THREE.DoubleSide,metalness:.06}),
     "glacier-passage-exact-ski-floor");
   attach(iceVault(),
-    new THREE.MeshStandardMaterial({vertexColors:true,roughness:.38,
-      metalness:.02,transparent:true,opacity:.90,side:THREE.DoubleSide,
-      depthWrite:true}),
+    // Stable ice scattering approximation. Opaque vertex-colored layers
+    // avoid alpha-sort shimmer between the inner and outer concentric skins.
+    new THREE.MeshStandardMaterial({vertexColors:true,roughness:.37,
+      metalness:.025,side:THREE.DoubleSide,depthWrite:true}),
     "glacier-blue-ice-open-arch");
 
   const batch=new GeometryBatch();
