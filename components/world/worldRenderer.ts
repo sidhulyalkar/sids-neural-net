@@ -4840,6 +4840,15 @@ export function createWorld(
       }else rideRecovery={...rideRecovery,blockedFor:0};
       if(rideFlightContinuity&&airHeight<=.001&&verticalSpeed===0)
         rideFlightContinuity=false;
+      // A cave jump must not pass through solid ice above the rider. This
+      // contact cap only applies when genuinely airborne inside the vault;
+      // grounded skiing still follows the authored snow-floor heightfield.
+      const glacierRoof=glacierCeilingHeight(player,p=>terrainHeight(p.x,p.z));
+      if(glacierRoof!==null&&airHeight>.02&&playerY+1.15>glacierRoof){
+        playerY=Math.max(terrainHeight(player.x,player.z),glacierRoof-1.15);
+        airHeight=Math.max(0,playerY-terrainHeight(player.x,player.z));
+        verticalSpeed=Math.min(0,verticalSpeed);
+      }
       const skiEligible=state.activity==="ski"&&
         bigAir.phase!=="flying"&&elapsed-lastRampAt>1.1&&
         discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
