@@ -1,5 +1,6 @@
 import * as THREE from "three/src/Three.Core.js";
 import {terrainHeight} from "@/lib/world/model";
+import {biomeAt,BIOME_COLORS} from "@/lib/world/biomes";
 import {
   MOUNTAIN_HALFPIPE,mountainHalfpipeInfluence,mountainHalfpipeBank,
 } from "@/lib/world/mountainHalfpipe";
@@ -18,15 +19,36 @@ export function createWorldMountainHalfpipe(scene:THREE.Scene){
   const pale=new THREE.Color("#eaf3f5"),
     lip=new THREE.Color("#d3e7ec"),
     center=new THREE.Color("#f7faf9");
-  const v=(x:number,z:number)=>{
-    const y=terrainHeight(x,z)+.085;
+  // The overlay must not look like a pasted-on white rectangle. Its edges
+  // resolve toward the *same authored biome pigment* as the base terrain.
+  // Cache biome samples so the unindexed triangle mesh never repeats work.
+  const palette=Object.fromEntries(Object.entries(BIOME_COLORS)
+    .map(([key,value])=>[key,new THREE.Color(value)]));
+  const nodeCache=new Map<string,ReturnType<typeof sample>>();
+  function sample(x:number,z:number){
+    const influence=mountainHalfpipeInfluence({x,z});
+    const y=terrainHeight(x,z)+.035+.05*Math.sqrt(influence);
+    const base=new THREE.Color(0,0,0);
+    const biome=biomeAt({x,z});
+    for(const [id,weight] of Object.entries(biome.weights)){
+      const pigment=palette[id];
+      if(pigment&&weight>0)base.add(pigment.clone().multiplyScalar(weight));
+    }
     const normalBank=mountainHalfpipeBank({x,z})/Math.max(.01,h.bankRise);
-    const color=pale.clone().lerp(center,1-normalBank).lerp(lip,normalBank*.48);
-    // Subtle groom comb and wind-loaded snow color, no floating objects.
+    const snow=pale.clone().lerp(center,1-normalBank)
+      .lerp(lip,normalBank*.48);
+    const snowMask=Math.min(1,Math.pow(influence,.68)*.97);
+    const color=base.lerp(snow,snowMask);
     const corduroy=Math.sin(x*7.8+z*.055)*.022;
     const wind=Math.sin(z*.47+x*.2)*.012;
-    const tint=1+corduroy+wind;
+    const tint=1+(corduroy+wind)*snowMask;
     return {p:[x,y,z],c:[color.r*tint,color.g*tint,color.b*tint]};
+  }
+  const v=(x:number,z:number)=>{
+    const key=x.toFixed(7)+":"+z.toFixed(7);
+    let node=nodeCache.get(key);
+    if(!node){node=sample(x,z);nodeCache.set(key,node)}
+    return node;
   };
   const emit=(node:ReturnType<typeof v>)=>{
     vertices.push(...node.p);colors.push(...node.c);
