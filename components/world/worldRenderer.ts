@@ -7397,6 +7397,7 @@ export function createWorld(
         jetSki=null;jetRivals=[];jetHud.style.display="none";
         callbacks.onJetSkiMode(false);
         if(jetChoosing){jetChoosing=false;jetChooser.hidden=true;}
+        const alpineStart=next.command.alpineDestination;
         const loopStart=next.command.skateDestination==="loop-rollin"&&next.command.activity==="skate";
         const reverseStart=next.command.skateDestination==="loop-reverse"&&next.command.activity==="skate";
         const tubeStart=next.command.skateDestination==="hollow-log"&&next.command.activity==="skate";
