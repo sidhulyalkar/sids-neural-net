@@ -98,7 +98,7 @@ const ROUTE_LABELS: Record<string, string> = Object.fromEntries(
   LINKS.map(([label, href]) => [href, label]),
 );
 
-type SportShortcut = "disc" | "race" | "jet" | "jump" | "park";
+type SportShortcut = "disc" | "race" | "jet" | "jump" | "park" | "halfpipe" | "glacier";
 
 export function WorldHome({ content }: { content: WorldContent }) {
   const router=useRouter();
