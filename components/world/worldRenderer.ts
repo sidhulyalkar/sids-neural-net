@@ -12,7 +12,8 @@ import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkat
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {createWorldAlpineTerrainPark} from "./worldAlpineTerrainPark";
 import {createWorldAlpineMicroDetail} from "./worldAlpineMicroDetail";
-import {ALPINE_HALFPIPE,GLACIER_PASSAGE,alpineFeatureZone,glacierCeilingHeight,glacierConstrainSkiMove,insideGlacierPassage} from "@/lib/world/alpineTerrainPark";
+import {ALPINE_HALFPIPE,GLACIER_PASSAGE,alpineFeatureZone,alpineHalfpipeStrength,glacierCeilingHeight,glacierConstrainSkiMove,insideGlacierPassage} from "@/lib/world/alpineTerrainPark";
+import {idleAlpineTrick,beginAlpineTrick,advanceAlpineTrick,alpineGrab,alpineSpin,alpineTrickPose,landAlpineTrick,cancelAlpineTrick,type AlpineTakeoff} from "@/lib/world/alpineTricks";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
 import {createMysticElectricity} from "./worldMysticElectricity";
 import {createWorldMysticGroveGeometry} from "./worldMysticGroveGeometry";
@@ -215,6 +216,11 @@ export function createWorld(
   skateHud.setAttribute("role","status");
   skateHud.style.cssText="display:none;position:absolute;bottom:48px;left:50%;transform:translateX(-50%);z-index:7;pointer-events:none;max-width:94%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:7px 13px;border-radius:10px;background:#12242bd9;color:#eef7f4;border:1px solid #bed9cc70;font:600 12px/1.3 system-ui,sans-serif;text-align:center";
   host.appendChild(skateHud);
+  const alpineHud=document.createElement("div");
+  alpineHud.setAttribute("role","status");
+  alpineHud.setAttribute("aria-label","Alpine ski tricks and landings");
+  alpineHud.style.cssText="display:none;position:absolute;bottom:50px;left:50%;transform:translateX(-50%);z-index:7;pointer-events:none;max-width:91%;padding:7px 12px;border-radius:10px;border:1px solid #b9dceb88;background:#102f3ddf;color:#e9f6fa;text-align:center;font:650 11px/1.4 system-ui,sans-serif";
+  host.appendChild(alpineHud);
   const arcadeTrailHud=document.createElement("div");
   arcadeTrailHud.setAttribute("role","status");
   arcadeTrailHud.setAttribute("aria-label","Arcade Cavern trail guidance");
@@ -3262,6 +3268,7 @@ export function createWorld(
   let lastChallengeSerial=0, lastTrialUpdate=0;
   let lastBigAirSerial=0,lastBigAirUpdate=0,lastSessionExit=0;
   let bigAir:BigAirState=idleBigAir();
+  let alpineTrick=idleAlpineTrick();
   let discGolf:DiscGolfState=idleDiscGolf();
   let jetSki:JetSkiState|null=null;
   let jetRivals:JetSkiState[]=[];
@@ -3842,6 +3849,17 @@ export function createWorld(
       fireRideShot(rect.left+rect.width/2,rect.top+rect.height/2);
       return;
     }
+    if(state.activity==="ski"&&alpineFreestyleSelected&&aquatic==="land"&&!e.repeat&&
+      alpineTrick.phase==="air"&&!jetSki&&discGolf.phase==="off"){
+      if(key==="q"||key==="e"){
+        alpineTrick=alpineGrab(alpineTrick,key==="q"?"left":"right");
+        e.preventDefault();return;
+      }
+      if(key==="j"||key==="l"){
+        alpineTrick=alpineSpin(alpineTrick,key==="j"?-1:1,elapsed);
+        e.preventDefault();return;
+      }
+    }
     if(state.activity==="skate"&&!jetSki&&aquatic==="land"&&!e.repeat){
       if(key==="arrowdown"){
         skateWindupAt=elapsed;e.preventDefault();return;
@@ -3907,7 +3925,10 @@ export function createWorld(
   function keyUp(e: KeyboardEvent) {
     const key=e.key.toLowerCase();
     keys.delete(key);
-    if(key==="q"||key==="e")skateTrick=setSkateGrab(skateTrick,"none");
+    if(key==="q"||key==="e"){
+      skateTrick=setSkateGrab(skateTrick,"none");
+      alpineTrick=alpineGrab(alpineTrick,"none");
+    }
     if(key==="c"||key==="x"){
       const next=finishSkateManual(skateTrick,elapsed);
       commitSkateTrick(next);
@@ -3992,10 +4013,33 @@ export function createWorld(
       discGolf.phase!=="off"||jetSki||jetChoosing||
       trial.phase==="armed"||trial.phase==="running"||
       bigAir.phase==="flying"||
-      climb||(grind&&state.activity!=="skate")||
+      climb||(grind&&state.activity!=="skate"&&
+        !(state.activity==="ski"&&alpineFreestyleSelected&&
+          "chainId" in grind.log&&String(grind.log.chainId).startsWith("alpine-")))||
       (airHeight>0.01&&!(state.activity==="skate"&&verticalSpeed>0.1)))return;
+    if(state.activity==="ski"&&alpineFreestyleSelected&&alpineTrick.phase!=="air"&&
+      bigAir.phase!=="flying"&&travel.speed>=4.2){
+      let pop:AlpineTakeoff|null=null;
+      if(grind&&"chainId" in grind.log&&
+        String(grind.log.chainId).startsWith("alpine-")){
+        pop={id:grind.log.chainId+"-pop",kind:"rail",impulse:4.0};
+      }else if(!grind&&airHeight<.01&&alpineHalfpipeStrength(player)>.42){
+        pop={id:"alpine-halfpipe-pop",kind:"halfpipe",
+          impulse:Math.min(5.7,3.5+travel.speed*.115)};
+      }
+      if(pop){
+        const next=beginAlpineTrick(alpineTrick,pop,elapsed,travel.speed);
+        if(next!==alpineTrick){
+          alpineTrick=next;grind=null;
+          verticalSpeed=pop.impulse;airHeight=.04;
+          playerY=Math.max(playerY,supportHeight(player)+.04);
+          lastRampAt=elapsed;destination=null;
+          return;
+        }
+      }
+    }
     if(state.activity==="ski"&&!nearestGrind(player,1.45)&&
-      mountainJumpEligible(player,supportHeight(player),travel.speed)){
+      !alpineFreestyleSelected&&mountainJumpEligible(player,supportHeight(player),travel.speed)){
       const ahead={x:player.x+travel.heading.x*2.1,
         z:player.z+travel.heading.z*2.1};
       const drop=Math.max(0,supportHeight(player)-supportHeight(ahead));
@@ -4511,6 +4555,13 @@ export function createWorld(
           if(grind.mode==="skate")
             commitSkateTrick(scoreSkateGrind(skateTrick,grind.covered,
               grind.style,elapsed));
+          if(grind.mode==="ski"&&alpineFreestyleSelected&&
+            "chainId" in segment&&String(segment.chainId).startsWith("alpine-")&&
+            grind.covered>=1.0){
+            alpineTrick=beginAlpineTrick(alpineTrick,
+              {id:segment.chainId+"-dismount",kind:"rail",impulse:2.5},
+              elapsed,grindSpeed);
+          }
           grind=null;
           if(gap){
             skateRailGapRide=gap;skateRailGapEntries++;
@@ -4766,6 +4817,13 @@ export function createWorld(
               lastRampId = ramp.id;
               verticalSpeed = ramp.impulse;
               airHeight = 0.03;
+              if(modeForRamp==="ski"&&alpineFreestyleSelected&&
+                ramp.id.startsWith("alpine-")){
+                const kind=ramp.id.startsWith("alpine-halfpipe-")?"halfpipe":
+                  ramp.id==="alpine-flat-box"?"box":"kicker";
+                alpineTrick=beginAlpineTrick(alpineTrick,
+                  {id:ramp.id,kind,impulse:ramp.impulse},elapsed,travel.speed);
+              }
               // A fast, deliberate quarterpipe launch earns a stylish trick
               // without requiring a second, midair keypress from visitors.
               if(modeForRamp==="skate"&&insideSkatePark(player)&&
@@ -4870,7 +4928,8 @@ export function createWorld(
         verticalSpeed=Math.min(0,verticalSpeed);
       }
       const skiEligible=state.activity==="ski"&&
-        bigAir.phase!=="flying"&&elapsed-lastRampAt>1.1&&
+        !(alpineFreestyleSelected&&alpineFeatureZone(player)!==null)&&
+        alpineTrick.phase!=="air"&&bigAir.phase!=="flying"&&elapsed-lastRampAt>1.1&&
         discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
         trial.phase!=="running"&&trial.phase!=="armed"&&
         !climb&&!grind&&aquatic==="land"&&airHeight<.1&&
@@ -4894,6 +4953,21 @@ export function createWorld(
         verticalSpeed=bigAir.verticalSpeed;
         lastRampAt=elapsed;
         callbacks.onBigAir(bigAir);
+      }
+      if(alpineTrick.phase==="air"){
+        if(state.activity!=="ski"||aquatic!=="land"||caveLayer!=="surface"){
+          alpineTrick=cancelAlpineTrick(alpineTrick);
+        }else{
+          alpineTrick=advanceAlpineTrick(alpineTrick,Math.min(rawDelta,.3),airHeight);
+          if(airHeight<=.001&&verticalSpeed<=0&&!grind){
+            const approach={x:player.x+travel.heading.x*.55,
+              z:player.z+travel.heading.z*.55};
+            const grade=Math.abs(terrainHeight(approach.x,approach.z)-
+              terrainHeight(player.x,player.z))/.55;
+            alpineTrick=landAlpineTrick(alpineTrick,elapsed,travel.speed,
+              !isWater(player)&&Number.isFinite(grade)&&grade<1.1);
+          }
+        }
       }
       // Disc golf temporarily borrows the upright run rig instead of
       // inheriting a sideways skateboard pose from equipment selection.
@@ -5053,9 +5127,11 @@ export function createWorld(
           state.discGolfSwingStage==="released" ? -2.05 : -.75 : null;
         arms[0].rotation.x = surfing?-1.23:throwArm!==null?throwArm:
           climb ? -2 : running ? -walking * 0.4 : bikePose ? 0.82 :
-          mode==="skate" ? trickPose.grab==="left" ? .48 : -.6+trickPose.crouch*.45 : -.75;
+          mode==="skate" ? trickPose.grab==="left" ? .48 : -.6+trickPose.crouch*.45 :
+          mode==="ski"&&alpineTrick.phase==="air"&&alpineTrick.grab==="left"?1.06:-.75;
         arms[1].rotation.x = surfing?-1.17:climb ? -1.6 : running ? walking * 0.4 : bikePose ? 0.82 :
-          mode==="skate" ? trickPose.grab==="right" ? .48 : -.6+trickPose.crouch*.45 : -.75;
+          mode==="skate" ? trickPose.grab==="right" ? .48 : -.6+trickPose.crouch*.45 :
+          mode==="ski"&&alpineTrick.phase==="air"&&alpineTrick.grab==="right"?1.06:-.75;
         // Match wheel/stance samples to the exact support layer selected by
         // movement physics. Sampling an overhead beam as the ground here would
         // visually lift the avatar even when the collision solver stayed below.
@@ -5091,9 +5167,11 @@ export function createWorld(
         const loopPitch=skateLoopRide?skateLoopSample(skateLoopRide).pitch:0;
         const tubeRoll=skateTunnelRide?
           skateTunnelSample(skateTunnelRide,groundHeight).roll:0;
+        const alpinePose=alpineTrickPose(alpineTrick,elapsed);
         explorer.rotation.set(skateLoopRide?loopPitch:
           skateTunnelRide?0:surfing?skimPosePitch:pitchAngle,
-          headingYaw+avatarTurn+(mode==="skate"?trickPose.bodyYaw:0),
+          headingYaw+avatarTurn+(mode==="skate"?trickPose.bodyYaw:
+            mode==="ski"?alpinePose.yaw:0),
           skateLoopRide?0:skateTunnelRide?tubeRoll:
             surfing?skimPoseRoll:rollAngle,
           "YXZ");
@@ -5217,6 +5295,32 @@ export function createWorld(
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
       canvas.dataset.alpineZone=alpineFeatureZone(player)??"";
       canvas.dataset.alpineFreestyleSelected=String(alpineFreestyleSelected);
+      canvas.dataset.alpineTrickPhase=alpineTrick.phase;
+      canvas.dataset.alpineTrickFeature=alpineTrick.feature;
+      canvas.dataset.alpineTrickKind=alpineTrick.kind??"";
+      canvas.dataset.alpineTrickAttempts=String(alpineTrick.attempts);
+      canvas.dataset.alpineTrickLandings=String(alpineTrick.landings);
+      canvas.dataset.alpineTrickBails=String(alpineTrick.bails);
+      canvas.dataset.alpineTrickGrab=alpineTrick.grab;
+      canvas.dataset.alpineTrickGrabSeconds=alpineTrick.grabSeconds.toFixed(3);
+      canvas.dataset.alpineTrickSpin=String(alpineTrick.spinDegrees);
+      canvas.dataset.alpineTrickAirtime=alpineTrick.airtime.toFixed(3);
+      canvas.dataset.alpineTrickPeak=alpineTrick.peakClearance.toFixed(3);
+      canvas.dataset.alpineTrickLastResult=alpineTrick.lastLabel;
+      canvas.dataset.alpineTrickLastQuality=alpineTrick.lastQuality;
+      canvas.dataset.alpineTrickScore=String(alpineTrick.score);
+      canvas.dataset.alpineTrickBest=String(alpineTrick.best);
+      alpineHud.style.display=state.entered&&!state.paused&&
+        mode==="ski"&&alpineFreestyleSelected?"block":"none";
+      const alpineStatus=alpineTrick.phase==="air"?
+        "ALPINE AIR · "+alpineTrick.feature+
+        (alpineTrick.spinDegrees?" · "+Math.abs(alpineTrick.spinDegrees)+"°":"")+
+        (alpineTrick.grab!=="none"?" · GRAB":"")+" · LAND CLEAN":
+        (alpineTrick.phase==="landed"||alpineTrick.phase==="bailed")&&
+          elapsed-alpineTrick.lastLandedAt<3.8?
+          alpineTrick.lastLabel+" · "+alpineTrick.score+" PTS · BEST "+alpineTrick.best:
+          "HALFPIPE · SPACE POP · J/L SPIN · HOLD Q/E GRAB · "+alpineTrick.score+" PTS";
+      if(alpineHud.textContent!==alpineStatus)alpineHud.textContent=alpineStatus;
       canvas.dataset.glacierInside=String(insideGlacierPassage(player));
       canvas.dataset.glacierPortal=String(insideGlacierPassage(player,3));
       canvas.dataset.skateGrove="redwood-timber-v1";
@@ -7321,6 +7425,10 @@ export function createWorld(
         lastDogRenderY = shasta.position.y;
       }
       if(changedActivity){
+        if(next.activity!=="ski"){
+          alpineTrick=cancelAlpineTrick(alpineTrick);
+          alpineFreestyleSelected=false;
+        }
         snowStagesSeen=[];snowMaxRoll=0;
         shastaSnow=next.activity==="ski"?
           queueShastaSnowPlay(idleShastaSnowPlay()):
@@ -7411,6 +7519,7 @@ export function createWorld(
         // Region transfer invalidates airborne tricks and manuals. A fast
         // travel cannot impersonate a landing or credit an unfinished line.
         skateTrick={...idleSkateTrick(),best:skateTrick.best};
+        alpineTrick={...idleAlpineTrick(),best:alpineTrick.best};
         skateHasBeenAirborne=false;skateCarveLean=0;skateResultAt=-Infinity;
         skateBowlExits=0;skateLastTakeoff="";
         // Region travel is not a completed loop. Do not impose an exit
@@ -7603,7 +7712,7 @@ export function createWorld(
       discGolfObjects.dispose();
       jetskiCoast.dispose();
       rideVisual.dispose();rideHud.remove();rideReticle.remove();rideAnnounce.remove();
-      skateHud.remove();skateTouch.remove();skateResult.remove();arcadeTrailHud.remove();
+      skateHud.remove();alpineHud.remove();skateTouch.remove();skateResult.remove();arcadeTrailHud.remove();
       jetHud.remove();jetAnnounce.remove();jetTouch.remove();jetNotice.remove();jetChooser.remove();
       jetskiVisual.root.traverse(object=>{
         if(object instanceof THREE.Mesh){object.geometry.dispose();
