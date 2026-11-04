@@ -93,6 +93,8 @@ test("alpine render geometry is watertight in attribute count and physics regist
     }
     const shell=park.meshes.find(x=>x.name==="glacier-blue-ice-open-arch");
     assert.ok(shell);
+    assert.equal((shell.material as THREE.MeshStandardMaterial).transparent,false,
+      "glacier ice should avoid double-shell transparency sorting and flicker");
     const y=terrainHeight((GLACIER_PASSAGE.westX+GLACIER_PASSAGE.eastX)/2,GLACIER_PASSAGE.centerZ);
     const roof=glacierVaultHeight({x:-4,z:GLACIER_PASSAGE.centerZ},y);
     assert.ok(roof!==null);
