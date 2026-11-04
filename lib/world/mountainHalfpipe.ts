@@ -21,10 +21,12 @@ export const MOUNTAIN_HALFPIPE={
 } as const;
 
 export const MOUNTAIN_SUMMIT={
-  centerX:11,
-  centerZ:-70,
-  radiusX:4.2,
-  radiusZ:4.3,
+  // Offset west from the arcade's x≈16 roof, and keep the photo at (1,-66)
+  // outside the altered terrain. No elevation change over either museum.
+  centerX:8,
+  centerZ:-67,
+  radiusX:3.8,
+  radiusZ:4.5,
   rise:3.25,
 } as const;
 
