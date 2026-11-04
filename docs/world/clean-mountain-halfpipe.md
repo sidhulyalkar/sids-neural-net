@@ -11,16 +11,17 @@ is present. This is a narrowly scoped replacement.
 ## Position and sightline
 
 The edited face is the south-facing (+Z downhill) snow apron centered at
-x≈7, z=-60…-35. It corresponds to the skier's mountain-facing foreground
+x≈13.5, z=-57.5…-36. It corresponds to the skier's mountain-facing foreground
 shown in the feedback screenshot. Two subtle groomed walls, a clean snow
 bottom and one transition runout are the only new visual elements.
 
-- **Pipe:** 25 world units long, 3.5-unit flat bottom, 10.5-unit lip-to-lip
-  width, 3.65-unit bank rise. A 3.65-unit longitudinal fade and 2.25-unit
+- **Pipe:** 21.5 world units long, 2.5-unit flat bottom, 7.1-unit lip-to-lip
+  width, 3.1-unit bank rise. A 3.3-unit longitudinal fade and 1.25-unit
   lateral feather keep it attached to the original mountain instead of
   creating rectangular cutouts or vertical seams.
-- **Summit:** a compact +4.25-unit upper snow dome centered (8,-66), within
-  x±6.25, z±8.2. The increased vertical room reaches zero before the
+- **Summit:** a compact +3.25-unit upper snow dome centered (8,-67), within
+  x±3.8, z±4.5. Its footprint lies completely west of the arcade chamber
+  roof (x≈12.2…19.8, z≈-81…-63). The lift reaches zero before the
   meltwater source, mountain-lake photo, west waterfall roof, and arcade
   cave. No ridge is widened into the lake/shore or ocean.
 - **Aesthetics:** pale sculpted snow and restrained compressed-snow coping.
@@ -61,6 +62,56 @@ The distinct **Ski jump** menu button retains the original authorized
 Big Air path: it transports to the original marked in-run and arms the
 marked lip. Only crossing that lip while explicitly armed may start the
 camera/score game. Leaving Big Air resets back to ordinary skiing.
+
+
+## Strict implementation phases
+
+**Phase 0, scope freeze (complete):** branch from the latest reviewed World
+PR #142, without cherry-picking anything from the abandoned PR #152.
+Freeze the baseline versions of `lib/world/hydrology.ts`, the cavern and
+gallery code, and marine habitat systems. Check any proposed change against
+the following allowlist: `mountainHalfpipe.ts`, `worldMountainHalfpipe.ts`,
+small integration points in `model.ts`, `activities.ts`, `bigAir.ts`,
+`worldRenderer.ts` and the matching tests/workflow. Do **not** modify
+hydrology formulas, water meshes, cavern architecture, reef placement or
+base world constants to make this feature fit.
+
+**Phase 1, mathematical terrain approval:** sample original and proposed
+heightfields over a dense world grid. The delta must be exactly zero outside
+two compact envelopes: the halfpipe on x=13.5±4.8, z=-57.5…-36,
+and summit on x=8±3.8, z=-67±4.5. Verify the *entire* arcade roof, waterfall
+ribbon, snowmelt catchment, underwater shelf, woodland trails, photo markers
+and existing authored ride obstacles at unchanged elevations.
+
+**Phase 2, ride/contact qualification:** sample the same public
+`terrainHeight` for the skis and snow mesh, with soft entrance and exit
+blends. Check bank cross-section continuity, gradient and 5/20/30/60 FPS
+step behavior; allow a **manual** low pop inside the pipe only. Free ski
+never starts the Big Air flight machine. Its explicit Ski Jump shortcut
+remains armed independently at the old marked lip.
+
+**Phase 3, visual composition:** review from the exact pictured third-person
+ski view, plus summit, side, downhill and mobile perspectives. One carved
+snow trough, subtle snow lip, no glacier, no rail corridor, no stacked timber
+kickers. Preserve existing forests away from the reserved ski corridor.
+Compare before/after screenshots at identical camera poses to catch unwanted
+landscape changes. Reject a halfpipe that reads as a rectangular snow sticker
+or artificial elevated platform.
+
+**Phase 4, release gates:** same-commit TypeScript, lint, production build,
+world geometry regression, full waterfall/gallery/browser checks, and
+explicit/free ski playback checks. Audit the screenshot artifacts, camera
+headroom and measured draw calls. Fix any issue at source; do not bypass a
+test or weaken protected-geometry invariants. Keep the PR draft until the
+full evidence matrix is green.
+
+### Explicit non-goals
+
+No glacier cave or tunnels; no new rails, boxes, stunt kickers, freestyle
+orbs, score systems, trick HUD, transit shortcuts, random tree scatter,
+global mountain scale multiplier, changes to water hydrology, or new camera
+mode. A larger ski area may only be pursued separately after the single
+halfpipe passes visual and gameplay review.
 
 ## Gates before a merge
 
