@@ -1,5 +1,4 @@
 import * as THREE from "three/src/Three.Core.js";
-import type {Point} from "@/lib/world/model";
 import {terrainHeight} from "@/lib/world/model";
 import {groundHeight} from "@/lib/world/activities";
 import {
