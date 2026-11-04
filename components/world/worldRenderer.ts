@@ -7553,6 +7553,7 @@ export function createWorld(
       mysticElectricity.dispose();
       mysticForest.dispose();
       skateGrove.dispose();
+      alpinePark.dispose();
 
       shoreLife.dispose();
       skimWake.dispose();
