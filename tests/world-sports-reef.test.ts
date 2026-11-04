@@ -19,6 +19,7 @@ import {
 import { GeometryBatch } from "../components/world/worldGeometry";
 import { createReefGarden } from "../components/world/worldReef";
 import { DESERT_JUMPS } from "../lib/world/desertTrack";
+import {suppressedFaceKicker} from "../lib/world/mountainHalfpipe";
 
 const rampPoint = (r: (typeof RIDE_RAMPS)[number], along: number, side = 0) => {
   const l = Math.hypot(r.heading.x, r.heading.z),
@@ -32,6 +33,10 @@ const rampPoint = (r: (typeof RIDE_RAMPS)[number], along: number, side = 0) => {
 
 test("ramps launch at their visible lip, never beside or halfway up the deck", () => {
   for (const ramp of RIDE_RAMPS) {
+    if(suppressedFaceKicker(ramp.id)){
+      assert.equal(rampImpulseAt(ramp.point,ramp.heading,ramp.modes[0],12),null);
+      continue;
+    }
     const launch = (along: number, side = 0) =>
       rampImpulseAt(
         rampPoint(ramp, along, side),
@@ -50,7 +55,7 @@ test("ramps launch at their visible lip, never beside or halfway up the deck", (
 });
 
 test("all jump approaches and runouts reserve dry, scenery-free corridors", () => {
-  for (const ramp of RIDE_RAMPS) {
+  for (const ramp of RIDE_RAMPS.filter(r=>!suppressedFaceKicker(r.id))) {
     for (let d = -5; d <= 13; d += 0.5) {
       const p = rampPoint(ramp, d);
       assert.ok(sportClearance(p), `${ramp.id} at ${d}`);
@@ -66,6 +71,7 @@ test("all jump approaches and runouts reserve dry, scenery-free corridors", () =
     "tree-kicker",
   ]) {
     const ramp = RIDE_RAMPS.find((r) => r.id === id)!;
+    if(suppressedFaceKicker(ramp.id))continue;
     const p = rampPoint(ramp, 8);
     assert.ok(
       terrainHeight(p.x, p.z) < terrainHeight(ramp.point.x, ramp.point.z),
@@ -75,7 +81,7 @@ test("all jump approaches and runouts reserve dry, scenery-free corridors", () =
 });
 
 test("jump approaches and runouts avoid terrain cuts and cliff landings", () => {
-  for (const ramp of RIDE_RAMPS) {
+  for (const ramp of RIDE_RAMPS.filter(r=>!suppressedFaceKicker(r.id))) {
     for (const side of [-1.275, 0, 1.275]) {
       for (let d = -5; d < 13; d += 0.25) {
         const a = rampPoint(ramp, d, side);
