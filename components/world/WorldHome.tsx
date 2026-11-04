@@ -678,6 +678,14 @@ export function WorldHome({ content }: { content: WorldContent }) {
                    disabled={!ready||quiet||!session.canChangeMovement}>
                    <MountainSnow aria-hidden="true"/><span>Ski jump</span>
                  </button>
+                 <button title="Ride the carved alpine halfpipe and terrain park" onClick={() => launchSport("halfpipe")}
+                   disabled={!ready||quiet||!session.canChangeMovement}>
+                   <MountainSnow aria-hidden="true"/><span>Halfpipe</span>
+                 </button>
+                 <button title="Ski through the blue glacier cave" onClick={() => launchSport("glacier")}
+                   disabled={!ready||quiet||!session.canChangeMovement}>
+                   <Snowflake aria-hidden="true"/><span>Glacier cave</span>
+                 </button>
                  <button title="Explore the entire redwood skatepark" onClick={() => launchSport("park")}
                    disabled={!ready||quiet||!session.canChangeMovement}>
                    <Trees aria-hidden="true"/><span>Skatepark</span>
