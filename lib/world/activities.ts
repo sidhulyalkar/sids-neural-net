@@ -5,6 +5,7 @@ import {airborneSupportHeight} from "./rideRecovery";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
 import {jetSkiPierHeight} from "./jetSkiPier";
+import {suppressedFaceKicker,withinMountainHalfpipe} from "./mountainHalfpipe";
 import {
   constrainMove,
   distance,
@@ -290,8 +291,12 @@ export function groundHeight(p: Point) {
   if(pier!==null)return pier;
   let height = worldFloorHeight(p.x, p.z);
   if (isWater(p)) return height;
-  for (const ramp of RIDE_RAMPS)
+  for (const ramp of RIDE_RAMPS){
+    // Older timber kickers occupying the newly carved snow corridor must
+    // not keep invisible airborne support after their art is hidden.
+    if(suppressedFaceKicker(ramp.id))continue;
     height = Math.max(height, rampSurface(ramp, p) ?? -Infinity);
+  }
   height = Math.max(height, skateParkSurface(p) ?? -Infinity);
   const beam = beamSupportHeight(p, terrainHeight(p.x,p.z));
   if (beam !== null) height = Math.max(height, beam);
@@ -528,6 +533,7 @@ export function rampImpulseAt(
   if (speed < 3) return null;
   const headingLength = Math.max(1e-6, Math.hypot(heading.x, heading.z));
   for (const ramp of RIDE_RAMPS) {
+    if(suppressedFaceKicker(ramp.id))continue;
     if (!ramp.modes.includes(mode)) continue;
     const desert = DESERT_JUMPS.find(j => j.id === ramp.id);
     if(desert?.kind === "gap" && speed < desert.minSpeed) continue;
@@ -657,6 +663,7 @@ export function sportClearance(p: Point) {
   };
   return (
     insideSkatePark(p,2) || insideMeadowConnector(p,2) ||
+    withinMountainHalfpipe(p) ||
     desertTrackClearance(p) ||
     technicalFeatureClearance(p) ||
     bigAirClearance(p) ||
@@ -664,6 +671,7 @@ export function sportClearance(p: Point) {
       r.id !== "desert-flow" && r.points.slice(1).some((b, i) => lineDistance(r.points[i], b) < 3),
     ) ||
     RIDE_RAMPS.some((r) => {
+      if(suppressedFaceKicker(r.id))return false;
       const len = Math.hypot(r.heading.x, r.heading.z);
       return (
         lineDistance(
