@@ -7,7 +7,7 @@ import {
 } from "../lib/world/model";
 import {SNOWMELT_PATH,DOWNSTREAM_PATH,drainagePoints,
   downstreamPoints,waterfallCrownRings,waterfallProfile} from "../lib/world/hydrology";
-import {groundHeight,rampImpulseAt,RIDE_RAMPS,stepTravel,type Travel} from "../lib/world/activities";
+import {groundHeight,rampImpulseAt,RIDE_RAMPS,sportClearance,stepTravel,type Travel} from "../lib/world/activities";
 import {BIG_AIR,shouldLaunchAuthoredSkiJump} from "../lib/world/bigAir";
 import {
  MOUNTAIN_HALFPIPE,MOUNTAIN_SUMMIT,MOUNTAIN_PROTECTED_ANCHORS,
@@ -89,6 +89,8 @@ test("summit is taller but no new shoreline or waterfall slopes are introduced",
    assert.equal(terrainHeight(x,z),before,
      "arcade roof must remain unchanged "+JSON.stringify({x,z}));
  }
+ assert.ok(sportClearance({x:s.centerX,z:s.centerZ}),
+   "the taller summit must reserve a clear snow in-run from procedural obstacles");
  assert.ok(terrainHeight(s.centerX,s.centerZ)-
    original(s.centerX,s.centerZ)>=s.rise-.01);
  for(const p of [MOUNTAIN_PROTECTED_ANCHORS.meltwaterSource,
