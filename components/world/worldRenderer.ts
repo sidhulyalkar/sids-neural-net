@@ -221,6 +221,46 @@ export function createWorld(
   alpineHud.setAttribute("aria-label","Alpine ski tricks and landings");
   alpineHud.style.cssText="display:none;position:absolute;bottom:50px;left:50%;transform:translateX(-50%);z-index:7;pointer-events:none;max-width:91%;padding:7px 12px;border-radius:10px;border:1px solid #b9dceb88;background:#102f3ddf;color:#e9f6fa;text-align:center;font:650 11px/1.4 system-ui,sans-serif";
   host.appendChild(alpineHud);
+  // Compact alpine controls exist only on coarse pointers, and only while
+  // the visitor has intentionally selected freestyle skiing.
+  const alpineTouch=document.createElement("div");
+  alpineTouch.setAttribute("role","group");
+  alpineTouch.setAttribute("aria-label","Alpine ski trick controls");
+  alpineTouch.style.cssText="display:none;position:absolute;bottom:112px;right:12px;z-index:9;gap:6px;align-items:center;max-width:calc(100vw - 24px)";
+  host.appendChild(alpineTouch);
+  const alpineTouchButton=(label:string,aria:string)=>{
+    const button=document.createElement("button");
+    button.type="button";button.textContent=label;
+    button.setAttribute("aria-label",aria);
+    button.style.cssText="touch-action:none;min-width:52px;min-height:44px;border:1px solid #bde5eff0;border-radius:12px;background:#153949ec;color:#f2fbfc;padding:7px 10px;font:750 12px system-ui,sans-serif";
+    alpineTouch.appendChild(button);
+    return button;
+  };
+  const alpinePopButton=alpineTouchButton("POP","Pop off the halfpipe");
+  const alpineSpinLeft=alpineTouchButton("↶ 180°","Alpine trick spin left 180 degrees");
+  const alpineSpinRight=alpineTouchButton("↷ 180°","Alpine trick spin right 180 degrees");
+  const alpineGrabButton=alpineTouchButton("GRAB","Hold left ski grab in the air");
+  alpinePopButton.addEventListener("click",()=>performAction());
+  alpineSpinLeft.addEventListener("click",()=>{alpineTrick=alpineSpin(alpineTrick,-1,elapsed)});
+  alpineSpinRight.addEventListener("click",()=>{alpineTrick=alpineSpin(alpineTrick,1,elapsed)});
+  const releaseAlpineTouchGrab=()=>{alpineTrick=alpineGrab(alpineTrick,"none")};
+  alpineGrabButton.addEventListener("pointerdown",e=>{
+    if(alpineTrick.phase!=="air")return;
+    e.preventDefault();
+    alpineTrick=alpineGrab(alpineTrick,"left");
+  });
+  alpineGrabButton.addEventListener("pointerup",releaseAlpineTouchGrab);
+  alpineGrabButton.addEventListener("pointercancel",releaseAlpineTouchGrab);
+  alpineGrabButton.addEventListener("lostpointercapture",releaseAlpineTouchGrab);
+  alpineGrabButton.addEventListener("keydown",e=>{
+    if((e.key===" "||e.key==="Enter")&&!e.repeat){
+      e.preventDefault();alpineTrick=alpineGrab(alpineTrick,"left");
+    }
+  });
+  alpineGrabButton.addEventListener("keyup",e=>{
+    if(e.key===" "||e.key==="Enter"){e.preventDefault();releaseAlpineTouchGrab()}
+  });
+  const alpineCoarsePointer=window.matchMedia("(pointer: coarse)").matches;
   const arcadeTrailHud=document.createElement("div");
   arcadeTrailHud.setAttribute("role","status");
   arcadeTrailHud.setAttribute("aria-label","Arcade Cavern trail guidance");
@@ -5310,8 +5350,17 @@ export function createWorld(
       canvas.dataset.alpineTrickLastQuality=alpineTrick.lastQuality;
       canvas.dataset.alpineTrickScore=String(alpineTrick.score);
       canvas.dataset.alpineTrickBest=String(alpineTrick.best);
-      alpineHud.style.display=state.entered&&!state.paused&&
-        mode==="ski"&&alpineFreestyleSelected?"block":"none";
+      const alpineControlsActive=state.entered&&!state.paused&&
+        mode==="ski"&&alpineFreestyleSelected&&
+        discGolf.phase==="off"&&!jetSki&&bigAir.phase!=="flying";
+      alpineHud.style.display=alpineControlsActive?"block":"none";
+      alpineTouch.style.display=alpineControlsActive&&alpineCoarsePointer?"flex":"none";
+      alpinePopButton.disabled=alpineTrick.phase==="air"||
+        alpineHalfpipeStrength(player)<.42||travel.speed<4.2;
+      const alpineIsAirborne=alpineTrick.phase==="air";
+      alpineSpinLeft.disabled=!alpineIsAirborne;
+      alpineSpinRight.disabled=!alpineIsAirborne;
+      alpineGrabButton.disabled=!alpineIsAirborne;
       const alpineStatus=alpineTrick.phase==="air"?
         "ALPINE AIR · "+alpineTrick.feature+
         (alpineTrick.spinDegrees?" · "+Math.abs(alpineTrick.spinDegrees)+"°":"")+
@@ -7729,7 +7778,7 @@ export function createWorld(
       discGolfObjects.dispose();
       jetskiCoast.dispose();
       rideVisual.dispose();rideHud.remove();rideReticle.remove();rideAnnounce.remove();
-      skateHud.remove();alpineHud.remove();skateTouch.remove();skateResult.remove();arcadeTrailHud.remove();
+      skateHud.remove();alpineHud.remove();alpineTouch.remove();skateTouch.remove();skateResult.remove();arcadeTrailHud.remove();
       jetHud.remove();jetAnnounce.remove();jetTouch.remove();jetNotice.remove();jetChooser.remove();
       jetskiVisual.root.traverse(object=>{
         if(object instanceof THREE.Mesh){object.geometry.dispose();
