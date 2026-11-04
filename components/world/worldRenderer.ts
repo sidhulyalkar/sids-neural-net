@@ -7485,6 +7485,9 @@ export function createWorld(
         // into a sideways collision with an interior stone wall.
         if(galleryStart==="photos"||galleryStart==="papers"){
           // yaw is already authored by the corresponding room entrance.
+        }else if (alpineStart) {
+          yaw=Math.atan2(-travel.heading.x,-travel.heading.z);
+          pitch=.38;zoom=12;
         }else if (next.command.activity === "ski") {
           const kicker = RIDE_RAMPS.find((ramp) => ramp.id === "ski-kicker")!;
           const approachX = kicker.point.x - player.x;
