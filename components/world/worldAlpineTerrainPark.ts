@@ -84,6 +84,36 @@ function iceVault(){
   return mesh;
 }
 
+/** Crisp, contiguous snow jump skins, analytically sampled from the ramp
+ * support; no scattered cube/cylinder snow lumps at the actual takeoffs. */
+function snowKickerDeck(){
+  const vertices:number[]=[];
+  const rings=28,cross=16;
+  const push=(x:number,z:number)=>vertices.push(x,groundHeight({x,z})+.085,z);
+  for(const jump of ALPINE_KICKERS){
+    const h=jump.heading,length=Math.hypot(h.x,h.z)||1,
+      fx=h.x/length,fz=h.z/length,rx=fz,rz=-fx;
+    const sample=(along:number,across:number)=>{
+      const x=jump.point.x+fx*along+rx*across;
+      const z=jump.point.z+fz*along+rz*across;
+      return {x,z};
+    };
+    for(let i=0;i<rings;i++)for(let k=0;k<cross;k++){
+      const u0=i/rings,u1=(i+1)/rings,
+        v0=k/cross,v1=(k+1)/cross;
+      const a=sample(-4.0+u0*4.9,-1.65+v0*3.3),
+        b=sample(-4.0+u1*4.9,-1.65+v0*3.3),
+        c=sample(-4.0+u1*4.9,-1.65+v1*3.3),
+        d=sample(-4.0+u0*4.9,-1.65+v1*3.3);
+      for(const p of [a,b,c,a,c,d])push(p.x,p.z);
+    }
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute("position",new THREE.Float32BufferAttribute(vertices,3));
+  geo.computeVertexNormals();geo.computeBoundingSphere();
+  return geo;
+}
+
 function addBar(batch:GeometryBatch,cylinder:THREE.CylinderGeometry,
   a:THREE.Vector3,b:THREE.Vector3,radius:number,color:string){
   const midpoint=a.clone().add(b).multiplyScalar(.5);
@@ -155,18 +185,15 @@ export function createWorldAlpineTerrainPark(scene:THREE.Scene){
         .12,"#bdcdd0");
     }
   }
-  // The big jumps are snow-sculpted takeoffs, not floating timber carpentry.
-  // Local mesh samples are denser than the island-wide terrain tessellation.
-  for(const jump of ALPINE_KICKERS){
-    const f=jump.heading,l=Math.hypot(f.x,f.z),forward={x:f.x/l,z:f.z/l};
-    const side={x:forward.z,z:-forward.x};
-    for(let s=0;s<24;s++)for(let j=-8;j<8;j++){
-      const along=-4.1+(s+.5)/24*5.0,across=j/8*1.36;
-      const x=jump.point.x+forward.x*along+side.x*across,
-        z=jump.point.z+forward.z*along+side.z*across;
-      const y=groundHeight({x,z})+.055;
-      batch.add(stone,"#e6f0f3",P(x,y-.055,z),
-        new THREE.Vector3(.16,.035,.16));
+  // Halfpipe coping is a quiet snow/ice seam, following the same bank profile
+  // as the physically rideable terrain rather than an ungrounded chrome pipe.
+  for(const sign of [-1,1]){
+    const x=h.centerX+sign*h.rimHalfWidth;
+    for(let j=0;j<42;j++){
+      const z0=h.startZ+(h.endZ-h.startZ)*j/42;
+      const z1=h.startZ+(h.endZ-h.startZ)*(j+1)/42;
+      addBar(batch,cylinder,P(x,terrainHeight(x,z0)+.15,z0),
+        P(x,terrainHeight(x,z1)+.15,z1),.067,"#c2dfe9");
     }
   }
   // Rock stratification outside active corridors. Static, deterministic,
@@ -185,6 +212,9 @@ export function createWorldAlpineTerrainPark(scene:THREE.Scene){
     batch.add(snowcap,i%2===0?"#dde8e9":"#e8f0ef",
       P(x,y+height*.72,z),new THREE.Vector3(.95,height*.40,1.0));
   });
+  attach(snowKickerDeck(),new THREE.MeshStandardMaterial({
+    color:"#f3f8fb",roughness:.92,side:THREE.DoubleSide}),
+    "alpine-large-snow-kicker-rideable-surfaces");
   const geometry=batch.finish();
   attach(geometry,new THREE.MeshStandardMaterial({
     vertexColors:true,roughness:.83,metalness:.02,
