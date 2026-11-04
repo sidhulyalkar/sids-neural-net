@@ -17,7 +17,7 @@ redwood skate loop, and coast. We must preserve them. Distances below are
 | Mountain hub | about (8, -54) | Snow launch and ridge views | Existing skiing, Big Air, boulder |
 | Groomed halfpipe | x -24, z -84..-66 | West alpine shoulder, downhill toward the glacier | Ski/board traverse and carves |
 | Technical rail corridor | x -15..-10, z -79..-64 | Serpent rail, rainbow rail, wide box | Real connected rails and 50-50s |
-| Snow kicker line | (-24,-79.2), (-15,-72.5) | Two large snow lips with downhill runout | Authored jump impulses |
+| Snow kicker line | (-24,-79.2), (-16,-56) | Two large snow lips, independent safe runouts | Authored jump impulses |
 | Glacier cross-passage | x -15..7, z about -81 | Blue, ribbed, open-ended ice vault | Continuous west/east skiing |
 | Old-growth forest margin | South meadow and north Grove margins | Distinct mature sequoias | Slalom and photographic framing |
 
