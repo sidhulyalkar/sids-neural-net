@@ -1,4 +1,5 @@
 import {ALPINE_KICKERS,alpineSportClearance,alpineBoxSupport} from "./alpineTerrainPark";
+import {halfpipeLipCrossing,alpineKickerCrossing,alpineBoxExitCrossing} from "./alpineTricks";
 import { desertTrackClearance, desertTrackGroundRoute, DESERT_JUMPS } from "./desertTrack";
 import {insideMeadowConnector,insideSkatePark,skateParkSurface,skateParkLipCrossing,redwoodBowlCarveHeading,SKATE_PARK_RAILS,SKATE_GROVE_FLOW,type SkateRail} from "./skatepark";
 import {skateRollingSpeed} from "./skateDynamics";
@@ -565,6 +566,16 @@ export function rampImpulseCrossing(
     const parkLip=skateParkLipCrossing(previous,current,heading,speed);
     if(parkLip)return parkLip;
   }
+  if(mode==="ski"){
+    const lip=halfpipeLipCrossing(previous,current,heading,speed);
+    if(lip)return lip;
+    const box=alpineBoxExitCrossing(previous,current,heading,speed);
+    if(box)return box;
+  }
+  if(mode==="ski"||mode==="bike"){
+    const kicker=alpineKickerCrossing(previous,current,heading,speed);
+    if(kicker)return kicker;
+  }
   for(const jump of DESERT_JUMPS) {
     if(jump.kind!=="gap")continue;
     const prev=(previous.x-jump.point.x)*jump.heading.x+
@@ -581,7 +592,9 @@ export function rampImpulseCrossing(
   }
   const nearest=DESERT_JUMPS.some(j=>j.kind==="gap" && Math.hypot(
     current.x-j.point.x,current.z-j.point.z)<2);
-  return nearest?null:rampImpulseAt(current,heading,mode,speed);
+  const hit=nearest?null:rampImpulseAt(current,heading,mode,speed);
+  // Alpine lips are swept-edge features. Proximity alone is not takeoff.
+  return hit?.id.startsWith("alpine-")?null:hit;
 }
 
 /** Integrate height in world space so downhill terrain cannot drag a jump down. */
