@@ -691,6 +691,9 @@ export function sportClearance(p: Point) {
 
 /** Plank surface and support use the same sloped deck, ending at the launch point. */
 export function rampSurface(ramp: (typeof RIDE_RAMPS)[number], p: Point) {
+  // Once a timber kicker has been removed from the ski-face scene, its
+  // exported support query must not resurrect a phantom deck either.
+  if(suppressedFaceKicker(ramp.id))return null;
   // The Joshua step is earthen terrain, not a disconnected timber platform.
   if (ramp.id.startsWith("desert-")) return null;
   const len = Math.hypot(ramp.heading.x, ramp.heading.z),
