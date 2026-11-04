@@ -1,4 +1,5 @@
 import {terrainHeight,isWater,type Point} from "./model";
+import {ALPINE_PARK_RAILS} from "./alpineTerrainPark";
 
 /**
  * Original skate plaza on the unused south meadow.
@@ -284,6 +285,8 @@ export const SKATE_PARK_RAILS:readonly SkateRail[]=[
   radius:chain.radius,lift:chain.heights[index],liftEnd:chain.heights[index+1],
   chainId:chain.id,segment:index,
  }))),
+ // The same deterministic chain solver handles curved alpine rails and boxes.
+ ...ALPINE_PARK_RAILS,
 ];
 /** Deliberate *separate* grind-to-grind transfers. Every departure is an
  * actual terminal rail endpoint; every arrival is a different existing line.
