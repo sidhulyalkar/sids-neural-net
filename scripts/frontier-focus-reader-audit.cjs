@@ -125,74 +125,108 @@ async function audit(width, height) {
     await back.click();
     assert.equal(await page.locator('article h1').first().textContent(), heading);
 
-    const rating = page.getByRole('button', { name: /Hold to rate interest/i });
-    const balloon = page.locator('[data-frontier-balloon]');
-    assert.equal(await balloon.count(), 1, 'Exactly one radial interest control is mounted');
+    const signal = page.locator('[data-frontier-signal]');
+    const rating = page.getByRole('slider', { name: 'Rate how interesting this story is' });
+    assert.equal(await signal.count(), 1, 'Exactly one signal constellation is mounted');
+    assert.equal(await rating.count(), 1, 'One native accessible rating control, no extra precision popup');
+    assert.equal(await page.locator('[data-frontier-balloon]').count(), 0, 'Old hold-to-charge orb is removed');
+    assert.equal(await page.getByText('Choose exact score').count(), 0, 'Exact scoring must not be buried in details');
     assert.equal(await page.locator('footer').count(), 0, 'Reader must not render a bulky bottom navigation footer');
-    assert.equal(await page.getByText('A quiet space for what is new').count(), 0, 'Remove redundant brand tagline');
-    assert.equal(await page.locator('article h1').count(), 1, 'Headline appears once, centered before the media');
+    assert.equal(await page.getByText('A quiet space for what is new').count(), 0);
+    assert.equal(await page.locator('article h1').count(), 1);
     const navigationArea = page.locator('nav[aria-label="Article navigation"]');
-    assert.equal(await navigationArea.count(), 1, 'Use an edge navigation overlay');
+    assert.equal(await navigationArea.count(), 1);
     const image = page.locator('figure img').first();
     if (await image.count()) {
       const sizing = await image.evaluate((el) => ({ fit: getComputedStyle(el).objectFit,
         naturalWidth: el.naturalWidth, naturalHeight: el.naturalHeight }));
-      assert.equal(sizing.fit, 'contain', 'Never crop article photos to fill an arbitrary frame');
+      assert.equal(sizing.fit, 'contain', 'Never crop original source photos');
     }
-    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'idle');
+    assert.equal(await signal.getAttribute('data-frontier-signal'), 'idle');
+    assert.equal(await rating.getAttribute('min'), '1');
+    assert.equal(await rating.getAttribute('max'), '10');
+    assert.equal(await signal.locator('svg circle').count(), 20, 'Ten nodes with ten understated halos');
     assert.equal(await page.locator('[aria-label="Source-grounded summary"]').count(), 1);
-    assert((await page.locator('[aria-label="Source metrics"]').count()) <= 1,
-      'No duplicate metric panel should be mounted');
-    await rating.hover();
-    await page.mouse.down();
-    await page.waitForTimeout(650);
-    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'inflating', 'Holding must animate the radial interest meter');
-    await page.mouse.up();
-    await page.waitForFunction(() => {
-      const text = document.querySelector('button[aria-label^="Hold to rate"]')?.textContent || '';
-      return /[1-9]\/10/.test(text) || /10\/10/.test(text);
-    }, null, { timeout: 5000 }).catch(async (error) => {
-      const diagnostics = await page.evaluate(() => ({
-        rating: document.querySelector('button[aria-label^="Hold to rate"]')?.textContent,
-        status: document.querySelector('[role="status"]')?.textContent,
-        active: document.activeElement?.tagName,
-      }));
-      throw new Error('Hold interaction did not save a score: ' + JSON.stringify(diagnostics) + '; ' + error.message);
+    assert((await page.locator('[aria-label="Source metrics"]').count()) <= 1);
+
+    // Exact pointer mapping follows the constellation's real rendered nodes,
+    // not arbitrary native range thumb offsets. Verify both ends and a drag.
+    await rating.scrollIntoViewIfNeeded();
+    const rect = await rating.boundingBox();
+    assert(rect && rect.width >= 190 && rect.height >= 44, 'Minimum comfortable touch area');
+    const graph = await rating.evaluate((element) => {
+      const area = element.parentElement.getBoundingClientRect();
+      return { left: area.left, width: area.width, y: area.top + area.height / 2 };
     });
-    assert.match((await rating.textContent()) || '', /\/10/, 'Explicit rating must persist in interface');
-    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'rated', 'Radial interest meter returns to saved state on release');
+    const pointX = (score) => graph.left + graph.width * (20 + (score - 1) * 320 / 9) / 360;
+    await page.mouse.click(pointX(1), graph.y);
+    await page.waitForFunction(() =>
+      document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === '1');
+    assert.equal(await rating.inputValue(), '1');
+    await page.mouse.click(pointX(10), graph.y);
+    await page.waitForFunction(() =>
+      document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === '10');
+    assert.equal(await rating.inputValue(), '10');
+    await page.mouse.move(pointX(1), graph.y);
+    await page.mouse.down();
+    await page.mouse.move(pointX(7), graph.y, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForFunction(() =>
+      document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === '7');
+    assert.equal(await rating.inputValue(), '7');
+    assert.equal(await signal.locator('[data-frontier-active-tip="true"]').count(), 1,
+      'Exactly the selected constellation point receives the active highlight');
+    assert.equal(await signal.getAttribute('data-frontier-signal'), 'rated');
+    assert.equal(await signal.getByText('1 · Not for me').count(), 1);
+    assert.equal(await signal.getByText('10 · Fascinating').count(), 1);
+    assert.equal(await signal.locator('[data-frontier-focus-mode]').getAttribute('data-frontier-focus-mode'), 'pointer',
+      'Mouse input must not display the entire keyboard-focus frame');
+    mkdirSync('artifacts/browser-smoke/frontier-signal-trail', { recursive: true });
+    // Full-page capture from a scrolled viewport can falsely composite the
+    // offscreen global skip-link over the headline. Capture from top instead.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({
+      path: 'artifacts/browser-smoke/frontier-signal-trail/rated-7-' + width + '.png',
+      fullPage: true, animations: 'disabled',
+    });
+
+    // Keyboard has direct access to every step on the same input.
+    await rating.focus();
+    await page.keyboard.press('End');
+    await page.keyboard.press('ArrowLeft');
+    assert.equal(await signal.locator('[data-frontier-focus-mode]').getAttribute('data-frontier-focus-mode'), 'keyboard',
+      'Keyboard score adjustment keeps a visible, deliberate focus indicator');
+    assert.equal(await rating.inputValue(), '9');
+    await page.waitForFunction(() =>
+      document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === '9');
+    assert.equal(await signal.locator('svg [data-active="true"]').count(), 9);
+
     if (width <= 390) {
       const geometry = await page.evaluate(() => ({
-        documentWidth: document.documentElement.scrollWidth,
-        viewportWidth: innerWidth,
+        documentWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth,
       }));
       assert(geometry.documentWidth <= geometry.viewportWidth + 2,
         'Mobile focus reader must not require sideways scrolling: ' + JSON.stringify(geometry));
     }
 
-    const exact = page.locator('details').filter({ hasText: 'Choose exact score' });
-    await exact.locator('summary').click();
-    await exact.locator('input[type="range"]').focus();
-    await page.keyboard.press('End');
-    await page.keyboard.press('ArrowLeft');
-    await exact.getByRole('button', { name: 'Save' }).click();
-    assert.match((await rating.textContent()) || '', /9\/10/, 'Slider fallback must save exact score');
-
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('article h1').first().waitFor();
-    await page.waitForFunction(() => document.querySelector('button[aria-label^="Hold to rate"]')?.textContent?.includes('9/10'), undefined, { timeout: 4000 });
+    await page.waitForFunction(() =>
+      document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === '9',
+      undefined, { timeout: 4000 });
     await page.waitForTimeout(1_200);
     const candidateLookups = feedRequests.filter((url) => url.includes('candidates=1'));
     assert.equal(candidateLookups.length, 1,
       'Returning reader should load the wider public snapshot once, after first paint');
-    const beforeRevision = await page.evaluate(() => JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
-    const finalRating = page.locator('details').filter({ hasText: 'Choose exact score' });
-    await finalRating.locator('summary').click();
-    await finalRating.locator('input[type="range"]').focus();
+    const beforeRevision = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
+    const revised = page.getByRole('slider', { name: 'Rate how interesting this story is' });
+    await revised.focus();
     await page.keyboard.press('Home');
     await page.keyboard.press('ArrowRight');
-    await finalRating.getByRole('button', { name: 'Save' }).click();
-    assert.match((await rating.textContent()) || '', /2\/10/, 'Rating revision must replace the previous value');
+    assert.equal(await revised.inputValue(), '2');
+    await page.waitForFunction(() =>
+      document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === '2');
     const afterRevision = await page.evaluate(() => JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
     assert.equal(afterRevision.profile.meaningfulInteractions, beforeRevision.profile.meaningfulInteractions,
       'Revising a rating cannot add another learned interaction');
@@ -494,11 +528,61 @@ async function auditFormatAwareEvidence() {
   }
 }
 
+async function auditRealMobileTouchSignal() {
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 }, hasTouch: true,
+    isMobile: true, deviceScaleFactor: 2, reducedMotion: 'reduce',
+  });
+  const page = await context.newPage();
+  try {
+    await page.route('**/api/frontier/feed?latest=1', (route) => route.fulfill({
+      status: 200, contentType: 'application/json',
+      headers: { 'X-Frontier-Live': 'snapshot-fallback' },
+      body: JSON.stringify({ generatedAt: new Date().toISOString(), items: [], sources: [] }),
+    }));
+    await page.goto(TARGET, { waitUntil: 'domcontentloaded', timeout: FIRST_PAINT_BUDGET_MS });
+    const slider = page.getByRole('slider', { name: 'Rate how interesting this story is' });
+    await slider.scrollIntoViewIfNeeded();
+    const graph = await slider.evaluate((element) => {
+      const area = element.parentElement.getBoundingClientRect();
+      return { left: area.left, width: area.width, y: area.top + area.height / 2 };
+    });
+    for (const score of [1, 10, 4]) {
+      const x = graph.left + graph.width * (20 + (score - 1) * 320 / 9) / 360;
+      await page.touchscreen.tap(x, graph.y);
+      await page.waitForFunction((expected) =>
+        document.querySelector('[data-frontier-signal]')?.getAttribute('data-frontier-rating') === String(expected),
+        score, { timeout: 3500 });
+      assert.equal(await slider.inputValue(), String(score), 'Touch selection must match its displayed constellation point');
+    }
+    const bounds = await page.evaluate(() => ({
+      viewport: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+    }));
+    assert(bounds.scrollWidth <= bounds.viewport + 2, 'Touch rating must not cause horizontal overflow');
+    assert.equal(await page.locator('[data-frontier-active-tip="true"]').count(), 1,
+      'Touch selection preserves the single selected point');
+    assert.equal(await page.locator('[data-frontier-focus-mode="pointer"]').count(), 1,
+      'Actual phone touch input must not draw a keyboard-only frame');
+    mkdirSync('artifacts/browser-smoke/frontier-signal-trail', { recursive: true });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({
+      path: 'artifacts/browser-smoke/frontier-signal-trail/touch-rated-4-390.png',
+      fullPage: true, animations: 'disabled',
+    });
+    return { realTouch: true, deviceWidth: 390, selected: [1, 10, 4], noOverflow: true };
+  } finally {
+    await context.close();
+    await browser.close();
+  }
+}
+
 async function main() {
   const results = [];
   results.push(await audit(1440, 900));
   results.push(await audit(390, 844));
   results.push(await audit(320, 700));
+  results.push(await auditRealMobileTouchSignal());
   results.push(await auditBackgroundLatest());
   results.push(await auditSourceOnlyPresentation());
   results.push(await auditFormatAwareEvidence());

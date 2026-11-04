@@ -3,9 +3,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
+import type { FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, ListFilter, RefreshCw, Search, X } from 'lucide-react';
-import { holdToInterestScore } from '@/lib/frontier/interestRating';
+import { FrontierSignalTrail } from './FrontierSignalTrail';
 import { buildFrontierStoryPresentation } from '@/lib/frontier/storyPresentation';
 import { buildFrontierEditionContents, frontierReaderFormat } from '@/lib/frontier/editionContents';
 import { frontierHasNewStories, frontierShouldCheckLatest } from '@/lib/frontier/liveFeedPolicy';
@@ -52,8 +52,6 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const [figureIndex, setFigureIndex] = useState(0);
   const [contentsOpen, setContentsOpen] = useState(false);
   const [loadedImageKey, setLoadedImageKey] = useState<string | null>(null);
-  const [holdValue, setHoldValue] = useState<number | null>(null);
-  const [sliderDraft, setSliderDraft] = useState<{ id: string; value: number } | null>(null);
   const [notice, setNotice] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
   const contentsButtonRef = useRef<HTMLButtonElement>(null);
@@ -64,8 +62,6 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const readerInteractedRef = useRef(false);
   const initialPersonalizationAppliedRef = useRef(false);
   const editionVersionRef = useRef(0);
-  const holdStartedRef = useRef<number | null>(null);
-  const holdFrameRef = useRef<number | null>(null);
 
   const history = useFrontierStore((state) => state.history);
   const saved = useFrontierStore((state) => state.saved);
@@ -79,7 +75,6 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const editionContents = useMemo(() => buildFrontierEditionContents(items), [items]);
   const item = items[position];
   const rating = item ? history[item.id]?.interestScore : undefined;
-  const sliderScore = sliderDraft?.id === item?.id ? sliderDraft.value : (rating ?? 5);
   const isSaved = Boolean(item && saved[item.id]);
   const figures = useMemo(() => item ? frontierSourceFigures(item) : [], [item]);
   const activeFigure = figures[Math.min(figureIndex, Math.max(0, figures.length - 1))];
@@ -92,9 +87,6 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const canShowImage = Boolean(image);
   const imageKey = item && image ? `${item.id}:${figureIndex}:${image}` : '';
   const imageReady = Boolean(imageKey && loadedImageKey === imageKey);
-  const currentVisualGrade = holdValue ?? rating;
-  const orbScale = (0.96 + 0.08 * ((currentVisualGrade ?? 0) / 10)).toFixed(3);
-  const orbProgress = Math.round(((currentVisualGrade ?? 0) / 10) * 100) + '%';
 
   useEffect(() => {
     if (!hydrated || initialPersonalizationAppliedRef.current) return;
@@ -141,70 +133,17 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [hydrated, initialItems]);
 
-  const cancelHold = useCallback(() => {
-    holdStartedRef.current = null;
-    if (holdFrameRef.current !== null) cancelAnimationFrame(holdFrameRef.current);
-    holdFrameRef.current = null;
-    setHoldValue(null);
-  }, []);
-
-  const commitRating = useCallback((score: number, method: 'hold' | 'slider', duration = 0) => {
+  const commitRating = useCallback((score: number) => {
     if (!item) return;
     readerInteractedRef.current = true;
-    rateInterest(item, score, method, duration);
-    setSliderDraft({ id: item.id, value: score });
+    // Keep the same persisted numeric and coarse reactions. Only the input
+    // modality changes; viewing, ranking and history are unaffected.
+    rateInterest(item, score, 'slider');
     setNotice('Saved ' + score + '/10');
   }, [item, rateInterest]);
 
-  const beginHold = useCallback(() => {
-    if (holdStartedRef.current !== null || !item) return;
-    readerInteractedRef.current = true;
-    holdStartedRef.current = performance.now();
-    setHoldValue(1);
-    const tick = () => {
-      if (holdStartedRef.current === null) return;
-      const next = holdToInterestScore(performance.now() - holdStartedRef.current);
-      if (next !== null) setHoldValue((old) => old === next ? old : next);
-      holdFrameRef.current = requestAnimationFrame(tick);
-    };
-    holdFrameRef.current = requestAnimationFrame(tick);
-  }, [item]);
-
-  const finishHold = useCallback(() => {
-    const started = holdStartedRef.current;
-    if (started === null) return;
-    const duration = performance.now() - started;
-    const next = holdToInterestScore(duration);
-    cancelHold();
-    if (next === null) {
-      setNotice('Hold a little longer to rate');
-    } else {
-      commitRating(next, 'hold', duration);
-    }
-  }, [cancelHold, commitRating]);
-
-  const onHoldPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (event.button !== 0) return;
-    beginHold();
-    // Pointer capture is best-effort: some synthetic/embedded pointer contexts
-    // reject it, but a normal press must still start the intentional rating.
-    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* release is still handled on pointerup */ }
-  };
-  const onHoldKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== ' ' && event.key !== 'Enter') return;
-    if (event.repeat) return;
-    event.preventDefault();
-    beginHold();
-  };
-  const onHoldKeyUp = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== ' ' && event.key !== 'Enter') return;
-    event.preventDefault();
-    finishHold();
-  };
-
   const navigateTo = useCallback((target: number) => {
     readerInteractedRef.current = true;
-    cancelHold();
     setNotice('');
     setFailedImages([]);
     setLoadedImageKey(null);
@@ -213,7 +152,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     setPosition(Math.max(0, Math.min(items.length - 1, target)));
     setContentsOpen(false);
     contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
-  }, [cancelHold, items.length]);
+  }, [items.length]);
 
   const move = useCallback((delta: number) => {
     navigateTo(position + delta);
@@ -303,12 +242,10 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   useEffect(() => () => {
     requestRef.current?.abort();
     backgroundRef.current?.abort();
-    if (holdFrameRef.current !== null) cancelAnimationFrame(holdFrameRef.current);
   }, []);
 
   const applyLatest = useCallback((edition: { items: FrontierItem[]; generatedAt: string }) => {
     editionVersionRef.current += 1;
-    cancelHold();
     setItems(edition.items.slice(0, EDITION_LIMIT));
     setPosition(0);
     setEditionAt(edition.generatedAt);
@@ -321,7 +258,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     setLatestReady(null);
     setNotice('');
     contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
-  }, [cancelHold]);
+  }, []);
 
   // First paint remains the server snapshot. Once idle, request the shared
   // recent-source cache in the background. Never poll, and never swap an active
@@ -399,7 +336,6 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     backgroundRef.current?.abort();
     setLatestReady(null);
     setContentsOpen(false);
-    cancelHold();
     const controller = new AbortController();
     requestRef.current = controller;
     setLoading(true);
@@ -444,7 +380,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
         setLoading(false);
       }
     }
-  }, [cancelHold]);
+  }, []);
 
   const onSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -722,41 +658,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                   <span className={styles.sourceDate}>{sourceDate(item.publishedAt)}</span>
                 </div>
                 <div className={styles.interactionArea}>
-                  <div className={styles.ratingZone}>
-                    <button
-                      type="button"
-                      className={styles.holdButton}
-                      data-frontier-balloon={holdValue !== null ? 'inflating' : (rating ? 'rated' : 'idle')}
-                      style={{ ['--orb-scale' as string]: orbScale, ['--orb-progress' as string]: orbProgress }}
-                      disabled={!item}
-                      aria-label="Hold to rate interest from one to ten; release to save"
-                      onPointerDown={onHoldPointerDown}
-                      onPointerUp={finishHold}
-                      onPointerCancel={cancelHold}
-                      onLostPointerCapture={cancelHold}
-                      onKeyDown={onHoldKeyDown}
-                      onKeyUp={onHoldKeyUp}
-                      onContextMenu={(event) => event.preventDefault()}
-                    >
-                      <span className={styles.orbRing} aria-hidden="true"><span className={styles.orbCore}>
-                        <span className={styles.orbValue}>{currentVisualGrade === null || currentVisualGrade === undefined ? '✧' : currentVisualGrade}</span>
-                        <span className={styles.orbDenominator}>{currentVisualGrade === null || currentVisualGrade === undefined ? '' : '/10'}</span>
-                      </span></span>
-                      <span className={styles.orbCopy}>{holdValue !== null ? 'Release to save'
-                        : rating ? rating + '/10 · Hold to revise' : 'Hold to rate'}</span>
-                    </button>
-                    <details className={styles.precision} onToggle={() => { readerInteractedRef.current = true; }}>
-                      <summary>Choose exact score</summary>
-                      <div className={styles.precisionContent}>
-                        <label htmlFor="frontier-interest-slider">Interest: {sliderScore}/10</label>
-                        <input id="frontier-interest-slider" type="range" min={1} max={10} step={1}
-                          value={sliderScore}
-                          onChange={(event) => { if (item) setSliderDraft({ id: item.id, value: Number(event.target.value) }); }} />
-                        <button type="button" onClick={() => commitRating(sliderScore, 'slider')}>Save</button>
-                      </div>
-                    </details>
-                    <span className={styles.notice} role="status" aria-live="polite">{notice}</span>
-                  </div>
+                  <FrontierSignalTrail key={item.id} itemId={item.id}
+                    rating={rating} onRate={commitRating} notice={notice} />
                 </div>
               </div>
             </div>
