@@ -1043,7 +1043,7 @@ export function createWorld(
   const rampPlanks: Instance[] = [], rampStringers: Instance[] = [];
   for (const ramp of RIDE_RAMPS) {
     // Joshua basin uses a molded earthen lip; no timber planks above the tread.
-    if (ramp.id.startsWith("desert-")) continue;
+    if (ramp.id.startsWith("desert-")||ramp.id.startsWith("alpine-")) continue;
     const headingLength = Math.hypot(ramp.heading.x, ramp.heading.z);
     const forward = {
       x: ramp.heading.x / headingLength,
