@@ -30,6 +30,11 @@ try{
    null,{timeout:90000});
   await canvas.focus();
   assert.ok(Number(await canvas.getAttribute("data-alpine-feature-count"))>=15);
+  assert.equal(await canvas.getAttribute("data-alpine-detail-batch"),"true");
+  assert.ok(Number(await canvas.getAttribute("data-alpine-ice-strata"))>150,
+    "ice vault must contain actual layered compression bands");
+  assert.ok(Number(await canvas.getAttribute("data-alpine-snow-grooming"))>250,
+    "halfpipe snow must have terrain-following groom lines");
  };
  const ride=async ({axis,direction,exit,zone,maximumMs=135000})=>{
   const start=Date.now(),trace=[],expected={glacier:"glacier",pipe:"halfpipe"}[zone];
