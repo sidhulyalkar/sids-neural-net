@@ -5,7 +5,7 @@ import {airborneSupportHeight} from "./rideRecovery";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
 import {jetSkiPierHeight} from "./jetSkiPier";
-import {suppressedFaceKicker,mountainHalfpipeApproachClearance} from "./mountainHalfpipe";
+import {suppressedFaceKicker,mountainHalfpipeApproachClearance,mountainSummitBoost} from "./mountainHalfpipe";
 import {
   constrainMove,
   distance,
@@ -663,7 +663,7 @@ export function sportClearance(p: Point) {
   };
   return (
     insideSkatePark(p,2) || insideMeadowConnector(p,2) ||
-    mountainHalfpipeApproachClearance(p) ||
+    mountainHalfpipeApproachClearance(p) || mountainSummitBoost(p)>.025 ||
     desertTrackClearance(p) ||
     technicalFeatureClearance(p) ||
     bigAirClearance(p) ||
