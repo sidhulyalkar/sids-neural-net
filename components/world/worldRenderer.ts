@@ -12,7 +12,7 @@ import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkat
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {createWorldAlpineTerrainPark} from "./worldAlpineTerrainPark";
 import {createWorldAlpineMicroDetail} from "./worldAlpineMicroDetail";
-import {ALPINE_HALFPIPE,GLACIER_PASSAGE,alpineFeatureZone,glacierCeilingHeight,insideGlacierPassage} from "@/lib/world/alpineTerrainPark";
+import {ALPINE_HALFPIPE,GLACIER_PASSAGE,alpineFeatureZone,glacierCeilingHeight,glacierConstrainSkiMove,insideGlacierPassage} from "@/lib/world/alpineTerrainPark";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
 import {createMysticElectricity} from "./worldMysticElectricity";
 import {createWorldMysticGroveGeometry} from "./worldMysticGroveGeometry";
@@ -4651,6 +4651,13 @@ export function createWorld(
           activeRideBoost(rideBoost,elapsed) && isBoostActivity(state.activity),
           playerY,
         );
+        if(state.activity==="ski"&&caveLayer==="surface"&&aquatic==="land"){
+          const contact=glacierConstrainSkiMove(previousPoint,travel.point);
+          const touched=Math.abs(contact.z-travel.point.z)>.00001;
+          canvas.dataset.glacierWallContact=String(touched);
+          if(touched)travel={...travel,point:contact,
+            speed:distance(previousPoint,contact)<.03?0:travel.speed};
+        }else canvas.dataset.glacierWallContact="false";
         if(state.activity==="skate"){
           const turn=previousHeading.x*travel.heading.z-previousHeading.z*travel.heading.x;
           const desiredLean=skateLean(travel.speed,turn*5.5);
