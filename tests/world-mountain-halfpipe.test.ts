@@ -154,9 +154,9 @@ test("old floating ski kickers on the face are gone physically but external acti
 });
 
 test("skiing physically traverses a downhill halfpipe and the existing ski launch stays manually authorized",()=>{
- const start={point:{x:h.centerX,z:h.startZ+1.2},
-   heading:{x:0,z:1},speed:0} satisfies Travel;
- let step=start,inside=0,progress=0;
+ const start:Travel={point:{x:h.centerX,z:h.startZ+1.2},
+   heading:{x:0,z:1},speed:0};
+ let step:Travel=start,inside=0,progress=0;
  for(let i=0;i<200;i++){
    step=stepTravel(step,{x:0,z:1},.05,"ski",[]);
    if(withinMountainHalfpipe(step.point))inside++;
