@@ -163,6 +163,51 @@ try{
    return await landed(page,launch.feature,60000);
   }finally{await page.keyboard.up("w")}
  });
+ // Real mobile touch buttons must invoke the same physics as keyboard
+ // actions, without adding a permanent large control overlay.
+ let mobile;
+ try{
+  mobile=await browser.newPage({viewport:{width:390,height:844},
+    isMobile:true,hasTouch:true});
+  mobile.on("pageerror",e=>browserErrors.push("mobile: "+e.message));
+  await mobile.goto(base+"/?ski-start=halfpipe",{waitUntil:"domcontentloaded"});
+  await mobile.getByRole("button",{name:"Explore world",exact:true}).click();
+  await wait(mobile,()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   return d?.activity==="ski"&&d.alpineFreestyleSelected==="true"&&
+     Number(d.drawCalls)>0;
+  },90000);
+  const controls=mobile.getByRole("group",{name:"Alpine ski trick controls"});
+  await controls.waitFor({state:"visible",timeout:20000});
+  assert.ok((await controls.boundingBox())?.x>=0);
+  assert.equal(await controls.getByRole("button",{name:"Pop off the halfpipe"}).isDisabled(),true);
+  await mobile.keyboard.down("w");
+  try{
+   await wait(mobile,()=>{
+    const d=document.querySelector("canvas")?.dataset,p=d?.player?.split(",").map(Number);
+    return d?.alpineZone==="halfpipe"&&
+      p?.length===2&&p[1]<-68&&p[1]>-76&&Number(d.speed)>=4.3;
+   },60000);
+   const pop=controls.getByRole("button",{name:"Pop off the halfpipe"});
+   assert.equal(await pop.isDisabled(),false);
+   await pop.tap();
+   await wait(mobile,()=>document.querySelector("canvas")?.dataset.alpineTrickPhase==="air",16000);
+   const spin=controls.getByRole("button",{name:"Alpine trick spin left 180 degrees"});
+   await wait(mobile,()=>Number(document.querySelector("canvas")?.dataset.alpineTrickAirtime)>=.09,14000);
+   await spin.tap();
+   await wait(mobile,()=>document.querySelector("canvas")?.dataset.alpineTrickSpin==="-180",11000);
+   await landed(mobile,"alpine-halfpipe-pop");
+   const state=await snapshot(mobile);
+   results.push({name:"mobile-halfpipe-touch",status:"pass",state});
+   await screenshot(mobile,"mobile-halfpipe-touch");
+   console.log("ALPINE MOBILE TOUCH PASS",JSON.stringify(state));
+  }finally{await mobile.keyboard.up("w")}
+ }catch(error){
+  const state=mobile?await snapshot(mobile).catch(()=>({})):{};
+  failures.push({name:"mobile-halfpipe-touch",message:String(error),state});
+  console.error("ALPINE MOBILE TOUCH FAILURE",String(error),JSON.stringify(state));
+  if(mobile)await screenshot(mobile,"FAILED-mobile-halfpipe-touch");
+ }finally{await mobile?.close()}
  if(browserErrors.length)failures.push({name:"renderer-exceptions",errors:browserErrors});
  const summary={results,failures,browserErrors};
  fs.writeFileSync(path.join(out,"alpine-tricks-report.json"),
