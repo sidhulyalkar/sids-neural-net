@@ -28,6 +28,17 @@ export const MOUNTAIN_SUMMIT={
   rise:3.25,
 } as const;
 
+/** The legacy wooden takeoffs in the photographed face conflict with
+ * the single sculpted snow run. Their ids remain in the old route manifest
+ * for compatibility, but art, contact and automatic impulses are removed.
+ * Features outside this local face retain their established behavior. */
+export const SUPPRESSED_FACE_KICKERS=[
+  "ski-kicker","bowl-small","bowl-medium",
+] as const;
+export function suppressedFaceKicker(id:string):boolean{
+  return (SUPPRESSED_FACE_KICKERS as readonly string[]).includes(id);
+}
+
 const clamp01=(x:number)=>Math.min(1,Math.max(0,x));
 export const smoothFace=(x:number)=>{
  const t=clamp01(x);
