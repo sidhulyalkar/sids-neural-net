@@ -157,7 +157,9 @@ export function landAlpineTrick(
  state:AlpineTrickState,now:number,speed:number,safe:boolean,
 ):AlpineTrickState{
  if(state.phase!=="air"||!Number.isFinite(now)||!Number.isFinite(speed))return state;
- const airtime=Math.max(state.airtime,now-state.startedAt);
+ // Observed physics updates own airtime; skipped wall-clock frames cannot
+ // be used to fabricate a long airborne trick on a slow renderer.
+ const airtime=state.airtime;
  const rotations=Math.abs(state.spinDegrees)/180;
  // Score only when the rendered athlete ACTUALLY reaches the intended
  // rotation by touchdown, not when a button is pressed in the last frame.
