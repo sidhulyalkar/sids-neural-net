@@ -118,6 +118,8 @@ test("land a real halfpipe air with timed grab and completed 180°",()=>{
  assert.equal(state.combo,1);
  assert.ok(state.score>200);
  assert.equal(state.best,state.score);
+ assert.equal(state.stance,"switch","a completed half-turn must remain switch on landing");
+ assert.ok(Math.abs(alpineTrickPose(state,10.66).yaw-Math.PI)<1e-9);
  assert.match(state.lastLabel,/Halfpipe air \+ 180° \+ grab/);
  assert.strictEqual(alpineGrab(state,"right"),state);
  assert.strictEqual(alpineSpin(state,1,11),state);
@@ -165,6 +167,22 @@ test("feature combos reward real landings but expire, bails break lines",()=>{
  assert.equal(s.combo,0);assert.equal(s.score,0);assert.equal(s.best,best);
  land(11,11.6);assert.equal(s.combo,1);
  assert.equal(s.landings,3);
+});
+test("180-degree switch landing persists across runs and another 180 recovers regular stance",()=>{
+ let s=idleAlpineTrick();
+ const trig={id:"alpine-tabletop",kind:"kicker" as const,impulse:7};
+ s=beginAlpineTrick(s,trig,1,9);
+ s=alpineSpin(s,1,1.2);
+ s=advanceAlpineTrick(s,.55,1.2);
+ s=landAlpineTrick(s,1.55,8,true);
+ assert.equal(s.stance,"switch");
+ assert.ok(Math.abs(alpineTrickPose(s,2).yaw-Math.PI)<1e-9);
+ s=beginAlpineTrick(s,trig,3,9);
+ s=alpineSpin(s,-1,3.2);
+ s=advanceAlpineTrick(s,.55,1.2);
+ assert.ok(alpineTrickPose(s,3.5).yaw<Math.PI);
+ s=landAlpineTrick(s,3.55,7.5,true);
+ assert.equal(s.stance,"regular");
 });
 test("real jump physics supports a finite air arc and touchdown",()=>{
  const ground=12,launch=4.7;let y=ground+.03,v=launch,up=false,landed=false;
