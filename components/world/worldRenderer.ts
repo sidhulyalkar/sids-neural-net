@@ -10,6 +10,8 @@ import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample,type SkateRailG
 import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
+import {createWorldMountainHalfpipe} from "./worldMountainHalfpipe";
+import {MOUNTAIN_HALFPIPE,suppressedFaceKicker,withinMountainHalfpipe} from "@/lib/world/mountainHalfpipe";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
 import {createMysticElectricity} from "./worldMysticElectricity";
 import {createWorldMysticGroveGeometry} from "./worldMysticGroveGeometry";
@@ -1040,7 +1042,7 @@ export function createWorld(
   const rampPlanks: Instance[] = [], rampStringers: Instance[] = [];
   for (const ramp of RIDE_RAMPS) {
     // Joshua basin uses a molded earthen lip; no timber planks above the tread.
-    if (ramp.id.startsWith("desert-")) continue;
+    if (ramp.id.startsWith("desert-")||suppressedFaceKicker(ramp.id)) continue;
     const headingLength = Math.hypot(ramp.heading.x, ramp.heading.z);
     const forward = {
       x: ramp.heading.x / headingLength,
@@ -1086,6 +1088,10 @@ export function createWorld(
   // Natural redwood skate grove: single authoritative riding heightfield.
   // Static procedural wood art is isolated and fully disposable.
   const skateGrove=createWorldSkateGrove(scene,groundHeight);
+  const mountainHalfpipe=createWorldMountainHalfpipe(scene);
+  canvas.dataset.mountainHalfpipe="single-snow-face-v1";
+  canvas.dataset.glacierCave="absent";
+  canvas.dataset.mountainHalfpipeTriangles=String(mountainHalfpipe.triangles);
   // Small grasses share one geometry and one draw call.
   const grasses: Instance[] = [];
   for (let i = 0; i < 750; i++) {
@@ -4729,7 +4735,10 @@ export function createWorld(
             const ramp = rampImpulseCrossing(
               previousPoint, player, travel.heading, modeForRamp, travel.speed,
             );
-            if (ramp && ramp.id !== lastRampId) {
+            // Ski-specific launch physics are never implicit. The dedicated
+            // Ski Jump menu arms its own marked takeoff. Bike/skate ramps
+            // outside the clean face keep their established behavior.
+            if (ramp && modeForRamp!=="ski" && ramp.id !== lastRampId) {
               if(modeForRamp==="skate"){
                 skateLastTakeoff=ramp.id;
                 if(ramp.id==="redwood-bowl-exit"){
@@ -4835,7 +4844,7 @@ export function createWorld(
       }else rideRecovery={...rideRecovery,blockedFor:0};
       if(rideFlightContinuity&&airHeight<=.001&&verticalSpeed===0)
         rideFlightContinuity=false;
-      const skiEligible=state.activity==="ski"&&
+      const skiEligible=state.activity==="ski"&&bigAir.phase==="armed"&&
         bigAir.phase!=="flying"&&elapsed-lastRampAt>1.1&&
         discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
         trial.phase!=="running"&&trial.phase!=="armed"&&
@@ -4846,13 +4855,14 @@ export function createWorld(
         z:player.z+travel.heading.z*2.1};
       const frontGround=supportHeight(ahead);
       const downhillDrop=previousGround-frontGround;
-      const naturalLip=skiEligible&&mountainSkiTakeoff(player,
-        supportHeight(player),travel.speed,previousGround,frontGround,
-        verticalSpeed);
+      // Free skiing only follows real collision/gravity. A scenic drop
+      // never silently enrolls the visitor in Big Air or opens its HUD.
+      // The special jump can launch solely after the menu arms its marked lip.
+      const naturalLip=false;
       const markedLip=bigAir.phase==="armed"&&
         bigAirCrossedLip(previousPoint,player,travel.heading,state.activity,
           travel.speed,true);
-      if(skiEligible&&(naturalLip||markedLip)){
+      if(skiEligible&&markedLip){
         bigAir=launchBigAir(player,supportHeight(player),travel.speed,
           travel.heading,!markedLip,Math.max(0,downhillDrop));
         playerY=bigAir.y;
@@ -5181,6 +5191,8 @@ export function createWorld(
         " PTS · BEST "+skateTrick.best;
       // Avoid 60 identical live-region mutations per second for screen readers.
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
+      canvas.dataset.mountainHalfpipeInside=String(withinMountainHalfpipe(player));
+      canvas.dataset.mountainFaceEditedZone=String(withinMountainHalfpipe(player));
       canvas.dataset.skateGrove="redwood-timber-v1";
       canvas.dataset.skateGroveArt="old-growth-stump-v2";
       canvas.dataset.skateGapPhase=skateRailGapRide?"airborne":"free";
@@ -7544,6 +7556,7 @@ export function createWorld(
       arcadeGraffiti.dispose();
       mysticElectricity.dispose();
       mysticForest.dispose();
+      mountainHalfpipe.dispose();
       skateGrove.dispose();
 
       shoreLife.dispose();
