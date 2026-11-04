@@ -429,6 +429,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
     } else if (sport === "jump") {
       setActivity("ski");
       setBigAirSerial(n => n + 1);
+    } else if (sport === "halfpipe" || sport === "glacier") {
+      setActivity("ski");
+      setCommand(previous=>({
+        region:"mountain",serial:(previous?.serial??0)+1,
+        activity:"ski",alpineDestination:sport==="halfpipe"?"halfpipe":"glacier-west",
+      }));
     } else if (sport === "jet") {
       // Boarding remains controlled by the pier's existing craft chooser.
       setActivity("run");
