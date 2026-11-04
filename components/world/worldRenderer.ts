@@ -7412,7 +7412,9 @@ export function createWorld(
         travel = { point: player, speed: 0, heading:
           reverseStart?reversePose.heading:tubeStart?{x:-1,z:0}:loopStart?{x:-1,z:0}:flowStart?{x:1,z:0}:
           next.command.activity==="skate"&&insideSkatePark(player)?
-          skateGroveStartHeading():{x:0,z:r.id==="north-shore"||r.id==="canyon"?1:-1} };
+          skateGroveStartHeading():
+          next.command.activity==="ski"?{x:0,z:1}:
+          {x:0,z:r.id==="north-shore"||r.id==="canyon"?1:-1} };
         airHeight = verticalSpeed = swimDepth = targetDepth = 0;
         galleryPhase="outside";lastGalleryCameraPhase="outside";
         galleryFocusIndex=null;
@@ -7481,10 +7483,11 @@ export function createWorld(
         if(galleryStart==="photos"||galleryStart==="papers"){
           // yaw is already authored by the corresponding room entrance.
         }else if (next.command.activity === "ski") {
-          const kicker = RIDE_RAMPS.find((ramp) => ramp.id === "ski-kicker")!;
-          const approachX = kicker.point.x - player.x;
-          const approachZ = kicker.point.z - player.z;
-          yaw = Math.atan2(-approachX, -approachZ);
+          // The single halfpipe now determines the free-ski descent axis.
+          // The old timber kicker no longer controls arrival or camera.
+          yaw=Math.PI;
+          pitch=.34;
+          zoom=Math.min(zoom,17);
         } else {
           yaw =
             // The reef entry is south of the canyon: W faces north (+Z),
