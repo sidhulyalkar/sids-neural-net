@@ -15,9 +15,9 @@ redwood skate loop, and coast. We must preserve them. Distances below are
 | Sector | Coordinates (x, z) | Character | Gameplay |
 |---|---|---|---|
 | Mountain hub | about (8, -54) | Snow launch and ridge views | Existing skiing, Big Air, boulder |
-| Groomed halfpipe | x 29, z -74..-45 | Broad sculpted double bank | Ski/board traverse and carves |
-| Technical rail corridor | x 17..23, z -73..-40 | Serpent rail, rainbow rail, wide box | Real connected rails and 50-50s |
-| Snow kicker line | (29,-46.8), (20.5,-55.4) | Two large snow lips with downhill runout | Authored jump impulses |
+| Groomed halfpipe | x -24, z -84..-66 | West alpine shoulder, downhill toward the glacier | Ski/board traverse and carves |
+| Technical rail corridor | x -15..-10, z -79..-64 | Serpent rail, rainbow rail, wide box | Real connected rails and 50-50s |
+| Snow kicker line | (-24,-79.2), (-15,-72.5) | Two large snow lips with downhill runout | Authored jump impulses |
 | Glacier cross-passage | x -15..7, z about -81 | Blue, ribbed, open-ended ice vault | Continuous west/east skiing |
 | Old-growth forest margin | South meadow and north Grove margins | Distinct mature sequoias | Slalom and photographic framing |
 
@@ -25,6 +25,12 @@ Design **continuous approach → feature → landing → runout → choice**, wi
 independent line entry: nothing is a mandatory scripted ride.
 
 ## 2. Visual hierarchy and aesthetic rules
+
+**Placement correction:** The initial east-slope design at x≈29 intersected
+Joshua’s existing dirt-bike loop at x≈27, z -57..-10. The authored terrain
+park is moved to the west alpine shoulder, away from that protected ride route,
+Big Air and the museum shafts. The halfpipe is explicitly ridden southward
+(-Z) down the mountain; its runout feeds the west glacier approach.
 
 Use real terrain relief for the halfpipe and snow jumps. The snow should have
 sharp sculpted lips where useful, continuous bank transitions at rideable
