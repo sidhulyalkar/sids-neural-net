@@ -42,8 +42,6 @@ export const smoothFace=(x:number)=>{
  const t=clamp01(x);
  return t*t*(3-2*t);
 };
-const overlap=(a:number,b:number,c:number)=>
- smoothFace((b-a)/c)*(1-smoothFace((b-(1-c))/c));
 
 /** Smooth zero outside the strictly authored rectangle. No cut touches the
  * western pool, waterfall shoulder, arcade shaft or Joshua riding terrain. */
