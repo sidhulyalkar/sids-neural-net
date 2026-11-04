@@ -26,7 +26,8 @@ test("new halfpipe starts from the verified pre-alpine world, without any glacie
    ["bankRise","centerCut","centerX","endBlend","endZ",
     "featherWidth","floorHalfWidth","lipHalfWidth","startZ"].sort());
  assert.ok(h.endZ>h.startZ+18);
- assert.ok(h.lipHalfWidth>h.floorHalfWidth+3);
+ assert.ok(h.lipHalfWidth-h.floorHalfWidth>=2.25,
+   "each bank needs >=2.25m horizontal shaping width for ski carving");
  assert.ok(h.bankRise>=3&&h.bankRise<4.5);
  assert.ok(MOUNTAIN_SUMMIT.rise>0&&MOUNTAIN_SUMMIT.rise<=5);
  for(const id of ["ski-kicker","bowl-small","bowl-medium"])
@@ -81,6 +82,13 @@ test("edits are mathematically zero outside the one front ski face",()=>{
 
 test("summit is taller but no new shoreline or waterfall slopes are introduced",()=>{
  const s=MOUNTAIN_SUMMIT;
+ // Preserve the entire original arcade chamber roof, not merely its two
+ // anchor points. Otherwise summit lifts can deform a museum ceiling.
+ for(let x=12.2;x<=19.8;x+=.4)for(let z=-81;z<=-63;z+=.4){
+   const before=original(x,z);
+   assert.equal(terrainHeight(x,z),before,
+     "arcade roof must remain unchanged "+JSON.stringify({x,z}));
+ }
  assert.ok(terrainHeight(s.centerX,s.centerZ)-
    original(s.centerX,s.centerZ)>=s.rise-.01);
  for(const p of [MOUNTAIN_PROTECTED_ANCHORS.meltwaterSource,
@@ -132,6 +140,9 @@ test("default Ski and other world modes never arm Big Air at ordinary mountain l
  assert.equal(shouldLaunchAuthoredSkiJump("ski","armed",true),true,
    "only explicitly selected Ski Jump crosses its authored lip");
  assert.ok(!withinMountainHalfpipe(BIG_AIR.lip));
+ assert.equal(mountainHalfpipeInfluence(BIG_AIR.lip),0);
+ assert.equal(mountainSummitBoost(BIG_AIR.start),0);
+ assert.equal(mountainSummitBoost(BIG_AIR.lip),0);
  assert.ok(halfpipeManualPopEligible({x:h.centerX,z:centerZ},"ski",5,true));
  assert.equal(halfpipeManualPopEligible({x:h.centerX,z:centerZ},"ski",5,false),false);
  assert.equal(halfpipeManualPopEligible({x:h.centerX,z:centerZ},"bike",5,true),false);
