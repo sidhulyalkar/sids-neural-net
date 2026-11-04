@@ -7,7 +7,7 @@ import {
 } from "../lib/world/model";
 import {SNOWMELT_PATH,DOWNSTREAM_PATH,drainagePoints,
   downstreamPoints,waterfallCrownRings,waterfallProfile} from "../lib/world/hydrology";
-import {groundHeight,rampImpulseAt,RIDE_RAMPS,sportClearance,stepTravel,type Travel} from "../lib/world/activities";
+import {activityLanding,groundHeight,rampImpulseAt,RIDE_RAMPS,sportClearance,stepTravel,type Travel} from "../lib/world/activities";
 import {BIG_AIR,shouldLaunchAuthoredSkiJump} from "../lib/world/bigAir";
 import {
  MOUNTAIN_HALFPIPE,MOUNTAIN_SUMMIT,MOUNTAIN_PROTECTED_ANCHORS,
@@ -167,8 +167,11 @@ test("old floating ski kickers on the face are gone physically but external acti
 });
 
 test("skiing physically traverses a downhill halfpipe and the existing ski launch stays manually authorized",()=>{
- const start:Travel={point:{x:h.centerX,z:h.startZ+1.2},
+ const start:Travel={point:activityLanding("ski")!,
    heading:{x:0,z:1},speed:0};
+ assert.equal(start.point.x,h.centerX);
+ assert.ok(start.point.z<h.startZ&&start.point.z>h.startZ-3,
+   "normal Ski mode should arrive on the halfpipe in-run, not a retired kicker");
  let step:Travel=start,inside=0,progress=0;
  for(let i=0;i<200;i++){
    step=stepTravel(step,{x:0,z:1},.05,"ski",[]);
