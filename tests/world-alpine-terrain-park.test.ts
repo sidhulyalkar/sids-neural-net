@@ -36,8 +36,8 @@ test("halfpipe uses one connected C1 snow profile with realistic two-sided banki
     }
   }
   // The local snow volume continues the natural longitudinal mountain grade.
-  const upstream=terrainHeight(p.x,h.startZ+4);
-  const downstream=terrainHeight(p.x,h.endZ-4);
+  const upstream=terrainHeight(p.x,h.endZ-4);
+  const downstream=terrainHeight(p.x,h.startZ+4);
   assert.ok(upstream>downstream,"halfpipe is a genuine downhill run");
 });
 
@@ -123,5 +123,5 @@ test("terrain box support and large kickers correspond to authored ski mechanics
     assert.ok(!isWater(kicker.point));
   }
   assert.ok(Math.hypot(SKATE_LOOP.center.x-ALPINE_HALFPIPE.centerX,
-    SKATE_LOOP.center.z-(ALPINE_HALFPIPE.startZ+ALPINE_HALFPIPE.endZ)*.5)>90);
+    SKATE_LOOP.center.z-(ALPINE_HALFPIPE.startZ+ALPINE_HALFPIPE.endZ)*.5)>100);
 });
