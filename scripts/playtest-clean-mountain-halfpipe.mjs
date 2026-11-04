@@ -34,6 +34,31 @@ const attachErrors=(page,kind)=>{
 const enterSki=async(page)=>{
  await page.goto(base,{waitUntil:"domcontentloaded"});
  await page.getByRole("button",{name:"Explore world",exact:true}).click();
+ // The scene creates a large WebGL world on first entry. The dock is only
+ // available once world initialization succeeds; don't confuse a slow CPU
+ // software renderer with a missing activity control.
+ try{
+  await page.waitForFunction(()=>{
+   const c=document.querySelector("canvas"),d=c?.dataset;
+   const button=[...document.querySelectorAll("button")]
+     .find(b=>b.getAttribute("aria-label")==="Skiing");
+   return !!button&&!button.disabled&&Number(d?.drawCalls)>0;
+  },null,{timeout:110000,polling:"raf"});
+ }catch(error){
+  const diag=await page.evaluate(()=>({
+   visible:document.body.innerText.slice(0,750),
+   canvas:document.querySelector("canvas")?.dataset?{
+    status:document.querySelector("canvas")?.dataset.worldState,
+    drawCalls:document.querySelector("canvas")?.dataset.drawCalls,
+    activity:document.querySelector("canvas")?.dataset.activity,
+   }:null,
+   buttons:[...document.querySelectorAll("button")].slice(0,30)
+     .map(b=>({aria:b.getAttribute("aria-label"),text:b.innerText.slice(0,38),
+        disabled:b.disabled})),
+  })).catch(e=>({diagnosticError:String(e)}));
+  console.error("CLEAN HALFPIPE INITIALIZATION DIAGNOSTIC",JSON.stringify(diag));
+  throw error;
+ }
  await page.getByRole("button",{name:"Skiing",exact:true}).click();
  await wait(page,()=>{
   const d=document.querySelector("canvas")?.dataset;
