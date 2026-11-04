@@ -76,6 +76,10 @@ test("alpine render geometry is watertight in attribute count and physics regist
     assert.ok(detail.statistics.sequoiaDetails>0);
     assert.equal(ALPINE_ROCK_RIBS.length,14);
     assert.ok(scene.children.includes(detail.mesh));
+    assert.ok(scene.children.includes(detail.groveMesh));
+    assert.notEqual(detail.mesh.geometry,detail.groveMesh.geometry,
+      "distant tree bark must cull independently of glacier/snow detail");
+    assert.ok(detail.groveMesh.geometry.getAttribute("position").count>20);
     const seen=new Set<string>();
     for(const mesh of [...park.meshes,detail.mesh]){
       assert.ok(!seen.has(mesh.name));
