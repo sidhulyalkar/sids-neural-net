@@ -5344,6 +5344,7 @@ export function createWorld(
       canvas.dataset.alpineTrickGrab=alpineTrick.grab;
       canvas.dataset.alpineTrickGrabSeconds=alpineTrick.grabSeconds.toFixed(3);
       canvas.dataset.alpineTrickSpin=String(alpineTrick.spinDegrees);
+      canvas.dataset.alpineTrickStance=alpineTrick.stance;
       canvas.dataset.alpineTrickAirtime=alpineTrick.airtime.toFixed(3);
       canvas.dataset.alpineTrickPeak=alpineTrick.peakClearance.toFixed(3);
       canvas.dataset.alpineTrickLastResult=alpineTrick.lastLabel;
