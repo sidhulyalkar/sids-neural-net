@@ -11,6 +11,7 @@ export type AlpineTrickState={
   feature:string;kind:AlpineTrickFeature|null;
   startedAt:number;takeoffSpeed:number;airtime:number;peakClearance:number;
   grab:AlpineGrab;grabSeconds:number;spinDegrees:number;
+  spinFromDegrees:number;spinStartedAt:number;
   stance:"regular"|"switch";
   lastSpinAt:number;lastLandedAt:number;
   attempts:number;landings:number;bails:number;
@@ -26,7 +27,8 @@ export function idleAlpineTrick():AlpineTrickState{
   return {phase:"idle",feature:"",kind:null,startedAt:-Infinity,
     takeoffSpeed:0,airtime:0,peakClearance:0,grab:"none",
     stance:"regular",
-    grabSeconds:0,spinDegrees:0,lastSpinAt:-Infinity,lastLandedAt:-Infinity,
+    grabSeconds:0,spinDegrees:0,spinFromDegrees:0,spinStartedAt:-Infinity,
+    lastSpinAt:-Infinity,lastLandedAt:-Infinity,
     attempts:0,landings:0,bails:0,combo:0,score:0,best:0,lastLabel:"",
     lastQuality:""};
 }
@@ -98,7 +100,8 @@ export function beginAlpineTrick(
    speed<3||!Number.isFinite(takeoff.impulse)||takeoff.impulse<=0)return state;
  return {...state,phase:"air",feature:takeoff.id,kind:takeoff.kind,
    startedAt:now,takeoffSpeed:speed,airtime:0,peakClearance:0,
-   grab:"none",grabSeconds:0,spinDegrees:0,lastSpinAt:-Infinity,
+   grab:"none",grabSeconds:0,spinDegrees:0,spinFromDegrees:0,
+   spinStartedAt:-Infinity,lastSpinAt:-Infinity,
    attempts:state.attempts+1,lastLabel:"",lastQuality:""};
 }
 
@@ -114,8 +117,11 @@ export function alpineSpin(
  if(state.phase!=="air"||!Number.isFinite(now)||now<state.startedAt||
   now-state.startedAt<.08||now-state.lastSpinAt<.17)return state;
  const spin=clamp(state.spinDegrees+180*direction,-720,720);
- return spin===state.spinDegrees?state:
-   {...state,spinDegrees:spin,lastSpinAt:now};
+ if(spin===state.spinDegrees)return state;
+ const baseYaw=state.stance==="switch"?Math.PI:0;
+ const current=(alpineTrickPose(state,now).yaw-baseYaw)*180/Math.PI;
+ return {...state,spinDegrees:spin,spinFromDegrees:current,
+   spinStartedAt:now,lastSpinAt:now};
 }
 
 export function advanceAlpineTrick(
@@ -132,11 +138,16 @@ export function advanceAlpineTrick(
 export function alpineTrickPose(state:AlpineTrickState,now:number){
  const baseYaw=state.stance==="switch"?Math.PI:0;
  if(state.phase!=="air")return {yaw:baseYaw,crouch:0,grab:"none" as AlpineGrab};
- const t=clamp((now-state.startedAt)/Math.max(.55,
-   Math.abs(state.spinDegrees)/180*.22),0,1);
+ const target=state.spinDegrees;
+ const from=state.spinFromDegrees;
+ const seconds=Math.max(.26,Math.abs(target-from)/180*.24);
+ const t=state.spinStartedAt===-Infinity?1:
+   clamp((now-state.spinStartedAt)/seconds,0,1);
  const eased=t*t*(3-2*t);
- return {yaw:baseYaw+state.spinDegrees*Math.PI/180*eased,
-   crouch:.20*(1-eased),grab:state.grab};
+ const degrees=from+(target-from)*eased;
+ const airProgress=clamp((now-state.startedAt)/.65,0,1);
+ return {yaw:baseYaw+degrees*Math.PI/180,
+   crouch:.20*(1-airProgress),grab:state.grab};
 }
 
 export function landAlpineTrick(
@@ -145,9 +156,13 @@ export function landAlpineTrick(
  if(state.phase!=="air"||!Number.isFinite(now)||!Number.isFinite(speed))return state;
  const airtime=Math.max(state.airtime,now-state.startedAt);
  const rotations=Math.abs(state.spinDegrees)/180;
- // A physically completed spin needs enough observed time for that many
- // half-turns. Instant key spam cannot claim a 720 on a short box pop.
- const enoughSpinTime=airtime>=rotations*.22+.08;
+ // Score only when the rendered athlete ACTUALLY reaches the intended
+ // rotation by touchdown, not when a button is pressed in the last frame.
+ const poseYaw=alpineTrickPose(state,now).yaw;
+ const targetYaw=(state.stance==="switch"?Math.PI:0)+
+   state.spinDegrees*Math.PI/180;
+ const enoughSpinTime=rotations===0||
+   (now-state.lastSpinAt>=.22&&Math.abs(targetYaw-poseYaw)<.10);
  const valid=!!safe&&airtime>=.18&&state.peakClearance>=.15&&
    speed>=1.75&&enoughSpinTime;
  const cleared={...state,phase:valid?"landed" as const:"bailed" as const,
