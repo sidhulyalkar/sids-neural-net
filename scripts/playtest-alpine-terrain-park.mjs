@@ -13,21 +13,39 @@ const failures=[],errors=[],evidence={};
 const browser=await chromium.launch({headless:true,
   args:["--no-sandbox","--enable-unsafe-swiftshader"]});
 try{
- const page=await browser.newPage({viewport:{width:1280,height:800}});
- page.on("pageerror",e=>{errors.push(e.message);console.error("ALPINE PAGE ERROR",e.message);});
- page.on("response",response=>{
-  if(response.status()<400)return;
-  const u=new URL(response.url());
-  if(u.origin===new URL(base).origin&&response.request().resourceType()==="image")
-   failures.push({status:response.status(),url:u.pathname});
- });
- const canvas=page.locator("canvas").first();
+ // Different route starts must be independent WebGL sessions. Reusing one
+ // GPU-heavy page across three full-world mounts can leave stale renderer
+ // state; fresh pages make each portal independently reproducible.
+ let page,canvas;
  const enter=async route=>{
+  if(page)await page.close();
+  page=await browser.newPage({viewport:{width:1280,height:800}});
+  page.on("pageerror",e=>{errors.push(route+": "+e.message);
+    console.error("ALPINE PAGE ERROR",route,e.message);});
+  page.on("response",response=>{
+   if(response.status()<400)return;
+   const u=new URL(response.url());
+   if(u.origin===new URL(base).origin&&response.request().resourceType()==="image")
+     failures.push({route,status:response.status(),url:u.pathname});
+  });
+  canvas=page.locator("canvas").first();
   await page.goto(base+"/?ski-start="+route,{waitUntil:"domcontentloaded"});
   await page.getByRole("button",{name:"Explore world",exact:true}).click();
-  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.activity==="ski"&&
-   Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
-   null,{timeout:90000});
+  try{
+   await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.activity==="ski"&&
+    Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
+    null,{timeout:90000});
+  }catch(error){
+   const diagnostics=await page.evaluate(()=>{
+    const d=document.querySelector("canvas")?.dataset;
+    return {hasCanvas:!!d,activity:d?.activity,entered:d?.worldState,
+      drawCalls:d?.drawCalls,player:d?.player,alpineZone:d?.alpineZone,
+      ready:document.readyState,
+      displayedText:document.body.innerText.slice(0,450)};
+   }).catch(e=>({diagnosticError:String(e)}));
+   console.error("ALPINE ROUTE ENTRY FAILED",route,JSON.stringify(diagnostics));
+   throw error;
+  }
   await canvas.focus();
   assert.ok(Number(await canvas.getAttribute("data-alpine-feature-count"))>=15);
   assert.equal(await canvas.getAttribute("data-alpine-detail-batch"),"true");
