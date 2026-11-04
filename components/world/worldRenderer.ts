@@ -11,7 +11,7 @@ import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkat
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {createWorldMountainHalfpipe} from "./worldMountainHalfpipe";
-import {suppressedFaceKicker,withinMountainHalfpipe} from "@/lib/world/mountainHalfpipe";
+import {suppressedFaceKicker,withinMountainHalfpipe,halfpipeManualPopEligible} from "@/lib/world/mountainHalfpipe";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
 import {createMysticElectricity} from "./worldMysticElectricity";
 import {createWorldMysticGroveGeometry} from "./worldMysticGroveGeometry";
@@ -3984,6 +3984,13 @@ export function createWorld(
       bigAir.phase==="flying"||
       climb||(grind&&state.activity!=="skate")||
       (airHeight>0.01&&!(state.activity==="skate"&&verticalSpeed>0.1)))return;
+    // Halfpipe airtime requires an intentional action. It uses ordinary
+    // gravity and ski contact, NEVER the scored Big Air camera/game state.
+    if(halfpipeManualPopEligible(player,state.activity,travel.speed,
+       airHeight<=.01)){
+      verticalSpeed=4.3;airHeight=.025;lastRampAt=elapsed;
+      return;
+    }
     if(state.activity==="skate"&&airHeight>.08){launchAssistedSkateTrick();return;}
     if(grind&&state.activity==="skate"){launchAssistedSkateTrick();return;}
     if ((state.activity === "skate" || state.activity === "ski") && travel.speed > 2.2) {
@@ -5181,6 +5188,7 @@ export function createWorld(
       // Avoid 60 identical live-region mutations per second for screen readers.
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
       canvas.dataset.mountainHalfpipeInside=String(withinMountainHalfpipe(player));
+      canvas.dataset.mountainHalfpipeManualPop=String(halfpipeManualPopEligible(player,state.activity,travel.speed,airHeight<=.01));
       canvas.dataset.mountainSkiJumpAuthorized=String(bigAir.phase==="armed"||bigAir.phase==="flying");
       canvas.dataset.mountainFaceEditedZone=String(withinMountainHalfpipe(player));
       canvas.dataset.skateGrove="redwood-timber-v1";
