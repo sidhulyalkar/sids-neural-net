@@ -140,6 +140,22 @@ export function alpineSportClearance(p:Point):boolean{
   return false;
 }
 
+/** A low, tapered deck with the exact support required by the visible box.
+ * Soft end transitions avoid snapping the rider onto an invisible step. */
+export function alpineBoxSupport(p:Point,base:number):number{
+  let elevation=0;
+  for(const box of ALPINE_FEATURE_BOXES){
+    const dx=box.to.x-box.from.x,dz=box.to.z-box.from.z;
+    const l2=dx*dx+dz*dz;
+    const t=((p.x-box.from.x)*dx+(p.z-box.from.z)*dz)/l2;
+    const d=Math.abs((p.x-box.from.x)*dz-(p.z-box.from.z)*dx)/Math.sqrt(l2);
+    const along=smooth01((t+.08)/.18)*(1-smooth01((t-.90)/.18));
+    const across=1-smooth01((d-box.halfWidth*.72)/(box.halfWidth*.34));
+    elevation=Math.max(elevation,box.lift*along*across);
+  }
+  return base+elevation;
+}
+
 export function alpineFeatureZone(p:Point):"halfpipe"|"glacier"|"terrain-park"|null{
   if(insideGlacierPassage(p))return "glacier";
   if(alpineHalfpipeStrength(p)>.4)return "halfpipe";
