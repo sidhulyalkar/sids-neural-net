@@ -27,7 +27,7 @@ jobs:
     env:
       WORLD_BASE_URL: http://127.0.0.1:3000
       WORLD_AUDIT_DIR: artifacts/world/clean-halfpipe
-      PLAYWRIGHT_MODULE_ROOT: ${{ github.workspace }}/node_modules/playwright
+      PLAYWRIGHT_MODULE_ROOT: /tmp/halfpipe-playwright/node_modules/playwright
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -38,8 +38,8 @@ jobs:
         run: npm ci
       - name: Install independent Chromium
         run: |
-          npm install --no-save --package-lock=false playwright@1.56.1
-          npx playwright install --with-deps chromium
+          npm install --prefix /tmp/halfpipe-playwright --no-save --package-lock=false playwright@1.56.1
+          /tmp/halfpipe-playwright/node_modules/.bin/playwright install --with-deps chromium
       - name: Start the exact candidate world
         run: |
           (npm run dev > /tmp/world-halfpipe-next.log 2>&1 &)

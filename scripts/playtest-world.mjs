@@ -283,11 +283,16 @@ try {
   await screenshot(page,'activity-redwood-skatepark');
   results.push('Skatepark opens in the integrated south meadow and lands a scored trick');
 
-  // Ski spawns at (8, -54), facing the southward kicker. Turn toward the
-  // ridge-log endpoint (5, -52): approach (-3, +2) aligns with the log for a 50-50.
+  // Aim from the actual halfpipe run-in toward the preserved ridge log.
+  // Reading the arrival avoids silently retaining an obsolete ski spawn.
   await page.getByRole('button', { name: 'Skiing', exact: true }).click();
   await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
-  const ridgeApproachYaw = Math.atan2(3, -2);
+  await page.waitForFunction(() => {
+    const d=document.querySelector("canvas")?.dataset;
+    return d?.activity==="ski"&&d.bigAirPhase==="idle"&&Number(d.speed)<.1;
+  });
+  const ridgeStart = (await page.locator("canvas").getAttribute("data-player")).split(",").map(Number);
+  const ridgeApproachYaw = Math.atan2(ridgeStart[0] - 5, ridgeStart[1] + 52);
   const ridgeTurnPixels = (Math.PI - ridgeApproachYaw) / 0.005;
   await page.mouse.move(700, 450);
   await page.mouse.down();

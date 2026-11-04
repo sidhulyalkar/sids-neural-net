@@ -32,7 +32,7 @@ const attachErrors=(page,kind)=>{
  page.on("pageerror",error=>{evidence.errors.push(kind+": "+error.message)});
 };
 const enterSki=async(page)=>{
- await page.goto(base,{waitUntil:"domcontentloaded"});
+ await page.goto(base,{waitUntil:"networkidle"});
  await page.getByRole("button",{name:"Explore world",exact:true}).click();
  // The scene creates a large WebGL world on first entry. The dock is only
  // available once world initialization succeeds; don't confuse a slow CPU
@@ -111,14 +111,22 @@ try{
   assert.ok(proof.highestSpeed>4);
   assert.equal(proof.finish.bigAir,"idle");
   evidence.desktop=proof;
-  await capture(desktop,"02-clean-halfpipe-downhill-run.png");
+  // Capture after the hop: screenshot latency must not carry the skier
+  // beyond the halfpipe before Space is delivered.
   await desktop.keyboard.press("Space");
   await wait(desktop,()=>{
    const d=document.querySelector("canvas")?.dataset;
    return d?.airborne==="true"&&d.bigAirPhase==="idle";
   },13000);
   assert.equal((await observe(desktop)).authorized,"false");
+  await desktop.keyboard.up("w");
   await capture(desktop,"03-intentional-ski-hop-without-big-air.png");
+  await wait(desktop,()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   return d?.airborne==="false"&&d.bigAirPhase==="idle";
+  },20000);
+  evidence.desktop.landed=await observe(desktop);
+  await capture(desktop,"02-clean-halfpipe-downhill-run.png");
  }finally{await desktop.keyboard.up("w")}
 
  // The separate Ski Jump button, not any mountain terrain, is authoritative.

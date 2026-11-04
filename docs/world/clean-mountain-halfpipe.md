@@ -131,3 +131,27 @@ halfpipe passes visual and gameplay review.
 Do **not** promote this branch to the stable world base until same-head
 CI and screenshots are reviewed. Never relax hydrology or cave checks
 to make the halfpipe pass.
+
+
+## November 4 qualification repair
+
+The `5eef9e0` candidate passed landscape regression, but its full Website CI,
+halfpipe, Redwood and Jet-Ski workflows failed. It is not a release-qualified
+commit. The Jet-Ski workflow stopped at disc-golf second-shot camera clearance,
+before running its jet-ski and mountain checks; those features cannot be
+claimed as verified by that run.
+
+This follow-up corrects downward-facing snow/lip triangle winding and asserts
+positive vertical normals across both meshes. It also isolates Playwright from
+the locked application dependencies, waits for page loading before world entry,
+removes screenshot latency before the halfpipe hop, and requires a grounded
+landing without Big Air. The ridge-log browser approach now derives its heading
+from the actual skier arrival, and the Redwood exit checks the current underwater
+Moss Canyon destination instead of the retired land destination.
+
+Local validation: all 1,044 unit tests, TypeScript and lint pass. Browser script
+syntax and patch whitespace checks pass. Managed preview cannot launch this
+Next.js checkout because it supplies unsupported `--host` / `--strictPort`
+arguments. Desktop/mobile visual review, revised browser gates and the separate
+disc-golf camera failure remain unresolved. Do not merge or promote this
+candidate on unit evidence alone.

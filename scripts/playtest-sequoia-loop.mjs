@@ -143,8 +143,8 @@ try{
   await page.screenshot({path:path.join(out,'03-mountain-bike-contact.png')});
   evidence.bikeTrace=bikeTrace;
   await page.getByRole('button',{name:'Open navigation menu'}).click();
-  await page.getByRole('button',{name:/07 Moss canyon A quieter trail/}).click();
-  await page.waitForFunction(()=>{const p=document.querySelector('canvas')?.dataset.player?.split(',').map(Number);return p&&Math.abs(p[0]-46)<.1&&Math.abs(p[1]+73)<.1;});
+  await page.getByRole('button',{name:/Submerged Moss Canyon/}).click();
+  await page.waitForFunction(()=>{const p=document.querySelector('canvas')?.dataset.player?.split(',').map(Number);return p&&Math.abs(p[0]+67)<4&&Math.abs(p[1]+65.2)<5&&document.querySelector('canvas')?.dataset.aquatic==='dive'&&document.querySelector('canvas')?.dataset.currentRegion==='canyon';});
   await page.waitForFunction(()=>Number(document.querySelector('canvas')?.dataset.cameraTargetError)<.25);
   await page.screenshot({path:path.join(out,'04-relocated-moss-canyon.png')});
   assert.deepEqual(errors,[]);

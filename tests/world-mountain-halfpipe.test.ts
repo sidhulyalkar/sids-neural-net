@@ -195,6 +195,10 @@ test("one snow mesh and one subtle coping follow exact collision geometry",()=>{
    for(const mesh of [world.snow,world.coping]){
      const a=mesh.geometry.getAttribute("position");
      assert.ok(a.count>200);
+     const normals=mesh.geometry.getAttribute("normal");
+     for(let i=0;i<normals.count;i++){
+       assert.ok(normals.getY(i)>0,"snow and both coping walls must face the sky");
+     }
      for(let i=0;i<a.count;i+=13){
        const x=a.getX(i),y=a.getY(i),z=a.getZ(i);
        assert.ok([x,y,z].every(Number.isFinite));

@@ -61,7 +61,8 @@ export function createWorldMountainHalfpipe(scene:THREE.Scene){
     const mid={x:(x0+x1)*.5,z:(z0+z1)*.5};
     if(mountainHalfpipeInfluence(mid)<.016)continue;
     const a=v(x0,z0),b=v(x1,z0),c=v(x1,z1),d=v(x0,z1);
-    for(const node of [a,b,c,a,c,d])emit(node);
+    // Counterclockwise from above: snow receives upward-facing normals.
+    for(const node of [a,c,b,a,d,c])emit(node);
   }
   const surface=new THREE.BufferGeometry();
   surface.setAttribute("position",new THREE.Float32BufferAttribute(vertices,3));
@@ -90,7 +91,8 @@ export function createWorldMountainHalfpipe(scene:THREE.Scene){
         a1=[x,terrainHeight(x,z1)+.12,z1],
         b0=[x+side*.095,terrainHeight(x+side*.095,z0)+.12,z0],
         b1=[x+side*.095,terrainHeight(x+side*.095,z1)+.12,z1];
-      for(const p of [a0,a1,b1,a0,b1,b0]){
+      const rimFace=side>0?[a0,a1,b1,a0,b1,b0]:[a0,b1,a1,a0,b0,b1];
+      for(const p of rimFace){
         rimVertices.push(...p);
         rimColors.push(rimColor.r,rimColor.g,rimColor.b);
       }
