@@ -155,6 +155,22 @@ test("trick edge cases: short flight, no altitude, missed landings, early spins"
  assert.equal(cancelAlpineTrick(snap720).phase,"bailed");
  assert.equal(cancelAlpineTrick(result),result);
 });
+test("rotation starts without a visual snap and cannot be scored unfinished",()=>{
+ const takeoff={id:"alpine-halfpipe-right",kind:"halfpipe" as const,impulse:5};
+ let state=beginAlpineTrick(idleAlpineTrick(),takeoff,0,9);
+ state=alpineSpin(state,1,.21);
+ assert.ok(Math.abs(alpineTrickPose(state,.21).yaw)<1e-9,
+   "the body must not instantly jump to the queued 180-degree target");
+ const middle=alpineTrickPose(state,.32).yaw;
+ assert.ok(middle>.1&&middle<Math.PI-.1,
+   "the queued spin should be visibly progressing");
+ state=integrate(state,.56,.9);
+ assert.equal(landAlpineTrick(state,.29,8,true).phase,"bailed",
+   "a late 180 cannot be claimed after only 80 ms");
+ const landed=landAlpineTrick(state,.56,8,true);
+ assert.equal(landed.phase,"landed");
+ assert.equal(landed.stance,"switch");
+});
 test("feature combos reward real landings but expire, bails break lines",()=>{
  let s=idleAlpineTrick();
  const trig={id:"alpine-halfpipe-pop",kind:"halfpipe" as const,impulse:4.6};
