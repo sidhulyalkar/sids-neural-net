@@ -3,7 +3,7 @@ import {terrainHeight} from "@/lib/world/model";
 import {groundHeight} from "@/lib/world/activities";
 import {
   ALPINE_HALFPIPE,ALPINE_KICKERS,ALPINE_PARK_RAILS,ALPINE_FEATURE_BOXES,
-  GLACIER_PASSAGE,alpineHalfpipeStrength,alpineSportClearance,
+  GLACIER_PASSAGE,alpineSportClearance,
 } from "@/lib/world/alpineTerrainPark";
 import {GeometryBatch} from "./worldGeometry";
 
