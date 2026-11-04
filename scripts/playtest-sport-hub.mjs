@@ -11,7 +11,7 @@ const out=process.env.WORLD_AUDIT_DIR??"artifacts/world/sport-hub";
 fs.mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({headless:true,args:["--no-sandbox","--enable-unsafe-swiftshader"]});
 const errors=[],observations=[];
-const shortcuts=["Disc golf","Bike race","Jet ski","Ski jump","Skatepark"];
+const shortcuts=["Disc golf","Bike race","Jet ski","Ski jump","Halfpipe","Glacier cave","Skatepark"];
 const launch=async (page,name)=>{
   const toggle=page.getByRole("button",{name:"Show sport shortcuts"});
   assert.equal(await toggle.getAttribute("aria-expanded"),"false");
@@ -100,7 +100,7 @@ try{
   await mobileDock.getByRole("button",{name:"Show sport shortcuts"}).tap();
   const expanded=await mobileDock.boundingBox();
   assert.ok(expanded&&expanded.height<320,"Expanded mobile hub must not cover the full game view");
-  assert.equal(await mobileDock.getByRole("group",{name:"Sport shortcuts"}).getByRole("button").count(),5);
+  assert.equal(await mobileDock.getByRole("group",{name:"Sport shortcuts"}).getByRole("button").count(),shortcuts.length);
   await mobile.screenshot({path:path.join(out,"03-mobile-expanded.png")});
   await mobileDock.getByRole("button",{name:"Hide sport shortcuts"}).tap();
   await mobile.screenshot({path:path.join(out,"04-mobile-collapsed.png")});
