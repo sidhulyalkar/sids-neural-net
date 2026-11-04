@@ -1297,6 +1297,7 @@ export function createWorld(
    canvas.dataset.discGolfCameraVolumes=String(
     cameraCanopies.length+habitats.cameraOccluders.length+cameraRocks.length);
   const technicalFeatures = createTechnicalGeometry(scene);
+  canvas.dataset.alpineFeatureCount=String(alpinePark.rails+alpinePark.jumps);
   const flyingBirds=createBigAirBirds(scene);
   const discGolfObjects=createDiscGolfGeometry(scene);
   const jetskiVisual=createJetSkiDock(scene);
