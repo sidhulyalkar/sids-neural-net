@@ -5181,6 +5181,7 @@ export function createWorld(
       // Avoid 60 identical live-region mutations per second for screen readers.
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
       canvas.dataset.mountainHalfpipeInside=String(withinMountainHalfpipe(player));
+      canvas.dataset.mountainSkiJumpAuthorized=String(bigAir.phase==="armed"||bigAir.phase==="flying");
       canvas.dataset.mountainFaceEditedZone=String(withinMountainHalfpipe(player));
       canvas.dataset.skateGrove="redwood-timber-v1";
       canvas.dataset.skateGroveArt="old-growth-stump-v2";
