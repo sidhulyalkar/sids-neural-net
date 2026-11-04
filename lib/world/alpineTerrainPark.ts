@@ -115,6 +115,26 @@ export function insideGlacierPassage(p:Point,margin=0):boolean{
     Math.abs(p.z-g.centerZ)<=g.innerHalfWidth+margin;
 }
 
+/** Prevent skiing THROUGH either solid ice wall. Approaching from a mouth
+ * remains continuous, and free-roaming outside the tunnel is unchanged.
+ * Wall contact is resolved in the same x/z space as the mesh footprint.
+ */
+export function glacierConstrainSkiMove(from:Point,to:Point,radius=.42):Point{
+  const g=GLACIER_PASSAGE;
+  if(to.x<g.westX||to.x>g.eastX)return to;
+  const previous=from.z-g.centerZ,next=to.z-g.centerZ;
+  const inside=Math.abs(previous)<g.innerHalfWidth;
+  const safe=g.innerHalfWidth-radius;
+  if(inside)return {x:to.x,z:g.centerZ+Math.max(-safe,Math.min(safe,next))};
+  // A side approach hits the ice rather than tunneling through its wall.
+  if(Math.abs(next)<g.innerHalfWidth+radius&&
+    Math.abs(previous)>=g.innerHalfWidth){
+    const sign=previous<0?-1:1;
+    return {x:to.x,z:g.centerZ+sign*(g.innerHalfWidth+radius)};
+  }
+  return to;
+}
+
 export function glacierEntrance(p:Point):"west"|"east"|null{
   const g=GLACIER_PASSAGE;
   if(Math.abs(p.z-g.centerZ)>g.innerHalfWidth+.5)return null;
