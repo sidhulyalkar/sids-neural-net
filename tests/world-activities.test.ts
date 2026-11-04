@@ -161,17 +161,15 @@ test("fallen logs can be acquired for a grind and ramps only launch compatible m
 });
 
 
-test("ski landing is upstream of the Granite Ridge kicker and approaches it from the launch side", () => {
-  const landing = activityLanding("ski")!;
-  const kicker = RIDE_RAMPS.find(ramp => ramp.id === "ski-kicker")!;
-  const dx = kicker.point.x - landing.x;
-  const dz = kicker.point.z - landing.z;
-  const length = Math.hypot(dx, dz);
-  const heading = { x: dx / length, z: dz / length };
-
-  assert.ok(groundHeight(landing) > groundHeight(kicker.point));
-  const launch = rampImpulseAt(kicker.point, heading, "ski", 8);
-  assert.equal(launch?.id, "ski-kicker");
+test("original ski landing still reaches Granite Ridge; the displaced timber kicker no longer auto launches", () => {
+  const landing=activityLanding("ski")!;
+  const kicker=RIDE_RAMPS.find(ramp=>ramp.id==="ski-kicker")!;
+  assert.ok(onSnow(landing));
+  assert.ok(groundHeight(landing)>groundHeight(kicker.point));
+  assert.equal(rampImpulseAt(kicker.point,kicker.heading,"ski",8),null);
+  assert.equal(rampImpulseAt(kicker.point,kicker.heading,"bike",8),null);
+  const other=RIDE_RAMPS.find(r=>r.id==="grove-home-kicker")!;
+  assert.equal(rampImpulseAt(other.point,other.heading,"bike",8)?.id,other.id);
 });
 
 
