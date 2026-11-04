@@ -1,6 +1,7 @@
 import { desertTrackHeightOffset } from "./desertTrack";
 import { rockGardenHeightOffset } from "./technicalFeatures";
 import { bigAirTerrainOffset } from "./bigAir";
+import {MOUNTAIN_HALFPIPE,mountainFaceEditDelta} from "./mountainHalfpipe";
 import { beachBlend, northShoreZ } from "./skimboarding";
 import {MYSTIC_GROVE} from "./mysticGrove";
 /** Small, deterministic geography shared by the renderer, navigation and tests. */
@@ -328,7 +329,7 @@ export function caveObstacles(): Obstacle[] {
   for (let x = 10; x < 23; x += .8) result.push({ x, z: -62.5, radius: .35 });
   return result;
 }
-export function terrainHeight(x: number, z: number): number {
+export function terrainHeightBeforeHalfpipe(x: number, z: number): number {
   let base = rawTerrainHeight(x, z);
   // A shallow level bench receives melt at the snow edge. Feather its banks
   // into the slope so the basin surface cannot intersect the uphill terrain.
@@ -363,6 +364,14 @@ export function terrainHeight(x: number, z: number): number {
   const paperMask = paperAccessTerrainMask(x, z);
   base += (paperCaveFloorHeight({ x, z }) - base) * paperMask;
   return base;
+}
+/** The untouched, previously verified mountain/stream/waterfall geometry
+ * remains authoritative. A small +Z-facing ski patch is the sole overlay. */
+export function terrainHeight(x:number,z:number):number {
+  const original=terrainHeightBeforeHalfpipe(x,z);
+  const delta=mountainFaceEditDelta({x,z},original,
+    faceZ=>terrainHeightBeforeHalfpipe(MOUNTAIN_HALFPIPE.centerX,faceZ));
+  return original+delta;
 }
 /** Natural roof surface, intentionally independent from underground cave floors. */
 export const mountainSurfaceHeight = rawTerrainHeight;
