@@ -5186,6 +5186,9 @@ export function createWorld(
         " PTS · BEST "+skateTrick.best;
       // Avoid 60 identical live-region mutations per second for screen readers.
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
+      canvas.dataset.alpineZone=alpineFeatureZone(player)??"";
+      canvas.dataset.glacierInside=String(insideGlacierPassage(player));
+      canvas.dataset.glacierPortal=String(insideGlacierPassage(player,3));
       canvas.dataset.skateGrove="redwood-timber-v1";
       canvas.dataset.skateGroveArt="old-growth-stump-v2";
       canvas.dataset.skateGapPhase=skateRailGapRide?"airborne":"free";
