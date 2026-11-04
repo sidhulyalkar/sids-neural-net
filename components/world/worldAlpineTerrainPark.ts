@@ -3,7 +3,7 @@ import {terrainHeight} from "@/lib/world/model";
 import {groundHeight} from "@/lib/world/activities";
 import {
   ALPINE_HALFPIPE,ALPINE_KICKERS,ALPINE_PARK_RAILS,ALPINE_FEATURE_BOXES,
-  GLACIER_PASSAGE,alpineSportClearance,alpineHalfpipeStrength,glacierPassageStrength,
+  GLACIER_PASSAGE,alpineSportClearance,alpineHalfpipeStrength,glacierPassageStrength,glacierVaultHeight,
 } from "@/lib/world/alpineTerrainPark";
 import {GeometryBatch} from "./worldGeometry";
 
@@ -57,16 +57,20 @@ function iceVault(){
     const entry=Math.min((x-g.westX)/3,(g.eastX-x)/3,1);
     col.lerp(new THREE.Color("#e4faff"),
       .10+.28*Math.max(0,1-entry));
-    const stratum=.89+.10*Math.sin(x*1.83+theta*11.7);
-    colors.push(col.r*stratum,col.g*stratum,col.b*stratum);
+    // Distinct compressed ice bands and a soft, cold-light variation.
+    // Geometry stays unchanged at the rideable inner vault surface.
+    const dense=.91+.055*Math.sin(x*2.6+theta*18.4)+
+      .035*Math.cos(theta*38.0-x*.81);
+    colors.push(col.r*dense,col.g*dense,col.b*dense);
   };
   const point=(x:number,theta:number,outer:boolean)=>{
     const width=outer?g.outerHalfWidth:g.innerHalfWidth;
     const z=g.centerZ+width*Math.cos(theta);
-    const surface=terrainHeight(x,z);
-    const roof=g.clearanceHeight*Math.sin(theta)+(outer?.37:0);
-    const y=surface+roof+.045;
-    return P(x,y,z);
+    // The ice shell and ski headroom use the SAME analytic vault measured
+    // from the carved centerline floor, not two independent roof shapes.
+    const centerFloor=terrainHeight(x,g.centerZ);
+    const y=glacierVaultHeight({x,z},centerFloor,outer)??centerFloor;
+    return P(x,y+.045,z);
   };
   for(let ix=0;ix<xSteps;ix++)for(let ia=0;ia<angleSteps;ia++){
     const xa=g.westX+(g.eastX-g.westX)*ix/xSteps,
