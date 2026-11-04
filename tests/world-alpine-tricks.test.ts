@@ -229,6 +229,9 @@ test("trick evidence is stable under 20, 30 and 60 Hz frame advances",()=>{
  assert.strictEqual(advanceAlpineTrick(inAir,.7,1),inAir,
    "oversized timing updates are rejected, not used to fabricate airtime");
  assert.strictEqual(advanceAlpineTrick(inAir,NaN,1),inAir);
+ const onlyBrieflyAirborne=integrate(inAir,.10,.7);
+ assert.equal(landAlpineTrick(onlyBrieflyAirborne,8,7,true).phase,"bailed",
+   "a long wall-clock stall cannot substitute for actual simulated airborne time");
 });
 test("real jump physics supports a finite air arc and touchdown",()=>{
  const ground=12,launch=4.7;let y=ground+.03,v=launch,up=false,landed=false;
