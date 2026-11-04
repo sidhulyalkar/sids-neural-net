@@ -164,8 +164,14 @@ export function landAlpineTrick(
  const poseYaw=alpineTrickPose(state,now).yaw;
  const targetYaw=(state.stance==="switch"?Math.PI:0)+
    state.spinDegrees*Math.PI/180;
- const enoughSpinTime=rotations===0||
-   (now-state.lastSpinAt>=.22&&Math.abs(targetYaw-poseYaw)<.10);
+ const enoughSpinTime=rotations===0||(
+   Number.isFinite(state.lastSpinAt)&&Number.isFinite(state.spinStartedAt)&&
+   state.lastSpinAt>=state.startedAt+.08&&
+   state.spinStartedAt>=state.startedAt+.08&&
+   now-state.lastSpinAt>=.22&&
+   airtime>=rotations*.22+.08&&
+   Math.abs(targetYaw-poseYaw)<.10
+ );
  const valid=!!safe&&airtime>=.18&&state.peakClearance>=.15&&
    speed>=1.75&&enoughSpinTime;
  const cleared={...state,phase:valid?"landed" as const:"bailed" as const,
