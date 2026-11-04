@@ -11,6 +11,7 @@ export type AlpineTrickState={
   feature:string;kind:AlpineTrickFeature|null;
   startedAt:number;takeoffSpeed:number;airtime:number;peakClearance:number;
   grab:AlpineGrab;grabSeconds:number;spinDegrees:number;
+  stance:"regular"|"switch";
   lastSpinAt:number;lastLandedAt:number;
   attempts:number;landings:number;bails:number;
   combo:number;score:number;best:number;
@@ -24,6 +25,7 @@ const allowedSegment=(a:Point,b:Point)=>distance(a,b)>.001&&distance(a,b)<=2.25;
 export function idleAlpineTrick():AlpineTrickState{
   return {phase:"idle",feature:"",kind:null,startedAt:-Infinity,
     takeoffSpeed:0,airtime:0,peakClearance:0,grab:"none",
+    stance:"regular",
     grabSeconds:0,spinDegrees:0,lastSpinAt:-Infinity,lastLandedAt:-Infinity,
     attempts:0,landings:0,bails:0,combo:0,score:0,best:0,lastLabel:"",
     lastQuality:""};
@@ -128,11 +130,12 @@ export function advanceAlpineTrick(
 }
 
 export function alpineTrickPose(state:AlpineTrickState,now:number){
- if(state.phase!=="air")return {yaw:0,crouch:0,grab:"none" as AlpineGrab};
+ const baseYaw=state.stance==="switch"?Math.PI:0;
+ if(state.phase!=="air")return {yaw:baseYaw,crouch:0,grab:"none" as AlpineGrab};
  const t=clamp((now-state.startedAt)/Math.max(.55,
    Math.abs(state.spinDegrees)/180*.22),0,1);
  const eased=t*t*(3-2*t);
- return {yaw:state.spinDegrees*Math.PI/180*eased,
+ return {yaw:baseYaw+state.spinDegrees*Math.PI/180*eased,
    crouch:.20*(1-eased),grab:state.grab};
 }
 
@@ -154,6 +157,9 @@ export function landAlpineTrick(
    lastLabel:"Bail"};
  const combo=now-state.lastLandedAt<=5&&state.lastQuality!=="bail"?
    Math.min(6,state.combo+1):1;
+ const landedSwitch=rotations%2===1;
+ const stance=landedSwitch?
+   state.stance==="regular"?"switch" as const:"regular" as const:state.stance;
  const label=state.kind==="halfpipe"?"Halfpipe air":
    state.kind==="kicker"?"Snow kicker":
    state.kind==="box"?"Box pop":"Rail dismount";
@@ -163,8 +169,9 @@ export function landAlpineTrick(
    Math.round(state.peakClearance*16)+
    (grab?70:0)+rotations*85+(state.kind==="halfpipe"?30:0);
  const score=state.score+Math.round(base*combo);
- return {...cleared,landings:state.landings+1,score,
-   best:Math.max(score,state.best),combo,lastLabel:label+spin+grab};
+ return {...cleared,landings:state.landings+1,score,stance,
+   best:Math.max(score,state.best),combo,
+   lastLabel:label+spin+grab+(landedSwitch?" · switch":"")};
 }
 
 /** Normal travel / teleport / mode changes cannot be counted as touchdown. */
