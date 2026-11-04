@@ -10,6 +10,8 @@ import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample,type SkateRailG
 import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
+import {createWorldAlpineTerrainPark} from "./worldAlpineTerrainPark";
+import {ALPINE_HALFPIPE,GLACIER_PASSAGE,ALPINE_KICKERS,alpineFeatureZone,glacierCeilingHeight,insideGlacierPassage} from "@/lib/world/alpineTerrainPark";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
 import {createMysticElectricity} from "./worldMysticElectricity";
 import {createWorldMysticGroveGeometry} from "./worldMysticGroveGeometry";
