@@ -76,7 +76,7 @@ try{
  assert.ok(await page.getByRole("button",{name:"Show sport shortcuts"}).count()>0,
    "Halfpipe and glacier must be reachable from sport shortcuts");
  await page.screenshot({path:path.join(out,"01-halfpipe-entry.png")});
- evidence.halfpipe=await ride({zone:"pipe",axis:"z",direction:1,exit:-62});
+ evidence.halfpipe=await ride({zone:"pipe",axis:"z",direction:-1,exit:-77});
  await page.screenshot({path:path.join(out,"02-halfpipe-ride.png")});
 
  await enter("glacier-west");
