@@ -23,6 +23,7 @@ import {
   sportClearance,
 } from "../lib/world/activities";
 import { drainagePoints } from "../lib/world/hydrology";
+import {suppressedFaceKicker} from "../lib/world/mountainHalfpipe";
 test("biome weights are deterministic, normalized and continuous through three-way junctions", () => {
   for (let x = -30; x < 55; x += 3)
     for (let z = -85; z < 50; z += 3) {
@@ -60,6 +61,7 @@ test("sport features reserve runouts and scenery logs cannot acquire grinds", ()
   assert.ok(RIDE_RAMPS.length >= 10);
   assert.ok(FALLEN_LOGS.length >= 12);
   for (const r of RIDE_RAMPS) {
+    if(suppressedFaceKicker(r.id))continue;
     assert.ok(sportClearance(r.point));
     assert.equal(rampImpulseAt(r.point, r.heading, r.modes[0], 8)?.id, r.id);
   }
@@ -116,6 +118,11 @@ test("each ramp has a continuous deck and terrain-supported vehicle contacts", a
     "../lib/world/activities"
   );
   for (const r of RIDE_RAMPS) {
+    if(suppressedFaceKicker(r.id)){
+      assert.equal(rampImpulseAt(r.point,r.heading,r.modes[0],8),null,
+        "removed timber jump may not launch: "+r.id);
+      continue;
+    }
     if (r.id.startsWith("desert-")) {
       // The pump-track kicker is terrain itself, not a separate wooden deck.
       assert.equal(rampSurface(r, r.point), null);
