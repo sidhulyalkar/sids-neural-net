@@ -1089,6 +1089,7 @@ export function createWorld(
   // Natural redwood skate grove: single authoritative riding heightfield.
   // Static procedural wood art is isolated and fully disposable.
   const skateGrove=createWorldSkateGrove(scene,groundHeight);
+  const alpinePark=createWorldAlpineTerrainPark(scene);
   // Small grasses share one geometry and one draw call.
   const grasses: Instance[] = [];
   for (let i = 0; i < 750; i++) {
