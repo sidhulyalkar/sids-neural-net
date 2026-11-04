@@ -1,6 +1,7 @@
 import { desertTrackHeightOffset } from "./desertTrack";
 import { rockGardenHeightOffset } from "./technicalFeatures";
 import { bigAirTerrainOffset } from "./bigAir";
+import {ALPINE_HALFPIPE,alpineHalfpipeHeight,glacierPassageHeight} from "./alpineTerrainPark";
 import { beachBlend, northShoreZ } from "./skimboarding";
 import {MYSTIC_GROVE} from "./mysticGrove";
 /** Small, deterministic geography shared by the renderer, navigation and tests. */
@@ -355,6 +356,9 @@ export function terrainHeight(x: number, z: number): number {
   base += desertTrackHeightOffset({ x, z });
   base += rockGardenHeightOffset({ x, z });
   base += bigAirTerrainOffset({ x, z });
+  // Authored alpine features use the same terrain support as skis and meshes.
+  base = alpineHalfpipeHeight({x,z},base,along=>rawTerrainHeight(ALPINE_HALFPIPE.centerX,along));
+  base = glacierPassageHeight({x,z},base);
 
   // The only surface cuts are short entrance aprons. Past each mouth, the
   // mountain roof remains the ordinary continuous heightfield.
