@@ -6,7 +6,7 @@ import type {Point} from "./model";
  * all read the same analytic dimensions and feature coordinates.
  */
 export const ALPINE_HALFPIPE={
-  centerX:29, startZ:-74, endZ:-45,
+  centerX:-24, startZ:-84, endZ:-66,
   floorHalfWidth:2.05, rimHalfWidth:6.25,
   outerFeather:2.15, bankHeight:3.55,
 } as const;
@@ -19,26 +19,26 @@ export const GLACIER_PASSAGE={
 } as const;
 
 export const ALPINE_KICKERS=[
-  {id:"alpine-tabletop",point:{x:29,z:-46.8},heading:{x:0,z:1},radius:3.05,lift:6.8},
-  {id:"alpine-transfer-hip",point:{x:20.5,z:-55.4},heading:{x:.24,z:.97077},radius:2.8,lift:5.2},
+  {id:"alpine-tabletop",point:{x:-24,z:-79.2},heading:{x:0,z:-1},radius:3.05,lift:6.8},
+  {id:"alpine-transfer-hip",point:{x:-15,z:-72.5},heading:{x:-.24,z:-.97077},radius:2.8,lift:5.2},
 ] as const;
 
 export const ALPINE_FEATURE_BOXES=[
-  {id:"alpine-flat-box",from:{x:18,z:-47.6},to:{x:18.5,z:-40.6},halfWidth:.88,lift:.78},
+  {id:"alpine-flat-box",from:{x:-11.3,z:-69.7},to:{x:-11.7,z:-76.7},halfWidth:.88,lift:.78},
 ] as const;
 
 export const ALPINE_RAIL_CHAINS=[
   {id:"alpine-serpent",radius:.12,
-    points:[{x:21.5,z:-73},{x:22,z:-70},{x:22.6,z:-67.8},{x:22.5,z:-65.5},
-      {x:21.8,z:-63.6},{x:21.7,z:-61.5},{x:22.15,z:-59.3}],
+    points:[{x:-13.2,z:-65},{x:-12.9,z:-67.6},{x:-12.6,z:-69.9},{x:-13.2,z:-72.0},
+      {x:-14.1,z:-74.0},{x:-14.6,z:-76.3},{x:-14.1,z:-78.5}],
     heights:[.8,.96,1.1,1.08,.92,.83,.73]},
   {id:"alpine-rainbow",radius:.14,
-    points:[{x:17.5,z:-54},{x:17.8,z:-52.75},{x:18.1,z:-51.5},
-      {x:18.4,z:-50.25},{x:18.7,z:-49}],
+    points:[{x:-9.8,z:-64},{x:-10.05,z:-65.4},{x:-10.3,z:-66.8},
+      {x:-10.55,z:-68.2},{x:-10.8,z:-69.6}],
     heights:[.6,.96,1.28,.96,.6]},
   {id:"alpine-box-spine",radius:.26,
-    points:[{x:18,z:-47.6},{x:18.1,z:-45.85},{x:18.25,z:-44.1},
-      {x:18.4,z:-42.35},{x:18.5,z:-40.6}],
+    points:[{x:-11.3,z:-69.7},{x:-11.4,z:-71.45},{x:-11.5,z:-73.2},
+      {x:-11.6,z:-74.95},{x:-11.7,z:-76.7}],
     heights:[.78,.78,.78,.78,.78]},
 ] as const;
 
@@ -127,8 +127,12 @@ export function glacierCeilingHeight(p:Point,floor:(p:Point)=>number):number|nul
 export function alpineSportClearance(p:Point):boolean{
   if(alpineHalfpipeStrength(p)>.01)return true;
   if(insideGlacierPassage(p,4.4))return true;
-  if(ALPINE_KICKERS.some(k=>
-    Math.abs(p.x-k.point.x)<4.5&&p.z>k.point.z-6&&p.z<k.point.z+14))return true;
+  if(ALPINE_KICKERS.some(k=>{
+    const dx=p.x-k.point.x,dz=p.z-k.point.z;
+    const along=dx*k.heading.x+dz*k.heading.z;
+    const sideways=Math.abs(dx*k.heading.z-dz*k.heading.x);
+    return along>-6&&along<14&&sideways<4.5;
+  }))return true;
   for(const chain of ALPINE_RAIL_CHAINS){
     for(let i=0;i<chain.points.length-1;i++){
       const a=chain.points[i],b=chain.points[i+1];
