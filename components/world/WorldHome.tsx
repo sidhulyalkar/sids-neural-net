@@ -1,6 +1,6 @@
 "use client";
 import {worldGameSession} from "@/lib/world/gameMode";
-import {Bike, ChevronDown, Disc3, MountainSnow, Waves, Trees} from "lucide-react";
+import {Bike, ChevronDown, Disc3, MountainSnow, Snowflake, Waves, Trees} from "lucide-react";
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
