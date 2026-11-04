@@ -5,7 +5,7 @@ import {airborneSupportHeight} from "./rideRecovery";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
 import {jetSkiPierHeight} from "./jetSkiPier";
-import {suppressedFaceKicker,mountainHalfpipeApproachClearance,mountainSummitBoost} from "./mountainHalfpipe";
+import {MOUNTAIN_HALFPIPE,suppressedFaceKicker,mountainHalfpipeApproachClearance,mountainSummitBoost} from "./mountainHalfpipe";
 import {
   constrainMove,
   distance,
@@ -314,10 +314,12 @@ export function nextHold(p: Point) {
 }
 
 export function activityLanding(id: Activity): Point | null {
-  // Ski begins on the higher Granite Ridge shoulder, upstream of the authored
-  // kicker's launch direction. This makes the first descent naturally cross the
-  // feature instead of approaching it from the back side.
-  if (id === "ski") return { x: 8, z: -54 };
+  // The ordinary Skiing button starts on a dry, high snow approach to the
+  // *single* downhill halfpipe. It does not arm the separate Ski Jump game.
+  if (id === "ski") return {
+    x:MOUNTAIN_HALFPIPE.centerX,
+    z:MOUNTAIN_HALFPIPE.startZ-1.65,
+  };
   if (id === "skate") return {...SKATE_GROVE_FLOW.approach};
   if (id === "boulder") return { x: 13, z: -15 };
   return null;
