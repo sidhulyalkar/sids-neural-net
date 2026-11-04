@@ -18,6 +18,15 @@ export const GLACIER_PASSAGE={
   entranceBlend:3.4,
 } as const;
 
+/** Rocky ribs are intentionally outside sport clearances. The art and
+ * geology layers use one manifest to avoid mismatched placements. */
+export const ALPINE_ROCK_RIBS=[
+  [-27,-74,3.9],[-25,-68,4.5],[-29,-61,5.1],[-23,-58,3.5],
+  [-24,-45,4.0],[-18,-76,2.9],[-9,-89,2.5],[12,-89,3.2],
+  [15,-55,2.8],[17,-36,2.7],[39,-65,3.0],[42,-57,3.7],
+  [38,-49,3.2],[35,-37,2.9],
+] as const;
+
 export const ALPINE_KICKERS=[
   {id:"alpine-tabletop",point:{x:-24,z:-79.2},heading:{x:0,z:-1},radius:3.05,lift:6.8},
   {id:"alpine-transfer-hip",point:{x:-16,z:-56},heading:{x:.08,z:.99679},radius:2.8,lift:5.2},
