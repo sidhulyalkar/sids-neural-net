@@ -4,7 +4,7 @@ import * as THREE from "three/src/Three.Core.js";
 import {terrainHeight} from "../lib/world/model";
 import {
   ALPINE_HALFPIPE,ALPINE_ROCK_RIBS,GLACIER_PASSAGE,
-  glacierVaultHeight,glacierCeilingHeight,halfpipeBankSlope,
+  glacierVaultHeight,glacierCeilingHeight,glacierConstrainSkiMove,halfpipeBankSlope,
 } from "../lib/world/alpineTerrainPark";
 import {createWorldAlpineMicroDetail} from "../components/world/worldAlpineMicroDetail";
 import {createWorldAlpineTerrainPark} from "../components/world/worldAlpineTerrainPark";
@@ -39,6 +39,29 @@ test("halfpipe bank has finite symmetric slope and C1 lip and floor",()=>{
   }
   assert.equal(halfpipeBankSlope({x:h.centerX,z}),0);
 });
+test("glacier sidewall collision is real, symmetric and leaves both portals free",()=>{
+  const g=GLACIER_PASSAGE,x=(g.westX+g.eastX)/2,center=g.centerZ;
+  for(const sign of [-1,1]){
+    const inside={x,z:center};
+    const crash={x,z:center+sign*(g.innerHalfWidth+1)};
+    const stopped=glacierConstrainSkiMove(inside,crash);
+    assert.ok(Math.abs(stopped.z-(center+sign*(g.innerHalfWidth-.42)))<1e-9);
+    const outside={x,z:center+sign*(g.innerHalfWidth+1)};
+    const sideApproach=glacierConstrainSkiMove(outside,
+      {x,z:center+sign*(g.innerHalfWidth-.25)});
+    assert.ok(Math.abs(sideApproach.z-center)>=g.innerHalfWidth+.41,
+      "entering through the ice side wall must remain impossible");
+  }
+  for(const sign of [-1,1]){
+    const from={x:sign===1?g.westX-.4:g.eastX+.4,z:center};
+    const to={x:sign===1?g.westX+.4:g.eastX-.4,z:center};
+    assert.deepEqual(glacierConstrainSkiMove(from,to),to,
+      "crossing a real open glacier portal must not move the rider sideways");
+  }
+  const far={x:g.eastX+9,z:center+8};
+  assert.deepEqual(glacierConstrainSkiMove({x:far.x-1,z:far.z},far),far);
+});
+
 test("alpine render geometry is watertight in attribute count and physics registered",()=>{
   const scene=new THREE.Scene();
   const park=createWorldAlpineTerrainPark(scene);
