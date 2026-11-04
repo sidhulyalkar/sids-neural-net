@@ -3310,6 +3310,9 @@ export function createWorld(
     covered: number;
   } | null = null;
   let lastRampAt = -10, lastRampId = "";
+  // Only an explicit Halfpipe shortcut opts a skier into authored park lips.
+  // Ordinary ski mode must not gain surprise freestyle jumps. 
+  let alpineFreestyleSelected=false;
   const skateBestKey="sid-world:skate-line-best-v1";
   let skateTrick=idleSkateTrick(),skateWindupAt=-Infinity,skatePadPrimed=false;
   try {
@@ -4736,7 +4739,9 @@ export function createWorld(
             const ramp = rampImpulseCrossing(
               previousPoint, player, travel.heading, modeForRamp, travel.speed,
             );
-            if (ramp && ramp.id !== lastRampId) {
+            const parkJumpAllowed=!ramp?.id.startsWith("alpine-")||
+              modeForRamp!=="ski"||alpineFreestyleSelected;
+            if (ramp && parkJumpAllowed && ramp.id !== lastRampId) {
               if(modeForRamp==="skate"){
                 skateLastTakeoff=ramp.id;
                 if(ramp.id==="redwood-bowl-exit"){
@@ -4752,7 +4757,7 @@ export function createWorld(
               // without requiring a second, midair keypress from visitors.
               if(modeForRamp==="skate"&&insideSkatePark(player)&&
                 travel.speed>=6&&skateTrick.phase==="ground")launchAssistedSkateTrick();
-            } else if (!ramp) {
+            } else if (!ramp || !parkJumpAllowed) {
               lastRampId = "";
             }
           }
@@ -5198,6 +5203,7 @@ export function createWorld(
       // Avoid 60 identical live-region mutations per second for screen readers.
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
       canvas.dataset.alpineZone=alpineFeatureZone(player)??"";
+      canvas.dataset.alpineFreestyleSelected=String(alpineFreestyleSelected);
       canvas.dataset.glacierInside=String(insideGlacierPassage(player));
       canvas.dataset.glacierPortal=String(insideGlacierPassage(player,3));
       canvas.dataset.skateGrove="redwood-timber-v1";
@@ -7409,6 +7415,7 @@ export function createWorld(
         callbacks.onJetSkiMode(false);
         if(jetChoosing){jetChoosing=false;jetChooser.hidden=true;}
         const alpineStart=next.command.alpineDestination;
+        alpineFreestyleSelected=alpineStart==="halfpipe";
         const loopStart=next.command.skateDestination==="loop-rollin"&&next.command.activity==="skate";
         const reverseStart=next.command.skateDestination==="loop-reverse"&&next.command.activity==="skate";
         const tubeStart=next.command.skateDestination==="hollow-log"&&next.command.activity==="skate";
