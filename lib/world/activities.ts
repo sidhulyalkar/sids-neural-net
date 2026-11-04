@@ -663,7 +663,7 @@ export function sportClearance(p: Point) {
   };
   return (
     insideSkatePark(p,2) || insideMeadowConnector(p,2) ||
-    withinMountainHalfpipe(p) ||
+    mountainHalfpipeApproachClearance(p) ||
     desertTrackClearance(p) ||
     technicalFeatureClearance(p) ||
     bigAirClearance(p) ||
