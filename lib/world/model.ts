@@ -556,6 +556,7 @@ export type WorldCommand = {
   serial: number;
   activity?: import("./activities").Activity;
   skateDestination?: "canyon-flow" | "loop-rollin" | "loop-reverse" | "hollow-log";
+  alpineDestination?: "halfpipe" | "glacier-west" | "glacier-east";
   sportDestination?: "jet-pier";
   galleryDestination?: import("./galleryLinks").GalleryDestination;
 };
