@@ -4842,7 +4842,7 @@ export function createWorld(
       if(rideFlightContinuity&&airHeight<=.001&&verticalSpeed===0)
         rideFlightContinuity=false;
       const skiEligible=state.activity==="ski"&&bigAir.phase==="armed"&&
-        bigAir.phase!=="flying"&&elapsed-lastRampAt>1.1&&
+        elapsed-lastRampAt>1.1&&
         discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
         trial.phase!=="running"&&trial.phase!=="armed"&&
         !climb&&!grind&&aquatic==="land"&&airHeight<.1&&
