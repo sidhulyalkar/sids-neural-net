@@ -38,6 +38,7 @@ try{
   try{
    for(;;){
     last=await canvas.evaluate(el=>({
+      sampleSeconds:performance.now()/1000,
       x:Number(el.dataset.player?.split(",")[0]),
       z:Number(el.dataset.player?.split(",")[1]),
       speed:Number(el.dataset.speed),
@@ -52,7 +53,12 @@ try{
       throw Error("Invalid alpine rider coordinate");
     if(previous){
       const jump=Math.hypot(last.x-previous.x,last.z-previous.z);
-      if(jump>5)throw Error("Nonphysical alpine teleport "+JSON.stringify({previous,last}));
+      // Host-side polling may span several WebGL frames at full ski speed.
+      // Bound displacement by actual elapsed time and observed velocity,
+      // not an arbitrary fixed 5-unit threshold.
+      const elapsed=Math.max(.01,last.sampleSeconds-previous.sampleSeconds);
+      const cap=Math.max(previous.speed,last.speed,1)*elapsed*1.35+.75;
+      if(jump>cap)throw Error("Nonphysical alpine teleport "+JSON.stringify({jump,cap,elapsed,previous,last}));
     }
     if(last.zone===expected)observed++;
     if(trace.length>=70)trace.shift();
