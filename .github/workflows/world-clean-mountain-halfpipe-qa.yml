@@ -1,0 +1,67 @@
+name: Clean Mountain Halfpipe Browser QA
+on:
+  pull_request:
+    paths:
+      - 'lib/world/mountainHalfpipe.ts'
+      - 'lib/world/model.ts'
+      - 'lib/world/bigAir.ts'
+      - 'lib/world/activities.ts'
+      - 'components/world/worldMountainHalfpipe.ts'
+      - 'components/world/worldRenderer.ts'
+      - 'components/world/WorldHome.tsx'
+      - 'scripts/playtest-clean-mountain-halfpipe.mjs'
+      - '.github/workflows/world-clean-mountain-halfpipe-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clean-mountain-halfpipe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  single-face-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    env:
+      WORLD_BASE_URL: http://127.0.0.1:3000
+      WORLD_AUDIT_DIR: artifacts/world/clean-halfpipe
+      PLAYWRIGHT_MODULE_ROOT: ${{ github.workspace }}/node_modules/playwright
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked website packages
+        run: npm ci
+      - name: Install independent Chromium
+        run: |
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Start the exact candidate world
+        run: |
+          (npm run dev > /tmp/world-halfpipe-next.log 2>&1 &)
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3000 >/dev/null; then
+              echo "World ready"; exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/world-halfpipe-next.log
+          exit 1
+      - name: Capture clean halfpipe and verify no accidental ski jump
+        run: node scripts/playtest-clean-mountain-halfpipe.mjs
+      - name: Print server diagnostics
+        if: failure()
+        run: tail -n 180 /tmp/world-halfpipe-next.log || true
+      - name: Upload screenshots and full QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-mountain-halfpipe-${{ github.sha }}
+          path: |
+            artifacts/world/clean-halfpipe/
+            /tmp/world-halfpipe-next.log
+          if-no-files-found: warn
