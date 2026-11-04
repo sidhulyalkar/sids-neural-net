@@ -7412,6 +7412,9 @@ export function createWorld(
           regionLanding(r.id);
         clearInput();
         travel = { point: player, speed: 0, heading:
+          alpineStart==="halfpipe"?{x:0,z:1}:
+          alpineStart==="glacier-west"?{x:1,z:0}:
+          alpineStart==="glacier-east"?{x:-1,z:0}:
           reverseStart?reversePose.heading:tubeStart?{x:-1,z:0}:loopStart?{x:-1,z:0}:flowStart?{x:1,z:0}:
           next.command.activity==="skate"&&insideSkatePark(player)?
           skateGroveStartHeading():{x:0,z:r.id==="north-shore"||r.id==="canyon"?1:-1} };
