@@ -207,13 +207,7 @@ export function createWorldAlpineTerrainPark(scene:THREE.Scene){
   }
   // Rock stratification outside active corridors. Static, deterministic,
   // deliberately sparse; rock silhouettes are not invisible ski colliders.
-  const ribs=[
-    [-27,-74,3.9],[-25,-68,4.5],[-29,-61,5.1],[-23,-58,3.5],
-    [-24,-45,4.0],[-18,-76,2.9],[-9,-89,2.5],[12,-89,3.2],
-    [15,-55,2.8],[17,-36,2.7],[39,-65,3.0],[42,-57,3.7],
-    [38,-49,3.2],[35,-37,2.9],
-  ] as const;
-  ribs.forEach(([x,z,height],i)=>{
+  ALPINE_ROCK_RIBS.forEach(([x,z,height],i)=>{
     if(alpineSportClearance({x,z}))return;
     const y=terrainHeight(x,z);
     batch.add(stone,i%3===0?"#586975":i%3===1?"#788994":"#657880",
