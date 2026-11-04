@@ -87,6 +87,12 @@ export const SKATE_GROVE_FRAME_TREES=[
  {x:11.6,z:33.8,h:20,r:1.00},
  {x:12.6,z:45.1,h:24,r:1.12},
  {x:10.8,z:52.3,h:19,r:.90},
+ // Mature sequoia silhouettes define the forest boundary but leave the
+ // meadow loop, canyon connection and discovery clear by shared clearance.
+ {x:-24,z:26,h:37,r:1.6},{x:-25,z:47,h:34,r:1.55},
+ {x:-18,z:65,h:39,r:1.7},{x:8,z:69,h:32,r:1.5},
+ {x:28,z:27,h:30,r:1.4},{x:34,z:65,h:35,r:1.45},
+ {x:-28,z:7,h:34,r:1.5},{x:15,z:22,h:30,r:1.4},
 ] as const;
 
 export const GROVE_BRIDGE={center:{x:-10,z:49},halfLength:4.2,halfWidth:1.05} as const;
