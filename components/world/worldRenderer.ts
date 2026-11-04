@@ -12,7 +12,7 @@ import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkat
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {createWorldAlpineTerrainPark} from "./worldAlpineTerrainPark";
 import {createWorldAlpineMicroDetail} from "./worldAlpineMicroDetail";
-import {ALPINE_HALFPIPE,GLACIER_PASSAGE,alpineFeatureZone,alpineHalfpipeStrength,glacierCeilingHeight,glacierConstrainSkiMove,insideGlacierPassage} from "@/lib/world/alpineTerrainPark";
+import {ALPINE_HALFPIPE,ALPINE_KICKERS,ALPINE_FEATURE_BOXES,ALPINE_RAIL_CHAINS,GLACIER_PASSAGE,alpineFeatureZone,alpineHalfpipeStrength,glacierCeilingHeight,glacierConstrainSkiMove,insideGlacierPassage} from "@/lib/world/alpineTerrainPark";
 import {idleAlpineTrick,beginAlpineTrick,advanceAlpineTrick,alpineGrab,alpineSpin,alpineTrickPose,landAlpineTrick,cancelAlpineTrick,type AlpineTakeoff} from "@/lib/world/alpineTricks";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
 import {createMysticElectricity} from "./worldMysticElectricity";
@@ -7537,12 +7537,23 @@ export function createWorld(
         callbacks.onJetSkiMode(false);
         if(jetChoosing){jetChoosing=false;jetChooser.hidden=true;}
         const alpineStart=next.command.alpineDestination;
-        alpineFreestyleSelected=alpineStart==="halfpipe";
+        alpineFreestyleSelected=alpineStart==="halfpipe"||
+          alpineStart==="halfpipe-lip-right"||alpineStart==="alpine-kicker"||
+          alpineStart==="alpine-box"||alpineStart==="alpine-rail";
         const loopStart=next.command.skateDestination==="loop-rollin"&&next.command.activity==="skate";
         const reverseStart=next.command.skateDestination==="loop-reverse"&&next.command.activity==="skate";
         const tubeStart=next.command.skateDestination==="hollow-log"&&next.command.activity==="skate";
         const reversePose=skateLoopSample(beginSkateLoop(0,0,SKATE_LOOP.center.z,0,-1));
-        player=alpineStart==="halfpipe"?{x:ALPINE_HALFPIPE.centerX,z:ALPINE_HALFPIPE.endZ+2.8}:
+        player=alpineStart==="halfpipe-lip-right"?{
+          x:ALPINE_HALFPIPE.centerX+ALPINE_HALFPIPE.rimHalfWidth-2.1,
+          z:(ALPINE_HALFPIPE.startZ+ALPINE_HALFPIPE.endZ)/2}:
+          alpineStart==="alpine-kicker"?{x:ALPINE_KICKERS[0].point.x,
+            z:ALPINE_KICKERS[0].point.z+5.8}:
+          alpineStart==="alpine-box"?{x:ALPINE_FEATURE_BOXES[0].from.x+.1,
+            z:ALPINE_FEATURE_BOXES[0].from.z+2.4}:
+          alpineStart==="alpine-rail"?{x:ALPINE_RAIL_CHAINS[0].points[0].x-.3,
+            z:ALPINE_RAIL_CHAINS[0].points[0].z+2.1}:
+          alpineStart==="halfpipe"?{x:ALPINE_HALFPIPE.centerX,z:ALPINE_HALFPIPE.endZ+2.8}:
           alpineStart==="glacier-west"?{x:GLACIER_PASSAGE.westX-5,z:GLACIER_PASSAGE.centerZ}:
           alpineStart==="glacier-east"?{x:GLACIER_PASSAGE.eastX+5,z:GLACIER_PASSAGE.centerZ}:
           jetPierStart?{x:JET_SKI_PIER.rampEndX+1.3,z:JET_SKI_PIER.centerZ}:
@@ -7552,12 +7563,18 @@ export function createWorld(
           regionLanding(r.id);
         clearInput();
         travel = { point: player, speed: 0, heading:
-          alpineStart==="halfpipe"?{x:0,z:-1}:
+          alpineStart==="halfpipe-lip-right"?{x:1,z:0}:
+          alpineStart==="alpine-rail"?{x:.115,z:-.993}:
+          alpineStart==="alpine-box"?{x:-.057,z:-.998}:
+          alpineStart==="halfpipe"||alpineStart==="alpine-kicker"?{x:0,z:-1}:
           alpineStart==="glacier-west"?{x:1,z:0}:
           alpineStart==="glacier-east"?{x:-1,z:0}:
           reverseStart?reversePose.heading:tubeStart?{x:-1,z:0}:loopStart?{x:-1,z:0}:flowStart?{x:1,z:0}:
           next.command.activity==="skate"&&insideSkatePark(player)?
           skateGroveStartHeading():{x:0,z:r.id==="north-shore"||r.id==="canyon"?1:-1} };
+        // QA/direct-link starts are ordinary ground starts; a staged lip
+        // approach uses the same stored rider momentum as an on-mountain run.
+        travel.speed=alpineStart==="halfpipe-lip-right"?7.3:0;
         airHeight = verticalSpeed = swimDepth = targetDepth = 0;
         galleryPhase="outside";lastGalleryCameraPhase="outside";
         galleryFocusIndex=null;
