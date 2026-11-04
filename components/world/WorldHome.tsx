@@ -759,9 +759,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
             bigAir.phase==="landed"||bigAir.phase==="missed") && (
             <aside className={styles.bigAirHud} aria-label="Alpine Big Air flight"
               aria-live={bigAir.phase==="landed"||bigAir.phase==="missed"?"polite":"off"}>
-              <span className={styles.eyebrow}>MOUNTAIN · FREE JUMP</span>
+              <span className={styles.eyebrow}>MOUNTAIN · SKI JUMP</span>
               <strong>{(bigAir.radialDistance??0).toFixed(1)} m from center</strong>
-              <p>{bigAir.phase==="armed"?"Build speed and jump from any mountain slope":
+              <p>{bigAir.phase==="armed"?"Selected ski jump: approach the marked ridge lip":
                 bigAir.phase==="flying"?
                   (bigAirBirdCallout(bigAir.distance)??"Macaws joining your flight"):
                 bigAir.phase==="landed"?"Clean landing":
