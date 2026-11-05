@@ -11,12 +11,12 @@ is present. This is a narrowly scoped replacement.
 ## Position and sightline
 
 The edited face is the south-facing (+Z downhill) snow apron centered at
-x≈13.5, z=-57.5…-36. It corresponds to the skier's mountain-facing foreground
+x=7, z=-61…-33. It corresponds to the skier's mountain-facing foreground
 shown in the feedback screenshot. Two subtle groomed walls, a clean snow
 bottom and one transition runout are the only new visual elements.
 
-- **Pipe:** 21.5 world units long, 2.5-unit flat bottom, 7.1-unit lip-to-lip
-  width, 3.1-unit bank rise. A 3.3-unit longitudinal fade and 1.25-unit
+- **Pipe:** 28 world units long, 4.6-unit flat bottom, 12.8-unit lip-to-lip
+  width, 7.6-unit bank rise. A 4.5-unit longitudinal fade and 1-unit
   lateral feather keep it attached to the original mountain instead of
   creating rectangular cutouts or vertical seams.
 - **Summit:** a compact +3.25-unit upper snow dome centered (8,-67), within
@@ -24,7 +24,7 @@ bottom and one transition runout are the only new visual elements.
   roof (x≈12.2…19.8, z≈-81…-63). The lift reaches zero before the
   meltwater source, mountain-lake photo, west waterfall roof, and arcade
   cave. No ridge is widened into the lake/shore or ocean.
-- **Aesthetics:** pale sculpted snow and restrained compressed-snow coping.
+- **Aesthetics:** pale sculpted snow with rounded lips in the island terrain mesh.
   No separate floating timber jump decks, billboard, ice tunnel, park
   boxes, signage, posts, curved rails or surrounding prop scatter.
 

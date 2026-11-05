@@ -56,6 +56,8 @@ const enterSki=async(page)=>{
      .map(b=>({aria:b.getAttribute("aria-label"),text:b.innerText.slice(0,38),
         disabled:b.disabled})),
   })).catch(e=>({diagnosticError:String(e)}));
+  await capture(page,"failed-world-entry.png").catch(()=>{});
+  evidence.entryFailure=diag;
   console.error("CLEAN HALFPIPE INITIALIZATION DIAGNOSTIC",JSON.stringify(diag));
   throw error;
  }

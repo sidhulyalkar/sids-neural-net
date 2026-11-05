@@ -104,6 +104,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const router=useRouter();
   const [galleryPhase,setGalleryPhase]=useState<GalleryPhase>("outside");
   const [enabled, setEnabled] = useState(false);
+  const [entryInteractive,setEntryInteractive]=useState(false);
   const [entered, setEntered] = useState(false);
   const [ready, setReady] = useState(false);
   // The WebGL initialization callback is authoritative even if React cannot
@@ -353,6 +354,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       navigator as Navigator & { connection?: { saveData?: boolean } }
     ).connection;
     const frame = requestAnimationFrame(() => {
+      setEntryInteractive(true);
       if (!motion.matches && !small.matches && !connection?.saveData)
         setEnabled(true);
     });
@@ -595,7 +597,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               View site <span aria-hidden="true">↗</span>
             </Link>
             {!failed && (
-              <button ref={enterButton} className={styles.exploreButton} onClick={enter}>
+              <button ref={enterButton} disabled={!entryInteractive} className={styles.exploreButton} onClick={enter}>
                 Explore world <span aria-hidden="true">→</span>
               </button>
             )}

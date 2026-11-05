@@ -292,7 +292,7 @@ try {
     return d?.activity==="ski"&&d.bigAirPhase==="idle"&&Number(d.speed)<.1;
   });
   const ridgeStart = (await page.locator("canvas").getAttribute("data-player")).split(",").map(Number);
-  const ridgeApproachYaw = Math.atan2(ridgeStart[0] - 9, ridgeStart[1] + 65);
+  const ridgeApproachYaw = Math.atan2(ridgeStart[0] - 12.4, ridgeStart[1] + 65);
   const ridgeDelta=Math.PI-ridgeApproachYaw;
   const ridgeTurnPixels=Math.atan2(Math.sin(ridgeDelta),Math.cos(ridgeDelta))/.005;
   await page.mouse.move(700, 450);
@@ -308,16 +308,13 @@ try {
     );
     assert.equal(await page.locator('canvas').getAttribute('data-grind-style'), 'fifty-fifty');
     await page.keyboard.press('Space');
-    await page.waitForFunction(
-      () => document.querySelector('canvas')?.dataset.grinding === 'true',
-      null,
-      { timeout: 4000 },
-    );
+    await page.waitForFunction(() => {
+      const d=document.querySelector('canvas')?.dataset;
+      return d?.grinding==='true' && d.grindId==='ridge-log' && d.grindStyle==='fifty-fifty';
+    },null,{timeout:4000});
   } finally {
     await page.keyboard.up('w');
   }
-  assert.equal(await page.locator('canvas').getAttribute('data-grind-id'), 'ridge-log');
-  assert.equal(await page.locator('canvas').getAttribute('data-grind-style'), 'fifty-fifty');
   await screenshot(page, 'activity-ski-grind');
   results.push('Skis acquire the ridge log as an angle-selected 50-50');
 
