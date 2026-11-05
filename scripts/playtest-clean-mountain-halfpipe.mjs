@@ -54,6 +54,15 @@ const enterSki=async(page)=>{
      .find(b=>b.getAttribute("aria-label")==="Skiing");
    return !!button&&!button.disabled&&Number(d?.drawCalls)>0;
   },null,{timeout:110000,polling:"raf"});
+ const ski=page.getByRole("navigation",{name:"World movement and sports"}).getByRole("button",{name:"Skiing",exact:true});
+ if(await page.evaluate(()=>navigator.maxTouchPoints>0))await ski.tap();
+ else await ski.click();
+ await wait(page,()=>{
+  const d=document.querySelector("canvas")?.dataset;
+  return d?.activity==="ski"&&d?.bigAirPhase==="idle"&&
+   d?.mountainHalfpipe==="single-snow-face-v1"&&Number(d.drawCalls)>0;
+ });
+ await page.locator("canvas").first().focus();
  }catch(error){
   const diag=await page.evaluate(()=>({
    visible:document.body.innerText.slice(0,750),
@@ -72,13 +81,7 @@ const enterSki=async(page)=>{
   console.error("CLEAN HALFPIPE INITIALIZATION DIAGNOSTIC",JSON.stringify(diag));
   throw error;
  }
- await page.getByRole("button",{name:"Skiing",exact:true}).click();
- await wait(page,()=>{
-  const d=document.querySelector("canvas")?.dataset;
-  return d?.activity==="ski"&&d?.bigAirPhase==="idle"&&
-   d?.mountainHalfpipe==="single-snow-face-v1"&&Number(d.drawCalls)>0;
- });
- await page.locator("canvas").first().focus();
+
 };
 try{
  const desktop=await browser.newPage({viewport:{width:1440,height:900}});
@@ -152,6 +155,7 @@ try{
  assert.equal((await observe(desktop)).authorized,"true");
  await capture(desktop,"04-menu-armed-ski-jump.png");
  evidence.skiJump={armed:true};
+ await desktop.close();
 
  // Reuse no desktop renderer here. The mobile world has an independent
  // WebGL context and should not acquire a giant new freestyle control bar.
