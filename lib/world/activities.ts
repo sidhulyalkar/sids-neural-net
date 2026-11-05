@@ -423,9 +423,18 @@ export function stepTravel(
   const config = activityConfig(mode);
   const length = Math.hypot(input.x, input.z);
   const moving = length > 0.001;
-  const desired = moving
+  let desired = moving
     ? { x: input.x / length, z: input.z / length }
     : current.heading;
+  const carving = mode === "ski" && withinMountainHalfpipe(current.point);
+  if (carving && moving && current.speed > .2) {
+    const angle = Math.atan2(current.heading.x,current.heading.z);
+    const target = Math.atan2(desired.x,desired.z);
+    const delta = Math.atan2(Math.sin(target-angle),Math.cos(target-angle));
+    const maxTurn = dt * (airborne > 0 ? 6.5 : 3.8);
+    const yaw = angle + Math.max(-maxTurn, Math.min(maxTurn,delta));
+    desired = {x:Math.sin(yaw),z:Math.cos(yaw)};
+  }
   // Rolling skateboard carves gradually; other modes keep exact steering.
   const steer = mode === "skate" ? Math.min(1, dt * (3.1 + current.speed * 0.16)) : 1;
   const blended = {x:current.heading.x*(1-steer)+desired.x*steer,
@@ -450,7 +459,7 @@ export function stepTravel(
     contactSupport(current.point);
   const boostEligible=boost && (mode==="bike"||mode==="ski"||mode==="skate");
   const maxSpeed =
-    config.speed *
+    carving ? 6.5 : config.speed *
     (mode === "run" && sprint ? 1.45 : 1) *
     (mode === "ski" ? Math.max(0.42, Math.min(1.45, 1 - slope * 0.38)) : 1) *
     (boostEligible ? 1.6 : 1);

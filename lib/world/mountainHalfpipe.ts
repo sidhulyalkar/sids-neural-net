@@ -15,7 +15,7 @@ export const MOUNTAIN_HALFPIPE={
   floorHalfWidth:2.3,
   lipHalfWidth:6.4,
   featherWidth:1.0,
-  bankRise:6.2,
+  bankRise:7.6,
   centerCut:2.5,
   endBlend:4.5,
 } as const;
@@ -68,7 +68,11 @@ export function mountainHalfpipeBank(p:Point):number{
    (h.lipHalfWidth-h.floorHalfWidth);
  // Genuinely flat central bottom and smooth zero-gradient wall crest.
  // A progressively steeper transition carries the skier toward the lip.
- return h.bankRise*Math.pow(clamp01(t),1.85);
+ const u=clamp01(t);
+ // Round the final shoulder into a horizontal crest with continuous slope.
+ const knee=.85;
+ const rise=u<=knee ? u*u : knee*knee+2*knee*(u-knee)-knee*(u-knee)**2/(1-knee);
+ return h.bankRise*rise/knee;
 }
 
 /** A continuous, carver-friendly channel. The center preserves the mountain
@@ -128,8 +132,8 @@ export function halfpipePop(p:Point, heading:Point, speed:number) {
  const outward=Math.max(0,Math.sign(side)*heading.x);
  const wall=clamp01((Math.abs(side)-h.floorHalfWidth)/(h.lipHalfWidth-h.floorHalfWidth));
  const transfer=wall*outward;
- return {verticalSpeed:4.3+Math.min(5,speed*.45)*transfer,
-   speed:speed*(1-.55*transfer)};
+ return {verticalSpeed:4.3+Math.min(6,speed*.85)*transfer,
+   speed:speed*(1-.74*transfer)};
 }
 
 /** Snapshot of protected geology. These footprints are explicit release

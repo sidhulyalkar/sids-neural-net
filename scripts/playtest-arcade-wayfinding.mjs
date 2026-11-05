@@ -21,9 +21,9 @@ try{
   const canvas=page.locator("canvas");
   await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
    null,{timeout:45000});
-  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.arcadeWayfinding==="split-basalt-amber-v1",
+  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.arcadeWayfinding==="cave-mouth-sign",
    null,{timeout:10000});
-  assert.equal(await canvas.getAttribute("data-arcade-trail-markers"),"4");
+  assert.equal(await canvas.getAttribute("data-arcade-trail-markers"),"0");
   assert.equal(await canvas.getAttribute("data-arcade-wayfinding-sign"),"ARCADE");
   assert.equal(await canvas.getAttribute("data-arcade-portal-visual"),"open-dark-arch");
   await page.getByRole("button",{name:"Open navigation menu"}).click();
@@ -43,7 +43,7 @@ try{
    text:el.dataset.arcadeTrailHint,layer:el.dataset.caveLayer,
    distance:el.dataset.cameraDistance,
   }));
-  assert.match(trace.approach.text??"",/ENTER THE SPLIT STONE/);
+  assert.match(trace.approach.text??"",/ENTER THE CAVERN/);
   assert.equal(await page.getByRole("status",{name:"Arcade Cavern trail guidance"}).isVisible(),true);
   // Give the intentionally throttled software WebGL at least another frame
   // to finish drawing the *actual* exterior camera pose before signoff.

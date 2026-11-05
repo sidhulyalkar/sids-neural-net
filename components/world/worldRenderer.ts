@@ -1,7 +1,7 @@
 import {reefCanyonConstrainSwim,reefCanyonNear} from "@/lib/world/reefCanyon";
 import {createMossCanyonReef} from "./worldMossCanyonReef";
 import {bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
-import {ARCADE_GATE,ARCADE_TRAIL_MARKERS,arcadeTrailHint,arcadeTrailStage,arcadeTrailFooting,arcadeEntranceCameraPose} from "@/lib/world/arcadeWayfinding";
+import {ARCADE_GATE,arcadeTrailHint,arcadeTrailStage,arcadeEntranceCameraPose} from "@/lib/world/arcadeWayfinding";
 import {createWorldSkimSurf} from "./worldSkimSurfGeometry";
 import { desertTrackTreadBlend, desertTrackSampleAt, DESERT_GAP_DEBRIS, DESERT_JUMPS, DESERT_TRACK_LENGTH } from "@/lib/world/desertTrack";
 import {insideSkatePark,skateParkZone,skateGroveStartHeading,SKATE_LOOP,GROVE_TUNNEL,SKATE_PARK_RAILS,SKATE_GROVE_FRAME_TREES,advanceRailChain,railLiftAt,insideMeadowConnector,CANYON_FLOW,type SkateRail} from "@/lib/world/skatepark";
@@ -10,7 +10,7 @@ import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample,type SkateRailG
 import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
-import {createWorldMountainHalfpipe} from "./worldMountainHalfpipe";
+import {refineMountainSnow} from "./worldMountainHalfpipe";
 import {halfpipePop,mountainHalfpipeApproachClearance,suppressedFaceKicker,withinMountainHalfpipe,halfpipeManualPopEligible} from "@/lib/world/mountainHalfpipe";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
 import {createMysticElectricity} from "./worldMysticElectricity";
@@ -587,7 +587,7 @@ export function createWorld(
     }
     terrain.setIndex(keep);
   }
-  terrain.computeVertexNormals();
+  const snowTriangles = refineMountainSnow(terrain);
   const ground = mesh(
     terrain,
     mat("#ffffff", { vertexColors: true, flatShading: false, roughness: 0.92 }),
@@ -1119,10 +1119,9 @@ export function createWorld(
   // Natural redwood skate grove: single authoritative riding heightfield.
   // Static procedural wood art is isolated and fully disposable.
   const skateGrove=createWorldSkateGrove(scene,groundHeight);
-  const mountainHalfpipe=createWorldMountainHalfpipe(scene);
   canvas.dataset.mountainHalfpipe="single-snow-face-v1";
   canvas.dataset.glacierCave="absent";
-  canvas.dataset.mountainHalfpipeTriangles=String(mountainHalfpipe.triangles);
+  canvas.dataset.mountainHalfpipeTriangles=String(snowTriangles);
   // Small grasses share one geometry and one draw call.
   const grasses: Instance[] = [];
   for (let i = 0; i < 750; i++) {
@@ -1557,11 +1556,6 @@ export function createWorld(
   mesh(geo(ringSurface(arcadeFloorRings)),detailCavernStone(mat("#a49c8b",{side:THREE.DoubleSide})),[0,0,0],[1,1,1]);
   // The former box baffle and its collision obstacles are removed. The
   // continuous centerline now provides a clear view of the rear chamber.
-  // GRANITE SIGNAL: a legible exterior silhouette that announces an
-  // underground arcade without drawing a floating neon UI or blocking the
-  // entrance. Two split basalt horns frame the passage from the southern
-  // approach. They sit OUTSIDE the authored cave tunnel's walking width.
-  const arcadeWaystone=mat("#4e555a",{roughness:.97});
   const arcadeBasalt=mat("#343e43",{roughness:.97});
   const arcadeEmber=mat("#f4bf70",{
     emissive:"#f2a63d",emissiveIntensity:1.9,roughness:.42,
@@ -1569,73 +1563,6 @@ export function createWorld(
   const arcadeGlacial=mat("#89c9c7",{
     emissive:"#4baca7",emissiveIntensity:1.0,roughness:.5,
   });
-  const arcadeStoneParts:Instance[]=[];
-  const arcadeBeaconFlames:Instance[]=[];
-  const arcadeRuneInlays:Instance[]=[];
-  // Paired standing stones form a visible broken crown instead of a prefab
-  // circular doorway. Their inner edges stay >4m from the mouth centerline.
-  for(const [point,side] of [
-    [ARCADE_GATE.left,-1],[ARCADE_GATE.right,1],
-  ] as const){
-    const y=arcadeTrailFooting(point);
-    arcadeStoneParts.push({
-      x:point.x,y:y+2.75,z:point.z,sx:1.08,sy:5.50,sz:1.25,
-      q:new THREE.Quaternion().setFromAxisAngle(
-        new THREE.Vector3(0,0,1),side*.105),
-    });
-    arcadeBeaconFlames.push({
-      x:point.x,y:y+5.46,z:point.z-.21,sx:.18,sy:.35,sz:.17,
-    });
-    for(let j=0;j<3;j++)arcadeRuneInlays.push({
-      x:point.x-side*.59,y:y+1.7+j*.46,z:point.z-.68,
-      sx:.10,sy:.22,sz:.042,
-    });
-  }
-  const caveSignalHeight=arcadeCaveFloorHeight(ARCADE_CAVE.entrance)+5.9;
-  // A suspended amber diamond sits above the passage, readable against both
-  // twilight and the pale mountain face without an expensive new point light.
-  arcadeBeaconFlames.push({
-    x:ARCADE_GATE.beacon.x,y:caveSignalHeight,
-    z:ARCADE_GATE.beacon.z,sx:.54,sy:.73,sz:.43,
-  });
-  const arcadeSignalRim:Instance[]=[];
-  const signalTop=new THREE.Vector3(ARCADE_GATE.beacon.x,
-    caveSignalHeight+1.00,ARCADE_GATE.beacon.z);
-  for(const point of [ARCADE_GATE.left,ARCADE_GATE.right]){
-    arcadeSignalRim.push(segment(
-      new THREE.Vector3(point.x,arcadeTrailFooting(point)+4.2,point.z-.20),
-      signalTop,.11));
-  }
-  // A small sequence of warm, three-stripe cairns leads down the backside
-  // of Granite Ridge. Off-center footings and zero gameplay colliders ensure
-  // ordinary skiing, walking and camera occlusion are not obstructed.
-  const cairnPosts:Instance[]=[],cairnBands:Instance[]=[];
-  for(const mark of ARCADE_TRAIL_MARKERS){
-    const y=arcadeTrailFooting(mark.point);
-    cairnPosts.push({
-      x:mark.point.x,y:y+mark.height*.43,z:mark.point.z,
-      sx:.48,sy:mark.height*.86,sz:.52,
-    });
-    arcadeBeaconFlames.push({
-      x:mark.point.x,y:y+mark.height-.05,z:mark.point.z,
-      sx:.25,sy:.34,sz:.25,
-    });
-    for(let ring=0;ring<3;ring++){
-      cairnBands.push({
-        x:mark.point.x,y:y+mark.height*(.37+ring*.125),
-        z:mark.point.z-.285,sx:.35,sy:.065,sz:.048,
-      });
-    }
-  }
-  const arcadePortalStone=instances(boxGeo,arcadeBasalt,arcadeStoneParts,false);
-  arcadePortalStone.name="arcade-cavern-split-basalt-portal";
-  const arcadeTrailStones=instances(rockGeo,arcadeWaystone,cairnPosts,false);
-  arcadeTrailStones.name="arcade-cavern-ridge-cairns";
-  const arcadeSignal=instances(rockGeo,arcadeEmber,arcadeBeaconFlames,false);
-  arcadeSignal.name="arcade-cavern-amber-beacons";
-  instances(cylinder,arcadeEmber,cairnBands,false);
-  instances(boxGeo,arcadeGlacial,arcadeRuneInlays,false);
-  instances(cylinder,arcadeWaystone,arcadeSignalRim,false);
   // Lightweight carved sign on the SOUTH face of the mouth. Everything
   // starts above player height, so there is no arch collision or visual wall
   // hiding the entrance. Use the same pixel alphabet as the game-wall art.
@@ -1693,8 +1620,8 @@ export function createWorld(
   mouthShadow.name="arcade-cavern-unblocked-shadow-mouth";
   // Its visible dark void has no collision representation.
   canvas.dataset.arcadePortalVisual="open-dark-arch";
-  canvas.dataset.arcadeWayfinding="split-basalt-amber-v1";
-  canvas.dataset.arcadeTrailMarkers=String(ARCADE_TRAIL_MARKERS.length);
+  canvas.dataset.arcadeWayfinding="cave-mouth-sign";
+  canvas.dataset.arcadeTrailMarkers="0";
   canvas.dataset.arcadeWayfindingSign=arcadeWord;
 
   // A clean centerline of understated teal studs guides visitors to the
@@ -7616,7 +7543,6 @@ export function createWorld(
       arcadeGraffiti.dispose();
       mysticElectricity.dispose();
       mysticForest.dispose();
-      mountainHalfpipe.dispose();
       skateGrove.dispose();
 
       shoreLife.dispose();

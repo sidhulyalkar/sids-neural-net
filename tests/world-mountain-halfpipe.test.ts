@@ -15,7 +15,7 @@ import {
  withinMountainHalfpipe,
  halfpipePop,halfpipeManualPopEligible,suppressedFaceKicker,
 } from "../lib/world/mountainHalfpipe";
-import {createWorldMountainHalfpipe} from "../components/world/worldMountainHalfpipe";
+import {refineMountainSnow} from "../components/world/worldMountainHalfpipe";
 
 const h=MOUNTAIN_HALFPIPE;
 const centerZ=(h.startZ+h.endZ)*.5;
@@ -28,7 +28,7 @@ test("new halfpipe starts from the verified pre-alpine world, without any glacie
  assert.ok(h.endZ>h.startZ+18);
  assert.ok(h.lipHalfWidth-h.floorHalfWidth>=2.25,
    "each bank needs >=2.25m horizontal shaping width for ski carving");
- assert.ok(h.bankRise>=6&&h.bankRise<7);
+ assert.ok(h.bankRise>=7.5&&h.bankRise<8);
  assert.ok(MOUNTAIN_SUMMIT.rise>0&&MOUNTAIN_SUMMIT.rise<=5);
  for(const id of ["ski-kicker","bowl-small","bowl-medium"])
    assert.equal(suppressedFaceKicker(id),true);
@@ -184,31 +184,22 @@ test("skiing physically traverses a downhill halfpipe and the existing ski launc
  assert.ok(Number.isFinite(groundHeight(step.point)));
 });
 
-test("one snow mesh and one subtle coping follow exact collision geometry",()=>{
- const scene=new THREE.Scene();
- const world=createWorldMountainHalfpipe(scene);
- try{
-   assert.equal(scene.children.length,2);
-   assert.equal(world.snow.name,"granite-ridge-single-carved-halfpipe");
-   assert.equal(world.coping.name,"granite-ridge-halfpipe-snow-coping");
-   assert.ok(world.triangles>3000&&world.triangles<22000);
-   for(const mesh of [world.snow,world.coping]){
-     const a=mesh.geometry.getAttribute("position");
-     assert.ok(a.count>200);
-     const normals=mesh.geometry.getAttribute("normal");
-     for(let i=0;i<normals.count;i++){
-       assert.ok(normals.getY(i)>0,"snow and both coping walls must face the sky");
-     }
-     for(let i=0;i<a.count;i+=13){
-       const x=a.getX(i),y=a.getY(i),z=a.getZ(i);
-       assert.ok([x,y,z].every(Number.isFinite));
-       assert.ok(Math.abs(y-terrainHeight(x,z))<.18,
-         "snow skin must match physical surface, not a floating plane");
-       assert.ok(z>=h.startZ-1e-4&&z<=h.endZ+1e-4);
-     }
+test("refined snow has a single indexed surface following both rounded lips",()=>{
+ const grid=new THREE.PlaneGeometry(24,36,24,36);
+ grid.rotateX(-Math.PI/2); grid.translate(h.centerX,0,centerZ);
+ const pos=grid.getAttribute("position");
+ for(let i=0;i<pos.count;i++) pos.setY(i,terrainHeight(pos.getX(i),pos.getZ(i)));
+ grid.setAttribute("color",new THREE.Float32BufferAttribute(new Float32Array(pos.count*3),3));
+ assert.ok(refineMountainSnow(grid)>3000);
+ const snow=grid.getAttribute("position"), normals=grid.getAttribute("normal");
+ for(let i=0;i<snow.count;i++) {
+   const x=snow.getX(i),z=snow.getZ(i);
+   if(withinMountainHalfpipe({x,z})) {
+     assert.ok(Math.abs(snow.getY(i)-terrainHeight(x,z))<.001);
+     assert.ok(normals.getY(i)>0);
    }
- }finally{world.dispose()}
- assert.equal(scene.children.length,0);
+ }
+ grid.dispose();
 });
 
 test("skiers can climb and pop off both walls, turn inward, and regain snow contact",()=>{

@@ -31,8 +31,8 @@ export function arcadeTrailStage(point:Point,caveLayer:"surface"|"arcade"|"paper
 
 export function arcadeTrailHint(point:Point,caveLayer:"surface"|"arcade"|"paper"){
  const stage=arcadeTrailStage(point,caveLayer);
- return stage==="entrance"?"ARCADE CAVERN · ENTER THE SPLIT STONE":
-  stage==="trail"?"AMBER CAIRNS · FOLLOW THE LIGHT TO THE ARCADE":
+ return stage==="entrance"?"ARCADE CAVERN · ENTER THE CAVERN":
+  stage==="trail"?"ARCADE CAVERN · BELOW THE RIDGE":
   "";
 }
 
