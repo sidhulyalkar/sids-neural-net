@@ -602,7 +602,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               View site <span aria-hidden="true">↗</span>
             </Link>
             {!failed && (
-              <button ref={enterButton} disabled={!entryInteractive} className={styles.exploreButton} onClick={enter}>
+              <button ref={enterButton} aria-label="Explore world" disabled={!entryInteractive} className={styles.exploreButton} onClick={enter}>
                 Explore world <span aria-hidden="true">→</span>
               </button>
             )}

@@ -40,9 +40,9 @@ const enterSki=async(page)=>{
  page.on("console",msg=>{if(msg.type()==="error")record("console error",msg.text())});
  page.on("response",r=>{if(r.status()>=400)record("http error",[r.url(),r.status()])});
  try{
- await page.goto(base,{waitUntil:"networkidle"});
+ await page.goto(base,{waitUntil:"domcontentloaded"});
  const explore=page.getByRole("button",{name:"Explore world",exact:true});
- record("welcome loaded",{enabled:await explore.isEnabled()});
+ record("document loaded",page.url());
  await explore.click();
  record("entry clicked");
  // The scene creates a large WebGL world on first entry. The dock is only
