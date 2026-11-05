@@ -113,7 +113,7 @@ export const FALLEN_LOGS = [
   },
   {
     id: "ridge-log",
-    a: { x: 9, z: -65 },
+    a: { x: 12.4, z: -65 },
     b: { x: 13, z: -70 },
     role: "sport",
     radius: 0.5,
@@ -153,7 +153,7 @@ export const FALLEN_LOGS = [
   },
   {
     id: "tree-run-slide",
-    a: { x: 19, z: -64 },
+    a: { x: 19.7, z: -64 },
     b: { x: 21, z: -70 },
     role: "sport",
     radius: 0.4,
@@ -201,6 +201,45 @@ export function timberTop(log: (typeof FALLEN_LOGS)[number], t:number) {
   const entry = terrainHeight(log.a.x,log.a.z) + .035;
   const tip = terrainHeight(log.b.x,log.b.z) + 1.05;
   return entry + (tip-entry)*t;
+}
+
+// A forward grind can carry into the second trunk on either shoulder.
+const timberReceivers: Record<string, string> = {
+  "ridge-log": "bowl-slide",
+  "tree-run-slide": "ridge-crossing",
+};
+
+export function timberTransfer(id: string, speed: number) {
+  const start = backsideLogs.find(log => log.id === id);
+  const receiver = backsideLogs.find(log => log.id === timberReceivers[id]);
+  if (!start || !receiver || speed < 4) return null;
+  const t = .48;
+  const dx = receiver.a.x + (receiver.b.x - receiver.a.x) * t - start.b.x;
+  const dz = receiver.a.z + (receiver.b.z - receiver.a.z) * t - start.b.z;
+  const distance = Math.hypot(dx, dz);
+  const duration = distance / speed;
+  const drop = timberTop(receiver, t) - timberTop(start, 1);
+  return {
+    heading: { x: dx / distance, z: dz / distance },
+    verticalSpeed: drop / duration + 7 * duration,
+  };
+}
+
+export function timberLanding(point: Point, heading: Point, fromY: number, toY: number) {
+  if (point.z > -70 || point.z < -78 || toY >= fromY) return null;
+  for (const log of backsideLogs) {
+    if (!Object.values(timberReceivers).includes(log.id)) continue;
+    const dx = log.b.x - log.a.x, dz = log.b.z - log.a.z;
+    const length = Math.hypot(dx, dz);
+    if ((heading.x * dx + heading.z * dz) / length < .55) continue;
+    const t = ((point.x - log.a.x) * dx + (point.z - log.a.z) * dz) / (length * length);
+    if (t <= 0 || t >= 1) continue;
+    const x = log.a.x + t * dx, z = log.a.z + t * dz;
+    const y = timberTop(log, t);
+    if (Math.hypot(point.x - x, point.z - z) <= log.radius && fromY >= y && toY <= y)
+      return { log, t, point: { x, z }, y };
+  }
+  return null;
 }
 
 export function timberExit(from:Point,to:Point,speed:number) {
@@ -419,7 +458,8 @@ export function stepTravel(
   // immediately to normal cruise speed. Normal braking still takes over.
   // In the pipe, steering in the air redirects the retained takeoff speed.
   // Ground acceleration resumes when the skis meet the snow again.
-  const speed = mode==="ski" && airborne>0 && withinMountainHalfpipe(current.point)
+  const speed = mode==="ski" && airborne>0 && (withinMountainHalfpipe(current.point) ||
+      (current.point.z <= -64 && current.point.z >= -78 && current.point.x >= 9 && current.point.x <= 24))
     ? current.speed
     : mode==="skate"
     ? skateRollingSpeed({

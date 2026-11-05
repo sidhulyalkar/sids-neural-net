@@ -7,7 +7,7 @@ import {
 } from "../lib/world/model";
 import {SNOWMELT_PATH,DOWNSTREAM_PATH,drainagePoints,
   downstreamPoints,waterfallCrownRings,waterfallProfile} from "../lib/world/hydrology";
-import {backsideLogs,timberExit,timberTop,nearestGrind,stepAirborne,activityLanding,groundHeight,rampImpulseAt,RIDE_RAMPS,sportClearance,stepTravel,type Travel} from "../lib/world/activities";
+import {backsideLogs,timberLanding,timberTransfer,timberExit,timberTop,nearestGrind,stepAirborne,activityLanding,groundHeight,rampImpulseAt,RIDE_RAMPS,sportClearance,stepTravel,type Travel} from "../lib/world/activities";
 import {BIG_AIR,shouldLaunchAuthoredSkiJump} from "../lib/world/bigAir";
 import {
  MOUNTAIN_HALFPIPE,MOUNTAIN_SUMMIT,MOUNTAIN_PROTECTED_ANCHORS,
@@ -252,4 +252,24 @@ test("backside rails rise from the snow, grind along the trunk and release at th
    assert.equal(timberExit(mid,beyond,8)?.id,log.id);
    assert.equal(timberExit(beyond,mid,8),null);
  }
+});
+
+test("both backside transfers intersect the receiving trunk under ordinary ski gravity", () => {
+  for (const [start, target] of [["ridge-log", "bowl-slide"], ["tree-run-slide", "ridge-crossing"]]) {
+    const log = backsideLogs.find(item => item.id === start)!;
+    for (const speed of [5, 8, 11]) for (const dt of [1/20, 1/60]) {
+      const launch = timberTransfer(start, speed)!;
+      let ride: Travel = {point: {...log.b}, speed, heading: launch.heading};
+      let y = timberTop(log, 1), vy = launch.verticalSpeed, air = .08;
+      let caught = "";
+      for (let frame = 0; frame < 120 && air > 0; frame++) {
+        ride = stepTravel(ride, launch.heading, dt, "ski", [], false, undefined, air, groundHeight, false, y);
+        const next = stepAirborne(y, vy, groundHeight(ride.point), dt);
+        const hit = timberLanding(ride.point, ride.heading, y, next.y);
+        if (hit) { caught = hit.log.id; break; }
+        y = next.y; vy = next.verticalSpeed; air = next.airHeight;
+      }
+      assert.equal(caught, target, JSON.stringify({start, speed, dt, ride}));
+    }
+  }
 });

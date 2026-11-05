@@ -68,7 +68,7 @@ import { createNorthShoreLife } from "./worldNorthShoreLife";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
-import { backsideLogs,timberTop,timberExit,stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
+import { backsideLogs,timberTop,timberExit,timberLanding,timberTransfer,stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
 import {stepCritterLocomotion} from "@/lib/world/landWildlifeMotion";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
@@ -1029,12 +1029,14 @@ export function createWorld(
 
   // Fallen redwoods double as visible obstacles to jump and deterministic grind rails.
   const fallenLogVisuals: Instance[] = [];
+  const rideableTimbers: Instance[] = [];
   for (const log of FALLEN_LOGS) {
     const a = new THREE.Vector3(log.a.x, terrainHeight(log.a.x, log.a.z) + log.lift, log.a.z);
     const b = new THREE.Vector3(log.b.x, terrainHeight(log.b.x, log.b.z) + log.lift, log.b.z);
     if(backsideLogs.some(item=>item.id===log.id)){
       a.y=timberTop(log,0)-log.radius;
       b.y=timberTop(log,1)-log.radius;
+      rideableTimbers.push(segment(a, b, log.radius));
       // Two sleepers bed the raised end into the descending snow.
       for(const t of [.62,.88]){
         const seat=a.clone().lerp(b,t);
@@ -1042,10 +1044,28 @@ export function createWorld(
         const across=new THREE.Vector3(b.z-a.z,0,a.x-b.x).normalize().multiplyScalar(log.radius*1.8);
         fallenLogVisuals.push(segment(seat.clone().sub(across),seat.clone().add(across),log.radius*.64));
       }
+    } else {
+      fallenLogVisuals.push(segment(a, b, log.radius));
     }
-    fallenLogVisuals.push(segment(a, b, log.radius));
   }
   instances(cylinder, mat("#744530"), fallenLogVisuals);
+
+  // Retain a full-width crest through the landing zone. Subtle bands along
+  // the grain give the worn upper bark a different finish from the sides.
+  const timberGeometry = geo(new THREE.CylinderGeometry(1, 1, 1, 14));
+  const normals = timberGeometry.getAttribute("normal");
+  const barkColors: number[] = [];
+  const bark = new THREE.Color();
+  for (let i = 0; i < normals.count; i++) {
+    const endGrain = Math.abs(normals.getY(i)) > .9;
+    bark.set(endGrain ? "#b28a65" : "#79533e");
+    if (!endGrain) bark.multiplyScalar(.94 + .13 * Math.cos(5 * Math.atan2(normals.getX(i), normals.getZ(i))));
+    barkColors.push(bark.r, bark.g, bark.b);
+  }
+  timberGeometry.setAttribute("color", new THREE.Float32BufferAttribute(barkColors, 3));
+  const timberMaterial = mat("#ffffff");
+  timberMaterial.vertexColors = true;
+  instances(timberGeometry, timberMaterial, rideableTimbers);
 
   // Timber kickers use the same positions/headings as the launch mechanic.
   // Individual planks plus two stringers read as a built feature instead of a
@@ -4500,7 +4520,7 @@ export function createWorld(
           x:segment.a.x+dxLog*grind.t,
           z:segment.a.z+dzLog*grind.t,
         };
-        travel={point:player,speed:connectedSkate?grindSpeed:grindSpeed*.995,heading:{
+        travel={point:player,speed:connectedSkate?grindSpeed:grindSpeed*Math.pow(.995,dt*60),heading:{
           x:dxLog/length*grind.direction,z:dzLog/length*grind.direction,
         }};
         const railGround=groundHeight(segment.a)*(1-grind.t)+
@@ -4516,8 +4536,14 @@ export function createWorld(
           if(grind.mode==="skate")
             commitSkateTrick(scoreSkateGrind(skateTrick,grind.covered,
               grind.style,elapsed));
+          const transfer = grind.mode === "ski" && grind.direction === 1
+            ? timberTransfer(segment.id, travel.speed) : null;
           grind=null;
-          if(gap){
+          if (transfer) {
+            travel.heading = transfer.heading;
+            airHeight = .08;
+            verticalSpeed = transfer.verticalSpeed;
+          } else if(gap){
             skateRailGapRide=gap;skateRailGapEntries++;
             lastRampAt=elapsed;airHeight=.04;verticalSpeed=0;
           }else{airHeight=.08;verticalSpeed=2.5;}
@@ -4744,7 +4770,15 @@ export function createWorld(
           // deck height from an airborne rider's trajectory.
           if (airHeight > 0 || verticalSpeed > 0) {
             const airborne = stepAirborne(previousY, verticalSpeed, groundY, dt);
-            playerY = airborne.y;
+            const landing = state.activity === "ski" && caveLayer === "surface" && bigAir.phase === "idle"
+              ? timberLanding(player, travel.heading, previousY, airborne.y) : null;
+            if (landing) {
+              player = landing.point;
+              travel.point = player;
+              grind = { log: landing.log, t: landing.t, direction: 1,
+                style: "fifty-fifty", mode: "ski", covered: 0 };
+            }
+            playerY = landing?.y ?? airborne.y;
             airHeight = airborne.airHeight;
             verticalSpeed = airborne.verticalSpeed;
           } else {
