@@ -1,5 +1,5 @@
 import * as THREE from "three/src/Three.Core.js";
-import {SEA_SURFACE} from "@/lib/world/model";
+import {SEA_SURFACE,seaFloorHeight} from "@/lib/world/model";
 import type {JetSkiRock,JetSkiArch,JetSkiRockKind} from "@/lib/world/jetSkiCourse";
 
 /** Faceted, strata-aware offshore geology; no model downloads or per-frame
@@ -61,38 +61,40 @@ export function createSeaStackGeometry(rock:JetSkiRock):THREE.BufferGeometry{
   indices.push((levels-1)*sides,(levels-1)*sides+i+1,(levels-1)*sides+i);
  return finish(vertices,colors,indices);
 }
-/** A thick wave-cut stone bridge, sampled as a crooked tapered beam over the
- * water. Ends are buried into the exact arch-leg collision stacks; the center
- * stays fully open. No torus/donut silhouettes or floating block shoulders. */
+/** A single weathered vault with submerged feet. Adjacent cross sections
+ * share vertices all the way around each shoulder and across the soffit. */
 export function createSeaArchGeometry(arch:JetSkiArch):THREE.BufferGeometry{
- const sections=24,sides=8,positions:number[]=[],colors:number[]=[],indices:number[]=[];
- const half=arch.span*.5,basalt=arch.kind==="basalt";
- for(let j=0;j<=sections;j++){
-  const t=j/sections,u=t*2-1;
-  const vault=Math.pow(Math.max(0,1-u*u),basalt?.62:.78);
-  const centerY=arch.height*(.49+.47*vault);
-  // Weathering is deterministic; the two arch types weather differently.
-  const shear=(basalt?.36:.25)*Math.sin(t*12.7+arch.center.z*.17);
-  const depth=(basalt?2.6:3.2)*(1+.13*Math.cos(t*17));
-  const thickness=(basalt?2.15:2.35)*(1+.10*Math.sin(t*14+1.2));
-  const centerZ=shear+.19*Math.sin(t*5.7);
+ const sides=16, steps=32, positions:number[]=[], colors:number[]=[], indices:number[]=[];
+ const half=arch.span/2, basalt=arch.kind==="basalt";
+ for(let j=-1;j<=steps+1;j++){
+  const angle=Math.PI*clamp(j/steps,0,1);
+  const rise=Math.sin(angle), lateral=Math.cos(angle);
+  const cx=-half*lateral + (basalt ? -.85 : 1.1)*rise*rise;
+  const cy=arch.height*rise*(.94+.09*lateral+.034*Math.sin(4*angle));
+  // Normal to the elliptical spine in the plane of the arch.
+  const length=Math.hypot(arch.height*.94*lateral,half*rise);
+  const nx=-arch.height*.94*lateral/length, ny=half*rise/length;
   for(let i=0;i<sides;i++){
-   const a=2*Math.PI*i/sides;
-   const side=Math.cos(a),height=Math.sin(a);
-   positions.push(-half+arch.span*t,
-    centerY+height*thickness,
-    centerZ+side*depth);
-   colors.push(...colorFor(arch.kind,.4+.5*vault,a+t*13));
+   const a=i*2*Math.PI/sides;
+   const weather=1+.065*Math.sin(3*a+angle*3)+.045*Math.cos(5*a-angle*2);
+   const thickness=(2.48-.48*rise+.85*rise*lateral+.24*rise*Math.cos(5*angle))*weather;
+   const x=cx+nx*Math.sin(a)*thickness;
+   const z=Math.cos(a)*(2.48+(basalt?.2:.5)*rise)*weather+.42*rise*Math.sin(angle*3);
+   let y=cy+ny*Math.sin(a)*thickness;
+   if(j<0||j>steps){
+    const wx=arch.center.x+x*Math.cos(arch.heading)+z*Math.sin(arch.heading);
+    const wz=arch.center.z-x*Math.sin(arch.heading)+z*Math.cos(arch.heading);
+    y=Math.min(-2,seaFloorHeight(wx,wz)-SEA_SURFACE-.6);
+   }
+   positions.push(x,y,z);
+   colors.push(...colorFor(arch.kind,clamp(y/arch.height,0,1),a+.35*Math.sin(angle*3)));
   }
  }
- for(let j=0;j<sections;j++)for(let i=0;i<sides;i++){
-  const a=j*sides+i,b=j*sides+(i+1)%sides,c=(j+1)*sides+i,d=(j+1)*sides+(i+1)%sides;
-  indices.push(a,c,b,b,c,d);
+ const last=(steps+2)*sides;
+ for(let k=0;k<last;k+=sides)for(let i=0;i<sides;i++){
+  const a=k+i,b=k+(i+1)%sides;
+  indices.push(a,a+sides,b,b,a+sides,b+sides);
  }
- for(let i=1;i<sides-1;i++){
-  indices.push(0,i+1,i);
-  const k=sections*sides;
-  indices.push(k,k+i,k+i+1);
- }
+ for(let i=1;i<sides-1;i++)indices.push(0,i,i+1,last,last+i+1,last+i);
  return finish(positions,colors,indices);
 }
