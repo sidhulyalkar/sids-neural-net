@@ -145,6 +145,13 @@ export function mountainJumpOutwardGain(state:BigAirState):number{
   Math.hypot(state.takeoff.x-MOUNTAIN_JUMP_CENTER.x,
    state.takeoff.z-MOUNTAIN_JUMP_CENTER.z);
 }
+/** Hard authorization boundary: free skiing and ordinary mountain ledges
+ * must never enter scored Big Air. Only a menu-armed marked lip may launch. */
+export function shouldLaunchAuthoredSkiJump(
+ mode:string,phase:BigAirPhase,markedLipCrossed:boolean,
+):boolean{
+ return mode==="ski"&&phase==="armed"&&markedLipCrossed;
+}
 export function mountainJumpEligible(point:Point,height:number,speed:number):boolean{
  return point.x> -49&&point.x<52&&point.z> -95&&point.z<6&&
   height>5.5&&speed>=5.3;

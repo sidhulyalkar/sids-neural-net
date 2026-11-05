@@ -6,28 +6,24 @@ import {createJetSkiCoastGeometry} from "../components/world/worldJetSkiCourseGe
 import {JET_SKI_ARCHES,JET_SKI_ROCKS,jetSkiRockAt,jetSkiSegmentClear} from "../lib/world/jetSkiCourse";
 import {JET_SKI_GATES} from "../lib/world/jetSkiRace";
 import {northShoreZ} from "../lib/world/skimboarding";
-import {SEA_SURFACE} from "../lib/world/model";
 
 test("wave-eroded arch geometry clears the actual gate and joins physical rock legs",()=>{
  for(const arch of JET_SKI_ARCHES){
   const geo=createSeaArchGeometry(arch),p=geo.attributes.position;
-  assert.equal(p.count,25*8);
-  assert.ok(geo.getAttribute("color"));
-  const normals=geo.attributes.normal;
-  assert.ok(normals.getZ(12*8)>.3,
-   "crown exterior must face outward, not vanish under back-face culling");
-  assert.ok(geo.boundingSphere&&geo.boundingSphere.radius>8);
-  // Center channel must not be filled by a torus or a secret roof collider.
-  const centerX=arch.span*.5;
-  let lowest=Infinity;
-  for(let i=12*8;i<13*8;i++)lowest=Math.min(lowest,p.getY(i));
-  assert.ok(lowest>SEA_SURFACE+5,
-   "sufficient unobstructed hull/head clearance below arch crown");
-  for(const end of [0,24]){
-   const x=p.getX(end*8),z=p.getZ(end*8);
-   assert.ok(Math.abs(Math.abs(x)-arch.span/2)<.001);
-   assert.ok(Math.abs(z)<4);
+  const edges=new Map<string,number>(),index=geo.getIndex()!;
+  for(let i=0;i<index.count;i+=3)for(let j=0;j<3;j++){
+   const a=index.getX(i+j),b=index.getX(i+(j+1)%3);
+   const key=a<b?a+"/"+b:b+"/"+a;
+   edges.set(key,(edges.get(key)??0)+1);
   }
+  assert.ok([...edges.values()].every(count=>count===2),"closed rock surface");
+  let leftFoot=false,rightFoot=false,clearance=Infinity;
+  for(let i=0;i<p.count;i++){
+   if(p.getY(i)<-2 && p.getX(i)<0)leftFoot=true;
+   if(p.getY(i)<-2 && p.getX(i)>0)rightFoot=true;
+   if(Math.abs(p.getX(i))<2)clearance=Math.min(clearance,p.getY(i));
+  }
+  assert.ok(leftFoot&&rightFoot&&Number.isFinite(clearance)&&clearance>5);
   assert.equal(jetSkiRockAt(arch.center),null,
    "hull collider must not extend beneath rendered stone bridge");
   assert.deepEqual(JET_SKI_GATES[arch.gateIndex],arch.center);
@@ -69,6 +65,8 @@ test("all landmark arches remain real race crossings and all approach lines stay
  for(const arch of JET_SKI_ARCHES){
   const group=coast.root.getObjectByName(arch.id);
   assert.ok(group instanceof THREE.Group);
+  for(const foot of JET_SKI_ROCKS.filter(r=>r.archId===arch.id))
+   assert.equal(coast.root.getObjectByName(foot.id),undefined);
   assert.ok(group.getObjectByName(arch.id+"-wave-eroded-crown") instanceof THREE.Mesh);
  }
  coast.dispose();

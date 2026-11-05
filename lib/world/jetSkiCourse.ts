@@ -4,7 +4,7 @@
 import type {Point} from "./model";
 export type JetSkiRockKind="sandstone"|"sea-stack"|"basalt";
 export type JetSkiRock={id:string;kind:JetSkiRockKind;point:Point;
- radius:number;height:number;};
+ radius:number;height:number;archId?:string;};
 export type JetSkiArch={id:string;kind:"sandstone"|"basalt";
  center:Point;span:number;height:number;heading:number;gateIndex:number;};
 export const JET_SKI_ARCHES:readonly JetSkiArch[]=[
@@ -19,10 +19,10 @@ export const JET_SKI_ARCHES:readonly JetSkiArch[]=[
 ];
 export const JET_SKI_ROCKS:readonly JetSkiRock[]=[
  // Both arch legs are true physical obstacles. The openings stay clear.
- {id:"natural-bridge-north",kind:"sandstone",point:{x:0,z:126.5},radius:2.6,height:13},
- {id:"natural-bridge-south",kind:"sandstone",point:{x:0,z:107.5},radius:2.6,height:13},
- {id:"lava-window-north",kind:"basalt",point:{x:17,z:-118},radius:2.7,height:12},
- {id:"lava-window-south",kind:"basalt",point:{x:17,z:-136},radius:2.7,height:12},
+ {id:"natural-bridge-north",archId:"natural-bridges",kind:"sandstone",point:{x:0,z:126.5},radius:2.6,height:13},
+ {id:"natural-bridge-south",archId:"natural-bridges",kind:"sandstone",point:{x:0,z:107.5},radius:2.6,height:13},
+ {id:"lava-window-north",archId:"lava-window",kind:"basalt",point:{x:17,z:-118},radius:2.7,height:12},
+ {id:"lava-window-south",archId:"lava-window",kind:"basalt",point:{x:17,z:-136},radius:2.7,height:12},
  // Mendocino-like eroded sentinels straddling (not blocking) the western line.
  {id:"mendocino-needle-a",kind:"sea-stack",point:{x:-74,z:34},radius:3.3,height:18},
  {id:"mendocino-needle-b",kind:"sea-stack",point:{x:-47,z:19},radius:3,height:13},

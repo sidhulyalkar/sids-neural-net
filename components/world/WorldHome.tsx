@@ -13,6 +13,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useSyncExternalStore,
   useState,
   type ReactNode,
 } from "react";
@@ -100,10 +101,16 @@ const ROUTE_LABELS: Record<string, string> = Object.fromEntries(
 
 type SportShortcut = "disc" | "race" | "jet" | "jump" | "park";
 
+// Entry needs hydrated event handlers; WebGL preloading may wait for a frame.
+const subscribeHydration = () => () => {};
+const clientReady = () => true;
+const serverReady = () => false;
+
 export function WorldHome({ content }: { content: WorldContent }) {
   const router=useRouter();
   const [galleryPhase,setGalleryPhase]=useState<GalleryPhase>("outside");
   const [enabled, setEnabled] = useState(false);
+  const entryInteractive = useSyncExternalStore(subscribeHydration, clientReady, serverReady);
   const [entered, setEntered] = useState(false);
   const [ready, setReady] = useState(false);
   // The WebGL initialization callback is authoritative even if React cannot
@@ -595,7 +602,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               View site <span aria-hidden="true">↗</span>
             </Link>
             {!failed && (
-              <button ref={enterButton} className={styles.exploreButton} onClick={enter}>
+              <button ref={enterButton} aria-label="Explore world" disabled={!entryInteractive} className={styles.exploreButton} onClick={enter}>
                 Explore world <span aria-hidden="true">→</span>
               </button>
             )}
@@ -759,9 +766,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
             bigAir.phase==="landed"||bigAir.phase==="missed") && (
             <aside className={styles.bigAirHud} aria-label="Alpine Big Air flight"
               aria-live={bigAir.phase==="landed"||bigAir.phase==="missed"?"polite":"off"}>
-              <span className={styles.eyebrow}>MOUNTAIN · FREE JUMP</span>
+              <span className={styles.eyebrow}>MOUNTAIN · SKI JUMP</span>
               <strong>{(bigAir.radialDistance??0).toFixed(1)} m from center</strong>
-              <p>{bigAir.phase==="armed"?"Build speed and jump from any mountain slope":
+              <p>{bigAir.phase==="armed"?"Selected ski jump: approach the marked ridge lip":
                 bigAir.phase==="flying"?
                   (bigAirBirdCallout(bigAir.distance)??"Macaws joining your flight"):
                 bigAir.phase==="landed"?"Clean landing":

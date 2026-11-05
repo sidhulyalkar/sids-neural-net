@@ -18,10 +18,12 @@ export function createJetSkiCoastGeometry(scene:THREE.Scene){
  } as const;
  const foam=new THREE.MeshBasicMaterial({color:"#c6eff0",transparent:true,opacity:.65,depthWrite:false,side:THREE.DoubleSide});
  for(const rock of JET_SKI_ROCKS){
-  const mesh=new THREE.Mesh(createSeaStackGeometry(rock),materials[rock.kind]);
-  mesh.position.set(rock.point.x,0,rock.point.z);
-  mesh.castShadow=true;mesh.receiveShadow=true;
-  mesh.name=rock.id;root.add(mesh);
+  if(!rock.archId){
+   const mesh=new THREE.Mesh(createSeaStackGeometry(rock),materials[rock.kind]);
+   mesh.position.set(rock.point.x,0,rock.point.z);
+   mesh.castShadow=true;mesh.receiveShadow=true;
+   mesh.name=rock.id;root.add(mesh);
+  }
   const ring=new THREE.Mesh(new THREE.RingGeometry(rock.radius+.3,
    rock.radius+1.05,16),foam);
   ring.rotation.x=-Math.PI/2;
@@ -39,8 +41,7 @@ export function createJetSkiCoastGeometry(scene:THREE.Scene){
   bridge.castShadow=true;
   bridge.receiveShadow=true;
   group.add(bridge);
-  // Both bridge ends physically overlap their collision-authoritative legs.
-  // The center channel has neither a hidden mesh nor an invisible collider.
+  // The mesh includes both feet. The course retains its two hull colliders.
   root.add(group);
  }
  const jumpMat=new THREE.MeshBasicMaterial({

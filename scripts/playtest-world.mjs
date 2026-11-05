@@ -283,12 +283,18 @@ try {
   await screenshot(page,'activity-redwood-skatepark');
   results.push('Skatepark opens in the integrated south meadow and lands a scored trick');
 
-  // Ski spawns at (8, -54), facing the southward kicker. Turn toward the
-  // ridge-log endpoint (5, -52): approach (-3, +2) aligns with the log for a 50-50.
+  // Aim from the actual halfpipe run-in toward the preserved ridge log.
+  // Reading the arrival avoids silently retaining an obsolete ski spawn.
   await page.getByRole('button', { name: 'Skiing', exact: true }).click();
   await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
-  const ridgeApproachYaw = Math.atan2(3, -2);
-  const ridgeTurnPixels = (Math.PI - ridgeApproachYaw) / 0.005;
+  await page.waitForFunction(() => {
+    const d=document.querySelector("canvas")?.dataset;
+    return d?.activity==="ski"&&d.bigAirPhase==="idle"&&Number(d.speed)<.1;
+  });
+  const ridgeStart = (await page.locator("canvas").getAttribute("data-player")).split(",").map(Number);
+  const ridgeApproachYaw = Math.atan2(ridgeStart[0] - 12.4, ridgeStart[1] + 65);
+  const ridgeDelta=Math.PI-ridgeApproachYaw;
+  const ridgeTurnPixels=Math.atan2(Math.sin(ridgeDelta),Math.cos(ridgeDelta))/.005;
   await page.mouse.move(700, 450);
   await page.mouse.down();
   await page.mouse.move(700 + ridgeTurnPixels, 450, { steps: 12 });
@@ -302,75 +308,65 @@ try {
     );
     assert.equal(await page.locator('canvas').getAttribute('data-grind-style'), 'fifty-fifty');
     await page.keyboard.press('Space');
-    await page.waitForFunction(
-      () => document.querySelector('canvas')?.dataset.grinding === 'true',
-      null,
-      { timeout: 4000 },
-    );
+    await page.waitForFunction(() => {
+      const d=document.querySelector('canvas')?.dataset;
+      return d?.grinding==='true' && d.grindId==='ridge-log' && d.grindStyle==='fifty-fifty';
+    },null,{timeout:4000});
   } finally {
     await page.keyboard.up('w');
   }
-  assert.equal(await page.locator('canvas').getAttribute('data-grind-id'), 'ridge-log');
-  assert.equal(await page.locator('canvas').getAttribute('data-grind-style'), 'fifty-fifty');
   await screenshot(page, 'activity-ski-grind');
   results.push('Skis acquire the ridge log as an angle-selected 50-50');
 
-  // Reset Ski onto the authored shoulder before qualifying the kicker.
+  // Default skiing must keep the mountain scenic. No timber launch or
+  // scored Big Air can start from a downhill grade, even across the new
+  // halfpipe. A deliberate Space press may create ordinary ski airtime.
   await page.getByRole('button', { name: 'Skiing', exact: true }).click();
-
-  // Granite Ridge lands just above the authored ski kicker, so a normal downhill
-  // approach must trigger the shared ramp mechanic without a synthetic jump.
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   await page.getByRole('button', { name: '02 Granite ridge Things I build', exact: true }).click();
   await page.getByRole('button', { name: 'Skiing', exact: true }).click();
   await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
-  // A genuine Granite Ridge launch can be delivered by the authored ramp
-  // impulse OR by the natural mountain-air solver. The latter does not set
-  // data-ramp-id, so sampling only that label incorrectly rejects a real jump.
-  // Observe the rendered timeline instead of accepting a downstream landed
-  // flag that could have originated far from the intended slope.
+  const ordinarySki=page.evaluate(()=>new Promise((resolve,reject)=>{
+    const c=document.querySelector('canvas');
+    if(!c){reject(Error('World canvas unavailable'));return;}
+    const samples=[];
+    let seenHalfpipe=false,first=null;
+    const began=performance.now();
+    const frame=()=>{
+      const d=c.dataset,p=(d.player??'').split(',').map(Number);
+      if(!p.every(Number.isFinite)){reject(Error('Nonfinite ski position'));return;}
+      const sample={player:d.player,speed:Number(d.speed),
+        jump:d.bigAirPhase,ramp:d.rampId,
+        pipe:d.mountainHalfpipeInside,authorized:d.mountainSkiJumpAuthorized};
+      first??=sample;
+      seenHalfpipe ||= d.mountainHalfpipeInside==='true';
+      if(samples.length>=18)samples.shift();
+      samples.push(sample);
+      if(d.bigAirPhase!=='idle'||d.mountainSkiJumpAuthorized!=='false'){
+        reject(Error('Unrequested ski jump fired: '+JSON.stringify(sample)));return;
+      }
+      if(p[1]>-41){
+        resolve({first,last:sample,seenHalfpipe,tail:samples});
+        return;
+      }
+      if(performance.now()-began>70000){
+        reject(Error('Ordinary ski descent failed: '+JSON.stringify(samples)));return;
+      }
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }));
+  // Start movement while the independent rendered timeline observes the
+  // full run from the mountain shoulder to the lower receiving slope.
   await page.keyboard.down('w');
-  let kickerLaunch;
-  try {
-    kickerLaunch=await page.evaluate(()=>new Promise((resolve,reject)=>{
-      const c=document.querySelector('canvas');
-      if(!c){reject(Error('World canvas not available'));return;}
-      const start=performance.now();
-      let approached=false;
-      const samples=[];
-      const tick=()=>{
-        const d=c.dataset,p=(d.player??'').split(',').map(Number);
-        if(p.length!==2||!p.every(Number.isFinite)){
-          reject(Error('Nonfinite skier position'));return;
-        }
-        const sample={player:d.player,speed:d.speed,airborne:d.airborne,
-          rampId:d.rampId,bigAirPhase:d.bigAirPhase,
-          altitude:d.bigAirAltitude,mode:d.activity};
-        if(samples.length>=80)samples.shift();
-        samples.push(sample);
-        if(Math.abs(p[0]-8)<3.5&&p[1]>=-54&&p[1]<=-44)
-          approached=true;
-        const nearRidge=Math.abs(p[0]-8)<3.5&&p[1]<-32;
-        const inFlight=d.airborne==='true'||d.bigAirPhase==='flying';
-        if(approached&&nearRidge&&inFlight){
-          resolve({kind:d.rampId==='ski-kicker'?'ramp':'mountain-air',
-            approached,sample,observations:samples.length});return;
-        }
-        if(p[1]>-30||performance.now()-start>90000){
-          reject(Error('No observed Granite Ridge ski launch '+
-            JSON.stringify({approached,tail:samples.slice(-18)})));return;
-        }
-        requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    }));
-  }finally{
-    await page.keyboard.up('w');
-  }
-  assert.equal(kickerLaunch.approached,true);
-  assert.ok(['ramp','mountain-air'].includes(kickerLaunch.kind));
-  results.push('Skiing genuinely launches near Granite Ridge via ramp or natural mountain-air physics');
-  console.log('SKI KICKER LAUNCH PROOF',JSON.stringify(kickerLaunch));
+  try{
+    const skiProof=await ordinarySki;
+    assert.equal(skiProof.seenHalfpipe,true);
+    assert.equal(skiProof.last.jump,'idle');
+    results.push('Skiing traverses the clean halfpipe without auto-starting any jump');
+    console.log('ORDINARY SKI NO AUTO JUMP PROOF',JSON.stringify(skiProof));
+    await screenshot(page,'activity-granite-clean-halfpipe');
+  }finally{await page.keyboard.up('w')}
 
   // Reproduce the original steep-terrain failure mode on Granite Ridge. The rendered
   // gear root must stay above support terrain while pitch/roll remain finite.
