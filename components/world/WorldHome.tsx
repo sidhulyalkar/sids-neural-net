@@ -13,6 +13,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useSyncExternalStore,
   useState,
   type ReactNode,
 } from "react";
@@ -100,11 +101,16 @@ const ROUTE_LABELS: Record<string, string> = Object.fromEntries(
 
 type SportShortcut = "disc" | "race" | "jet" | "jump" | "park";
 
+// Entry needs hydrated event handlers; WebGL preloading may wait for a frame.
+const subscribeHydration = () => () => {};
+const clientReady = () => true;
+const serverReady = () => false;
+
 export function WorldHome({ content }: { content: WorldContent }) {
   const router=useRouter();
   const [galleryPhase,setGalleryPhase]=useState<GalleryPhase>("outside");
   const [enabled, setEnabled] = useState(false);
-  const [entryInteractive,setEntryInteractive]=useState(false);
+  const entryInteractive = useSyncExternalStore(subscribeHydration, clientReady, serverReady);
   const [entered, setEntered] = useState(false);
   const [ready, setReady] = useState(false);
   // The WebGL initialization callback is authoritative even if React cannot
@@ -354,7 +360,6 @@ export function WorldHome({ content }: { content: WorldContent }) {
       navigator as Navigator & { connection?: { saveData?: boolean } }
     ).connection;
     const frame = requestAnimationFrame(() => {
-      setEntryInteractive(true);
       if (!motion.matches && !small.matches && !connection?.saveData)
         setEnabled(true);
     });

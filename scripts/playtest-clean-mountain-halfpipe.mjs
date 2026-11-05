@@ -32,12 +32,22 @@ const attachErrors=(page,kind)=>{
  page.on("pageerror",error=>{evidence.errors.push(kind+": "+error.message)});
 };
 const enterSki=async(page)=>{
+ const began=Date.now();
+ const events=[];
+ (evidence.entries??=[]).push(events);
+ const record=(stage,detail)=>events.push({ms:Date.now()-began,stage,detail});
+ page.on("requestfailed",r=>record("request failed",[r.url(),r.failure()?.errorText]));
+ page.on("console",msg=>{if(msg.type()==="error")record("console error",msg.text())});
+ page.on("response",r=>{if(r.status()>=400)record("http error",[r.url(),r.status()])});
+ try{
  await page.goto(base,{waitUntil:"networkidle"});
- await page.getByRole("button",{name:"Explore world",exact:true}).click();
+ const explore=page.getByRole("button",{name:"Explore world",exact:true});
+ record("welcome loaded",{enabled:await explore.isEnabled()});
+ await explore.click();
+ record("entry clicked");
  // The scene creates a large WebGL world on first entry. The dock is only
  // available once world initialization succeeds; don't confuse a slow CPU
  // software renderer with a missing activity control.
- try{
   await page.waitForFunction(()=>{
    const c=document.querySelector("canvas"),d=c?.dataset;
    const button=[...document.querySelectorAll("button")]
@@ -56,6 +66,7 @@ const enterSki=async(page)=>{
      .map(b=>({aria:b.getAttribute("aria-label"),text:b.innerText.slice(0,38),
         disabled:b.disabled})),
   })).catch(e=>({diagnosticError:String(e)}));
+  record("entry failed",String(error));
   await capture(page,"failed-world-entry.png").catch(()=>{});
   evidence.entryFailure=diag;
   console.error("CLEAN HALFPIPE INITIALIZATION DIAGNOSTIC",JSON.stringify(diag));
