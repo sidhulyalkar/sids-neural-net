@@ -11,7 +11,7 @@ import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkat
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {createWorldMountainHalfpipe} from "./worldMountainHalfpipe";
-import {suppressedFaceKicker,withinMountainHalfpipe,halfpipeManualPopEligible} from "@/lib/world/mountainHalfpipe";
+import {halfpipePop,mountainHalfpipeApproachClearance,suppressedFaceKicker,withinMountainHalfpipe,halfpipeManualPopEligible} from "@/lib/world/mountainHalfpipe";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
 import {createMysticElectricity} from "./worldMysticElectricity";
 import {createWorldMysticGroveGeometry} from "./worldMysticGroveGeometry";
@@ -68,7 +68,7 @@ import { createNorthShoreLife } from "./worldNorthShoreLife";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
-import { stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
+import { backsideLogs,timberTop,timberExit,stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
 import {stepCritterLocomotion} from "@/lib/world/landWildlifeMotion";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
@@ -1032,6 +1032,17 @@ export function createWorld(
   for (const log of FALLEN_LOGS) {
     const a = new THREE.Vector3(log.a.x, terrainHeight(log.a.x, log.a.z) + log.lift, log.a.z);
     const b = new THREE.Vector3(log.b.x, terrainHeight(log.b.x, log.b.z) + log.lift, log.b.z);
+    if(backsideLogs.some(item=>item.id===log.id)){
+      a.y=timberTop(log,0)-log.radius;
+      b.y=timberTop(log,1)-log.radius;
+      // Two sleepers bed the raised end into the descending snow.
+      for(const t of [.62,.88]){
+        const seat=a.clone().lerp(b,t);
+        seat.y-=log.radius;
+        const across=new THREE.Vector3(b.z-a.z,0,a.x-b.x).normalize().multiplyScalar(log.radius*1.8);
+        fallenLogVisuals.push(segment(seat.clone().sub(across),seat.clone().add(across),log.radius*.64));
+      }
+    }
     fallenLogVisuals.push(segment(a, b, log.radius));
   }
   instances(cylinder, mat("#744530"), fallenLogVisuals);
@@ -1264,7 +1275,7 @@ export function createWorld(
     // The beach already has three upright skimboards as its landmarks.
     // Keep North shore discoverable without building a gray stone pile
     // directly in front of the turquoise board and Shasta.
-    if(m.id!=="north-shore")cairnPieces.push(
+    if(m.id!=="north-shore"&&!mountainHalfpipeApproachClearance({x,z}))cairnPieces.push(
       { x, y: y + 0.18 * scale, z, sx: 0.62 * scale, sy: 0.28 * scale, sz: 0.52 * scale, ry: twist },
       { x: x + 0.05 * scale, y: y + 0.47 * scale, z: z - 0.02 * scale, sx: 0.46 * scale, sy: 0.23 * scale, sz: 0.4 * scale, ry: twist + 0.7 },
       { x: x - 0.04 * scale, y: y + 0.7 * scale, z: z + 0.03 * scale, sx: 0.31 * scale, sy: 0.19 * scale, sz: 0.29 * scale, ry: twist + 1.4 },
@@ -3982,13 +3993,19 @@ export function createWorld(
       discGolf.phase!=="off"||jetSki||jetChoosing||
       trial.phase==="armed"||trial.phase==="running"||
       bigAir.phase==="flying"||
-      climb||(grind&&state.activity!=="skate")||
+      climb||(grind&&state.activity!=="skate"&&!backsideLogs.some(log=>log.id===grind?.log.id))||
       (airHeight>0.01&&!(state.activity==="skate"&&verticalSpeed>0.1)))return;
+    if(grind&&state.activity==="ski"){
+      grind=null;verticalSpeed=5.5;airHeight=.04;lastRampAt=elapsed;return;
+    }
     // Halfpipe airtime requires an intentional action. It uses ordinary
     // gravity and ski contact, NEVER the scored Big Air camera/game state.
     if(halfpipeManualPopEligible(player,state.activity,travel.speed,
        airHeight<=.01)){
-      verticalSpeed=4.3;airHeight=.025;lastRampAt=elapsed;
+      const pop=halfpipePop(player,travel.heading,travel.speed);
+      verticalSpeed=pop.verticalSpeed;
+      travel.speed=pop.speed;
+      airHeight=.025;lastRampAt=elapsed;
       return;
     }
     if(state.activity==="skate"&&airHeight>.08){launchAssistedSkateTrick();return;}
@@ -4490,7 +4507,8 @@ export function createWorld(
           groundHeight(segment.b)*grind.t;
         const lift=("chainId" in segment&&segment.chainId)?
           railLiftAt(segment as SkateRail,grind.t):segment.lift;
-        playerY=railGround+lift+.16;
+        const timber=backsideLogs.find(log=>log.id===segment.id);
+        playerY=timber?timberTop(timber,grind.t):railGround+lift+.16;
         if(finished){
           const gap=grind.mode==="skate"&&"chainId" in segment&&segment.chainId?
             beginSkateRailGap(segment as SkateRail,grind.direction,
@@ -4715,6 +4733,13 @@ export function createWorld(
           const groundY=caveLayer==="surface"?
             airborneSupportHeight(previousY,supportY,
               terrainHeight(player.x,player.z)):supportY;
+          const timberLip=state.activity==="ski" && caveLayer==="surface" &&
+            bigAir.phase==="idle" && airHeight===0 && verticalSpeed===0
+            ? timberExit(previousPoint,player,travel.speed):null;
+          if(timberLip && Math.abs(previousY-timberTop(timberLip,1))<.8){
+            verticalSpeed=3.5+Math.min(2.5,travel.speed*.17);
+            airHeight=.025;
+          }
           // Integrate in world space: crossing a ramp lip must not subtract its
           // deck height from an airborne rider's trajectory.
           if (airHeight > 0 || verticalSpeed > 0) {

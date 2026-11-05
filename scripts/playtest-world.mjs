@@ -292,8 +292,9 @@ try {
     return d?.activity==="ski"&&d.bigAirPhase==="idle"&&Number(d.speed)<.1;
   });
   const ridgeStart = (await page.locator("canvas").getAttribute("data-player")).split(",").map(Number);
-  const ridgeApproachYaw = Math.atan2(ridgeStart[0] - 5, ridgeStart[1] + 52);
-  const ridgeTurnPixels = (Math.PI - ridgeApproachYaw) / 0.005;
+  const ridgeApproachYaw = Math.atan2(ridgeStart[0] - 9, ridgeStart[1] + 65);
+  const ridgeDelta=Math.PI-ridgeApproachYaw;
+  const ridgeTurnPixels=Math.atan2(Math.sin(ridgeDelta),Math.cos(ridgeDelta))/.005;
   await page.mouse.move(700, 450);
   await page.mouse.down();
   await page.mouse.move(700 + ridgeTurnPixels, 450, { steps: 12 });

@@ -7,13 +7,13 @@ import {
 } from "../lib/world/model";
 import {SNOWMELT_PATH,DOWNSTREAM_PATH,drainagePoints,
   downstreamPoints,waterfallCrownRings,waterfallProfile} from "../lib/world/hydrology";
-import {activityLanding,groundHeight,rampImpulseAt,RIDE_RAMPS,sportClearance,stepTravel,type Travel} from "../lib/world/activities";
+import {backsideLogs,timberExit,timberTop,nearestGrind,stepAirborne,activityLanding,groundHeight,rampImpulseAt,RIDE_RAMPS,sportClearance,stepTravel,type Travel} from "../lib/world/activities";
 import {BIG_AIR,shouldLaunchAuthoredSkiJump} from "../lib/world/bigAir";
 import {
  MOUNTAIN_HALFPIPE,MOUNTAIN_SUMMIT,MOUNTAIN_PROTECTED_ANCHORS,
  mountainHalfpipeInfluence,mountainHalfpipeBank,mountainSummitBoost,
  withinMountainHalfpipe,
- halfpipeManualPopEligible,suppressedFaceKicker,
+ halfpipePop,halfpipeManualPopEligible,suppressedFaceKicker,
 } from "../lib/world/mountainHalfpipe";
 import {createWorldMountainHalfpipe} from "../components/world/worldMountainHalfpipe";
 
@@ -28,7 +28,7 @@ test("new halfpipe starts from the verified pre-alpine world, without any glacie
  assert.ok(h.endZ>h.startZ+18);
  assert.ok(h.lipHalfWidth-h.floorHalfWidth>=2.25,
    "each bank needs >=2.25m horizontal shaping width for ski carving");
- assert.ok(h.bankRise>=3&&h.bankRise<4.5);
+ assert.ok(h.bankRise>=6&&h.bankRise<7);
  assert.ok(MOUNTAIN_SUMMIT.rise>0&&MOUNTAIN_SUMMIT.rise<=5);
  for(const id of ["ski-kicker","bowl-small","bowl-medium"])
    assert.equal(suppressedFaceKicker(id),true);
@@ -209,4 +209,47 @@ test("one snow mesh and one subtle coping follow exact collision geometry",()=>{
    }
  }finally{world.dispose()}
  assert.equal(scene.children.length,0);
+});
+
+test("skiers can climb and pop off both walls, turn inward, and regain snow contact",()=>{
+ for(const dt of [1/20,1/60])for(const side of [-1,1]){
+   let ride:Travel={point:{x:h.centerX,z:-51},speed:10,heading:{x:side,z:0}};
+   const floor=groundHeight(ride.point);
+   for(let i=0;i<160 && side*(ride.point.x-h.centerX)<h.lipHalfWidth-.45;i++){
+     ride=stepTravel(ride,{x:side,z:0},dt,"ski",[]);
+   }
+   let y=groundHeight(ride.point);
+   assert.ok(y-floor>4.6,"reach the high wall without the ledge blocker stopping skis");
+   assert.ok(halfpipeManualPopEligible(ride.point,"ski",ride.speed,true));
+   const pop=halfpipePop(ride.point,ride.heading,ride.speed);
+   ride={...ride,speed:pop.speed};
+   let vy=pop.verticalSpeed,air=.025,peak=0;
+   for(let i=0;i<220 && air>0;i++){
+     ride=stepTravel(ride,{x:-side*.87,z:.49},dt,"ski",[],false,undefined,air,groundHeight,false,y);
+     const next=stepAirborne(y,vy,groundHeight(ride.point),dt);
+     y=next.y;vy=next.verticalSpeed;air=next.airHeight;
+     peak=Math.max(peak,air);
+   }
+   assert.ok(peak>1);
+   assert.equal(air,0);
+   assert.ok(withinMountainHalfpipe(ride.point),"land inside the pipe "+JSON.stringify({dt,side,ride}));
+   for(let i=0;i<180 && -side*(ride.point.x-h.centerX)<h.lipHalfWidth-.45;i++){
+     ride=stepTravel(ride,{x:-side,z:0},dt,"ski",[]);
+   }
+   assert.ok(-side*(ride.point.x-h.centerX)>=h.lipHalfWidth-.45,"reach the opposite lip");
+ }
+});
+
+test("backside rails rise from the snow, grind along the trunk and release at the tip",()=>{
+ for(const log of backsideLogs){
+   const {a,b}=log;
+   const mid={x:(a.x+b.x)/2,z:(a.z+b.z)/2};
+   assert.equal(nearestGrind(mid)?.log.id,log.id);
+   assert.equal(groundHeight(mid),timberTop(log,.5));
+   assert.ok(Math.abs(groundHeight(a)-terrainHeight(a.x,a.z))<.05);
+   assert.ok(groundHeight(b)-terrainHeight(b.x,b.z)>1);
+   const beyond={x:b.x+.05*(b.x-a.x),z:b.z+.05*(b.z-a.z)};
+   assert.equal(timberExit(mid,beyond,8)?.id,log.id);
+   assert.equal(timberExit(beyond,mid,8),null);
+ }
 });

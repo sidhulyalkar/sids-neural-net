@@ -9,15 +9,15 @@ import type {Point} from "./model";
  * World geography and existing waterways remain wholly unaffected elsewhere.
  */
 export const MOUNTAIN_HALFPIPE={
-  centerX:13.5,
-  startZ:-57.5,
-  endZ:-36,
-  floorHalfWidth:1.25,
-  lipHalfWidth:3.55,
-  featherWidth:1.25,
-  bankRise:3.1,
-  centerCut:.42,
-  endBlend:3.3,
+  centerX:7,
+  startZ:-61,
+  endZ:-33,
+  floorHalfWidth:2.3,
+  lipHalfWidth:6.4,
+  featherWidth:1.0,
+  bankRise:6.2,
+  centerCut:2.5,
+  endBlend:4.5,
 } as const;
 
 export const MOUNTAIN_SUMMIT={
@@ -67,7 +67,8 @@ export function mountainHalfpipeBank(p:Point):number{
  const t=(lateral-h.floorHalfWidth)/
    (h.lipHalfWidth-h.floorHalfWidth);
  // Genuinely flat central bottom and smooth zero-gradient wall crest.
- return h.bankRise*smoothFace(t);
+ // A progressively steeper transition carries the skier toward the lip.
+ return h.bankRise*Math.pow(clamp01(t),1.85);
 }
 
 /** A continuous, carver-friendly channel. The center preserves the mountain
@@ -104,7 +105,7 @@ export function mountainFaceEditDelta(
  * or any waterfall/stream coordinate outside this bounded ski face. */
 export function mountainHalfpipeApproachClearance(p:Point):boolean{
  const h=MOUNTAIN_HALFPIPE;
- return Math.abs(p.x-h.centerX)<=h.lipHalfWidth+h.featherWidth+1.0 &&
+ return p.x>=-10 && p.x<=18.5 &&
    p.z>=h.startZ-3.0&&p.z<=h.endZ+3.0;
 }
 export function withinMountainHalfpipe(p:Point):boolean{
@@ -118,6 +119,17 @@ export function halfpipeManualPopEligible(
 ):boolean{
  return mode==="ski"&&grounded&&Number.isFinite(speed)&&speed>=3.1&&
    withinMountainHalfpipe(p);
+}
+
+/** Resolve the manual pop along the curved wall into lift and travel speed. */
+export function halfpipePop(p:Point, heading:Point, speed:number) {
+ const h=MOUNTAIN_HALFPIPE;
+ const side=p.x-h.centerX;
+ const outward=Math.max(0,Math.sign(side)*heading.x);
+ const wall=clamp01((Math.abs(side)-h.floorHalfWidth)/(h.lipHalfWidth-h.floorHalfWidth));
+ const transfer=wall*outward;
+ return {verticalSpeed:4.3+Math.min(5,speed*.45)*transfer,
+   speed:speed*(1-.55*transfer)};
 }
 
 /** Snapshot of protected geology. These footprints are explicit release

@@ -5,7 +5,7 @@ import {airborneSupportHeight} from "./rideRecovery";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
 import {jetSkiPierHeight} from "./jetSkiPier";
-import {MOUNTAIN_HALFPIPE,suppressedFaceKicker,mountainHalfpipeApproachClearance,mountainSummitBoost} from "./mountainHalfpipe";
+import {MOUNTAIN_HALFPIPE,withinMountainHalfpipe,suppressedFaceKicker,mountainHalfpipeApproachClearance,mountainSummitBoost} from "./mountainHalfpipe";
 import {
   constrainMove,
   distance,
@@ -82,9 +82,9 @@ export const effectiveActivity = (id: Activity, _p: Point): Activity => id;
 /** Jointed granite ledges on the eastern side of Joshua basin. */
 export const DESERT_CLIMB_HOLDS = [
   // Separate granite shoulder climbing zone, west of the bike through-lines.
-  { x: 18, z: -39, radius: 1.8, height: 1.4 },
-  { x: 18, z: -42, radius: 1.7, height: 2.8 },
-  { x: 17, z: -45, radius: 1.6, height: 4.3 },
+  { x: 20, z: -39, radius: 1.8, height: 1.4 },
+  { x: 20, z: -42, radius: 1.7, height: 2.8 },
+  { x: 19, z: -45, radius: 1.6, height: 4.3 },
 ];
 
 export const GROVE_CLIMB_HOLDS = [
@@ -113,8 +113,8 @@ export const FALLEN_LOGS = [
   },
   {
     id: "ridge-log",
-    a: { x: -6, z: -48 },
-    b: { x: 5, z: -52 },
+    a: { x: 9, z: -65 },
+    b: { x: 13, z: -70 },
     role: "sport",
     radius: 0.5,
     lift: 0.7,
@@ -145,33 +145,33 @@ export const FALLEN_LOGS = [
   },
   {
     id: "bowl-slide",
-    a: { x: 3, z: -43 },
-    b: { x: 10, z: -42 },
+    a: { x: 14, z: -72 },
+    b: { x: 13, z: -77 },
     role: "sport",
     radius: 0.38,
     lift: 0.54,
   },
   {
     id: "tree-run-slide",
-    a: { x: -9, z: -61 },
-    b: { x: -5, z: -55 },
+    a: { x: 19, z: -64 },
+    b: { x: 21, z: -70 },
     role: "sport",
     radius: 0.4,
     lift: 0.58,
   },
   {
     id: "alpine-snag",
-    a: { x: -15, z: -53 },
-    b: { x: -20, z: -49 },
+    a: { x: 17, z: -73 },
+    b: { x: 17.5, z: -76 },
     role: "scenery",
-    radius: 0.38,
-    lift: 0.4,
+    radius: .38,
+    lift: .26,
   },
   {
     id: "ridge-crossing",
-    a: { x: 12, z: -48 },
-    b: { x: 18, z: -47 },
-    role: "traversal",
+    a: { x: 21, z: -72 },
+    b: { x: 23, z: -77 },
+    role: "sport",
     radius: 0.5,
     lift: 0.65,
   },
@@ -192,6 +192,44 @@ export const FALLEN_LOGS = [
     lift: 0.48,
   },
 ] as const;
+
+// Surface-only log lines on the shoulders of the arcade roof.
+export const backsideLogs = FALLEN_LOGS.filter(log =>
+  ["ridge-log","bowl-slide","tree-run-slide","ridge-crossing"].includes(log.id));
+
+export function timberTop(log: (typeof FALLEN_LOGS)[number], t:number) {
+  const entry = terrainHeight(log.a.x,log.a.z) + .035;
+  const tip = terrainHeight(log.b.x,log.b.z) + 1.05;
+  return entry + (tip-entry)*t;
+}
+
+export function timberExit(from:Point,to:Point,speed:number) {
+  if(speed<4 || from.z > -63 || from.z < -79)return null;
+  for(const log of backsideLogs){
+    const dx=log.b.x-log.a.x,dz=log.b.z-log.a.z;
+    const length=Math.hypot(dx,dz);
+    const before=((from.x-log.b.x)*dx+(from.z-log.b.z)*dz)/length;
+    const after=((to.x-log.b.x)*dx+(to.z-log.b.z)*dz)/length;
+    if(before>=0 || after<0)continue;
+    const fraction=-before/(after-before);
+    const x=from.x+(to.x-from.x)*fraction,z=from.z+(to.z-from.z)*fraction;
+    if(Math.hypot(x-log.b.x,z-log.b.z)<=log.radius)return log;
+  }
+  return null;
+}
+
+function timberSupport(p:Point) {
+  if(p.z > -63 || p.z < -79) return -Infinity;
+  let y=-Infinity;
+  for(const log of backsideLogs){
+    const dx=log.b.x-log.a.x,dz=log.b.z-log.a.z;
+    const t=((p.x-log.a.x)*dx+(p.z-log.a.z)*dz)/(dx*dx+dz*dz);
+    if(t<0||t>1)continue;
+    const offset=Math.hypot(p.x-log.a.x-t*dx,p.z-log.a.z-t*dz);
+    if(offset<=log.radius) y=Math.max(y,timberTop(log,t));
+  }
+  return y;
+}
 
 export const RIDE_RAMPS = [
   {id:"sequoia-return-kicker",point:{x:-7.1,z:57},radius:1.25,
@@ -289,7 +327,7 @@ export const SWIM_SPEED = 4.6;
 export function groundHeight(p: Point) {
   const pier=jetSkiPierHeight(p);
   if(pier!==null)return pier;
-  let height = worldFloorHeight(p.x, p.z);
+  let height = Math.max(worldFloorHeight(p.x, p.z),timberSupport(p));
   if (isWater(p)) return height;
   for (const ramp of RIDE_RAMPS){
     // Older timber kickers occupying the newly carved snow corridor must
@@ -379,7 +417,11 @@ export function stepTravel(
     (boostEligible ? 1.6 : 1);
   // When the skill-shot expires, retain momentum briefly instead of snapping
   // immediately to normal cruise speed. Normal braking still takes over.
-  const speed = mode==="skate"
+  // In the pipe, steering in the air redirects the retained takeoff speed.
+  // Ground acceleration resumes when the skis meet the snow again.
+  const speed = mode==="ski" && airborne>0 && withinMountainHalfpipe(current.point)
+    ? current.speed
+    : mode==="skate"
     ? skateRollingSpeed({
       speed:current.speed,dt,pushing:moving,riseAhead:slope,
       maxSpeed,boosted:boostEligible,
@@ -407,6 +449,10 @@ export function stepTravel(
   );
   if (
     (!isWater(point)||jetSkiPierHeight(point)!==null) &&
+    !(mode === "ski" && mountainHalfpipeApproachClearance(point) &&
+      mountainHalfpipeApproachClearance(current.point) &&
+      Math.abs(contactSupport(point)-terrainHeight(point.x,point.z))<.01 &&
+      Math.abs(contactSupport(current.point)-terrainHeight(current.point.x,current.point.z))<.01) &&
     contactSupport(point) > contactSupport(current.point) + Math.max(0.6, airborne)
   )
     return { ...current, speed: 0 };
