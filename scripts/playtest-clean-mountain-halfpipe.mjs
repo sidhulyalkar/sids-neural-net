@@ -31,7 +31,7 @@ const observe=async page=>page.locator("canvas").first().evaluate(c=>{
 const attachErrors=(page,kind)=>{
  page.on("pageerror",error=>{evidence.errors.push(kind+": "+error.message)});
 };
-const enterSki=async(page)=>{
+const enterSki=async(page,kind)=>{
  const began=Date.now();
  const events=[];
  (evidence.entries??=[]).push(events);
@@ -76,17 +76,21 @@ const enterSki=async(page)=>{
         disabled:b.disabled})),
   })).catch(e=>({diagnosticError:String(e)}));
   record("entry failed",String(error));
-  await capture(page,"failed-world-entry.png").catch(()=>{});
-  evidence.entryFailure=diag;
+  await capture(page,`failed-${kind}-world-entry.png`).catch(()=>{});
+  (evidence.entryFailures??=[]).push({kind,...diag});
+  evidence.entryFailure??=diag;
   console.error("CLEAN HALFPIPE INITIALIZATION DIAGNOSTIC",JSON.stringify(diag));
   throw error;
  }
 
 };
 try{
- const desktop=await browser.newPage({viewport:{width:1440,height:900}});
+ const failures=[];
+ let desktop;
+ try{
+ desktop=await browser.newPage({viewport:{width:1440,height:900}});
  attachErrors(desktop,"desktop");
- await enterSki(desktop);
+ await enterSki(desktop,"desktop");
  const start=await observe(desktop);
  assert.ok(start.missingGlacier);
  assert.ok(start.triangles>3000);
@@ -98,23 +102,45 @@ try{
  const run=desktop.evaluate(()=>new Promise((resolve,reject)=>{
   const c=document.querySelector("canvas");if(!c){reject(Error("No world canvas"));return;}
   const began=performance.now(),data=[],start=c.dataset.player?.split(",").map(Number);
-  let inPipe=false,highestSpeed=0;
+  const simStart=Number(c.dataset.worldSimSeconds);
+  if(!Number.isFinite(simStart))return reject(Error("Missing worldSimSeconds renderer timing probe"));
+  let frameCount=0,inPipe=false,highestSpeed=0;
   const tick=()=>{
    const d=c.dataset,p=d.player?.split(",").map(Number);
+   frameCount++;
+   const simNow=Number(d.worldSimSeconds);
+   const wallElapsed=(performance.now()-began)/1000;
+   const simElapsed=simNow-simStart;
+   const timing={
+    wallSeconds:Number(wallElapsed.toFixed(2)),
+    simSeconds:Number(simElapsed.toFixed(3)),
+    simulatedPerWallSecond:Number((simElapsed/Math.max(wallElapsed,.001)).toFixed(3)),
+    observedRafFrames:frameCount,
+    observedRafHz:Number((frameCount/Math.max(wallElapsed,.001)).toFixed(2)),
+   };
+   if(!Number.isFinite(simNow))return reject(Error("Invalid worldSimSeconds renderer timing probe"));
    if(!p?.every(Number.isFinite))return reject(Error("Nonfinite skier position"));
    const sample={x:p[0],z:p[1],speed:Number(d.speed),
     bigAir:d.bigAirPhase,ramp:d.rampId,
-    pipe:d.mountainHalfpipeInside,authorized:d.mountainSkiJumpAuthorized};
+    pipe:d.mountainHalfpipeInside,authorized:d.mountainSkiJumpAuthorized,
+    wall:timing.wallSeconds,sim:timing.simSeconds};
    if(data.length>=30)data.shift();data.push(sample);
    inPipe||=sample.pipe==="true";
    highestSpeed=Math.max(highestSpeed,sample.speed);
    if(sample.bigAir!=="idle"||sample.authorized!=="false")
     return reject(Error("Unrequested Big Air launch: "+JSON.stringify(sample)));
    if(p[1]>-44){
-    return resolve({start,finish:sample,inPipe,highestSpeed,trace:data});
+    return resolve({start,finish:sample,inPipe,highestSpeed,timing,trace:data});
    }
-   if(performance.now()-began>75000)
-     return reject(Error("Downhill halfpipe traversal failed: "+JSON.stringify(data)));
+   if(performance.now()-began>75000){
+    // Keep the original required checkpoint. Classify the failed run instead
+    // of masking slow browser/physics throughput with a longer timeout.
+    const classification=simElapsed<2.5&&sample.speed>4
+     ?"slow-simulation-throughput":"route-or-contact-unverified";
+    return reject(Error("Downhill halfpipe traversal failed: "+JSON.stringify({
+     classification,start,latest:sample,inPipe,highestSpeed,timing,trace:data,
+    })));
+   }
    requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
@@ -155,21 +181,34 @@ try{
  assert.equal((await observe(desktop)).authorized,"true");
  await capture(desktop,"04-menu-armed-ski-jump.png");
  evidence.skiJump={armed:true};
- await desktop.close();
+ assert.deepEqual(evidence.errors.filter(e=>e.startsWith("desktop:")),[]);
+ }catch(error){
+  failures.push({mode:"desktop",error:String(error)});
+  evidence.desktopFailure=String(error);
+  if(desktop)await capture(desktop,"failed-desktop-halfpipe.png").catch(()=>{});
+ }finally{if(desktop)await desktop.close().catch(()=>{});}
 
  // Reuse no desktop renderer here. The mobile world has an independent
  // WebGL context and should not acquire a giant new freestyle control bar.
- const mobile=await browser.newPage({viewport:{width:390,height:844},
+ let mobile;
+ try{
+ mobile=await browser.newPage({viewport:{width:390,height:844},
    deviceScaleFactor:1,isMobile:true,hasTouch:true});
  attachErrors(mobile,"mobile");
- await enterSki(mobile);
+ await enterSki(mobile,"mobile");
  const mobileState=await observe(mobile);
  assert.ok(mobileState.missingGlacier);
  assert.equal(mobileState.phase,"idle");
  assert.ok(mobileState.triangles>3000);
  evidence.mobile=mobileState;
  await capture(mobile,"05-mobile-clean-halfpipe.png");
- assert.deepEqual(evidence.errors,[]);
+ assert.deepEqual(evidence.errors.filter(e=>e.startsWith("mobile:")),[]);
+ }catch(error){
+  failures.push({mode:"mobile",error:String(error)});
+  evidence.mobileFailure=String(error);
+  if(mobile)await capture(mobile,"failed-mobile-halfpipe.png").catch(()=>{});
+ }finally{if(mobile)await mobile.close().catch(()=>{});}
+ if(failures.length)throw Error("Clean halfpipe browser qualification incomplete: "+JSON.stringify(failures));
  console.log("CLEAN HALFPIPE SKI / WATERFALL PRESERVATION UI QA PASS",
    JSON.stringify(evidence));
 }catch(error){
