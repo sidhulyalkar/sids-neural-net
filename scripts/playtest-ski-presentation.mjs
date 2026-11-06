@@ -17,6 +17,8 @@ async function capture(stage){
  await page.screenshot({path:path.join(output,stage+'.png')});
  console.log(stage,JSON.stringify(Object.fromEntries(Object.entries(data).filter(([k])=>/skiSole|skiCamera|player$|bigAirPhase|airborne|drawCalls|frameP/i.test(k)))));
  assert.equal(data.bigAirPhase,'idle');
+ const screen=data.skiPlayerScreen.split(',').map(Number);
+ assert.ok(screen.every(Number.isFinite)&&Math.abs(screen[0])<.85&&Math.abs(screen[1])<.85,'skier must remain framed');
  assert.ok(Number(data.drawCalls)>1,'scene must be rendered');
  const camera=data.skiCameraPosition.split(',').map(Number);
  assert.ok(camera.every(v=>Number.isFinite(v)&&Math.abs(v)<500),'camera finite and local');

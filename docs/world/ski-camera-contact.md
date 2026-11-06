@@ -13,7 +13,8 @@ not claimed fixed here.
   by a second rotation-induced lift. Two leg segments connect hips to boots.
 - Airborne poses retain the connected ski/boot rig and disengage ground fitting.
 - Ordinary skiing uses a seven-unit chase camera with restrained lookahead,
-  manual drag override and gradual recentering. Terrain collision checks the
+  manual drag override and gradual recentering. The camera checks actual foot
+  clearance and projects the torso to verify on-screen framing. Terrain collision checks the
   entire sightline and shortens obstructed booms at the outer lips.
 - Explicit Ski Jump retains its existing state machine and camera. Ski contact
   is restricted to land, outside galleries and caves. Other sports keep their
@@ -41,7 +42,8 @@ contact returns afterward. The workflow uploads evidence under its exact SHA.
 
 Local software Chromium evidence is diagnostic, not a hardware performance
 qualification. At 1000x740, the earlier browser passes measured approximately
-150–450 ms frame intervals. Do not interpret those as playable frame rates.
+130–530 ms frame intervals. A warmed Node benchmark of 2,000 two-ski fits
+measured 0.187 ms per pair, excluding rendering and diagnostics. Do not interpret those as playable frame rates.
 Portrait/landscape resizing does not constitute touch-device qualification.
 
 ## Remaining acceptance gates

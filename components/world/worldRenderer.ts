@@ -1926,6 +1926,7 @@ export function createWorld(
     mesh(boxGeo,charcoal,[0,.105,0],[.17,.13,.34],plank);
     mesh(cylinder, metal, [side * 0.61, 0.6, 0], [0.024, 1.15, 0.024], skis);
   }
+  const skiFocus=new THREE.Vector3(),skiFootFocus=new THREE.Vector3();
   const skiProbe=new THREE.Vector3(),skiInverse=new THREE.Quaternion();
   const skiContacts=[createSkiContact(),createSkiContact()];
   const skiAnkle=new THREE.Vector3(),skiHip=new THREE.Vector3(),skiKnee=new THREE.Vector3(),skiBoneDirection=new THREE.Vector3();
@@ -5725,8 +5726,10 @@ export function createWorld(
         // Keep the focus close to the rider on steep walls; a distant flat
         // lookahead can end up buried inside the opposite bank.
         const lookAhead=manual?0:Math.min(.65,travel.speed*.06);
-        targetLook.set(explorer.position.x+travel.heading.x*lookAhead,
-          explorer.position.y+1.2,explorer.position.z+travel.heading.z*lookAhead);
+        bodyRoot.updateWorldMatrix(true,false);
+        skiFocus.set(0,1.15,0);bodyRoot.localToWorld(skiFocus);
+        targetLook.set(skiFocus.x+travel.heading.x*lookAhead,
+          skiFocus.y+.2,skiFocus.z+travel.heading.z*lookAhead);
         targetCamera.set(player.x+Math.sin(skiCameraYaw)*followDistance,
           explorer.position.y+elevation,player.z+Math.cos(skiCameraYaw)*followDistance);
         constrainSkiCamera(targetLook,targetCamera,p=>worldFloorHeight(p.x,p.z));
@@ -6736,7 +6739,10 @@ export function createWorld(
       look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
     }
     if(skiCameraActive){
-      constrainSkiCamera(look,camera.position,p=>worldFloorHeight(p.x,p.z));
+      // Clear the actual ski contact, not only a lagging look target.
+      skiFootFocus.copy(explorer.position);skiFootFocus.y+=.12;
+      constrainSkiCamera(skiFootFocus,camera.position,p=>worldFloorHeight(p.x,p.z));
+      look.lerp(targetLook,1-Math.exp(-dt*12));
     }
     if(galleryPhase!==lastGalleryCameraPhase){
       camera.position.copy(targetCamera);look.copy(targetLook);
@@ -6809,6 +6815,14 @@ export function createWorld(
     }
     canvas.dataset.hiddenGalleryFov=camera.fov.toFixed(1);
     camera.lookAt(look);
+    if(skiCameraActive){
+      camera.updateMatrixWorld();skiProbe.copy(skiFocus).project(camera);
+      if(Math.abs(skiProbe.x)>.65||Math.abs(skiProbe.y)>.65){
+        look.copy(targetLook);camera.lookAt(look);camera.updateMatrixWorld();
+        skiProbe.copy(skiFocus).project(camera);
+      }
+      canvas.dataset.skiPlayerScreen=[skiProbe.x,skiProbe.y,skiProbe.z].map(v=>v.toFixed(3)).join(",");
+    }else canvas.dataset.skiPlayerScreen="";
     if(lastDiscCameraSolve){
       camera.updateMatrixWorld();
       let projected=lastDiscCameraSolve.focus.clone().project(camera);

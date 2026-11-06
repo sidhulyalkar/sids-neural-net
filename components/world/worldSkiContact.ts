@@ -64,7 +64,7 @@ export function skiCameraHeight(look:{x:number;y:number;z:number},camera:{x:numb
  * Mutates caller-owned vectors; also applies after interpolation so the actual
  * lens cannot travel through a bank between two valid target poses. */
 export function constrainSkiCamera(look:THREE.Vector3,camera:THREE.Vector3,height:(p:Point)=>number){
- look.y=Math.max(look.y,height(look)+1.2);
+ look.y=Math.max(look.y,height(look)+.35);
  const dx=camera.x-look.x,dz=camera.z-look.z;
  const baseY=Math.min(camera.y,look.y+8);
  for(let i=0;i<=12;i++){
