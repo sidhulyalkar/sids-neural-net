@@ -5249,6 +5249,10 @@ export function createWorld(
       canvas.dataset.skimCameraMode=surfing?(skimHeat.air>.08?"trick-air":"ride"):"off";
       canvas.dataset.activity = surfing?"skim":mode;
       canvas.dataset.speed = travel.speed.toFixed(2);
+      // Simulated time is intentionally separate from wall-clock time: a slow
+      // software WebGL renderer can advance just 0.05s per rendered frame.
+      // This read-only probe makes the browser qualification measurable.
+      canvas.dataset.worldSimSeconds = elapsed.toFixed(3);
       const boosting=activeRideBoost(rideBoost,elapsed)&&
         isBoostActivity(state.activity)&&aquatic==="land";
       canvas.dataset.rideBoost=String(boosting);
