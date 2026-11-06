@@ -77,7 +77,8 @@ const enterSki=async(page,kind)=>{
   })).catch(e=>({diagnosticError:String(e)}));
   record("entry failed",String(error));
   await capture(page,`failed-${kind}-world-entry.png`).catch(()=>{});
-  evidence.entryFailure=diag;
+  (evidence.entryFailures??=[]).push({kind,...diag});
+  evidence.entryFailure??=diag;
   console.error("CLEAN HALFPIPE INITIALIZATION DIAGNOSTIC",JSON.stringify(diag));
   throw error;
  }
@@ -180,6 +181,7 @@ try{
  assert.equal((await observe(desktop)).authorized,"true");
  await capture(desktop,"04-menu-armed-ski-jump.png");
  evidence.skiJump={armed:true};
+ assert.deepEqual(evidence.errors.filter(e=>e.startsWith("desktop:")),[]);
  }catch(error){
   failures.push({mode:"desktop",error:String(error)});
   evidence.desktopFailure=String(error);
@@ -200,7 +202,7 @@ try{
  assert.ok(mobileState.triangles>3000);
  evidence.mobile=mobileState;
  await capture(mobile,"05-mobile-clean-halfpipe.png");
- assert.deepEqual(evidence.errors,[]);
+ assert.deepEqual(evidence.errors.filter(e=>e.startsWith("mobile:")),[]);
  }catch(error){
   failures.push({mode:"mobile",error:String(error)});
   evidence.mobileFailure=String(error);
