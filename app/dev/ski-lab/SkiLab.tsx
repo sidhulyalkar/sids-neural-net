@@ -1,0 +1,110 @@
+"use client";
+import {useEffect,useRef} from "react";
+import * as THREE from "three";
+import {OrbitControls} from "three/examples/jsm/controls/OrbitControls.js";
+import {terrainHeight} from "@/lib/world/model";
+import {neutral,SkiSimulation,tuning,type SkiInput} from "@/lib/world/ski/simulation";
+
+export default function SkiLab(){
+ const viewport=useRef<HTMLDivElement>(null);
+ const status=useRef<HTMLOutputElement>(null);
+ const actions=useRef({step:()=>{},pause:()=>{},replay:()=>{},camera:()=>{}});
+ useEffect(()=>{
+  if(!viewport.current)return;
+  const host=viewport.current;
+  let renderer:THREE.WebGLRenderer;
+  try{renderer=new THREE.WebGLRenderer({antialias:true});}
+  catch{if(status.current)status.current.value="WebGL unavailable";return;}
+  host.appendChild(renderer.domElement);
+  const scene=new THREE.Scene();
+  scene.background=new THREE.Color(0xbdd8e4);
+  const camera=new THREE.PerspectiveCamera(48,1,.1,200);
+  const orbit=new OrbitControls(camera,renderer.domElement);
+  const terrain=new THREE.PlaneGeometry(40,60,120,180);
+  terrain.rotateX(-Math.PI/2);terrain.translate(7,0,-47);
+  const verts=terrain.attributes.position;
+  for(let i=0;i<verts.count;i++)verts.setY(i,terrainHeight(verts.getX(i),verts.getZ(i)));
+  terrain.computeVertexNormals();
+  const snow=new THREE.Mesh(terrain,new THREE.MeshNormalMaterial());
+  scene.add(snow);
+  const rig=new THREE.Group();
+  const skiGeo=new THREE.BoxGeometry(.16,.06,2.25);
+  const bodyGeo=new THREE.CapsuleGeometry(.22,.65,4,8);
+  const ink=new THREE.MeshBasicMaterial({color:0x162839});
+  for(const side of [-1,1]){
+   const ski=new THREE.Mesh(skiGeo,ink);ski.position.set(side*.23,.03,0);rig.add(ski);
+  }
+  const body=new THREE.Mesh(bodyGeo,ink);body.position.y=.75;rig.add(body);scene.add(rig);
+  const make=()=>{const s=new SkiSimulation(terrainHeight,7,-57);s.velocity.set(4,0,4);return s;};
+  let sim=make(),paused=false,replaying=false,follow=true;
+  const trace:SkiInput[]=[];
+  const keys=new Set<string>();
+  const supported=["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","KeyA","KeyD","KeyW","KeyS","KeyQ","KeyE","Space","ShiftLeft","ShiftRight"];
+  const key=(e:KeyboardEvent)=>{
+   if(!supported.includes(e.code))return;
+   e.preventDefault();
+   if(e.type==="keydown")keys.add(e.code);else keys.delete(e.code);
+  };
+  const clear=()=>keys.clear();
+  const read=(tick:number)=>{
+   if(replaying)return trace[tick]??neutral;
+   const left=keys.has("KeyA")||keys.has("ArrowLeft"),right=keys.has("KeyD")||keys.has("ArrowRight");
+   const tuck=keys.has("KeyW")||keys.has("ArrowUp"),brake=keys.has("KeyS")||keys.has("ArrowDown");
+   const input={steer:Number(right)-Number(left),pitch:Number(tuck)-Number(brake),tuck,brake,
+    roll:Number(keys.has("KeyE"))-Number(keys.has("KeyQ")),jump:keys.has("Space"),grab:keys.has("ShiftLeft")||keys.has("ShiftRight")};
+   trace[tick]=input;return input;
+  };
+  host.addEventListener("keydown",key);host.addEventListener("keyup",key);host.addEventListener("blur",clear);
+  const advance=(dt:number)=>{
+   if(replaying)dt=Math.min(dt,Math.max(0,(trace.length-sim.tick)*tuning.dt-sim.remainder));
+   // Bound live recording to three minutes; keep the entire trace replayable.
+   const capacity=180/tuning.dt;
+   if(!replaying)dt=Math.min(dt,Math.max(0,(capacity-sim.tick)*tuning.dt-sim.remainder));
+   sim.advance(dt,read);
+   if(!replaying&&sim.tick>=capacity)paused=true;
+   if(replaying&&sim.tick>=trace.length)paused=true;
+  };
+  actions.current={step:()=>{paused=true;advance(tuning.dt);},pause:()=>{paused=!paused;host.focus();},
+   replay:()=>{sim=make();replaying=true;paused=false;},camera:()=>{follow=!follow;orbit.enabled=!follow;}};
+  const resize=new ResizeObserver(()=>{
+   renderer.setSize(host.clientWidth,host.clientHeight);
+   camera.aspect=host.clientWidth/Math.max(1,host.clientHeight);camera.updateProjectionMatrix();
+  });resize.observe(host);
+  const direction=new THREE.Vector3(0,0,1),offset=new THREE.Vector3();
+  const velocity=new THREE.ArrowHelper(direction,sim.position,1,0x005bc0);
+  const normal=new THREE.ArrowHelper(direction,sim.position,1,0x00934e);
+  scene.add(velocity,normal);
+  let last=performance.now(),lastHud=0;
+  renderer.setAnimationLoop((time:number)=>{
+   const frameSeconds=Math.max(0,time-last)/1000;
+   if(!paused)advance(frameSeconds);
+   last=time;
+   if(paused)rig.position.copy(sim.position);else sim.interpolate(rig.position);
+   rig.quaternion.copy(sim.rotation);body.scale.y=sim.grab?.65:1-.35*sim.charge/tuning.maxCharge;
+   velocity.position.copy(rig.position);normal.position.copy(rig.position);
+   velocity.setLength(Math.max(.01,sim.velocity.length()*.3));normal.setDirection(sim.normal);
+   if(sim.velocity.lengthSq()>.001)velocity.setDirection(offset.copy(sim.velocity).normalize());
+   if(follow){
+    offset.copy(sim.velocity);offset.y=0;if(offset.lengthSq()>.01)direction.lerp(offset.normalize(),1-Math.exp(-4*frameSeconds)).normalize();
+    camera.position.copy(rig.position).addScaledVector(direction,-7);camera.position.y+=4;
+    camera.position.y=Math.max(camera.position.y,terrainHeight(camera.position.x,camera.position.z)+.5);
+    orbit.target.copy(rig.position);orbit.target.y+=.6;camera.lookAt(orbit.target);
+   }
+   renderer.render(scene,camera);
+   if(status.current&&time-lastHud>100){
+    status.current.value=`Tick ${sim.tick} · ${sim.phase} · speed ${sim.velocity.length().toFixed(2)} · L/R contact ${sim.contact.map(Number).join("/")} · landing ${sim.landing} · impact ${sim.impact.toFixed(2)}`;
+    lastHud=time;
+   }
+  });
+  host.focus();
+  return ()=>{
+   renderer.setAnimationLoop(null);resize.disconnect();orbit.dispose();velocity.dispose();normal.dispose();
+   terrain.dispose();snow.material.dispose();skiGeo.dispose();bodyGeo.dispose();ink.dispose();renderer.dispose();
+   renderer.domElement.remove();host.removeEventListener("keydown",key);host.removeEventListener("keyup",key);host.removeEventListener("blur",clear);
+  };
+ },[]);
+ return <main><h1>Ski physics lab</h1><p>A/D steer or spin · W/S tuck or brake, pitch in air · Q/E roll · hold and release Space to jump · Shift to grab.</p>
+ <div ref={viewport} tabIndex={0} aria-label="Ski simulation" style={{height:"60vh"}}/>
+ <div>{(["pause","step","replay","camera"] as const).map((action,i)=><button key={action} onClick={()=>actions.current[action]()}>{["Pause / resume","Step one tick","Replay inputs","Follow / orbit"][i]}</button>)}</div>
+ <output ref={status}/></main>;
+}
