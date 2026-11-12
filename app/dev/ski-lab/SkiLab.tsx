@@ -86,6 +86,16 @@ export default function SkiLab(){
    if(!replaying&&sim.tick>=capacity)paused=true;
    if(replaying&&sim.tick>=trace.length)paused=true;
   };
+  // Recreate a diagnostic frame from tick zero without tying physics progress
+  // to slow software-WebGL frame cadence. This never changes live skiing.
+  if(trial&&Number.isSafeInteger(captureTick)&&captureTick>0){
+   while(sim.tick<captureTick&&inside(sim.position.x,sim.position.z)&&controller.visits<6){
+    const input=read(sim.tick);
+    sim.advance(tuning.dt,()=>input);
+    controller.observe(sim);
+   }
+   paused=true;
+  }
   actions.current={step:()=>{paused=true;advance(tuning.dt);},pause:()=>{paused=!paused;host.focus();},
    replay:()=>{controller=new EarlyEdgeController(lead);trialTime=0;sim=make();replaying=true;paused=false;},camera:()=>{follow=!follow;orbit.enabled=!follow;}};
   const resize=new ResizeObserver(()=>{
