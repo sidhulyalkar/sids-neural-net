@@ -3,6 +3,7 @@ import {useEffect,useRef} from "react";
 import * as THREE from "three";
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls.js";
 import {terrainHeight} from "@/lib/world/model";
+import {refineMountainSnow} from "@/components/world/worldMountainHalfpipe";
 import {SoleProbe,createTrial,inside,bankOffset} from "./fiveCarve";
 import {EarlyEdgeController} from "./earlyEdge";
 import {FlexibleSoles,type SoleDeformation} from "./flexibleSoles";
@@ -24,11 +25,14 @@ export default function SkiLab(){
   scene.background=new THREE.Color(0xbdd8e4);
   const camera=new THREE.PerspectiveCamera(48,1,.1,200);
   const orbit=new OrbitControls(camera,renderer.domElement);
-  const terrain=new THREE.PlaneGeometry(40,60,120,180);
+  // Match the island mesh-refinement path instead of showing a coarse
+  // interpolated surface while diagnostics sample the analytic heightfield.
+  const terrain=new THREE.PlaneGeometry(40,60,44,66);
   terrain.rotateX(-Math.PI/2);terrain.translate(7,0,-47);
   const verts=terrain.attributes.position;
   for(let i=0;i<verts.count;i++)verts.setY(i,terrainHeight(verts.getX(i),verts.getZ(i)));
-  terrain.computeVertexNormals();
+  terrain.setAttribute("color",new THREE.Float32BufferAttribute(new Float32Array(verts.count*3),3));
+  refineMountainSnow(terrain);
   const snow=new THREE.Mesh(terrain,new THREE.MeshStandardMaterial({color:0xeaf5fb,roughness:1,side:THREE.DoubleSide}));
   scene.add(snow);
   scene.add(new THREE.HemisphereLight(0xe9f5ff,0x8799ab,2));
