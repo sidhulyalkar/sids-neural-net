@@ -1,3 +1,5 @@
+import {worldFrameDelta} from "@/lib/world/frameTiming";
+import {createSkiContact,fitSkiContact,skiFollowYaw,constrainSkiCamera} from "./worldSkiContact";
 import {reefCanyonConstrainSwim,reefCanyonNear} from "@/lib/world/reefCanyon";
 import {createMossCanyonReef} from "./worldMossCanyonReef";
 import {bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
@@ -1913,12 +1915,28 @@ export function createWorld(
   }
 
   // Skis read as separate planks with upturned tips and poles.
+  const skiPlanks:THREE.Group[]=[];
   for (const side of [-1, 1]) {
-    mesh(boxGeo, skiMat, [side * 0.23, 0.02, 0.1], [0.19, 0.065, 2.55], skis);
-    const tip = mesh(boxGeo, skiMat, [side * 0.23, 0.15, 1.48], [0.19, 0.06, 0.34], skis);
+    const plank=new THREE.Group();
+    skis.add(plank);skiPlanks.push(plank);
+    plank.position.x=side*.23;
+    mesh(boxGeo, skiMat, [0, 0.02, 0], [0.19, 0.065, 2.55], plank);
+    const tip = mesh(boxGeo, skiMat, [0, 0.12, 1.36], [0.19, 0.06, 0.24], plank);
     tip.rotation.x = -0.42;
+    mesh(boxGeo,charcoal,[0,.105,0],[.17,.13,.34],plank);
     mesh(cylinder, metal, [side * 0.61, 0.6, 0], [0.024, 1.15, 0.024], skis);
   }
+  const skiFocus=new THREE.Vector3(),skiFootFocus=new THREE.Vector3();
+  const skiProbe=new THREE.Vector3(),skiInverse=new THREE.Quaternion();
+  const skiContacts=[createSkiContact(),createSkiContact()];
+  const skiAnkle=new THREE.Vector3(),skiHip=new THREE.Vector3(),skiKnee=new THREE.Vector3(),skiBoneDirection=new THREE.Vector3();
+  const skiPresentation=new URLSearchParams(window.location.search).get("ski-view")!=="legacy";
+  const skiKnees=legs.map(()=>mesh(boxGeo,dark,[0,0,0],[.19,.36,.23],bodyRoot));
+  skiKnees.forEach(k=>{k.visible=false});
+  const skiAirRotation=new THREE.Quaternion();
+  const skiAirBones=[...legs,...skiKnees].map(()=>({position:new THREE.Vector3(),rotation:new THREE.Quaternion(),scale:new THREE.Vector3()}));
+  let skiPoseReady=false;
+
   const chalk = mesh(rockGeo, mat("#c4836d"), [0, 0.83, -0.35], [0.2, 0.2, 0.14], bodyRoot);
   board.visible = bike.visible = skis.visible = chalk.visible = false;
   // Shasta is defined from Sid's supplied photo set rather than a generic husky palette.
@@ -3202,6 +3220,7 @@ export function createWorld(
     lastSerial = -1;
   const frameSampler = new FrameSampler();
   const quality = new QualityController();
+  let skiCameraYaw=0, skiCameraActive=false, skiLookUntil=0, snapSkiCamera=false;
   let yaw = 0.25,
     pitch = 0.32,
     zoom = 19;
@@ -3575,6 +3594,7 @@ export function createWorld(
     if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 5)
       drag.moved = true;
     if (drag.moved) {
+      skiLookUntil=performance.now()+1600;
       yaw -= (e.clientX - drag.lastX) * 0.005;
       pitch = THREE.MathUtils.clamp(
         pitch + (e.clientY - drag.lastY) * 0.003,
@@ -4064,8 +4084,11 @@ export function createWorld(
     raf = 0;
     if (disposed || document.hidden || state.paused) return;
     const fetchNow=now*.001;
+    const previousSkiCameraActive=skiCameraActive;
+    skiCameraActive=false;
     const rawDelta = (now - last) / 1000,
-      dt = Math.min(rawDelta, 0.05);
+      // A queued RAF timestamp can precede schedule() after a slow startup.
+      dt = worldFrameDelta(rawDelta);
     last = now;
     elapsed += dt;
     surfClock+=Math.max(0,Math.min(rawDelta,.5));
@@ -4946,6 +4969,11 @@ export function createWorld(
         discGolfFacingHeading(player,discGolfNextTarget(discGolf),
           DISC_GOLF_HOLES[discGolf.holeIndex].target,travel.heading):null;
       if(discGolfHeading)travel={...travel,speed:0,heading:discGolfHeading};
+      const skiGrounded=skiPresentation&&mode==="ski"&&aquatic==="land"&&caveLayer==="surface"&&
+        galleryPhase==="outside"&&airHeight<=.001&&!grind&&!climb&&bigAir.phase==="idle";
+      const skiAirPose=skiPresentation&&mode==="ski"&&aquatic==="land"&&airHeight>.001&&
+        bigAir.phase==="idle"&&skiPoseReady;
+      skiKnees.forEach(k=>{k.visible=skiGrounded||skiAirPose});
       const headingYaw = discGolfHeading
         ? Math.atan2(discGolfHeading.x,discGolfHeading.z)
         : travel.speed > 0.05 || mode==="skate" || surfing
@@ -4953,6 +4981,8 @@ export function createWorld(
           : explorer.rotation.y;
 
         legs.forEach((leg,i)=>{
+          leg.rotation.set(0,0,0);
+          leg.position.z=0;
           const side=i===0?-1:1;
           leg.position.x=side*(!swimming&&(mode==="skate"||surfing)?.43:.16);
           leg.scale.y=!swimming&&mode==="skate"?.72-trickPose.crouch*.25:.72;
@@ -5115,6 +5145,66 @@ export function createWorld(
           explorer.position.set(pose.point.x+pose.up[0]*lift,pose.y+pose.up[1]*lift,pose.point.z+pose.up[2]*lift);
         }
         if(bikeContact)canvas.dataset.bikeContactError=bikeContact.error.toFixed(4);
+        let minSkiClearance=Infinity,maxSkiClearance=-Infinity;
+        if(skiGrounded){
+          const contacts=skiContacts;
+          for(let i=0;i<2;i++)fitSkiContact(player,travel.heading,i===0?-1:1,rigSupport,contacts[i]);
+          explorer.position.copy(contacts[0].position).lerp(contacts[1].position,.5);
+          explorer.quaternion.copy(contacts[0].rotation).slerp(contacts[1].rotation,.5);
+          bodyRoot.position.set(0,-.07,.04);
+          bodyRoot.rotation.set(.12,0,0);
+          explorer.updateMatrixWorld(true);
+          skiInverse.copy(explorer.quaternion).invert();
+          contacts.forEach((pose,i)=>{
+            const plank=skiPlanks[i];
+            plank.position.copy(pose.position);
+            explorer.worldToLocal(plank.position);
+            plank.quaternion.copy(skiInverse).multiply(pose.rotation);
+            // Two leg segments connect the hip to the boot in the contact frame.
+            const ankle=skiAnkle.copy(pose.position).addScaledVector(pose.up,.17);
+            bodyRoot.worldToLocal(ankle);
+            const hip=skiHip.set(i===0?-.16:.16,.73,0);
+            const knee=skiKnee.copy(hip).lerp(ankle,.5);
+            knee.z+=.16;
+            for(const [bone,a,b] of [[legs[i],hip,knee],[skiKnees[i],knee,ankle]] as const){
+              bone.position.copy(a).lerp(b,.5);
+              bone.scale.set(.19,a.distanceTo(b),.23);
+              bone.quaternion.setFromUnitVectors(UP,skiBoneDirection.copy(b).sub(a).normalize());
+            }
+            plank.updateWorldMatrix(true,false);
+            for(let j=0;j<=16;j++)for(const w of [-.095,0,.095]){
+              skiProbe.set(w,-.0125,-1.275+2.55*j/16);
+              plank.localToWorld(skiProbe);
+              const clearance=skiProbe.y-rigSupport({x:skiProbe.x,z:skiProbe.z});
+              minSkiClearance=Math.min(minSkiClearance,clearance);
+              maxSkiClearance=Math.max(maxSkiClearance,clearance);
+            }
+          });
+          skiAirRotation.copy(explorer.quaternion);
+          [...legs,...skiKnees].forEach((bone,i)=>{
+            skiAirBones[i].position.copy(bone.position);
+            skiAirBones[i].rotation.copy(bone.quaternion);
+            skiAirBones[i].scale.copy(bone.scale);
+          });
+          skiPoseReady=true;
+        }else if(skiAirPose){
+          explorer.quaternion.copy(skiAirRotation);
+          bodyRoot.position.set(0,-.07,.04);bodyRoot.rotation.set(.12,0,0);
+          [...legs,...skiKnees].forEach((bone,i)=>{
+            bone.position.copy(skiAirBones[i].position);
+            bone.quaternion.copy(skiAirBones[i].rotation);
+            bone.scale.copy(skiAirBones[i].scale);
+          });
+        }else{
+          skiPoseReady=false;
+          skiPlanks.forEach((plank,i)=>{
+            plank.position.set(i===0?-.23:.23,0,0);plank.quaternion.identity();
+          });
+        }
+        canvas.dataset.skiContactActive=String(skiGrounded);
+        canvas.dataset.skiSoleMin=Number.isFinite(minSkiClearance)?minSkiClearance.toFixed(4):"";
+        canvas.dataset.skiSoleMax=Number.isFinite(maxSkiClearance)?maxSkiClearance.toFixed(4):"";
+
       }
       // Measure the actual transformed soles against the actual deck plane.
       // This replaces the old diagnostic that algebraically cancelled to zero.
@@ -5624,7 +5714,27 @@ export function createWorld(
       } else if (cavernApproachFraming) {
         const pose=arcadeEntranceCameraPose();
         targetCamera.set(pose.position.x,pose.position.y,pose.position.z);
+      } else if(skiPresentation&&mode==="ski"&&aquatic==="land"&&bigAir.phase==="idle"&&
+          caveLayer==="surface"&&galleryPhase==="outside"){
+        const manual=!!drag||performance.now()<skiLookUntil;
+        if(!previousSkiCameraActive)snapSkiCamera=true;
+        if(!previousSkiCameraActive||manual)skiCameraYaw=yaw;
+        else skiCameraYaw=skiFollowYaw(skiCameraYaw,travel.heading,dt);
+        skiCameraActive=true;
+        const followDistance=manual?Math.min(zoom,12):7;
+        const elevation=manual?followDistance*Math.sin(pitch):3;
+        // Keep the focus close to the rider on steep walls; a distant flat
+        // lookahead can end up buried inside the opposite bank.
+        const lookAhead=manual?0:Math.min(.65,travel.speed*.06);
+        bodyRoot.updateWorldMatrix(true,false);
+        skiFocus.set(0,1.15,0);bodyRoot.localToWorld(skiFocus);
+        targetLook.set(skiFocus.x+travel.heading.x*lookAhead,
+          skiFocus.y+.2,skiFocus.z+travel.heading.z*lookAhead);
+        targetCamera.set(player.x+Math.sin(skiCameraYaw)*followDistance,
+          explorer.position.y+elevation,player.z+Math.cos(skiCameraYaw)*followDistance);
+        constrainSkiCamera(targetLook,targetCamera,p=>worldFloorHeight(p.x,p.z));
       } else {
+        skiCameraActive=false;
         targetCamera.set(
           player.x + Math.sin(cameraYaw) * cameraZoom * Math.cos(pitch),
           targetLook.y + cameraZoom * Math.sin(pitch),
@@ -5724,7 +5834,7 @@ export function createWorld(
           if (boom < 1) targetCamera.lerpVectors(targetLook, targetCamera, boom);
           targetCamera.y = Math.max(
             targetCamera.y,
-            worldFloorHeight(targetCamera.x, targetCamera.z) + 3.5,
+            worldFloorHeight(targetCamera.x, targetCamera.z) + (skiCameraActive?.35:3.5),
           );
         }
       } else if (aquatic === "surface") {
@@ -6613,12 +6723,12 @@ export function createWorld(
       }
       snowPuffs.instanceMatrix.needsUpdate=true;
     }
-    if(showingDiscGolfIntro || snapDiscCamera){
+    if(showingDiscGolfIntro || snapDiscCamera || snapSkiCamera){
       // A direct time-derived pose starts on the basket instead of slowly
       // drifting there from a camera that previously followed the player.
       camera.position.copy(targetCamera);
       look.copy(targetLook);
-      snapDiscCamera=false;
+      snapDiscCamera=false;snapSkiCamera=false;
     }else{
       // Fast enough to keep the flying disc on screen, with smooth
       // cinematic blends instead of jumping between subjects.
@@ -6627,6 +6737,12 @@ export function createWorld(
         discGolf.phase!=="off"&&discFetch.phase!=="idle"?5.2:3.6;
       camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
       look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
+    }
+    if(skiCameraActive){
+      // Clear the actual ski contact, not only a lagging look target.
+      skiFootFocus.copy(explorer.position);skiFootFocus.y+=.12;
+      constrainSkiCamera(skiFootFocus,camera.position,p=>worldFloorHeight(p.x,p.z));
+      look.lerp(targetLook,1-Math.exp(-dt*12));
     }
     if(galleryPhase!==lastGalleryCameraPhase){
       camera.position.copy(targetCamera);look.copy(targetLook);
@@ -6699,6 +6815,14 @@ export function createWorld(
     }
     canvas.dataset.hiddenGalleryFov=camera.fov.toFixed(1);
     camera.lookAt(look);
+    if(skiCameraActive){
+      camera.updateMatrixWorld();skiProbe.copy(skiFocus).project(camera);
+      if(Math.abs(skiProbe.x)>.65||Math.abs(skiProbe.y)>.65){
+        look.copy(targetLook);camera.lookAt(look);camera.updateMatrixWorld();
+        skiProbe.copy(skiFocus).project(camera);
+      }
+      canvas.dataset.skiPlayerScreen=[skiProbe.x,skiProbe.y,skiProbe.z].map(v=>v.toFixed(3)).join(",");
+    }else canvas.dataset.skiPlayerScreen="";
     if(lastDiscCameraSolve){
       camera.updateMatrixWorld();
       let projected=lastDiscCameraSolve.focus.clone().project(camera);
@@ -6731,6 +6855,9 @@ export function createWorld(
       canvas.dataset.rideBoostAim=aimed?
         [aimed.x.toFixed(3),aimed.y.toFixed(3),aimed.id].join(","):"";
     }else canvas.dataset.rideBoostAim="";
+    canvas.dataset.skiCameraActive=String(skiCameraActive);
+    canvas.dataset.skiCameraPosition=camera.position.toArray().map(v=>v.toFixed(3)).join(",");
+    canvas.dataset.skiCameraLook=look.toArray().map(v=>v.toFixed(3)).join(",");
     canvas.dataset.cameraTargetError=camera.position.distanceTo(targetCamera).toFixed(2);
 
     // Underwater atmosphere and biome work are keyed by the water zone. The cold
@@ -7472,6 +7599,7 @@ export function createWorld(
           // The single halfpipe now determines the free-ski descent axis.
           // The old timber kicker no longer controls arrival or camera.
           yaw=Math.PI;
+          if(skiPresentation)snapSkiCamera=true;
           pitch=.34;
           zoom=Math.min(zoom,17);
         } else {
