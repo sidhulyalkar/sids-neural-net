@@ -11,7 +11,10 @@ export type SoleMetrics={
 };
 const SECTIONS=32,WIDTHS=3,CLEARANCE=.008;
 const height=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
-const constrain=(n:number,limit:number)=>Math.min(limit,Math.max(-limit,n));
+// Continuously saturating deformation prevents a sharp crease where a hard
+// per-vertex clamp meets the curved snow. This is a lab tuning envelope, not
+// a calibrated ski stiffness or beam constraint.
+const constrain=(n:number,limit:number)=>limit===0?0:limit*Math.tanh(n/limit);
 
 /** Experimental diagnostic of rigid support vs constrained flex vs ideal contact.
  * Not an authoritative ski collider, leg rig or reference-game material model.
