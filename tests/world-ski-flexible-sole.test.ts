@@ -5,17 +5,31 @@ import {runEarlyEdge} from "../app/dev/ski-lab/earlyEdge";
 import {createTrial,SoleProbe} from "../app/dev/ski-lab/fiveCarve";
 import {neutral,tuning} from "../lib/world/ski/simulation";
 
-function atFirstBank(){
- const recorded=runEarlyEdge(0),tick=recorded.bankVisits[0].tick;
+function atWorstBridge(){
+ const recorded=runEarlyEdge(0);
+ const probe=new SoleProbe(),search=createTrial();
+ let worstTick=0,worstGap=-Infinity;
+ for(const input of recorded.inputs){
+  search.advance(tuning.dt,()=>input);
+  if(search.phase!=="riding"||!search.contact.some(Boolean))continue;
+  const gaps=probe.update(search);
+  for(let side=0;side<2;side++){
+   if(search.contact[side]&&gaps[side].max>worstGap){
+    worstGap=gaps[side].max;worstTick=search.tick;
+   }
+  }
+ }
+ assert.ok(worstTick>0);
+ assert.ok(worstGap>.5,"measured full-trace rigid bridge should remain visible");
  const sim=createTrial();
- for(const input of recorded.inputs.slice(0,tick))sim.advance(tuning.dt,()=>input);
- assert.equal(sim.tick,tick);
- assert.ok(sim.contact.some(Boolean),"must measure on a grounded bank visit");
- return sim;
+ for(const input of recorded.inputs.slice(0,worstTick))sim.advance(tuning.dt,()=>input);
+ assert.equal(sim.tick,worstTick);
+ assert.ok(sim.contact.some(Boolean));
+ return {sim,worstGap,worstTick};
 }
 
 test("new rigid geometry reproduces original full-footprint gap measurements",()=>{
- const sim=atFirstBank(),probe=new SoleProbe(),original=probe.update(sim);
+ const {sim,worstGap}=atWorstBridge(),probe=new SoleProbe(),original=probe.update(sim);
  const model=new FlexibleSoles("rigid");
  try{
   const candidate=model.update(sim);
@@ -27,13 +41,13 @@ test("new rigid geometry reproduces original full-footprint gap measurements",()
    assert.equal(candidate[i].vertexCount,99);
    assert.equal(candidate[i].maxVerticalBend,0);
   }
-  assert.ok(candidate.some(m=>m.active&&m.max>.3),
-   "control must retain and expose the original ski bridging defect");
+  assert.ok(candidate.some(m=>m.active&&Math.abs(m.max-worstGap)<1e-6),
+   "comparison must use the actual worst-contact frame, not an assumed bank tick");
  }finally{model.dispose();}
 });
 
 test("bounded flex reduces gaps without pretending the rigid ski can bend infinitely",()=>{
- const sim=atFirstBank();
+ const {sim}=atWorstBridge();
  const rigid=new FlexibleSoles("rigid");
  const bounded=new FlexibleSoles("bounded",.3);
  const ideal=new FlexibleSoles("surface");
