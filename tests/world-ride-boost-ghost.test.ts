@@ -15,9 +15,8 @@ test("bike skill-shot targets belong to the actual Joshua track",()=>{
  for(const target of targets){
   assert.ok(desertTrackFrame(target.point).distance<.05,target.id);
  }
- for(const sport of ["ski","skate"]){
-  assert.ok(RIDE_BOOST_TARGETS.filter(t=>t.activity===sport).length>=3);
- }
+ assert.equal(RIDE_BOOST_TARGETS.filter(t=>t.activity==="skate").length,3);
+ assert.equal(RIDE_BOOST_TARGETS.length,7);
  assert.equal(new Set(RIDE_BOOST_TARGETS.map(t=>t.id)).size,
   RIDE_BOOST_TARGETS.length,"target IDs must be unique");
 });
@@ -44,13 +43,17 @@ test("only an aimed shot while moving and in range grants boost",()=>{
  assert.notEqual(later,hit);
 });
 
-test("skill-shot applies to bike, ski and skate without instant speed snapping",()=>{
+test("skill-shot accelerates bikes and boards only",()=>{
  for(const activity of ["bike","ski","skate"] as const){
   const from:Travel={point:{x:0,z:0},speed:5,heading:{x:1,z:0}};
   const unboosted=stepTravel(from,{x:1,z:0},.05,activity,[],false,
     null,0,()=>0);
   const boosted=stepTravel(from,{x:1,z:0},.05,activity,[],false,
     null,0,()=>0,true);
+  if(activity==="ski"){
+   assert.deepEqual(boosted,unboosted);
+   continue;
+  }
   assert.ok(boosted.speed>unboosted.speed,activity);
   const coasting=stepTravel({...from,speed:100/6},{x:1,z:0},
     .05,activity,[],false,null,0,()=>0,false);

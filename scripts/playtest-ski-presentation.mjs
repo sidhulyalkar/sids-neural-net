@@ -37,6 +37,12 @@ try{
   },100);
  });
  await capture('01-entry');
+ await page.keyboard.press('f');
+ const skiCanvas=page.locator('canvas');
+ assert.equal(await skiCanvas.getAttribute('data-ride-boost-last-shot'),null);
+ assert.equal(await skiCanvas.getAttribute('data-ride-boost'),'false');
+ assert.equal(await skiCanvas.getAttribute('data-ride-boost-aim'),'');
+ assert.equal(await page.getByLabel('Land sports target boost').isVisible(),false);
  await page.keyboard.down('w');
  await wait(()=>Number(document.querySelector('canvas')?.dataset.player.split(',')[1])>-54);
  await page.keyboard.up('w');
