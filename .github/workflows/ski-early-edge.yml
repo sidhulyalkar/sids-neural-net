@@ -1,0 +1,39 @@
+name: Ski Early Edge Diagnostics
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/ski-early-edge.yml"
+      - "app/dev/ski-lab/**"
+      - "lib/world/ski/**"
+      - "tests/world-ski-early-edge.test.ts"
+      - "tests/world-ski-five-carve.test.ts"
+      - "scripts/ski-early-edge-sweep.ts"
+  workflow_dispatch:
+
+jobs:
+  timing-comparison:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Check TypeScript
+        run: npm run typecheck
+      - name: Run isolated ski simulation tests
+        run: node --import tsx --test tests/world-ski-early-edge.test.ts tests/world-ski-five-carve.test.ts tests/world-ski-simulation.test.ts
+      - name: Record controlled early-edge comparison
+        run: |
+          node --import tsx scripts/ski-early-edge-sweep.ts
+          git rev-parse HEAD > artifacts/ski-early-edge/tested-sha.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ski-early-edge-${{ github.sha }}
+          path: artifacts/ski-early-edge/
+          if-no-files-found: warn

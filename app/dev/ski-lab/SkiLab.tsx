@@ -3,7 +3,8 @@ import {useEffect,useRef} from "react";
 import * as THREE from "three";
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls.js";
 import {terrainHeight} from "@/lib/world/model";
-import {SoleProbe,createTrial,trialInput,bank,inside} from "./fiveCarve";
+import {SoleProbe,createTrial,inside,bankOffset} from "./fiveCarve";
+import {EarlyEdgeController} from "./earlyEdge";
 import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_SOLE_Y} from "@/components/world/worldSkiContact";
 import {neutral,SkiSimulation,tuning,type SkiInput} from "@/lib/world/ski/simulation";
 
@@ -39,9 +40,11 @@ export default function SkiLab(){
   const body=new THREE.Mesh(bodyGeo,ink);body.position.y=.75;rig.add(body);scene.add(rig);
   const query=new URLSearchParams(location.search);
   const trial=query.has("five-carve");
+  const leadParam=Number(query.get("early-lead")??0);
+  const lead=Number.isFinite(leadParam)?Math.min(bankOffset-.1,Math.max(0,leadParam)):0;
   const captureTick=Number(query.get("capture-tick"));
   const make=()=>{if(trial)return createTrial();const s=new SkiSimulation(terrainHeight,7,-57);s.velocity.set(4,0,4);return s;};
-  let target=1,visits=0,trialTime=0;
+  let controller=new EarlyEdgeController(lead),trialTime=0;
   let sim=make(),paused=false,replaying=false,follow=true;
   const trace:SkiInput[]=[];
   const keys=new Set<string>();
@@ -54,7 +57,7 @@ export default function SkiLab(){
   const clear=()=>keys.clear();
   const read=(tick:number)=>{
    if(replaying)return trace[tick]??neutral;
-   if(trial){const input=trialInput(sim,target);trace[tick]=input;return input;}
+   if(trial){const input=controller.input(sim);trace[tick]=input;return input;}
    const left=keys.has("KeyA")||keys.has("ArrowLeft"),right=keys.has("KeyD")||keys.has("ArrowRight");
    const tuck=keys.has("KeyW")||keys.has("ArrowUp"),brake=keys.has("KeyS")||keys.has("ArrowDown");
    const input={steer:Number(right)-Number(left),pitch:Number(tuck)-Number(brake),tuck,brake,
@@ -71,16 +74,15 @@ export default function SkiLab(){
     trialTime+=dt;
     while(trialTime+1e-12>=tuning.dt){
      sim.advance(tuning.dt,read);trialTime=Math.max(0,trialTime-tuning.dt);
-     const b=bank(sim.position.x,sim.position.z,sim.contact.some(Boolean)&&sim.phase==="riding");
-     if(b===target){visits++;target=-target;}
-     if(!inside(sim.position.x,sim.position.z)||visits===6||sim.tick>=3600||sim.tick===captureTick){paused=true;break;}
+     controller.observe(sim);
+     if(!inside(sim.position.x,sim.position.z)||controller.visits===6||sim.tick>=3600||sim.tick===captureTick){paused=true;break;}
     }
    }else sim.advance(dt,read);
    if(!replaying&&sim.tick>=capacity)paused=true;
    if(replaying&&sim.tick>=trace.length)paused=true;
   };
   actions.current={step:()=>{paused=true;advance(tuning.dt);},pause:()=>{paused=!paused;host.focus();},
-   replay:()=>{target=1;visits=0;trialTime=0;sim=make();replaying=true;paused=false;},camera:()=>{follow=!follow;orbit.enabled=!follow;}};
+   replay:()=>{controller=new EarlyEdgeController(lead);trialTime=0;sim=make();replaying=true;paused=false;},camera:()=>{follow=!follow;orbit.enabled=!follow;}};
   const resize=new ResizeObserver(()=>{
    renderer.setSize(host.clientWidth,host.clientHeight);
    camera.aspect=host.clientWidth/Math.max(1,host.clientHeight);camera.updateProjectionMatrix();
@@ -97,7 +99,7 @@ export default function SkiLab(){
    rig.position.copy(sim.position);
    const gaps=probe.update(sim);
    skis.forEach((ski,i)=>{ski.position.copy(probe.poses[i].position);ski.quaternion.copy(probe.poses[i].rotation);});
-   if(trial&&(!inside(sim.position.x,sim.position.z)||visits>=6))paused=true;
+   if(trial&&(!inside(sim.position.x,sim.position.z)||controller.visits>=6))paused=true;
    rig.quaternion.copy(sim.rotation);body.scale.y=sim.grab?.65:1-.35*sim.charge/tuning.maxCharge;
    velocity.position.copy(rig.position);normal.position.copy(rig.position);
    velocity.setLength(Math.max(.01,sim.velocity.length()*.3));normal.setDirection(sim.normal);
@@ -111,7 +113,7 @@ export default function SkiLab(){
    renderer.render(scene,camera);
    if(trial&&paused)renderer.domElement.dataset.captureTick=String(sim.tick);
    if(status.current&&time-lastHud>100){
-    status.current.value=`Tick ${sim.tick} · ${sim.phase} · speed ${sim.velocity.length().toFixed(2)} · L/R contact ${sim.contact.map(Number).join("/")} · visits ${visits}/6 · L/R max gap ${gaps.map(g=>g.max.toFixed(2)).join("/")} · landing ${sim.landing} · impact ${sim.impact.toFixed(2)}`;
+    status.current.value=`Tick ${sim.tick} · ${sim.phase} · speed ${sim.velocity.length().toFixed(2)} · L/R contact ${sim.contact.map(Number).join("/")} · visits ${controller.visits}/6 · lead ${lead.toFixed(1)} · L/R max gap ${gaps.map(g=>g.max.toFixed(2)).join("/")} · landing ${sim.landing} · impact ${sim.impact.toFixed(2)}`;
     lastHud=time;
    }
   });
@@ -122,7 +124,7 @@ export default function SkiLab(){
    renderer.domElement.remove();host.removeEventListener("keydown",key);host.removeEventListener("keyup",key);host.removeEventListener("blur",clear);
   };
  },[]);
- return <main><h1>Ski physics lab</h1><p>A/D steer or spin · W/S tuck or brake, pitch in air · Q/E roll · hold and release Space to jump · Shift to grab.</p>
+ return <main><h1>Ski physics lab</h1><p>A/D steer or spin · W/S tuck or brake, pitch in air · Q/E roll · hold and release Space to jump · Shift to grab. For the controlled comparison use /dev/ski-lab?five-carve&amp;early-lead=1.5; zero lead preserves the original V3-1 input timing.</p>
  <div ref={viewport} tabIndex={0} aria-label="Ski simulation" style={{height:"60vh"}}/>
  <div>{(["pause","step","replay","camera"] as const).map((action,i)=><button key={action} onClick={()=>actions.current[action]()}>{["Pause / resume","Step one tick","Replay inputs","Follow / orbit"][i]}</button>)}</div>
  <output ref={status}/></main>;
