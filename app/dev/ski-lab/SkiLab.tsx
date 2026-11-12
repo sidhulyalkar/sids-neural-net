@@ -5,6 +5,7 @@ import {OrbitControls} from "three/examples/jsm/controls/OrbitControls.js";
 import {terrainHeight} from "@/lib/world/model";
 import {SoleProbe,createTrial,inside,bankOffset} from "./fiveCarve";
 import {EarlyEdgeController} from "./earlyEdge";
+import {FlexibleSoles,type SoleDeformation} from "./flexibleSoles";
 import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_SOLE_Y} from "@/components/world/worldSkiContact";
 import {neutral,SkiSimulation,tuning,type SkiInput} from "@/lib/world/ski/simulation";
 
@@ -34,9 +35,13 @@ export default function SkiLab(){
   const skiGeo=new THREE.BoxGeometry(2*SKI_HALF_WIDTH,.06,2*SKI_HALF_LENGTH);
   skiGeo.translate(0,SKI_SOLE_Y+.03,0);
   const bodyGeo=new THREE.CapsuleGeometry(.22,.65,4,8);
-  const ink=new THREE.MeshBasicMaterial({color:0x162839});
+  const ink=new THREE.MeshBasicMaterial({color:0x162839,side:THREE.DoubleSide});
+  const modeParam=new URLSearchParams(location.search).get("sole");
+  const soleMode:SoleDeformation=modeParam==="bounded"||modeParam==="surface"?modeParam:"rigid";
   const probe=new SoleProbe();
-  const skis=probe.poses.map(()=>{const ski=new THREE.Mesh(skiGeo,ink);scene.add(ski);return ski;});
+  const skis=probe.poses.map(()=>{const ski=new THREE.Mesh(skiGeo,ink);ski.visible=soleMode==="rigid";scene.add(ski);return ski;});
+  const flex=new FlexibleSoles(soleMode,.3);
+  flex.geometry.map(g=>{const ski=new THREE.Mesh(g,ink);ski.visible=soleMode!=="rigid";scene.add(ski);return ski;});
   const body=new THREE.Mesh(bodyGeo,ink);body.position.y=.75;rig.add(body);scene.add(rig);
   const query=new URLSearchParams(location.search);
   const trial=query.has("five-carve");
@@ -97,8 +102,9 @@ export default function SkiLab(){
    if(!paused)advance(frameSeconds);
    last=time;
    rig.position.copy(sim.position);
-   const gaps=probe.update(sim);
+   const rigidGaps=probe.update(sim);
    skis.forEach((ski,i)=>{ski.position.copy(probe.poses[i].position);ski.quaternion.copy(probe.poses[i].rotation);});
+   const gaps=soleMode==="rigid"?rigidGaps:flex.update(sim);
    if(trial&&(!inside(sim.position.x,sim.position.z)||controller.visits>=6))paused=true;
    rig.quaternion.copy(sim.rotation);body.scale.y=sim.grab?.65:1-.35*sim.charge/tuning.maxCharge;
    velocity.position.copy(rig.position);normal.position.copy(rig.position);
@@ -113,18 +119,18 @@ export default function SkiLab(){
    renderer.render(scene,camera);
    if(trial&&paused)renderer.domElement.dataset.captureTick=String(sim.tick);
    if(status.current&&time-lastHud>100){
-    status.current.value=`Tick ${sim.tick} · ${sim.phase} · speed ${sim.velocity.length().toFixed(2)} · L/R contact ${sim.contact.map(Number).join("/")} · visits ${controller.visits}/6 · lead ${lead.toFixed(1)} · L/R max gap ${gaps.map(g=>g.max.toFixed(2)).join("/")} · landing ${sim.landing} · impact ${sim.impact.toFixed(2)}`;
+    status.current.value=`Tick ${sim.tick} · ${sim.phase} · speed ${sim.velocity.length().toFixed(2)} · L/R contact ${sim.contact.map(Number).join("/")} · visits ${controller.visits}/6 · lead ${lead.toFixed(1)} · sole ${soleMode} · L/R max gap ${gaps.map(g=>g.max.toFixed(2)).join("/")} · landing ${sim.landing} · impact ${sim.impact.toFixed(2)}`;
     lastHud=time;
    }
   });
   host.focus();
   return ()=>{
    renderer.setAnimationLoop(null);resize.disconnect();orbit.dispose();velocity.dispose();normal.dispose();
-   terrain.dispose();snow.material.dispose();skiGeo.dispose();bodyGeo.dispose();ink.dispose();renderer.dispose();
+   terrain.dispose();snow.material.dispose();skiGeo.dispose();bodyGeo.dispose();ink.dispose();flex.dispose();renderer.dispose();
    renderer.domElement.remove();host.removeEventListener("keydown",key);host.removeEventListener("keyup",key);host.removeEventListener("blur",clear);
   };
  },[]);
- return <main><h1>Ski physics lab</h1><p>A/D steer or spin · W/S tuck or brake, pitch in air · Q/E roll · hold and release Space to jump · Shift to grab. For the controlled comparison use /dev/ski-lab?five-carve&amp;early-lead=1.5; zero lead preserves the original V3-1 input timing.</p>
+ return <main><h1>Ski physics lab</h1><p>A/D steer or spin · W/S tuck or brake, pitch in air · Q/E roll · hold and release Space to jump · Shift to grab. For the controlled comparison use /dev/ski-lab?five-carve&amp;early-lead=1.5; zero lead preserves the original V3-1 input timing. Add &amp;sole=rigid|bounded|surface to compare sole models; the surface option is a diagnostic upper bound, not a physically qualified ski.</p>
  <div ref={viewport} tabIndex={0} aria-label="Ski simulation" style={{height:"60vh"}}/>
  <div>{(["pause","step","replay","camera"] as const).map((action,i)=><button key={action} onClick={()=>actions.current[action]()}>{["Pause / resume","Step one tick","Replay inputs","Follow / orbit"][i]}</button>)}</div>
  <output ref={status}/></main>;
