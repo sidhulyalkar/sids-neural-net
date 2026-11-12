@@ -3,6 +3,8 @@ import {useEffect,useRef} from "react";
 import * as THREE from "three";
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls.js";
 import {terrainHeight} from "@/lib/world/model";
+import {SoleProbe,createTrial,trialInput,bank,inside} from "./fiveCarve";
+import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_SOLE_Y} from "@/components/world/worldSkiContact";
 import {neutral,SkiSimulation,tuning,type SkiInput} from "@/lib/world/ski/simulation";
 
 export default function SkiLab(){
@@ -28,14 +30,18 @@ export default function SkiLab(){
   const snow=new THREE.Mesh(terrain,new THREE.MeshNormalMaterial());
   scene.add(snow);
   const rig=new THREE.Group();
-  const skiGeo=new THREE.BoxGeometry(.16,.06,2.25);
+  const skiGeo=new THREE.BoxGeometry(2*SKI_HALF_WIDTH,.06,2*SKI_HALF_LENGTH);
+  skiGeo.translate(0,SKI_SOLE_Y+.03,0);
   const bodyGeo=new THREE.CapsuleGeometry(.22,.65,4,8);
   const ink=new THREE.MeshBasicMaterial({color:0x162839});
-  for(const side of [-1,1]){
-   const ski=new THREE.Mesh(skiGeo,ink);ski.position.set(side*.23,.03,0);rig.add(ski);
-  }
+  const probe=new SoleProbe();
+  const skis=probe.poses.map(()=>{const ski=new THREE.Mesh(skiGeo,ink);scene.add(ski);return ski;});
   const body=new THREE.Mesh(bodyGeo,ink);body.position.y=.75;rig.add(body);scene.add(rig);
-  const make=()=>{const s=new SkiSimulation(terrainHeight,7,-57);s.velocity.set(4,0,4);return s;};
+  const query=new URLSearchParams(location.search);
+  const trial=query.has("five-carve");
+  const captureTick=Number(query.get("capture-tick"));
+  const make=()=>{if(trial)return createTrial();const s=new SkiSimulation(terrainHeight,7,-57);s.velocity.set(4,0,4);return s;};
+  let target=1,visits=0,trialTime=0;
   let sim=make(),paused=false,replaying=false,follow=true;
   const trace:SkiInput[]=[];
   const keys=new Set<string>();
@@ -48,6 +54,7 @@ export default function SkiLab(){
   const clear=()=>keys.clear();
   const read=(tick:number)=>{
    if(replaying)return trace[tick]??neutral;
+   if(trial){const input=trialInput(sim,target);trace[tick]=input;return input;}
    const left=keys.has("KeyA")||keys.has("ArrowLeft"),right=keys.has("KeyD")||keys.has("ArrowRight");
    const tuck=keys.has("KeyW")||keys.has("ArrowUp"),brake=keys.has("KeyS")||keys.has("ArrowDown");
    const input={steer:Number(right)-Number(left),pitch:Number(tuck)-Number(brake),tuck,brake,
@@ -60,12 +67,20 @@ export default function SkiLab(){
    // Bound live recording to three minutes; keep the entire trace replayable.
    const capacity=180/tuning.dt;
    if(!replaying)dt=Math.min(dt,Math.max(0,(capacity-sim.tick)*tuning.dt-sim.remainder));
-   sim.advance(dt,read);
+   if(trial){
+    trialTime+=dt;
+    while(trialTime+1e-12>=tuning.dt){
+     sim.advance(tuning.dt,read);trialTime=Math.max(0,trialTime-tuning.dt);
+     const b=bank(sim.position.x,sim.position.z,sim.contact.some(Boolean)&&sim.phase==="riding");
+     if(b===target){visits++;target=-target;}
+     if(!inside(sim.position.x,sim.position.z)||visits===6||sim.tick>=3600||sim.tick===captureTick){paused=true;break;}
+    }
+   }else sim.advance(dt,read);
    if(!replaying&&sim.tick>=capacity)paused=true;
    if(replaying&&sim.tick>=trace.length)paused=true;
   };
   actions.current={step:()=>{paused=true;advance(tuning.dt);},pause:()=>{paused=!paused;host.focus();},
-   replay:()=>{sim=make();replaying=true;paused=false;},camera:()=>{follow=!follow;orbit.enabled=!follow;}};
+   replay:()=>{target=1;visits=0;trialTime=0;sim=make();replaying=true;paused=false;},camera:()=>{follow=!follow;orbit.enabled=!follow;}};
   const resize=new ResizeObserver(()=>{
    renderer.setSize(host.clientWidth,host.clientHeight);
    camera.aspect=host.clientWidth/Math.max(1,host.clientHeight);camera.updateProjectionMatrix();
@@ -79,7 +94,10 @@ export default function SkiLab(){
    const frameSeconds=Math.max(0,time-last)/1000;
    if(!paused)advance(frameSeconds);
    last=time;
-   if(paused)rig.position.copy(sim.position);else sim.interpolate(rig.position);
+   rig.position.copy(sim.position);
+   const gaps=probe.update(sim);
+   skis.forEach((ski,i)=>{ski.position.copy(probe.poses[i].position);ski.quaternion.copy(probe.poses[i].rotation);});
+   if(trial&&(!inside(sim.position.x,sim.position.z)||visits>=6))paused=true;
    rig.quaternion.copy(sim.rotation);body.scale.y=sim.grab?.65:1-.35*sim.charge/tuning.maxCharge;
    velocity.position.copy(rig.position);normal.position.copy(rig.position);
    velocity.setLength(Math.max(.01,sim.velocity.length()*.3));normal.setDirection(sim.normal);
@@ -91,8 +109,9 @@ export default function SkiLab(){
     orbit.target.copy(rig.position);orbit.target.y+=.6;camera.lookAt(orbit.target);
    }
    renderer.render(scene,camera);
+   if(trial&&paused)renderer.domElement.dataset.captureTick=String(sim.tick);
    if(status.current&&time-lastHud>100){
-    status.current.value=`Tick ${sim.tick} · ${sim.phase} · speed ${sim.velocity.length().toFixed(2)} · L/R contact ${sim.contact.map(Number).join("/")} · landing ${sim.landing} · impact ${sim.impact.toFixed(2)}`;
+    status.current.value=`Tick ${sim.tick} · ${sim.phase} · speed ${sim.velocity.length().toFixed(2)} · L/R contact ${sim.contact.map(Number).join("/")} · visits ${visits}/6 · L/R max gap ${gaps.map(g=>g.max.toFixed(2)).join("/")} · landing ${sim.landing} · impact ${sim.impact.toFixed(2)}`;
     lastHud=time;
    }
   });
