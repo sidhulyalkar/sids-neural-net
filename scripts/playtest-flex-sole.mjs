@@ -31,7 +31,7 @@ try{
   },{tick,mode},{timeout:30000});
   const status=await page.locator("output").evaluate(o=>o.value);
   assert.ok(status.includes("Tick "+tick+" ")&&status.includes("sole "+mode),status);
-  const visibility=await page.locator("canvas").evaluate(c=>({
+  const visibility=await page.locator('canvas[data-capture-tick="'+tick+'"]').evaluate(c=>({
    visible:c.dataset.skierVisible,occluded:c.dataset.skierOccluded,
    skisFramed:c.dataset.skisFramed,screen:c.dataset.skierScreen
   }));
@@ -48,7 +48,7 @@ try{
  followURL.searchParams.set("sole","bounded");
  await page.goto(followURL.href,{waitUntil:"domcontentloaded",timeout:120000});
  await page.locator('canvas[data-capture-tick="'+tick+'"]').waitFor({timeout:120000});
- const followVisibility=await page.locator("canvas").evaluate(c=>({
+ const followVisibility=await page.locator('canvas[data-capture-tick="'+tick+'"]').evaluate(c=>({
   visible:c.dataset.skierVisible,occluded:c.dataset.skierOccluded,
   skisFramed:c.dataset.skisFramed,screen:c.dataset.skierScreen
  }));
