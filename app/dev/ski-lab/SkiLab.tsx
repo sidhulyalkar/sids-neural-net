@@ -119,7 +119,8 @@ export default function SkiLab(){
    renderer.render(scene,camera);
    if(trial&&paused)renderer.domElement.dataset.captureTick=String(sim.tick);
    if(status.current&&time-lastHud>100){
-    status.current.value=`Tick ${sim.tick} · ${sim.phase} · speed ${sim.velocity.length().toFixed(2)} · L/R contact ${sim.contact.map(Number).join("/")} · visits ${controller.visits}/6 · lead ${lead.toFixed(1)} · sole ${soleMode} · L/R max gap ${gaps.map(g=>g.max.toFixed(2)).join("/")} · landing ${sim.landing} · impact ${sim.impact.toFixed(2)}`;
+    const flexStats=soleMode==="rigid"?"":` · max bend ${flex.metrics.map(g=>g.maxVerticalBend.toFixed(2)).join("/")} · curvature ${flex.metrics.map(g=>g.maxCurvature.toFixed(2)).join("/")}`;
+    status.current.value=`Tick ${sim.tick} · ${sim.phase} · speed ${sim.velocity.length().toFixed(2)} · L/R contact ${sim.contact.map(Number).join("/")} · visits ${controller.visits}/6 · lead ${lead.toFixed(1)} · sole ${soleMode} · L/R max gap ${gaps.map(g=>g.max.toFixed(2)).join("/")}${flexStats} · landing ${sim.landing} · impact ${sim.impact.toFixed(2)}`;
     lastHud=time;
    }
   });
