@@ -6,6 +6,8 @@ on:
       - "app/dev/ski-lab/**"
       - "lib/world/ski/**"
       - "tests/world-ski-early-edge.test.ts"
+      - "tests/world-ski-flexible-sole.test.ts"
+      - "scripts/ski-flex-sole-audit.ts"
       - "tests/world-ski-five-carve.test.ts"
       - "scripts/ski-early-edge-sweep.ts"
   workflow_dispatch:
@@ -31,6 +33,17 @@ jobs:
         run: |
           node --import tsx scripts/ski-early-edge-sweep.ts
           git rev-parse HEAD > artifacts/ski-early-edge/tested-sha.txt
+      - name: Qualify sole bending as diagnostic only
+        run: |
+          node --import tsx --test tests/world-ski-flexible-sole.test.ts
+          node --import tsx scripts/ski-flex-sole-audit.ts
+          git rev-parse HEAD > artifacts/ski-flex-sole/tested-sha.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ski-flex-sole-${{ github.sha }}
+          path: artifacts/ski-flex-sole/
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         if: always()
         with:
