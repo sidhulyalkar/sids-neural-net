@@ -2,7 +2,7 @@ import {Matrix4, Quaternion, Vector3} from "three";
 
 // iLand prototype tuning in world units and seconds. No Bonvo measurements.
 export const tuning = Object.freeze({
-  version: 1, dt: 1/120, gravity: 12, drag: .012, edgeGrip: 4,
+  version: 2, dt: 1/120, gravity: 12, drag: .012, flatGrip: .65, engagedGrip: 6, edgeResponse: 5,
   brake: 7, maxTurn: 2.6, maxCharge: .65, pop: 6, spin: 8, flip: 6,
 });
 export type SkiInput = { steer:number; pitch:number; roll:number; tuck:boolean; brake:boolean; jump:boolean; grab:boolean };
@@ -25,6 +25,9 @@ export class SkiSimulation {
   tick=0;
   remainder=0;
   charge=0;
+  edge=0;
+  pressure=0;
+  grip=0;
   grab=false;
   impact=0;
   private held=false;
@@ -113,7 +116,15 @@ export class SkiSimulation {
     this.forward.set(Math.sin(this.yaw),0,Math.cos(this.yaw)).projectOnPlane(this.normal).normalize();
     this.side.crossVectors(this.normal,this.forward).normalize();
     this.velocity.addScaledVector(this.axis.set(0,-tuning.gravity,0).projectOnPlane(this.normal),dt);
-    this.velocity.addScaledVector(this.side,-this.velocity.dot(this.side)*(1-Math.exp(-tuning.edgeGrip*dt)));
+    // Signed edge passes through flat during a direction change.
+    this.edge+=((impaired?0:clamp(input.steer))-this.edge)*(1-Math.exp(-tuning.edgeResponse*dt));
+    const lateral=this.velocity.dot(this.side);
+    const alignment=Math.abs(this.velocity.dot(this.forward))/Math.max(.01,this.velocity.length());
+    // Load proxy combines normal gravity and turning demand; squat unloads the edge.
+    this.pressure=Math.max(0,this.normal.y)+Math.min(1,Math.abs(this.turn)*speed/tuning.gravity);
+    this.grip=tuning.flatGrip+tuning.engagedGrip*Math.abs(this.edge)*this.pressure*
+      (.25+.75*alignment)*(1-.45*this.charge/tuning.maxCharge);
+    this.velocity.addScaledVector(this.side,-lateral*(1-Math.exp(-this.grip*dt)));
     this.velocity.multiplyScalar(Math.exp(-dt*(tuning.drag*speed*(input.tuck?.55:1)+(impaired?2:0))));
     if(input.brake)this.velocity.multiplyScalar(Math.max(0,1-tuning.brake*dt/Math.max(.001,this.velocity.length())));
     const target=this.delta.setFromRotationMatrix(this.basis.makeBasis(this.side,this.normal,this.forward));
