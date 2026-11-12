@@ -3269,6 +3269,9 @@ export function createWorld(
   function resetRideBoost(){
     rideBoost=initialRideBoost();
     rideBoostNoticeUntil=0;rideBoostNotice="";
+    rideAnnounce.textContent="";
+    delete canvas.dataset.rideBoostLastShot;
+    delete canvas.dataset.rideBoostAimAssist;
   }
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let galleryPhase:GalleryPhase="outside";

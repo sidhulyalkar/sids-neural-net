@@ -457,7 +457,7 @@ export function stepTravel(
   const slope =
     contactSupport({ x: current.point.x + heading.x, z: current.point.z + heading.z }) -
     contactSupport(current.point);
-  const boostEligible=boost && (mode==="bike"||mode==="ski"||mode==="skate");
+  const boostEligible=boost && (mode==="bike"||mode==="skate");
   const maxSpeed =
     carving ? 6.5 : config.speed *
     (mode === "run" && sprint ? 1.45 : 1) *

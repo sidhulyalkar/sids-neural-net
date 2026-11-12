@@ -1,6 +1,6 @@
 import * as THREE from "three/src/Three.Core.js";
 import {groundHeight,type Activity} from "@/lib/world/activities";
-import {RIDE_BOOST_TARGETS,type RideBoost,canFireRideBoost,
+import {RIDE_BOOST_TARGETS,isBoostActivity,type RideBoost,canFireRideBoost,
  type RideBoostTarget} from "@/lib/world/rideBoost";
 import {JOSHUA_GHOSTS,joshuaGhostPose} from "@/lib/world/joshuaGhostRace";
 import type {TrialState} from "@/lib/world/trials";
@@ -41,13 +41,15 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
    sightRay.near=0;sightRay.far=length-.12;
    return sightRay.intersectObject(ground,false).length===0;
  };
+ const targetRoot=new THREE.Group();
+ targetRoot.visible=false;root.add(targetRoot);
  const targets=RIDE_BOOST_TARGETS.map(target=>{
   const group=new THREE.Group();group.name="skill-shot-"+target.id;
   group.position.set(target.point.x,groundHeight(target.point)+2.9,target.point.z);
   const ring=new THREE.Mesh(ringGeo,targetMat);
   const core=new THREE.Mesh(coreGeo,coreMat);
   const halo=new THREE.Mesh(haloGeo,targetMat);
-  group.add(ring,core,halo);root.add(group);
+  group.add(ring,core,halo);targetRoot.add(group);
   // Only the core is shot-sensitive, so clicking blank space inside a halo
   // cannot grant a reward. Hitbox is generous enough for touch.
   core.userData.boostTargetId=target.id;
@@ -90,6 +92,7 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
   visibleAimTarget(mode:Activity,player:Point,speed:number,now:number,
    state:RideBoost,camera:THREE.Camera,
    ground:THREE.Mesh):{id:string;x:number;y:number}|null{
+   if(!targetRoot.visible)return null;
    let best:{id:string;x:number;y:number}|null=null;
    let bestDistance=Infinity;
    for(const {target,group} of targets){
@@ -112,6 +115,7 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
   nearAimTarget(mode:Activity,player:Point,speed:number,now:number,
    state:RideBoost,camera:THREE.Camera,
    pointer:THREE.Vector2,ground:THREE.Mesh):RideBoostTarget|null{
+   if(!targetRoot.visible)return null;
    let closest:RideBoostTarget|null=null;
    // The old 0.065 NDC threshold was smaller than the projected ring
    // while the camera followed a fast rider. At 13 u/s the observed aim
@@ -139,9 +143,14 @@ export function createRideChallengeGeometry(scene:THREE.Scene){
   },
   updateTargets(mode:Activity,player:Point,speed:number,now:number,
    state:RideBoost,camera:THREE.Camera,enabled:boolean){
+   targetRoot.visible=enabled&&isBoostActivity(mode);
+   if(!targetRoot.visible){
+    tracer.visible=false;shotUntil=0;
+    return;
+   }
    for(const {target,group,ring,halo,core} of targets){
     const distance=Math.hypot(target.point.x-player.x,target.point.z-player.z);
-    group.visible=enabled&&target.activity===mode&&distance<55;
+    group.visible=target.activity===mode&&distance<55;
     if(!group.visible)continue;
     const charged=canFireRideBoost(target,mode,player,speed,now,state);
     ring.material=halo.material=charged?targetMat:targetInactive;
