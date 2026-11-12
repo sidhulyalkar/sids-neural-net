@@ -6,7 +6,7 @@ import {terrainHeight} from "@/lib/world/model";
 import {SoleProbe,createTrial,inside,bankOffset} from "./fiveCarve";
 import {EarlyEdgeController} from "./earlyEdge";
 import {FlexibleSoles,type SoleDeformation} from "./flexibleSoles";
-import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_SOLE_Y} from "@/components/world/worldSkiContact";
+import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_SOLE_Y,constrainSkiCamera} from "@/components/world/worldSkiContact";
 import {neutral,SkiSimulation,tuning,type SkiInput} from "@/lib/world/ski/simulation";
 
 export default function SkiLab(){
@@ -29,14 +29,18 @@ export default function SkiLab(){
   const verts=terrain.attributes.position;
   for(let i=0;i<verts.count;i++)verts.setY(i,terrainHeight(verts.getX(i),verts.getZ(i)));
   terrain.computeVertexNormals();
-  const snow=new THREE.Mesh(terrain,new THREE.MeshNormalMaterial());
+  const snow=new THREE.Mesh(terrain,new THREE.MeshStandardMaterial({color:0xeaf5fb,roughness:1,side:THREE.DoubleSide}));
   scene.add(snow);
+  scene.add(new THREE.HemisphereLight(0xe9f5ff,0x8799ab,2));
+  const sun=new THREE.DirectionalLight(0xffffff,2);
+  sun.position.set(-12,28,8);scene.add(sun);
   const rig=new THREE.Group();
   const skiGeo=new THREE.BoxGeometry(2*SKI_HALF_WIDTH,.06,2*SKI_HALF_LENGTH);
   skiGeo.translate(0,SKI_SOLE_Y+.03,0);
   const bodyGeo=new THREE.CapsuleGeometry(.22,.65,4,8);
   const ink=new THREE.MeshBasicMaterial({color:0x162839,side:THREE.DoubleSide});
   const modeParam=new URLSearchParams(location.search).get("sole");
+  const inspectView=new URLSearchParams(location.search).get("view")==="contact";
   const soleMode:SoleDeformation=modeParam==="bounded"||modeParam==="surface"?modeParam:"rigid";
   const probe=new SoleProbe();
   const skis=probe.poses.map(()=>{const ski=new THREE.Mesh(skiGeo,ink);ski.visible=soleMode==="rigid";scene.add(ski);return ski;});
@@ -50,7 +54,7 @@ export default function SkiLab(){
   const captureTick=Number(query.get("capture-tick"));
   const make=()=>{if(trial)return createTrial();const s=new SkiSimulation(terrainHeight,7,-57);s.velocity.set(4,0,4);return s;};
   let controller=new EarlyEdgeController(lead),trialTime=0;
-  let sim=make(),paused=false,replaying=false,follow=true;
+  let sim=make(),paused=false,replaying=false,follow=!inspectView;
   const trace:SkiInput[]=[];
   const keys=new Set<string>();
   const supported=["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","KeyA","KeyD","KeyW","KeyS","KeyQ","KeyE","Space","ShiftLeft","ShiftRight"];
@@ -103,6 +107,10 @@ export default function SkiLab(){
    camera.aspect=host.clientWidth/Math.max(1,host.clientHeight);camera.updateProjectionMatrix();
   });resize.observe(host);
   const direction=new THREE.Vector3(0,0,1),offset=new THREE.Vector3();
+  const cameraLook=new THREE.Vector3(),bodyCenter=new THREE.Vector3();
+  const projected=new THREE.Vector3(),tip=new THREE.Vector3(),visibilityDirection=new THREE.Vector3();
+  const ray=new THREE.Raycaster();
+  const snowHeight=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
   const velocity=new THREE.ArrowHelper(direction,sim.position,1,0x005bc0);
   const normal=new THREE.ArrowHelper(direction,sim.position,1,0x00934e);
   scene.add(velocity,normal);
@@ -120,13 +128,42 @@ export default function SkiLab(){
    velocity.position.copy(rig.position);normal.position.copy(rig.position);
    velocity.setLength(Math.max(.01,sim.velocity.length()*.3));normal.setDirection(sim.normal);
    if(sim.velocity.lengthSq()>.001)velocity.setDirection(offset.copy(sim.velocity).normalize());
-   if(follow){
+   if(inspectView){
+    // Physical-contact QA uses an inward, elevated angle, not a blinded
+    // tangent view through the near halfpipe wall.
+    camera.position.set(rig.position.x+(rig.position.x>=7?-4.5:4.5),
+     rig.position.y+4,rig.position.z+5.5);
+    camera.position.y=Math.max(camera.position.y,terrainHeight(camera.position.x,camera.position.z)+1);
+    cameraLook.copy(rig.position);cameraLook.y+=.6;
+    constrainSkiCamera(cameraLook,camera.position,snowHeight);
+    camera.lookAt(cameraLook);
+   }else if(follow){
     offset.copy(sim.velocity);offset.y=0;if(offset.lengthSq()>.01)direction.lerp(offset.normalize(),1-Math.exp(-4*frameSeconds)).normalize();
     camera.position.copy(rig.position).addScaledVector(direction,-7);camera.position.y+=4;
-    camera.position.y=Math.max(camera.position.y,terrainHeight(camera.position.x,camera.position.z)+.5);
-    orbit.target.copy(rig.position);orbit.target.y+=.6;camera.lookAt(orbit.target);
+    cameraLook.copy(rig.position);cameraLook.y+=.6;
+    constrainSkiCamera(cameraLook,camera.position,snowHeight);
+    camera.lookAt(cameraLook);
    }
    renderer.render(scene,camera);
+   // Visibility is an acceptance condition, not inferred from successful
+   // screenshot creation or finite camera coordinates.
+   body.getWorldPosition(bodyCenter);
+   projected.copy(bodyCenter).project(camera);
+   const framed=Math.abs(projected.x)<.85&&Math.abs(projected.y)<.85&&projected.z>-1&&projected.z<1;
+   visibilityDirection.copy(bodyCenter).sub(camera.position);
+   const sightLength=visibilityDirection.length();
+   ray.set(camera.position,visibilityDirection.multiplyScalar(1/Math.max(.001,sightLength)));
+   ray.near=.02;ray.far=Math.max(.02,sightLength-.12);
+   const blocked=ray.intersectObject(snow,false).length>0;
+   let skisFramed=true;
+   for(const pose of probe.poses)for(const sign of [-1,1]){
+    tip.set(0,SKI_SOLE_Y,sign*SKI_HALF_LENGTH).applyQuaternion(pose.rotation).add(pose.position).project(camera);
+    skisFramed&&=Math.abs(tip.x)<.92&&Math.abs(tip.y)<.92&&tip.z>-1&&tip.z<1;
+   }
+   renderer.domElement.dataset.skierVisible=String(framed&&!blocked);
+   renderer.domElement.dataset.skierOccluded=String(blocked);
+   renderer.domElement.dataset.skisFramed=String(skisFramed);
+   renderer.domElement.dataset.skierScreen=projected.x.toFixed(3)+","+projected.y.toFixed(3);
    if(trial&&paused)renderer.domElement.dataset.captureTick=String(sim.tick);
    if(status.current&&time-lastHud>100){
     const flexStats=soleMode==="rigid"?"":` · max bend ${flex.metrics.map(g=>g.maxVerticalBend.toFixed(2)).join("/")} · curvature ${flex.metrics.map(g=>g.maxCurvature.toFixed(2)).join("/")}`;
