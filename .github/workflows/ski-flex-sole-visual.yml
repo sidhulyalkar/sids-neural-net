@@ -1,0 +1,61 @@
+name: Ski Flex Sole Visual QA
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/ski-flex-sole-visual.yml"
+      - "app/dev/ski-lab/**"
+      - "scripts/playtest-flex-sole.mjs"
+      - "scripts/ski-flex-sole-audit.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ski-flex-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    env:
+      WORLD_BASE_URL: http://localhost:3000
+      WORLD_AUDIT_DIR: artifacts/ski-flex-visual
+      PLAYWRIGHT_MODULE_ROOT: /tmp/halfpipe-playwright/node_modules/playwright
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Prepare contact audit and worst tick
+        run: node --import tsx scripts/ski-flex-sole-audit.ts
+      - name: Install isolated Chromium
+        run: |
+          npm install --prefix /tmp/halfpipe-playwright --no-save --package-lock=false playwright@1.56.1
+          /tmp/halfpipe-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start exact-head lab
+        run: |
+          (npm run dev > /tmp/ski-flex-next.log 2>&1 &)
+          for i in $(seq 1 90); do
+            if curl -fsS "$WORLD_BASE_URL/dev/ski-lab?five-carve" >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 200 /tmp/ski-flex-next.log
+          exit 1
+      - name: Capture identical physical tick in three visual modes
+        run: |
+          node scripts/playtest-flex-sole.mjs
+          git rev-parse HEAD > artifacts/ski-flex-visual/tested-sha.txt
+      - name: Server diagnostics
+        if: failure()
+        run: tail -n 180 /tmp/ski-flex-next.log || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ski-flex-visual-${{ github.sha }}
+          path: |
+            artifacts/ski-flex-visual/
+            artifacts/ski-flex-sole/
+            /tmp/ski-flex-next.log
+          if-no-files-found: warn
