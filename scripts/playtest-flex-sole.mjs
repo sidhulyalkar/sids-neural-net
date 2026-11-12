@@ -24,6 +24,10 @@ try{
   path.searchParams.set("sole",mode);
   await page.goto(path.href,{waitUntil:"domcontentloaded",timeout:120000});
   await page.locator('canvas[data-capture-tick="'+tick+'"]').waitFor({timeout:120000});
+  await page.waitForFunction(({tick,mode})=>{
+   const status=document.querySelector("output")?.value??"";
+   return status.includes("Tick "+tick+" ")&&status.includes("sole "+mode);
+  },{tick,mode},{timeout:30000});
   const status=await page.locator("output").evaluate(o=>o.value);
   assert.ok(status.includes("Tick "+tick+" ")&&status.includes("sole "+mode),status);
   await page.screenshot({path:join(output,"worst-"+mode+".png"),timeout:25000});
