@@ -36,6 +36,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   // Deterministic diverse first edition during SSR, before preference hydration.
   const [items, setItems] = useState(() => selectDailyRun(initialItems, {}, EDITION_LIMIT));
   const [position, setPosition] = useState(0);
+  const [contentsOpen, setContentsOpen] = useState(false);
   const [editionAt, setEditionAt] = useState(generatedAt);
   const [searchDraft, setSearchDraft] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
@@ -252,6 +253,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     cancelHold();
     setItems(edition.items.slice(0, EDITION_LIMIT));
     setPosition(0);
+    setContentsOpen(false);
     setEditionAt(edition.generatedAt);
     setActiveQuery('');
     setFailedImages([]);
@@ -351,6 +353,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       editionVersionRef.current += 1;
       setItems(next);
       setPosition(0);
+      setContentsOpen(false);
       setEditionAt(payload.generatedAt);
       setActiveQuery(query);
       setNotice('');
@@ -381,8 +384,11 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   return (
     <section className={styles.reader} aria-label="Frontier focused reader" data-frontier-edition-at={editionAt}>
       <header className={styles.masthead}>
-        <Link href="/" className={styles.brand}>FRONTIER<span className={styles.brandDot}>.</span></Link>
+        <div className={styles.identity}><Link href="/" className={styles.brand}>FRONTIER<span className={styles.brandDot}>.</span></Link><span className={styles.identityCaption}>A journal of what matters next</span></div>
         <div className={styles.topActions}>
+          <button type="button" className={styles.contentsToggle} aria-expanded={contentsOpen} aria-controls="frontier-contents" onClick={() => setContentsOpen((open) => !open)}>
+            <span>Contents</span><span className={styles.contentsCount}>{String(items.length).padStart(2, '0')}</span>
+          </button>
           <form role="search" onSubmit={onSearch} className={styles.search}>
             <Search aria-hidden="true" size={17} />
             <input aria-label="Search live topics" placeholder="Search" value={searchDraft}
@@ -407,11 +413,25 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
         <span style={{ width: progress + '%' }} />
       </div>
 
+      {contentsOpen ? (
+        <section id="frontier-contents" className={styles.contentsPanel} aria-label="Edition contents">
+          <div className={styles.contentsHeading}><div><span className={styles.overline}>THE CURRENT EDITION</span><h2>Explore the issue.</h2></div><button type="button" onClick={() => setContentsOpen(false)} aria-label="Close contents">Close ×</button></div>
+          <div className={styles.contentsGrid}>{items.map((entry, index) => (
+            <button type="button" key={entry.id} className={styles.contentsEntry} aria-current={position === index ? 'true' : undefined} onClick={() => { move(index - position); setContentsOpen(false); }}>
+              <span className={styles.contentsOrdinal}>{String(index + 1).padStart(2, '0')}</span>
+              <span className={styles.contentsEntryBody}><span className={styles.overline}>{entry.lane.replace(/_/g, ' ')} · {entry.sourceLabel}</span><strong>{entry.title}</strong></span>
+              <ArrowRight size={16} aria-hidden="true" />
+            </button>
+          ))}</div>
+        </section>
+      ) : null}
+
       {error && <div className={styles.error} role="alert">{error} <button type="button" onClick={() => setError('')}>Dismiss</button></div>}
 
       {item ? (
         <div className={styles.stage} key={item.id}>
           <article className={styles.article}>
+            <div className={styles.editionMarker}><span>FRONTIER / THE RESEARCH JOURNAL</span><span>{sourceDate(editionAt)}</span></div>
             <div className={styles.headline}>
               <div className={styles.headlineMeta}>
                 <span className={styles.kicker}>{item.lane.replace(/_/g, ' ')} <span className={styles.separator}>/</span> {item.sourceLabel}</span>
@@ -421,8 +441,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
               {item.authors?.length ? <p className={styles.byline}>{item.authors.slice(0, 3).join(', ')}</p> : null}
             </div>
 
-            <div className={styles.storyBody}>
-              <figure className={styles.visual} data-frontier-figure-count={figures.length}>
+            <div className={`${styles.storyBody} ${!canShowImage ? styles.storyBodyText : ''}`}>
+              {canShowImage ? <figure className={styles.visual} data-frontier-figure-count={figures.length}>
                 <div className={styles.visualViewport}>
                   {canShowImage && image ? (
                     <Image
@@ -471,16 +491,17 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                     <span>{activeFigure.credit || item.sourceLabel}</span>
                   </figcaption>
                 ) : null}
-              </figure>
+              </figure> : null}
 
               <div ref={contentRef} className={styles.content}
                 onScroll={() => { readerInteractedRef.current = true; }}
                 onTouchStart={() => { readerInteractedRef.current = true; }}>
                 <section className={styles.briefSection} aria-label="Source-grounded summary">
+                  <h2 className={styles.sectionLabel}>The overview</h2>
                   <p className={styles.summary}>{sourceBrief.lead || 'This source did not include a synopsis. Read the original for the full story.'}</p>
                   {sourceBrief.hasFullerContext ? (
                     <details className={styles.sourceDetail}>
-                      <summary>More context</summary>
+                      <summary>Continue reading <span aria-hidden="true">↗</span></summary>
                       <div className={styles.detailBody}>{sourceBrief.details.map((part, index) => <p key={index}>{part}</p>)}</div>
                     </details>
                   ) : null}
@@ -488,6 +509,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
                 <div className={styles.interactionArea}>
                   <div className={styles.ratingZone}>
+                    <div className={styles.ratingEyebrow}>Your curiosity <span>Shape what you discover next</span></div>
                     <button
                       type="button"
                       className={styles.holdButton}
@@ -511,7 +533,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                         : rating ? rating + '/10 · Hold to revise' : 'Hold to rate'}</span>
                     </button>
                     <details className={styles.precision} onToggle={() => { readerInteractedRef.current = true; }}>
-                      <summary>Choose exact score</summary>
+                      <summary>Fine-tune interest</summary>
                       <div className={styles.precisionContent}>
                         <label htmlFor="frontier-interest-slider">Interest: {sliderScore}/10</label>
                         <input id="frontier-interest-slider" type="range" min={1} max={10} step={1}
@@ -584,6 +606,15 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                   <span className={styles.sourceDate}>{sourceDate(item.publishedAt)}</span>
                 </div>
               </div>
+              <aside className={styles.journalRail} aria-label="Further reading">
+                <div className={styles.railMeta}><span className={styles.overline}>IN THIS STORY</span><span>{sourceDate(item.publishedAt)}</span></div>
+                <div className={styles.tagGroup}>{item.tags.slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}</div>
+                <div className={styles.railHeading}><span className={styles.overline}>KEEP EXPLORING</span><button type="button" onClick={() => setContentsOpen(true)}>View issue <ArrowRight size={13} /></button></div>
+                <ol className={styles.relatedList}>{items.slice(position + 1, position + 4).map((related, idx) => (
+                  <li key={related.id}><button type="button" onClick={() => move(idx + 1)}><span>{String(position + idx + 2).padStart(2, '0')} / {related.lane.replace(/_/g, ' ')}</span><strong>{related.title}</strong><ArrowRight size={14} aria-hidden="true" /></button></li>
+                ))}</ol>
+                {position + 1 >= items.length ? <p className={styles.railEnd}>You have reached the end of this edition.</p> : null}
+              </aside>
             </div>
           </article>
           <nav className={styles.navigation} aria-label="Article navigation">
