@@ -13,7 +13,10 @@ the important evidence first without replacing the source with invented charts o
 
 The first layer controls truth. Formats and atmospheres control only presentation.
 No format may synthesize data, convert heterogeneous numbers into a comparative bar, or
-invent experiments, metrics, participants, relationships, or scientific figures.
+invent experiments, metrics, participants, relationships, or scientific figures. Platform
+engagement counts (stars, forks, upvotes, comments, citations, etc.) are source activity,
+not study results; they belong in the contextual rail instead of the measured-results exhibit.
+Auto-generated social covers that simply repeat titles are excluded from the primary figure area.
 
 ## A source can change the whole journal environment
 
