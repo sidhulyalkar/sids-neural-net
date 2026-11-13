@@ -79,6 +79,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     : [];
   const image = imageCandidates.find((candidate) => !failedImages.includes(candidate));
   const canShowImage = Boolean(image);
+  const hasFigureChoices = figures.length > 1;
   const currentVisualGrade = holdValue ?? rating;
   const presentation = item ? journalPresentation(item, canShowImage) : undefined;
   const related = item ? journalRelatedItems(item, items, 3) : [];
@@ -462,7 +463,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                 {presentation?.format === 'live' || presentation?.format === 'measured' ? (
                   <FrontierJournalEvidence item={item} />
                 ) : null}
-              {canShowImage ? <figure className={styles.visual} data-frontier-figure-count={figures.length}>
+              {canShowImage || hasFigureChoices ? <figure className={styles.visual} data-frontier-figure-count={figures.length}>
                 <div className={styles.visualViewport}>
                   {image ? (
                     <Image
@@ -487,6 +488,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                     />
                   ) : null}
                 </div>
+                {!image && hasFigureChoices ? <p className={styles.figureFailure} role="status">This source figure is unavailable. Choose another figure below.</p> : null}
                 {figures.length > 1 ? (
                   <nav className={styles.figureRail} aria-label="Source figures">
                     {figures.map((figure, index) => (
