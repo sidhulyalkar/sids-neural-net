@@ -104,6 +104,14 @@ export class SkiSimulation {
     }
     return support;
   }
+  private unsupportedBoot(){
+    // A loaded patch under either binding can still carry the skier.
+    for(let i=0;i<2;i++){
+      const sole=this.soles[i];
+      if(this.load[i]>.05&&sole.supportStart<=.12&&sole.supportEnd>=-.12)return false;
+    }
+    return true;
+  }
   private settle(support:number){
     this.position.y=support;
     if(this.footprint===true)for(let i=0;i<2;i++)this.contact[i]=support-this.supports[i]<=.035;
@@ -176,8 +184,13 @@ export class SkiSimulation {
     this.position.addScaledVector(this.velocity,dt);
     const support=this.sample();
     if(this.phase!=="air"){
-      if(this.position.y-support>.04&&this.velocity.dot(this.normal)>.15&&!impaired){
-        this.phase="air";this.charge=0;
+      const separation=this.position.y-support;
+      const departing=this.velocity.dot(this.normal)>.15;
+      const lostSupport=this.footprint==="independent"&&this.unsupportedBoot()&&
+        separation>tuning.gravity*dt*dt+.008;
+      if(!impaired&&departing&&(separation>.04||lostSupport)){
+        this.phase="air";this.charge=0;this.age=0;
+        this.contact.fill(false);this.load.fill(0);
       }else this.settle(support);
     }
   }
