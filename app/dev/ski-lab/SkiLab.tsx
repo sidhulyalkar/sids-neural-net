@@ -45,18 +45,32 @@ export default function SkiLab(){
   const ink=new THREE.MeshBasicMaterial({color:0x162839,side:THREE.DoubleSide});
   const modeParam=new URLSearchParams(location.search).get("sole");
   const inspectView=new URLSearchParams(location.search).get("view")==="contact";
-  const soleMode:SoleDeformation=modeParam==="bounded"||modeParam==="surface"?modeParam:"rigid";
+  const footprint=new URLSearchParams(location.search).has("footprint");
+  const sideView=new URLSearchParams(location.search).get("view")==="side";
+  const soleMode:SoleDeformation=footprint?"rigid":modeParam==="bounded"||modeParam==="surface"?modeParam:"rigid";
   const probe=new SoleProbe();
   const skis=probe.poses.map(()=>{const ski=new THREE.Mesh(skiGeo,ink);ski.visible=soleMode==="rigid";scene.add(ski);return ski;});
   const flex=new FlexibleSoles(soleMode,.3);
   flex.geometry.map(g=>{const ski=new THREE.Mesh(g,ink);ski.visible=soleMode!=="rigid";scene.add(ski);return ski;});
   const body=new THREE.Mesh(bodyGeo,ink);body.position.y=.75;rig.add(body);scene.add(rig);
+  const bootGeo=new THREE.BoxGeometry(.17,.16,.33);
+  const boneGeo=new THREE.CylinderGeometry(.075,.065,1,8);
+  const jointUp=new THREE.Vector3(0,1,0),hip=new THREE.Vector3(),ankle=new THREE.Vector3(),knee=new THREE.Vector3(),boneAxis=new THREE.Vector3();
+  const landingLegs=skis.map(()=>{
+   const boot=new THREE.Mesh(bootGeo,ink),thigh=new THREE.Mesh(boneGeo,ink),shin=new THREE.Mesh(boneGeo,ink);
+   scene.add(boot,thigh,shin);
+   return {boot,thigh,shin};
+  });
+  function placeBone(mesh:THREE.Mesh,a:THREE.Vector3,b:THREE.Vector3){
+   boneAxis.subVectors(b,a);mesh.scale.y=boneAxis.length();
+   mesh.position.copy(a).lerp(b,.5);mesh.quaternion.setFromUnitVectors(jointUp,boneAxis.normalize());
+  }
   const query=new URLSearchParams(location.search);
   const trial=query.has("five-carve");
   const leadParam=Number(query.get("early-lead")??0);
   const lead=Number.isFinite(leadParam)?Math.min(bankOffset-.1,Math.max(0,leadParam)):0;
   const captureTick=Number(query.get("capture-tick"));
-  const make=()=>{if(trial)return createTrial();const s=new SkiSimulation(terrainHeight,7,-57);s.velocity.set(4,0,4);return s;};
+  const make=()=>{if(trial)return createTrial(footprint);const s=new SkiSimulation(terrainHeight,7,-57,footprint);s.velocity.set(4,0,4);return s;};
   let controller=new EarlyEdgeController(lead),trialTime=0;
   let sim=make(),paused=false,replaying=false,follow=!inspectView;
   const trace:SkiInput[]=[];
@@ -129,10 +143,26 @@ export default function SkiLab(){
    const gaps=soleMode==="rigid"?rigidGaps:flex.update(sim);
    if(trial&&(!inside(sim.position.x,sim.position.z)||controller.visits>=6))paused=true;
    rig.quaternion.copy(sim.rotation);body.scale.y=sim.grab?.65:1-.35*sim.charge/tuning.maxCharge;
+   landingLegs.forEach(({boot,thigh,shin},i)=>{
+    const pose=probe.poses[i];
+    boot.position.set(0,.13,0).applyQuaternion(pose.rotation).add(pose.position);
+    boot.quaternion.copy(pose.rotation);
+    ankle.copy(boot.position);
+    hip.set(i===0?-.16:.16,.68-.18*sim.charge/tuning.maxCharge,0).applyQuaternion(sim.rotation).add(sim.position);
+    knee.copy(ankle).lerp(hip,.5).add(boneAxis.set(0,0,.13+.12*sim.charge/tuning.maxCharge).applyQuaternion(sim.rotation));
+    placeBone(thigh,hip,knee);placeBone(shin,knee,ankle);
+   });
    velocity.position.copy(rig.position);normal.position.copy(rig.position);
    velocity.setLength(Math.max(.01,sim.velocity.length()*.3));normal.setDirection(sim.normal);
    if(sim.velocity.lengthSq()>.001)velocity.setDirection(offset.copy(sim.velocity).normalize());
-   if(inspectView){
+   if(sideView){
+    cameraLook.copy(sim.position);cameraLook.y+=.35;
+    offset.set(1,0,0).applyQuaternion(sim.rotation);
+    offset.y=0;offset.normalize();
+    if(offset.x*(sim.position.x-7)>0)offset.negate();
+    camera.position.copy(cameraLook).addScaledVector(offset,3.5);
+    camera.lookAt(cameraLook);
+   }else if(inspectView){
     // Physical-contact QA uses an inward, elevated angle, not a blinded
     // tangent view through the near halfpipe wall.
     camera.position.set(rig.position.x+(rig.position.x>=7?-4.5:4.5),
@@ -178,7 +208,7 @@ export default function SkiLab(){
   host.focus();
   return ()=>{
    renderer.setAnimationLoop(null);resize.disconnect();orbit.dispose();velocity.dispose();normal.dispose();
-   terrain.dispose();snow.material.dispose();skiGeo.dispose();bodyGeo.dispose();ink.dispose();flex.dispose();renderer.dispose();
+   bootGeo.dispose();boneGeo.dispose();terrain.dispose();snow.material.dispose();skiGeo.dispose();bodyGeo.dispose();ink.dispose();flex.dispose();renderer.dispose();
    renderer.domElement.remove();host.removeEventListener("keydown",key);host.removeEventListener("keyup",key);host.removeEventListener("blur",clear);
   };
  },[]);

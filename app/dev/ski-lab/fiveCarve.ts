@@ -13,8 +13,8 @@ export function bank(x:number,z:number,grounded:boolean){
  return Math.sign(x-pipe.centerX);
 }
 const height=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
-export function createTrial(){
- const sim=new SkiSimulation(terrainHeight,pipe.centerX,-57);
+export function createTrial(footprint=false){
+ const sim=new SkiSimulation(terrainHeight,pipe.centerX,-57,footprint);
  sim.velocity.set(6,0,3);
  return sim;
 }
@@ -32,7 +32,7 @@ export class SoleProbe{
   this.forward.set(0,0,1).applyQuaternion(sim.rotation);
   return this.poses.map((pose,i)=>{
    const sign=2*i-1;
-   if(sim.phase!=="air"&&sim.contact[i]){
+   if(!sim.footprint&&sim.phase!=="air"&&sim.contact[i]){
     fitSkiContact(sim.position,this.forward,sign,height,pose);
    }else{
     pose.rotation.copy(sim.rotation);

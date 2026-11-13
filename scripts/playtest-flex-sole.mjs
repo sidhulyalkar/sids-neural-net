@@ -54,6 +54,17 @@ try{
  }));
  results.push({mode:"bounded",tick,view:"follow",visibility:followVisibility});
  await page.screenshot({path:join(output,"worst-follow.png"),timeout:25000});
+ const sideURL=new URL(followURL);
+ sideURL.searchParams.set("footprint","");
+ sideURL.searchParams.set("view","side");
+ await page.goto(sideURL.href,{waitUntil:"domcontentloaded",timeout:120000});
+ const sideCanvas=page.locator('canvas[data-capture-tick="'+tick+'"]');
+ await sideCanvas.waitFor({timeout:120000});
+ const sideVisibility=await sideCanvas.evaluate(c=>({...c.dataset}));
+ results.push({mode:"footprint",tick,view:"side",visibility:sideVisibility});
+ await page.screenshot({path:join(output,"footprint-side.png"),timeout:25000});
+ assert.equal(sideVisibility.skierVisible,"true","Side view obscured");
+ assert.equal(sideVisibility.skisFramed,"true","Side view crops skis");
  // Return to the contact camera for the portrait composition.
  const portraitURL=new URL("/dev/ski-lab",url);
  portraitURL.searchParams.set("five-carve","");
