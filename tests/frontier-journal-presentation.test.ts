@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import { journalFormat, journalPresentation, journalRealm, journalRelatedItems, journalSharedTopics } from '../lib/frontier/journalPresentation';
+import { journalFormat, journalPresentation, journalRealm, journalRelatedItems, journalSharedTopics, journalSourceFigures, journalSourceActivity, journalMeasuredMetrics } from '../lib/frontier/journalPresentation';
 import type { FrontierItem } from '../lib/frontier/types';
 
 const fixture: FrontierItem = {
@@ -42,6 +42,35 @@ test('the evidence layout respects real source material with deterministic prior
     id: 'source-2', title: 'Second source', url: 'https://example.net/story',
     sourceLabel: 'Other publisher', sourceKind: 'rss', publishedAt: '2026-11-11T00:00:00.000Z',
   }] } }, false).hasEvidence, true);
+});
+
+test('platform popularity counters are context, never research findings', () => {
+  const stars = { ...fixture, sourceKind: 'github' as const, metrics: [{ label: 'stars', value: '8,962' }, { label: 'forks', value: '1444' }] };
+  const votes = { ...fixture, sourceKind: 'huggingface' as const, metrics: [{ label: 'HF upvotes', value: '150' }] };
+  const citations = { ...fixture, sourceKind: 'openalex' as const, metrics: [{ label: 'citations', value: '24' }] };
+  assert.equal(journalFormat(stars, false), 'technical');
+  assert.equal(journalFormat(votes, false), 'brief');
+  assert.equal(journalFormat(citations, false), 'brief');
+  assert.deepEqual(journalSourceActivity(stars).map((metric) => metric.label), ['stars', 'forks']);
+  assert.equal(journalMeasuredMetrics(stars).length, 0);
+  assert.equal(journalPresentation(stars, false).hasEvidence, false);
+  const measurement = { ...fixture, metrics: [{ label: 'test accuracy', value: '91%' }] };
+  assert.equal(journalFormat(measurement, false), 'measured');
+  assert.deepEqual(journalMeasuredMetrics(measurement).map((metric) => metric.label), ['test accuracy']);
+});
+
+test('generic social preview cards are not promoted to scientific figures', () => {
+  const card = 'https://opengraph.githubassets.com/frontier/owner/repository';
+  const figure = { url: card, alt: 'Repository social cover' };
+  const sourceFigure = { url: 'https://example.org/experiment.png', alt: 'Actual experiment figure' };
+  const github = { ...fixture, sourceKind: 'github' as const, media: { type: 'image' as const, url: card } };
+  assert.deepEqual(journalSourceFigures(github, [figure]), []);
+  assert.deepEqual(journalSourceFigures(github, [figure, sourceFigure]), [sourceFigure]);
+  const hfCard = 'https://cdn-thumbnails.huggingface.co/social-thumbnails/papers/2607.01001.png';
+  assert.deepEqual(journalSourceFigures({ ...fixture, media: { type: 'image', url: hfCard } },
+    [{ url: hfCard, alt: 'Social thumbnail' }]), []);
+  assert.deepEqual(journalSourceFigures({ ...fixture, media: { type: 'image', url: 'https://example.org/photo.jpg' } },
+    [sourceFigure]), [sourceFigure]);
 });
 
 test('research threads require actual shared source tags rather than arbitrary visual proximity', () => {
