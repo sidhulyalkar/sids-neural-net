@@ -30,7 +30,8 @@ export function FrontierJournalSourceLens({ item, figureCount, publishedLabel }:
       </div>
       <strong className={styles.imprintIdentity}>{lens.identity}</strong>
       <div className={styles.imprintProvenance}>
-        <span>{lens.provenance}</span><span>{publishedLabel}</span>
+        {lens.provenance !== lens.identity ? <span>{lens.provenance}</span> : null}
+        <span>{publishedLabel}</span>
       </div>
       {lens.facts.length ? (
         <dl className={styles.imprintFacts}>
