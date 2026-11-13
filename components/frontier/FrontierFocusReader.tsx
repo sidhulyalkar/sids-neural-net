@@ -8,6 +8,8 @@ import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, RefreshCw, Search } from
 import { holdToInterestScore } from '@/lib/frontier/interestRating';
 import { frontierHasNewStories, frontierShouldCheckLatest } from '@/lib/frontier/liveFeedPolicy';
 import { buildFrontierSourceBrief, frontierSourceFigures } from '@/lib/frontier/sourceBrief';
+import { journalPresentation, journalRelatedItems, journalRealm } from '@/lib/frontier/journalPresentation';
+import { FrontierJournalEvidence } from './FrontierJournalEvidence';
 import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierFeedResponse, FrontierItem } from '@/lib/frontier/types';
@@ -19,10 +21,6 @@ type Props = {
   initialItems: FrontierItem[];
   generatedAt: string;
 };
-
-function cleanUrlHost(url: string): string {
-  try { return new URL(url).hostname.replace(/^www[.]/, ''); } catch { return ''; }
-}
 
 function sourceDate(date: string): string {
   const parsed = new Date(date);
@@ -82,8 +80,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const image = imageCandidates.find((candidate) => !failedImages.includes(candidate));
   const canShowImage = Boolean(image);
   const currentVisualGrade = holdValue ?? rating;
-  const orbScale = (0.96 + 0.08 * ((currentVisualGrade ?? 0) / 10)).toFixed(3);
-  const orbProgress = Math.round(((currentVisualGrade ?? 0) / 10) * 100) + '%';
+  const presentation = item ? journalPresentation(item, canShowImage) : undefined;
+  const related = item ? journalRelatedItems(item, items, 3) : [];
 
   useEffect(() => {
     if (!hydrated || initialPersonalizationAppliedRef.current) return;
@@ -382,7 +380,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const sourceBrief = useMemo(() => buildFrontierSourceBrief(item?.summary || '', item?.sourceKind), [item?.summary, item?.sourceKind]);
 
   return (
-    <section className={styles.reader} aria-label="Frontier focused reader" data-frontier-edition-at={editionAt}>
+    <section className={styles.reader} aria-label="Frontier focused reader" data-frontier-journal="true"
+      data-frontier-edition-at={editionAt} data-realm={presentation?.realm ?? "research"} data-format={presentation?.format ?? "brief"}>
       <header className={styles.masthead}>
         <div className={styles.identity}><Link href="/" className={styles.brand}>FRONTIER<span className={styles.brandDot}>.</span></Link><span className={styles.identityCaption}>A journal of what matters next</span></div>
         <div className={styles.topActions}>
@@ -408,6 +407,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
           <a href="/frontier/advanced" className={styles.advanced} title="Explore the complete frontier">Explore <span aria-hidden="true">↗</span></a>
         </div>
       </header>
+      <div className={styles.realmRibbon} aria-live="off"><span className={styles.realmSignal} aria-hidden="true"/><span>{presentation?.kindLabel ?? "The journal"}</span><span className={styles.realmDivider} aria-hidden="true">/</span><span>{item?.lane.replace(/_/g, " ") ?? "Daily discoveries"}</span><span className={styles.realmCounter}>{item ? String(position + 1).padStart(2,"0") : "00"} / {String(items.length).padStart(2,"0")}</span></div>
       <div className={styles.progressTrack} role="progressbar" aria-valuenow={position + (items.length ? 1 : 0)}
         aria-valuemin={0} aria-valuemax={items.length || 1} aria-label="Article progress">
         <span style={{ width: progress + '%' }} />
@@ -417,7 +417,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
         <section id="frontier-contents" className={styles.contentsPanel} aria-label="Edition contents">
           <div className={styles.contentsHeading}><div><span className={styles.overline}>THE CURRENT EDITION</span><h2>Explore the issue.</h2></div><button type="button" onClick={() => setContentsOpen(false)} aria-label="Close contents">Close ×</button></div>
           <div className={styles.contentsGrid}>{items.map((entry, index) => (
-            <button type="button" key={entry.id} className={styles.contentsEntry} aria-current={position === index ? 'true' : undefined} onClick={() => { move(index - position); setContentsOpen(false); }}>
+            <button type="button" key={entry.id} className={styles.contentsEntry} data-realm={journalRealm(entry)} aria-current={position === index ? 'true' : undefined} onClick={() => { move(index - position); setContentsOpen(false); }}>
               <span className={styles.contentsOrdinal}>{String(index + 1).padStart(2, '0')}</span>
               <span className={styles.contentsEntryBody}><span className={styles.overline}>{entry.lane.replace(/_/g, ' ')} · {entry.sourceLabel}</span><strong>{entry.title}</strong></span>
               <ArrowRight size={16} aria-hidden="true" />
@@ -442,9 +442,28 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
             </div>
 
             <div className={`${styles.storyBody} ${!canShowImage ? styles.storyBodyText : ''}`}>
+
+
+              <div ref={contentRef} className={styles.content}
+                onScroll={() => { readerInteractedRef.current = true; }}
+                onTouchStart={() => { readerInteractedRef.current = true; }}>
+                <section className={styles.briefSection} aria-label="Source-grounded summary">
+                  <h2 className={styles.sectionLabel}>01 / {presentation?.heading ?? "The brief"}</h2>
+                  <p className={styles.summary}>{sourceBrief.lead || 'This source did not include a synopsis. Read the original for the full story.'}</p>
+                  {sourceBrief.hasFullerContext ? (
+                    <details className={styles.sourceDetail}>
+                      <summary>Continue reading <span aria-hidden="true">↗</span></summary>
+                      <div className={styles.detailBody}>{sourceBrief.details.map((part, index) => <p key={index}>{part}</p>)}</div>
+                    </details>
+                  ) : null}
+                </section>
+
+                {presentation?.format === 'live' || presentation?.format === 'measured' ? (
+                  <FrontierJournalEvidence item={item} />
+                ) : null}
               {canShowImage ? <figure className={styles.visual} data-frontier-figure-count={figures.length}>
                 <div className={styles.visualViewport}>
-                  {canShowImage && image ? (
+                  {image ? (
                     <Image
                       unoptimized
                       src={image}
@@ -465,13 +484,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                       }}
                       onError={() => setFailedImages((current) => current.includes(image) ? current : [...current, image])}
                     />
-                  ) : (
-                    <div className={styles.editorial} aria-label="Editorial article cover">
-                      <span className={styles.editorialKicker}>{item.lane.replace(/_/g, ' ')}</span>
-                      <strong className={styles.editorialTitle}>{item.title}</strong>
-                      <span className={styles.editorialDomain}>{cleanUrlHost(item.url)}</span>
-                    </div>
-                  )}
+                  ) : null}
                 </div>
                 {figures.length > 1 ? (
                   <nav className={styles.figureRail} aria-label="Source figures">
@@ -492,20 +505,9 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                   </figcaption>
                 ) : null}
               </figure> : null}
-
-              <div ref={contentRef} className={styles.content}
-                onScroll={() => { readerInteractedRef.current = true; }}
-                onTouchStart={() => { readerInteractedRef.current = true; }}>
-                <section className={styles.briefSection} aria-label="Source-grounded summary">
-                  <h2 className={styles.sectionLabel}>The overview</h2>
-                  <p className={styles.summary}>{sourceBrief.lead || 'This source did not include a synopsis. Read the original for the full story.'}</p>
-                  {sourceBrief.hasFullerContext ? (
-                    <details className={styles.sourceDetail}>
-                      <summary>Continue reading <span aria-hidden="true">↗</span></summary>
-                      <div className={styles.detailBody}>{sourceBrief.details.map((part, index) => <p key={index}>{part}</p>)}</div>
-                    </details>
-                  ) : null}
-                </section>
+                {presentation?.format !== 'live' && presentation?.format !== 'measured' ? (
+                  <FrontierJournalEvidence item={item} />
+                ) : null}
 
                 <div className={styles.interactionArea}>
                   <div className={styles.ratingZone}>
@@ -514,7 +516,6 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                       type="button"
                       className={styles.holdButton}
                       data-frontier-balloon={holdValue !== null ? 'inflating' : (rating ? 'rated' : 'idle')}
-                      style={{ ['--orb-scale' as string]: orbScale, ['--orb-progress' as string]: orbProgress }}
                       disabled={!item}
                       aria-label="Hold to rate interest from one to ten; release to save"
                       onPointerDown={onHoldPointerDown}
@@ -546,54 +547,6 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                   </div>
                 </div>
 
-                {item.metrics?.length || item.sportsState || item.artifacts?.length ? (
-                  <details className={styles.evidenceDetails}>
-                    <summary>Data &amp; sources</summary>
-                    {item.metrics?.length ? (
-                      <section className={styles.evidenceSection} aria-label="Source metrics">
-                        <h2>Reported numbers</h2>
-                        <dl className={styles.metricGrid}>{item.metrics.slice(0, 6).map((metric, index) => (
-                          <div key={metric.label + index} className={styles.metricCard}>
-                            <dt>{metric.label}</dt><dd>{metric.value}</dd>
-                            {metric.detail ? <p>{metric.detail}</p> : null}
-                          </div>
-                        ))}</dl>
-                      </section>
-                    ) : null}
-                    {item.sportsState ? (
-                      <section className={styles.evidenceSection} aria-label="Source sports evidence">
-                        <h2>{item.sportsState.leagueLabel}</h2>
-                        <div className={styles.gameRows}>{item.sportsState.kind === 'scoreboard'
-                          ? item.sportsState.games.slice(0, 5).map((game) => (
-                            <div key={game.id} className={styles.gameRow}>
-                              <span>{game.competitors.map((team) => team.shortName).join(' · ')}</span>
-                              <strong>{game.competitors.map((team) => team.score ?? '–').join(' : ')}</strong>
-                              <small>{game.status}</small>
-                            </div>
-                          ))
-                          : item.sportsState.standings.slice(0, 6).map((team) => (
-                            <div key={team.team} className={styles.gameRow}>
-                              <span>{team.rank}. {team.team}</span>
-                              <strong>{team.record || (team.points === undefined ? '–' : String(team.points) + ' pts')}</strong>
-                            </div>
-                          ))}</div>
-                      </section>
-                    ) : null}
-                    {item.artifacts?.length ? (
-                      <section className={styles.evidenceSection} aria-label="Source artifacts">
-                        <h2>References</h2>
-                        <div className={styles.artifactGrid}>{item.artifacts.slice(0, 6).map((artifact, index) => (
-                          <div className={styles.artifact} key={artifact.label + index}>
-                            {artifact.url?.startsWith('https://') ? (
-                              <a href={artifact.url} target="_blank" rel="noopener noreferrer">{artifact.label} ↗</a>
-                            ) : <strong>{artifact.label}</strong>}
-                            {artifact.value ? <small>{artifact.value}</small> : null}
-                          </div>
-                        ))}</div>
-                      </section>
-                    ) : null}
-                  </details>
-                ) : null}
                 <div className={styles.articleActions}>
                   <a href={item.url} target="_blank" rel="noopener noreferrer"
                     onClick={() => { readerInteractedRef.current = true; recordOpen(item); }}
@@ -606,14 +559,38 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                   <span className={styles.sourceDate}>{sourceDate(item.publishedAt)}</span>
                 </div>
               </div>
-              <aside className={styles.journalRail} aria-label="Further reading">
-                <div className={styles.railMeta}><span className={styles.overline}>IN THIS STORY</span><span>{sourceDate(item.publishedAt)}</span></div>
-                <div className={styles.tagGroup}>{item.tags.slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}</div>
-                <div className={styles.railHeading}><span className={styles.overline}>KEEP EXPLORING</span><button type="button" onClick={() => setContentsOpen(true)}>View issue <ArrowRight size={13} /></button></div>
-                <ol className={styles.relatedList}>{items.slice(position + 1, position + 4).map((related, idx) => (
-                  <li key={related.id}><button type="button" onClick={() => move(idx + 1)}><span>{String(position + idx + 2).padStart(2, '0')} / {related.lane.replace(/_/g, ' ')}</span><strong>{related.title}</strong><ArrowRight size={14} aria-hidden="true" /></button></li>
-                ))}</ol>
-                {position + 1 >= items.length ? <p className={styles.railEnd}>You have reached the end of this edition.</p> : null}
+              <aside className={styles.journalRail} aria-label="Source context and next reading">
+                <div className={styles.railEyebrow}><span className={styles.realmSignal} aria-hidden="true"/>THE SOURCE LENS</div>
+                <div className={styles.railMeta}>
+                  <span>{presentation?.kindLabel}</span><span>{sourceDate(item.publishedAt)}</span>
+                </div>
+                <h2 className={styles.railSourceName}>{item.sourceLabel}</h2>
+                <p className={styles.railSourceNote}>This view uses source-provided material. Figures, metrics and references appear only when available.</p>
+                <div className={styles.railFacts}>
+                  {figures.length > 0 ? <div><span>Source figures</span><strong>{figures.length}</strong></div> : null}
+                  {item.metrics?.length ? <div><span>Reported metrics</span><strong>{item.metrics.length}</strong></div> : null}
+                  {item.artifacts?.length ? <div><span>Technical references</span><strong>{item.artifacts.length}</strong></div> : null}
+                  {item.convergence?.members.length ? <div><span>Additional sources</span><strong>{item.convergence.members.length}</strong></div> : null}
+                </div>
+                {presentation?.hasEvidence ? <a className={styles.railJump} href="#frontier-evidence">Explore the source evidence <ArrowRight size={13} aria-hidden="true"/></a> : null}
+                {item.tags.length ? (
+                  <div className={styles.railTopics}><div className={styles.railHeading}><span className={styles.overline}>TOPICS</span></div>
+                    <div className={styles.tagGroup}>{item.tags.slice(0, 5).map((tag) => <span key={tag}>{tag}</span>)}</div>
+                  </div>
+                ) : null}
+                <div className={styles.railHeading}><span className={styles.overline}>{related.length ? 'SHARED RESEARCH THREADS' : 'CONTINUE THE EDITION'}</span><button type="button" onClick={() => setContentsOpen(true)}>All stories <ArrowRight size={13}/></button></div>
+                <ol className={styles.relatedList}>
+                  {related.length ? related.map(({ item: nextItem, sharedTopics }) => (
+                    <li key={nextItem.id}><button type="button" onClick={() => move(items.findIndex((entry) => entry.id === nextItem.id) - position)}>
+                      <span>{nextItem.sourceLabel} / {sharedTopics.join(', ')}</span><strong>{nextItem.title}</strong><ArrowRight size={14} aria-hidden="true"/>
+                    </button></li>
+                  )) : items.slice(position + 1, position + 4).map((nextItem, index) => (
+                    <li key={nextItem.id}><button type="button" onClick={() => move(index + 1)}>
+                      <span>{String(position + index + 2).padStart(2, '0')} / {nextItem.lane.replace(/_/g, ' ')}</span><strong>{nextItem.title}</strong><ArrowRight size={14} aria-hidden="true"/>
+                    </button></li>
+                  ))}
+                </ol>
+                {!related.length && position + 1 >= items.length ? <p className={styles.railEnd}>You have reached the end of this edition.</p> : null}
               </aside>
             </div>
           </article>
