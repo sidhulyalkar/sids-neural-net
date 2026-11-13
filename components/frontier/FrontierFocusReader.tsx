@@ -448,7 +448,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                 onScroll={() => { readerInteractedRef.current = true; }}
                 onTouchStart={() => { readerInteractedRef.current = true; }}>
                 <section className={styles.briefSection} aria-label="Source-grounded summary">
-                  <h2 className={styles.sectionLabel}>01 / {presentation?.heading ?? "The brief"}</h2>
+                  <h2 className={styles.sectionLabel}>{presentation?.heading ?? "The brief"}</h2>
                   <p className={styles.summary}>{sourceBrief.lead || 'This source did not include a synopsis. Read the original for the full story.'}</p>
                   {sourceBrief.hasFullerContext ? (
                     <details className={styles.sourceDetail}>
@@ -565,7 +565,6 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                   <span>{presentation?.kindLabel}</span><span>{sourceDate(item.publishedAt)}</span>
                 </div>
                 <h2 className={styles.railSourceName}>{item.sourceLabel}</h2>
-                <p className={styles.railSourceNote}>This view uses source-provided material. Figures, metrics and references appear only when available.</p>
                 <div className={styles.railFacts}>
                   {figures.length > 0 ? <div><span>Source figures</span><strong>{figures.length}</strong></div> : null}
                   {item.metrics?.length ? <div><span>Reported metrics</span><strong>{item.metrics.length}</strong></div> : null}
