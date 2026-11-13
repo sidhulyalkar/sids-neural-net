@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { chromium } = require('playwright');
 
 const TARGET = process.env.FRONTIER_FOCUS_AUDIT_URL || 'http://127.0.0.1:3000/frontier';
@@ -58,6 +60,20 @@ async function audit(width, height) {
     assert.equal(await page.locator('footer').count(), 0, 'Reader must not render a bulky bottom navigation footer');
     assert.equal(await page.getByText('A quiet space for what is new').count(), 0, 'Remove redundant brand tagline');
     assert.equal(await page.locator('article h1').count(), 1, 'Article headline must appear exactly once');
+    const journal = page.locator('[data-frontier-journal="true"]');
+    const realm = await journal.getAttribute('data-realm');
+    const format = await journal.getAttribute('data-format');
+    assert(['research', 'neural', 'systems', 'nature', 'motion', 'culture'].includes(realm),
+      'Every source should resolve to an explicit visual realm: ' + realm);
+    assert(['live', 'measured', 'visual', 'technical', 'brief'].includes(format),
+      'The journal must adopt a source-evidence layout: ' + format);
+    const titleSize = await page.locator('article h1').first().evaluate((node) =>
+      Number.parseFloat(getComputedStyle(node).fontSize));
+    assert(titleSize >= 26 && titleSize <= 49, 'Oversized or illegible headline: ' + titleSize + 'px');
+    const screenshotDir = path.resolve('artifacts/frontier/journal');
+    fs.mkdirSync(screenshotDir, { recursive: true });
+    await page.screenshot({ path: path.join(screenshotDir, 'journal-' + width + '.png'), fullPage: true, animations: 'disabled' });
+
     assert.equal(await page.locator('[aria-label="Editorial article cover"]').count(), 0,
       'The journal cannot duplicate a headline inside a fake text-only poster');
     const issueToggle = page.getByRole('button', { name: /Contents/i }).first();
