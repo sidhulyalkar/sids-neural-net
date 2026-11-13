@@ -8,7 +8,7 @@ import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, RefreshCw, Search } from
 import { holdToInterestScore } from '@/lib/frontier/interestRating';
 import { frontierHasNewStories, frontierShouldCheckLatest } from '@/lib/frontier/liveFeedPolicy';
 import { buildFrontierSourceBrief, frontierSourceFigures } from '@/lib/frontier/sourceBrief';
-import { journalPresentation, journalRelatedItems, journalRealm, journalSourceActivity, journalSourceFigures } from '@/lib/frontier/journalPresentation';
+import { journalMeasuredMetrics, journalPresentation, journalRelatedItems, journalRealm, journalSourceActivity, journalSourceFigures } from '@/lib/frontier/journalPresentation';
 import { FrontierJournalEvidence } from './FrontierJournalEvidence';
 import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { useFrontierStore } from '@/lib/frontier/store';
@@ -569,7 +569,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                 <div className={styles.railFacts}>
                   {figures.length > 0 ? <div><span>Source figures</span><strong>{figures.length}</strong></div> : null}
                   {sourceActivity.map((metric, index) => <div key={metric.label + index}><span>{metric.label}</span><strong>{metric.value}</strong></div>)}
-                  {presentation?.format === 'measured' ? <div><span>Reported measurements</span><strong>{item.metrics?.length ?? 0}</strong></div> : null}
+                  {presentation?.format === 'measured' ? <div><span>Reported measurements</span><strong>{journalMeasuredMetrics(item).length}</strong></div> : null}
                   {item.artifacts?.length ? <div><span>Technical references</span><strong>{item.artifacts.length}</strong></div> : null}
                   {item.convergence?.members.length ? <div><span>Additional sources</span><strong>{item.convergence.members.length}</strong></div> : null}
                 </div>
