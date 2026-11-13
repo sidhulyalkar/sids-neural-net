@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
-import {fitSkiContact,skiFollowYaw,skiCameraHeight,constrainSkiCamera} from "../components/world/worldSkiContact";
+import {SKI_HALF_LENGTH,fitSkiContact,skiFollowYaw,skiCameraHeight,constrainSkiCamera} from "../components/world/worldSkiContact";
 import {terrainHeight} from "../lib/world/model";
 
 test("both rigid skis contact their soles on inclined planes without height double counting",()=>{
@@ -85,4 +85,11 @@ test("the follow boom shortens at both outer lips instead of climbing into the s
    assert.ok(p.y>=height(p)+.35-1e-8);
   }
  }
+});
+
+test("independent support catches a ridge between legacy longitudinal stations",()=>{
+ const ridge=SKI_HALF_LENGTH/16;
+ const h=({z}:{z:number})=>Math.max(0,.08-2*Math.abs(z-ridge));
+ const p=fitSkiContact({x:0,z:0},{x:0,z:1},1,h,undefined,true);
+ assert.ok(p.position.y-.0125>=h({z:ridge}));
 });
