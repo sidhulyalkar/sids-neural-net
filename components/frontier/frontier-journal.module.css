@@ -497,3 +497,5 @@
 .reader .scoreTeam strong { min-width: 0; overflow-wrap: anywhere; }
 .reader .scoreTeam span { flex: 0 0 auto; }
 .reader .standingsTable { min-width: 0; }
+
+.figureFailure { margin: 7px 0; color: var(--muted); font: 12px/1.5 var(--font-geist-sans), system-ui; }
