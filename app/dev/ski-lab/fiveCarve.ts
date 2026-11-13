@@ -13,8 +13,8 @@ export function bank(x:number,z:number,grounded:boolean){
  return Math.sign(x-pipe.centerX);
 }
 const height=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
-export function createTrial(footprint:boolean|"independent"=false){
- const sim=new SkiSimulation(terrainHeight,pipe.centerX,-57,footprint);
+export function createTrial(footprint:boolean|"independent"=false,pivot=false){
+ const sim=new SkiSimulation(terrainHeight,pipe.centerX,-57,footprint,pivot);
  sim.velocity.set(6,0,3);
  return sim;
 }
