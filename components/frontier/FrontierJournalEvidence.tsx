@@ -1,11 +1,12 @@
 import { ExternalLink } from 'lucide-react';
 import type { FrontierItem } from '@/lib/frontier/types';
+import { journalMeasuredMetrics } from '@/lib/frontier/journalPresentation';
 import styles from './frontier-journal.module.css';
 
 type Props = { item: FrontierItem };
 
 export function FrontierJournalEvidence({ item }: Props) {
-  const metrics = item.metrics?.filter((metric) => metric.label.trim() && metric.value.trim()).slice(0, 6) ?? [];
+  const metrics = journalMeasuredMetrics(item).slice(0, 6);
   const artifacts = item.artifacts?.slice(0, 6) ?? [];
   const members = item.convergence?.members.slice(0, 5) ?? [];
   const sports = item.sportsState;
