@@ -63,7 +63,7 @@ test('default reader uses source-evidence composition, never a duplicate text po
   assert.match(reader, /data-format=\{presentation\?\.format/);
   assert.match(reader, /<FrontierJournalEvidence item=\{item\}/);
   assert.doesNotMatch(reader, /Editorial article cover/);
-  assert.match(css, /font-size: clamp\(30px, 3\.15vw, 46px\)/);
+  assert.match(css, /font-size: clamp\(30px, 2\.9vw, 42px\)/);
   for (const realm of ['research', 'neural', 'systems', 'nature', 'motion', 'culture']) {
     if (realm !== 'research') assert(css.includes("[data-realm='" + realm + "']"));
   }
