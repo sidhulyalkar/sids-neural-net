@@ -2,7 +2,7 @@ import {createTrial,inside,SoleProbe} from "../app/dev/ski-lab/fiveCarve";
 import {EarlyEdgeController} from "../app/dev/ski-lab/earlyEdge";
 import {tuning} from "../lib/world/ski/simulation";
 
-for(const footprint of [false,true])for(const lead of [0,.5,1,1.5,2,2.5,3]){
+for(const footprint of [false,true,"independent"] as const)for(const lead of [0,.5,1,1.5,2,2.5,3]){
  const sim=createTrial(footprint),controller=new EarlyEdgeController(lead),probe=new SoleProbe();
  let worstGap=0,lowestGap=Infinity;
  while(sim.tick<3600&&controller.visits<6&&inside(sim.position.x,sim.position.z)){

@@ -15,3 +15,11 @@ test("outside edge support can lift just one ski",()=>{
  sim.advance(tuning.dt,()=>neutral);
  assert.deepEqual(sim.contact,[false,true]);
 });
+
+test("independent supports keep boot elevations distinct and unload the low ski at the travel limit",()=>{
+ const sim=new SkiSimulation(x=>x<0?.9:0,0,0,"independent");
+ assert.equal(sim.load[0]+sim.load[1],1);
+ assert.deepEqual(sim.contact,[true,false]);
+ assert.ok(sim.soles[0].position.y>sim.soles[1].position.y);
+ assert.ok(sim.position.y-sim.soles[1].position.y<=.450001);
+});
