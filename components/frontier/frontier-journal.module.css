@@ -35,7 +35,7 @@
 }
 .search:focus-within { border-color: var(--accent); }
 .search input {
-  width: clamp(110px, 12vw, 210px); border: 0; outline: 0; background: none;
+  min-width: 0; width: clamp(110px, 12vw, 210px); border: 0; outline: 0; background: none;
   color: var(--ink); font: inherit; font-size: 12px;
 }
 .search input::placeholder { color: var(--muted); }
@@ -174,7 +174,7 @@
 .railMeta { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; color: var(--muted); font-size: 12px; }
 .railMeta .overline { margin: 0; color: var(--muted); }
 .tagGroup { display: flex; gap: 7px; flex-wrap: wrap; padding: 19px 0 32px; }
-.tagGroup span { display: inline-block; padding: 6px 9px; border: 1px solid var(--line); color: var(--muted); font-size: 10px; text-transform: capitalize; line-height: 1.2; }
+.tagGroup span { display: inline-block; max-width: 100%; overflow-wrap: anywhere; padding: 6px 9px; border: 1px solid var(--line); color: var(--muted); font-size: 10px; text-transform: capitalize; line-height: 1.2; }
 .railHeading { border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; align-items: center; padding-top: 25px; }
 .railHeading .overline { margin: 0; }
 .railHeading button { display: flex; align-items: center; gap: 7px; color: var(--accent); font-size: 11px; border: 0; background: none; white-space: nowrap; }
@@ -251,10 +251,10 @@
   .masthead { padding: 15px 17px; }
   .brand { font-size: 16px; }
   .identityCaption { font-size: 10px; }
-  .topActions { gap: 12px; justify-content: space-between; width: 100%; }
+  .topActions { gap: 10px; min-width: 0; justify-content: space-between; width: 100%; }
   .contentsToggle { gap: 5px; font-size: 11px; }
-  .search { height: 32px; min-width: 80px; flex: 1; }
-  .search input { width: 100%; font-size: 11px; }
+  .search { height: 32px; min-width: 0; flex: 1 1 70px; }
+  .search input { min-width: 0; width: 100%; flex: 1 1 0; font-size: 11px; }
   .advanced { font-size: 11px; }
   .iconButton { width: 24px; height: 30px; }
   .checkingLatest { display: none; }
