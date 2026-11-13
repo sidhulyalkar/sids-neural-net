@@ -6,6 +6,7 @@ import {terrainHeight} from "@/lib/world/model";
 import {refineMountainSnow} from "@/components/world/worldMountainHalfpipe";
 import {SoleProbe,createTrial,inside,bankOffset} from "./fiveCarve";
 import {EarlyEdgeController} from "./earlyEdge";
+import {SnowTracks} from "./snowTracks";
 import {FlexibleSoles,type SoleDeformation} from "./flexibleSoles";
 import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_SOLE_Y,constrainSkiCamera} from "@/components/world/worldSkiContact";
 import {neutral,SkiSimulation,tuning,type SkiInput} from "@/lib/world/ski/simulation";
@@ -46,7 +47,8 @@ export default function SkiLab(){
   const modeParam=new URLSearchParams(location.search).get("sole");
   const inspectView=new URLSearchParams(location.search).get("view")==="contact";
   const supportQuery=new URLSearchParams(location.search);
-  const footprint=supportQuery.has("independent")?"independent":supportQuery.has("footprint");
+  const pivot=supportQuery.has("pivot");
+  const footprint=(pivot||supportQuery.has("independent"))?"independent":supportQuery.has("footprint");
   const sideView=new URLSearchParams(location.search).get("view")==="side";
   const soleMode:SoleDeformation=footprint?"rigid":modeParam==="bounded"||modeParam==="surface"?modeParam:"rigid";
   const probe=new SoleProbe();
@@ -71,9 +73,10 @@ export default function SkiLab(){
   const leadParam=Number(query.get("early-lead")??0);
   const lead=Number.isFinite(leadParam)?Math.min(bankOffset-.1,Math.max(0,leadParam)):0;
   const captureTick=Number(query.get("capture-tick"));
-  const make=()=>{if(trial)return createTrial(footprint);const s=new SkiSimulation(terrainHeight,7,-57,footprint);s.velocity.set(4,0,4);return s;};
+  const make=()=>{if(trial)return createTrial(footprint,pivot);const s=new SkiSimulation(terrainHeight,7,-57,footprint,pivot);s.velocity.set(4,0,4);return s;};
   let controller=new EarlyEdgeController(lead),trialTime=0;
   let sim=make(),paused=false,replaying=false,follow=!inspectView;
+  const tracks=new SnowTracks(terrainHeight);scene.add(tracks.mesh);
   const trace:SkiInput[]=[];
   const keys=new Set<string>();
   const supported=["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","KeyA","KeyD","KeyW","KeyS","KeyQ","KeyE","Space","ShiftLeft","ShiftRight"];
@@ -84,6 +87,7 @@ export default function SkiLab(){
   };
   const clear=()=>keys.clear();
   const read=(tick:number)=>{
+   if(sim.footprint==="independent")tracks.update(sim);
    if(replaying)return trace[tick]??neutral;
    if(trial){const input=controller.input(sim);trace[tick]=input;return input;}
    const left=keys.has("KeyA")||keys.has("ArrowLeft"),right=keys.has("KeyD")||keys.has("ArrowRight");
@@ -120,7 +124,7 @@ export default function SkiLab(){
    paused=true;
   }
   actions.current={step:()=>{paused=true;advance(tuning.dt);},pause:()=>{paused=!paused;host.focus();},
-   replay:()=>{controller=new EarlyEdgeController(lead);trialTime=0;sim=make();replaying=true;paused=false;},camera:()=>{follow=!follow;orbit.enabled=!follow;}};
+   replay:()=>{tracks.reset();controller=new EarlyEdgeController(lead);trialTime=0;sim=make();replaying=true;paused=false;},camera:()=>{follow=!follow;orbit.enabled=!follow;}};
   const resize=new ResizeObserver(()=>{
    renderer.setSize(host.clientWidth,host.clientHeight);
    camera.aspect=host.clientWidth/Math.max(1,host.clientHeight);camera.updateProjectionMatrix();
@@ -133,7 +137,7 @@ export default function SkiLab(){
   const velocity=new THREE.ArrowHelper(direction,sim.position,1,0x005bc0);
   const normal=new THREE.ArrowHelper(direction,sim.position,1,0x00934e);
   scene.add(velocity,normal);
-  let last=performance.now(),lastHud=0;
+  let last=performance.now(),lastHud=0,chaseYaw=0;
   renderer.setAnimationLoop((time:number)=>{
    const frameSeconds=Math.max(0,time-last)/1000;
    if(!paused)advance(frameSeconds);
@@ -173,13 +177,21 @@ export default function SkiLab(){
     constrainSkiCamera(cameraLook,camera.position,snowHeight);
     camera.lookAt(cameraLook);
    }else if(follow){
-    offset.copy(sim.velocity);offset.y=0;if(offset.lengthSq()>.01)direction.lerp(offset.normalize(),1-Math.exp(-4*frameSeconds)).normalize();
+    const horizontalSpeed=Math.hypot(sim.velocity.x,sim.velocity.z);
+    if(horizontalSpeed>.35){
+     const target=Math.atan2(sim.velocity.x,sim.velocity.z);
+     const delta=Math.atan2(Math.sin(target-chaseYaw),Math.cos(target-chaseYaw));
+     const boundedStep=2.8*Math.min(.1,frameSeconds);
+     chaseYaw+=THREE.MathUtils.clamp(delta*(1-Math.exp(-4*frameSeconds)),-boundedStep,boundedStep);
+    }
+    direction.set(Math.sin(chaseYaw),0,Math.cos(chaseYaw));
     camera.position.copy(rig.position).addScaledVector(direction,-7);camera.position.y+=4;
     cameraLook.copy(rig.position);cameraLook.y+=.6;
     constrainSkiCamera(cameraLook,camera.position,snowHeight);
     camera.lookAt(cameraLook);
    }
    renderer.render(scene,camera);
+   renderer.domElement.dataset.trackSegments=String(tracks.mesh.geometry.drawRange.count/6);
    // Visibility is an acceptance condition, not inferred from successful
    // screenshot creation or finite camera coordinates.
    body.getWorldPosition(bodyCenter);
@@ -209,7 +221,7 @@ export default function SkiLab(){
   host.focus();
   return ()=>{
    renderer.setAnimationLoop(null);resize.disconnect();orbit.dispose();velocity.dispose();normal.dispose();
-   bootGeo.dispose();boneGeo.dispose();terrain.dispose();snow.material.dispose();skiGeo.dispose();bodyGeo.dispose();ink.dispose();flex.dispose();renderer.dispose();
+   tracks.dispose();bootGeo.dispose();boneGeo.dispose();terrain.dispose();snow.material.dispose();skiGeo.dispose();bodyGeo.dispose();ink.dispose();flex.dispose();renderer.dispose();
    renderer.domElement.remove();host.removeEventListener("keydown",key);host.removeEventListener("keyup",key);host.removeEventListener("blur",clear);
   };
  },[]);

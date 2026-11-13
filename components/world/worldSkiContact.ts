@@ -23,7 +23,7 @@ export const createSkiContact=():SkiContact=>({supportStart:0,supportEnd:0,defic
 /** Fit a rigid ski to its own footprint, then remove penetration of the sole.
  * The binding stays above the fitted support plane, rather than the highest
  * terrain sample translated a second time by the skier's tilt. */
-export function fitSkiContact(point:Point,heading:Point,side:number,height:(p:Point)=>number,pose=createSkiContact(),footprintPlane=false):SkiContact{
+export function fitSkiContact(point:Point,heading:Point,side:number,height:(p:Point)=>number,pose=createSkiContact(),footprintPlane=false,pivotAngle=0,anchor=0):SkiContact{
  const length=Math.hypot(heading.x,heading.z)||1;
  const fx=heading.x/length,fz=heading.z/length;
  const x=point.x+fz*side*SKI_STANCE,z=point.z-fx*side*SKI_STANCE;
@@ -40,15 +40,22 @@ export function fitSkiContact(point:Point,heading:Point,side:number,height:(p:Po
  const up=pose.up.set(-dx,1,-dz).normalize();
  const forward=pose.forward.set(fx,dx*fx+dz*fz,fz).normalize();
  const right=pose.right.crossVectors(up,forward).normalize();
+ let centerX=x,centerZ=z;
+ if(pivotAngle){
+  centerX+=anchor*forward.x;centerZ+=anchor*forward.z;
+  forward.applyAxisAngle(right,pivotAngle);
+  up.applyAxisAngle(right,pivotAngle);
+  centerX-=anchor*forward.x;centerZ-=anchor*forward.z;
+ }
  pose.rotation.setFromRotationMatrix(pose.matrix.makeBasis(right,up,forward));
- const position=pose.position.set(x,height({x,z}),z);
+ const position=pose.position.set(centerX,height({x:centerX,z:centerZ}),centerZ);
  let lift=-Infinity;
  const stations=footprintPlane?32:16;
  if(footprintPlane)pose.deficits.fill(-Infinity);
  for(let j=0;j<=stations;j++)for(const width of [-SKI_HALF_WIDTH,0,SKI_HALF_WIDTH]){
   const along=-SKI_HALF_LENGTH+2*SKI_HALF_LENGTH*j/stations;
-  const sx=x+forward.x*along+right.x*width+up.x*SKI_SOLE_Y;
-  const sz=z+forward.z*along+right.z*width+up.z*SKI_SOLE_Y;
+  const sx=centerX+forward.x*along+right.x*width+up.x*SKI_SOLE_Y;
+  const sz=centerZ+forward.z*along+right.z*width+up.z*SKI_SOLE_Y;
   const sy=position.y+forward.y*along+right.y*width+up.y*SKI_SOLE_Y;
   const deficit=height({x:sx,z:sz})-sy;
   lift=Math.max(lift,deficit);

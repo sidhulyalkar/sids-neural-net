@@ -74,6 +74,14 @@ try{
  await page.screenshot({path:join(output,"independent-side.png"),timeout:25000});
  assert.equal(independentVisibility.skierVisible,"true","Independent side camera is obscured");
  assert.equal(independentVisibility.skisFramed,"true","Independent ski ends are cropped");
+ const pivotURL=new URL(followURL);
+ pivotURL.searchParams.set("pivot","");
+ await page.goto(pivotURL.href,{waitUntil:"domcontentloaded",timeout:120000});
+ await sideCanvas.waitFor({timeout:120000});
+ const trackSegments=Number(await sideCanvas.getAttribute("data-track-segments"));
+ assert.ok(trackSegments>0&&trackSegments<=768,"Expected bounded contact trails");
+ await page.screenshot({path:join(output,"pivot-tracks-follow.png"),timeout:25000});
+ results.push({mode:"pivot",view:"follow",tick,trackSegments});
  // Return to the contact camera for the portrait composition.
  const portraitURL=new URL("/dev/ski-lab",url);
  portraitURL.searchParams.set("five-carve","");

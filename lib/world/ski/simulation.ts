@@ -43,9 +43,12 @@ export class SkiSimulation {
   readonly soles=[createSkiContact(),createSkiContact()];
   readonly load=[.5,.5];
   private readonly sampleHeight=(p:{x:number;z:number})=>this.height(p.x,p.z);
+  readonly pitchOffset=[0,0];
+  private readonly pitchRate=[0,0];
+  private readonly pivotStation=[0,0];
   private readonly supports=[0,0];
   private readonly solePoint=new Vector3();
-  constructor(private readonly height:Surface,x:number,z:number,readonly footprint:boolean|"independent"=false){
+  constructor(private readonly height:Surface,x:number,z:number,readonly footprint:boolean|"independent"=false,readonly pivotEnabled=false){
     this.position.set(x,height(x,z),z);
     if(footprint)this.position.y=this.sample();
     this.previous.copy(this.position);
@@ -69,7 +72,7 @@ export class SkiSimulation {
     if(this.footprint==="independent"&&this.phase!=="air"){
       const heading=this.solePoint.set(0,0,1).applyQuaternion(this.rotation);
       for(let i=0;i<2;i++){
-        const pose=fitSkiContact(this.position,heading,2*i-1,this.sampleHeight,this.soles[i],true);
+        const pose=fitSkiContact(this.position,heading,2*i-1,this.sampleHeight,this.soles[i],true,this.pitchOffset[i],this.pivotStation[i]);
         this.supports[i]=pose.position.y;
       }
       // Alternate outside ski carries more load as the signed edge builds.
@@ -122,6 +125,18 @@ export class SkiSimulation {
     this.age+=dt;
     this.tick++;
     this.sample();
+    if(this.pivotEnabled&&this.footprint==="independent"){
+      for(let i=0;i<2;i++){
+        const sole=this.soles[i];
+        // Closest end of the support interval to the loaded binding.
+        const arm=Math.max(sole.supportStart,Math.min(0,sole.supportEnd));
+        const loaded=this.phase!=="air"&&this.contact[i];
+        this.pivotStation[i]=loaded?arm:0;
+        const torque=loaded?-arm*this.load[i]*tuning.gravity:0;
+        this.pitchRate[i]+=(torque-12*this.pitchOffset[i]-5*this.pitchRate[i])*dt;
+        this.pitchOffset[i]=Math.max(-.35,Math.min(.35,this.pitchOffset[i]+this.pitchRate[i]*dt));
+      }
+    }
     const released=this.held&&!input.jump;
     this.held=input.jump;
     if(this.phase==="air"){
