@@ -60,6 +60,12 @@ async function audit(width, height) {
     assert.equal(await page.locator('footer').count(), 0, 'Reader must not render a bulky bottom navigation footer');
     assert.equal(await page.getByText('A quiet space for what is new').count(), 0, 'Remove redundant brand tagline');
     assert.equal(await page.locator('article h1').count(), 1, 'Article headline must appear exactly once');
+    const sourceLens = page.locator('[aria-label="Source identity"]');
+    assert.equal(await sourceLens.count(), 1, 'One source-specific identity should be visible');
+    const kind = await sourceLens.getAttribute('data-source-kind');
+    assert(['paper', 'repository', 'discussion', 'watch', 'match', 'game', 'music', 'field', 'report'].includes(kind),
+      'Unrecognized source imprint: ' + kind);
+    assert((await sourceLens.textContent())?.trim(), 'Source identity must contain actual publisher metadata');
     const journal = page.locator('[data-frontier-journal="true"]');
     const realm = await journal.getAttribute('data-realm');
     const format = await journal.getAttribute('data-format');
