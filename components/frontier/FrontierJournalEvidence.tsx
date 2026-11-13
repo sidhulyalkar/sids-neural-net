@@ -15,7 +15,7 @@ export function FrontierJournalEvidence({ item }: Props) {
   return (
     <section id="frontier-evidence" className={styles.evidenceGallery} aria-label="Source evidence">
       <div className={styles.exhibitHeading}>
-        <span>02 / SOURCE MATERIAL</span>
+        <span>SOURCE MATERIAL</span>
         <span>Reported, not inferred</span>
       </div>
 
