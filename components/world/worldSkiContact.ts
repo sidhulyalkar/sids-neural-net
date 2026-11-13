@@ -40,8 +40,9 @@ export function fitSkiContact(point:Point,heading:Point,side:number,height:(p:Po
  pose.rotation.setFromRotationMatrix(pose.matrix.makeBasis(right,up,forward));
  const position=pose.position.set(x,height({x,z}),z);
  let lift=-Infinity;
- for(let j=0;j<=16;j++)for(const width of [-SKI_HALF_WIDTH,0,SKI_HALF_WIDTH]){
-  const along=-SKI_HALF_LENGTH+2*SKI_HALF_LENGTH*j/16;
+ const stations=footprintPlane?32:16;
+ for(let j=0;j<=stations;j++)for(const width of [-SKI_HALF_WIDTH,0,SKI_HALF_WIDTH]){
+  const along=-SKI_HALF_LENGTH+2*SKI_HALF_LENGTH*j/stations;
   const sx=x+forward.x*along+right.x*width+up.x*SKI_SOLE_Y;
   const sz=z+forward.z*along+right.z*width+up.z*SKI_SOLE_Y;
   const sy=position.y+forward.y*along+right.y*width+up.y*SKI_SOLE_Y;

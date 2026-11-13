@@ -40,15 +40,21 @@ export class SoleProbe{
     pose.rotation.copy(sim.rotation);
     pose.position.set(sign*.23,0,0).applyQuaternion(pose.rotation).add(sim.position);
    }
-   let min=Infinity,max=-Infinity,sum=0;
+   let min=Infinity,max=-Infinity,sum=0,minStation=0,maxStation=0,minEdge=0,maxEdge=0;
+   let insideMax=-Infinity;
+   let closestX=0,closestZ=0,farthestX=0,farthestZ=0;
    // Twice the fitting grid resolution also samples gaps between fit stations.
-   for(let j=0;j<=32;j++)for(let w=-1;w<=1;w++){
-    this.point.set(w*SKI_HALF_WIDTH,SKI_SOLE_Y,(j/16-1)*SKI_HALF_LENGTH)
+   const stations=sim.footprint==="independent"?64:32;
+   for(let j=0;j<=stations;j++)for(let w=-1;w<=1;w++){
+    this.point.set(w*SKI_HALF_WIDTH,SKI_SOLE_Y,(2*j/stations-1)*SKI_HALF_LENGTH)
      .applyQuaternion(pose.rotation).add(pose.position);
     const gap=this.point.y-height(this.point);
-    min=Math.min(min,gap);max=Math.max(max,gap);sum+=gap;
+    if(gap<min){min=gap;minStation=j;minEdge=w;closestX=this.point.x;closestZ=this.point.z;}
+    if(gap>max){max=gap;maxStation=j;maxEdge=w;farthestX=this.point.x;farthestZ=this.point.z;}
+    if(inside(this.point.x,this.point.z))insideMax=Math.max(insideMax,gap);
+    sum+=gap;
    }
-   return {min,mean:sum/99,max};
+   return {insideMax,min,mean:sum/(3*(stations+1)),max,minStation,maxStation,minEdge,maxEdge,closestX,closestZ,farthestX,farthestZ};
   });
  }
 }
