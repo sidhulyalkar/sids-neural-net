@@ -8,7 +8,7 @@ import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, RefreshCw, Search } from
 import { holdToInterestScore } from '@/lib/frontier/interestRating';
 import { frontierHasNewStories, frontierShouldCheckLatest } from '@/lib/frontier/liveFeedPolicy';
 import { buildFrontierSourceBrief, frontierSourceFigures } from '@/lib/frontier/sourceBrief';
-import { journalPresentation, journalRelatedItems, journalRealm } from '@/lib/frontier/journalPresentation';
+import { journalPresentation, journalRelatedItems, journalRealm, journalSourceActivity, journalSourceFigures } from '@/lib/frontier/journalPresentation';
 import { FrontierJournalEvidence } from './FrontierJournalEvidence';
 import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { useFrontierStore } from '@/lib/frontier/store';
@@ -70,7 +70,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const rating = item ? history[item.id]?.interestScore : undefined;
   const sliderScore = sliderDraft?.id === item?.id ? sliderDraft.value : (rating ?? 5);
   const isSaved = Boolean(item && saved[item.id]);
-  const figures = useMemo(() => item ? frontierSourceFigures(item) : [], [item]);
+  const figures = useMemo(() => item ? journalSourceFigures(item, frontierSourceFigures(item)) : [], [item]);
   const activeFigure = figures[Math.min(figureIndex, Math.max(0, figures.length - 1))];
   // A failed HD proxy must retry the original publisher image before the
   // editorial fallback. Never retry a source that already failed.
@@ -82,6 +82,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const currentVisualGrade = holdValue ?? rating;
   const presentation = item ? journalPresentation(item, canShowImage) : undefined;
   const related = item ? journalRelatedItems(item, items, 3) : [];
+  const sourceActivity = item ? journalSourceActivity(item).slice(0, 3) : [];
 
   useEffect(() => {
     if (!hydrated || initialPersonalizationAppliedRef.current) return;
@@ -567,11 +568,12 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                 <h2 className={styles.railSourceName}>{item.sourceLabel}</h2>
                 <div className={styles.railFacts}>
                   {figures.length > 0 ? <div><span>Source figures</span><strong>{figures.length}</strong></div> : null}
-                  {item.metrics?.length ? <div><span>Reported metrics</span><strong>{item.metrics.length}</strong></div> : null}
+                  {sourceActivity.map((metric, index) => <div key={metric.label + index}><span>{metric.label}</span><strong>{metric.value}</strong></div>)}
+                  {presentation?.format === 'measured' ? <div><span>Reported measurements</span><strong>{item.metrics?.length ?? 0}</strong></div> : null}
                   {item.artifacts?.length ? <div><span>Technical references</span><strong>{item.artifacts.length}</strong></div> : null}
                   {item.convergence?.members.length ? <div><span>Additional sources</span><strong>{item.convergence.members.length}</strong></div> : null}
                 </div>
-                {presentation?.hasEvidence ? <a className={styles.railJump} href="#frontier-evidence">Explore the source evidence <ArrowRight size={13} aria-hidden="true"/></a> : null}
+                {presentation?.hasEvidence ? <a className={styles.railJump} href="#frontier-evidence">{presentation.evidenceLabel} <ArrowRight size={13} aria-hidden="true"/></a> : null}
                 {item.tags.length ? (
                   <div className={styles.railTopics}><div className={styles.railHeading}><span className={styles.overline}>TOPICS</span></div>
                     <div className={styles.tagGroup}>{item.tags.slice(0, 5).map((tag) => <span key={tag}>{tag}</span>)}</div>
