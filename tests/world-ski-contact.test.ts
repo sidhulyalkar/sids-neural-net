@@ -93,3 +93,12 @@ test("independent support catches a ridge between legacy longitudinal stations",
  const p=fitSkiContact({x:0,z:0},{x:0,z:1},1,h,undefined,true);
  assert.ok(p.position.y-.0125>=h({z:ridge}));
 });
+
+test("support bounds distinguish a tail ridge from support beneath the boot",()=>{
+ const flat=fitSkiContact({x:0,z:0},{x:0,z:1},1,()=>0,undefined,true);
+ assert.equal(flat.supportStart,-SKI_HALF_LENGTH);
+ assert.equal(flat.supportEnd,SKI_HALF_LENGTH);
+ const ridge=fitSkiContact({x:0,z:0},{x:0,z:1},1,
+  ({z})=>.4*Math.exp(-((z+.8)**2)/.006),flat,true);
+ assert.ok(ridge.supportStart<-.65&&ridge.supportEnd<-.65);
+});

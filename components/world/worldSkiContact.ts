@@ -6,6 +6,9 @@ export const SKI_HALF_WIDTH=.095;
 export const SKI_STANCE=.23;
 export const SKI_SOLE_Y=-.0125;
 export type SkiContact={
+ supportStart:number;
+ supportEnd:number;
+ deficits:Float64Array;
  position:THREE.Vector3;
  rotation:THREE.Quaternion;
  matrix:THREE.Matrix4;
@@ -14,7 +17,7 @@ export type SkiContact={
  forward:THREE.Vector3;
 };
 
-export const createSkiContact=():SkiContact=>({position:new THREE.Vector3(),rotation:new THREE.Quaternion(),
+export const createSkiContact=():SkiContact=>({supportStart:0,supportEnd:0,deficits:new Float64Array(33),position:new THREE.Vector3(),rotation:new THREE.Quaternion(),
  matrix:new THREE.Matrix4(),right:new THREE.Vector3(),up:new THREE.Vector3(),forward:new THREE.Vector3()});
 
 /** Fit a rigid ski to its own footprint, then remove penetration of the sole.
@@ -41,12 +44,23 @@ export function fitSkiContact(point:Point,heading:Point,side:number,height:(p:Po
  const position=pose.position.set(x,height({x,z}),z);
  let lift=-Infinity;
  const stations=footprintPlane?32:16;
+ if(footprintPlane)pose.deficits.fill(-Infinity);
  for(let j=0;j<=stations;j++)for(const width of [-SKI_HALF_WIDTH,0,SKI_HALF_WIDTH]){
   const along=-SKI_HALF_LENGTH+2*SKI_HALF_LENGTH*j/stations;
   const sx=x+forward.x*along+right.x*width+up.x*SKI_SOLE_Y;
   const sz=z+forward.z*along+right.z*width+up.z*SKI_SOLE_Y;
   const sy=position.y+forward.y*along+right.y*width+up.y*SKI_SOLE_Y;
-  lift=Math.max(lift,height({x:sx,z:sz})-sy);
+  const deficit=height({x:sx,z:sz})-sy;
+  lift=Math.max(lift,deficit);
+  if(footprintPlane)pose.deficits[j]=Math.max(pose.deficits[j],deficit);
+ }
+ if(footprintPlane){
+  pose.supportStart=SKI_HALF_LENGTH;pose.supportEnd=-SKI_HALF_LENGTH;
+  for(let j=0;j<=stations;j++)if(lift-pose.deficits[j]<=.035){
+   const along=SKI_HALF_LENGTH*(2*j/stations-1);
+   pose.supportStart=Math.min(pose.supportStart,along);
+   pose.supportEnd=Math.max(pose.supportEnd,along);
+  }
  }
  position.y+=lift+.008;
  return pose;
