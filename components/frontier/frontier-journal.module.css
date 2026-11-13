@@ -465,3 +465,25 @@
 @media (prefers-reduced-motion: reduce) {
   .reader { transition: none; }
 }
+
+/* Source density controls narrative order. A figure-first paper, live event,
+ * and metric-rich report should never share an identical opening composition. */
+.reader[data-format='visual'] .content .visual { order: -1; margin: 0 0 24px; }
+.reader[data-format='live'] .content .evidenceGallery,
+.reader[data-format='measured'] .content .evidenceGallery {
+  order: -1; margin: 0 0 26px; padding-top: 0; border-top: 0;
+}
+.reader[data-format='live'] .content .exhibitHeading,
+.reader[data-format='measured'] .content .exhibitHeading { margin-bottom: 17px; }
+.reader[data-format='technical'] .content .artifactExhibitGrid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.reader .masthead, .reader .realmRibbon, .reader .journalRail, .reader .visualViewport {
+  transition: border-color 280ms ease, background-color 280ms ease, color 280ms ease;
+}
+@media (max-width: 560px) {
+  .reader[data-format='technical'] .content .artifactExhibitGrid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reader .masthead, .reader .realmRibbon, .reader .journalRail, .reader .visualViewport {
+    transition: none;
+  }
+}
