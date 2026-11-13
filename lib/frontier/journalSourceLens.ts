@@ -119,7 +119,8 @@ export function journalSourceLens(item: FrontierItem, availableFigureCount: numb
   return {
     kind,
     kicker: SOURCE_KICKERS[kind],
-    identity: identityFromUrl(item) ?? (item.sportsState?.leagueLabel || item.sourceLabel),
+    identity: kind === 'match' && item.sportsState ? item.sportsState.leagueLabel
+      : (kind === 'paper' || kind === 'repository' ? identityFromUrl(item) : null) ?? item.sourceLabel,
     provenance: item.sourceLabel,
     facts: facts.slice(0, 5),
   };
