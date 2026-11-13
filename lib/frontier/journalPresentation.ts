@@ -1,4 +1,4 @@
-import type { FrontierItem, FrontierLaneId } from './types';
+import type { FrontierItem, FrontierLaneId, FrontierMetric, FrontierSourceFigure } from './types';
 
 export type JournalRealm = 'research' | 'neural' | 'systems' | 'nature' | 'motion' | 'culture';
 export type JournalFormat = 'live' | 'measured' | 'visual' | 'technical' | 'brief';
@@ -18,11 +18,39 @@ export function journalRealm(item: Pick<FrontierItem, 'lane'>): JournalRealm {
   return 'research';
 }
 
+/** Popularity and platform counters are context, not experimental results.
+ * A metrics badge must not make an article appear to contain quantitative findings. */
+const ACTIVITY_LABEL = /^(?:hf\s*)?(?:stars?|forks?|points?|comments?|upvotes?|downvotes?|likes?|favorites?|watchers?|followers?|subscribers?|views?|citations?|downloads?|live|final|upcoming)$/i;
+
+export function journalIsActivityMetric(metric: Pick<FrontierMetric, 'label'>): boolean {
+  return ACTIVITY_LABEL.test(metric.label.trim().replace(/[_-]/g, ' '));
+}
+
+export function journalMeasuredMetrics(item: Pick<FrontierItem, 'metrics'>): FrontierMetric[] {
+  return (item.metrics ?? []).filter((metric) => Boolean(metric.label.trim() && metric.value.trim()) && !journalIsActivityMetric(metric));
+}
+
+export function journalSourceActivity(item: Pick<FrontierItem, 'metrics'>): FrontierMetric[] {
+  return (item.metrics ?? []).filter((metric) => Boolean(metric.label.trim() && metric.value.trim()) && journalIsActivityMetric(metric));
+}
+
+/** Skip auto-generated social cover cards, which often just reprint the title.
+ * Real publisher figures are retained. This only affects the Journal hero. */
+export function journalSourceFigures(item: FrontierItem, figures: FrontierSourceFigure[]): FrontierSourceFigure[] {
+  if (item.media?.type !== 'image') return figures;
+  const original = item.media.url?.toLowerCase() ?? '';
+  const isGenericCover = original.includes('opengraph.githubassets.com/')
+    || original.includes('cdn-thumbnails.huggingface.co/social-thumbnails/');
+  if (!isGenericCover) return figures;
+  const cardUrl = item.media.proxyUrl || item.media.url;
+  return figures.filter((figure) => figure.url !== cardUrl);
+}
+
 export function journalFormat(item: FrontierItem, hasSourceFigure: boolean): JournalFormat {
   if (item.sportsState) return 'live';
-  if (item.metrics?.length) return 'measured';
+  if (journalMeasuredMetrics(item).length) return 'measured';
   if (hasSourceFigure) return 'visual';
-  if (item.artifacts?.some((artifact) => ['formula', 'benchmark', 'repository', 'release'].includes(artifact.kind))) {
+  if (item.sourceKind === 'github' || item.artifacts?.some((artifact) => ['formula', 'benchmark', 'repository', 'release'].includes(artifact.kind))) {
     return 'technical';
   }
   return 'brief';
@@ -57,7 +85,7 @@ export function journalPresentation(item: FrontierItem, hasSourceFigure: boolean
     : format === 'visual' ? 'Source figures & evidence'
     : format === 'technical' ? 'Technical references'
     : 'Source references';
-  const hasEvidence = Boolean(item.metrics?.length || item.sportsState || item.artifacts?.length || item.convergence?.members.length);
+  const hasEvidence = Boolean(journalMeasuredMetrics(item).length || item.sportsState || item.artifacts?.length || item.convergence?.members.length);
   return { realm, format, heading, kindLabel, evidenceLabel, hasEvidence };
 }
 
