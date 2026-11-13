@@ -8,7 +8,8 @@ import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, RefreshCw, Search } from
 import { holdToInterestScore } from '@/lib/frontier/interestRating';
 import { frontierHasNewStories, frontierShouldCheckLatest } from '@/lib/frontier/liveFeedPolicy';
 import { buildFrontierSourceBrief, frontierSourceFigures } from '@/lib/frontier/sourceBrief';
-import { journalMeasuredMetrics, journalPresentation, journalRelatedItems, journalRealm, journalSourceActivity, journalSourceFigures } from '@/lib/frontier/journalPresentation';
+import { journalPresentation, journalRelatedItems, journalRealm, journalSourceFigures } from '@/lib/frontier/journalPresentation';
+import { FrontierJournalSourceLens } from './FrontierJournalSourceLens';
 import { FrontierJournalEvidence } from './FrontierJournalEvidence';
 import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { useFrontierStore } from '@/lib/frontier/store';
@@ -83,7 +84,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const currentVisualGrade = holdValue ?? rating;
   const presentation = item ? journalPresentation(item, canShowImage) : undefined;
   const related = item ? journalRelatedItems(item, items, 3) : [];
-  const sourceActivity = item ? journalSourceActivity(item).slice(0, 3) : [];
+
 
   useEffect(() => {
     if (!hydrated || initialPersonalizationAppliedRef.current) return;
@@ -563,18 +564,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                 </div>
               </div>
               <aside className={styles.journalRail} aria-label="Source context and next reading">
-                <div className={styles.railEyebrow}><span className={styles.realmSignal} aria-hidden="true"/>THE SOURCE LENS</div>
-                <div className={styles.railMeta}>
-                  <span>{presentation?.kindLabel}</span><span>{sourceDate(item.publishedAt)}</span>
-                </div>
-                <h2 className={styles.railSourceName}>{item.sourceLabel}</h2>
-                <div className={styles.railFacts}>
-                  {figures.length > 0 ? <div><span>Source figures</span><strong>{figures.length}</strong></div> : null}
-                  {sourceActivity.map((metric, index) => <div key={metric.label + index}><span>{metric.label}</span><strong>{metric.value}</strong></div>)}
-                  {presentation?.format === 'measured' ? <div><span>Reported measurements</span><strong>{journalMeasuredMetrics(item).length}</strong></div> : null}
-                  {item.artifacts?.length ? <div><span>Technical references</span><strong>{item.artifacts.length}</strong></div> : null}
-                  {item.convergence?.members.length ? <div><span>Additional sources</span><strong>{item.convergence.members.length}</strong></div> : null}
-                </div>
+                <FrontierJournalSourceLens item={item} figureCount={figures.length} publishedLabel={sourceDate(item.publishedAt)} />
                 {presentation?.hasEvidence ? <a className={styles.railJump} href="#frontier-evidence">{presentation.evidenceLabel} <ArrowRight size={13} aria-hidden="true"/></a> : null}
                 {item.tags.length ? (
                   <div className={styles.railTopics}><div className={styles.railHeading}><span className={styles.overline}>TOPICS</span></div>
