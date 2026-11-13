@@ -45,7 +45,8 @@ export default function SkiLab(){
   const ink=new THREE.MeshBasicMaterial({color:0x162839,side:THREE.DoubleSide});
   const modeParam=new URLSearchParams(location.search).get("sole");
   const inspectView=new URLSearchParams(location.search).get("view")==="contact";
-  const footprint=new URLSearchParams(location.search).has("footprint");
+  const supportQuery=new URLSearchParams(location.search);
+  const footprint=supportQuery.has("independent")?"independent":supportQuery.has("footprint");
   const sideView=new URLSearchParams(location.search).get("view")==="side";
   const soleMode:SoleDeformation=footprint?"rigid":modeParam==="bounded"||modeParam==="surface"?modeParam:"rigid";
   const probe=new SoleProbe();

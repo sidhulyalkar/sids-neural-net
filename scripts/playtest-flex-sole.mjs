@@ -65,6 +65,15 @@ try{
  await page.screenshot({path:join(output,"footprint-side.png"),timeout:25000});
  assert.equal(sideVisibility.skierVisible,"true","Side view obscured");
  assert.equal(sideVisibility.skisFramed,"true","Side view crops skis");
+ sideURL.searchParams.delete("footprint");
+ sideURL.searchParams.set("independent","");
+ await page.goto(sideURL.href,{waitUntil:"domcontentloaded",timeout:120000});
+ await sideCanvas.waitFor({timeout:120000});
+ const independentVisibility=await sideCanvas.evaluate(c=>({...c.dataset}));
+ results.push({mode:"independent",tick,view:"side",visibility:independentVisibility});
+ await page.screenshot({path:join(output,"independent-side.png"),timeout:25000});
+ assert.equal(independentVisibility.skierVisible,"true","Independent side camera is obscured");
+ assert.equal(independentVisibility.skisFramed,"true","Independent ski ends are cropped");
  // Return to the contact camera for the portrait composition.
  const portraitURL=new URL("/dev/ski-lab",url);
  portraitURL.searchParams.set("five-carve","");

@@ -1,4 +1,4 @@
-import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_STANCE,SKI_SOLE_Y} from "../../../components/world/worldSkiContact";
+import {createSkiContact,fitSkiContact,SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_STANCE,SKI_SOLE_Y} from "../../../components/world/worldSkiContact";
 import {Matrix4, Quaternion, Vector3} from "three";
 
 // iLand prototype tuning in world units and seconds. No Bonvo measurements.
@@ -40,9 +40,12 @@ export class SkiSimulation {
   private readonly axis=new Vector3();
   private readonly basis=new Matrix4();
   private readonly delta=new Quaternion();
+  readonly soles=[createSkiContact(),createSkiContact()];
+  readonly load=[.5,.5];
+  private readonly sampleHeight=(p:{x:number;z:number})=>this.height(p.x,p.z);
   private readonly supports=[0,0];
   private readonly solePoint=new Vector3();
-  constructor(private readonly height:Surface,x:number,z:number,readonly footprint=false){
+  constructor(private readonly height:Surface,x:number,z:number,readonly footprint:boolean|"independent"=false){
     this.position.set(x,height(x,z),z);
     if(footprint)this.position.y=this.sample();
     this.previous.copy(this.position);
@@ -63,6 +66,25 @@ export class SkiSimulation {
     const d=.05;
     this.normal.set(this.height(x-d,z)-this.height(x+d,z),2*d,
       this.height(x,z-d)-this.height(x,z+d)).normalize();
+    if(this.footprint==="independent"&&this.phase!=="air"){
+      const heading=this.solePoint.set(0,0,1).applyQuaternion(this.rotation);
+      for(let i=0;i<2;i++){
+        const pose=fitSkiContact(this.position,heading,2*i-1,this.sampleHeight,this.soles[i],true);
+        this.supports[i]=pose.position.y;
+      }
+      // Alternate outside ski carries more load as the signed edge builds.
+      const supportDelta=this.supports[0]-this.supports[1];
+      const reach=.45;
+      const left=Math.max(0,Math.min(1,.5+.32*this.edge+supportDelta/(2*reach)));
+      this.load[0]=left;this.load[1]=1-left;
+      const support=Math.max(Math.max(...this.supports)-reach,left*this.supports[0]+(1-left)*this.supports[1]);
+      for(let i=0;i<2;i++){
+        this.contact[i]=support-this.supports[i]<=reach&&this.load[i]>0;
+        this.soles[i].position.y=Math.max(this.supports[i],support-reach);
+      }
+      this.normal.copy(this.soles[0].up).multiplyScalar(left).addScaledVector(this.soles[1].up,1-left).normalize();
+      return support;
+    }
     this.side.set(.23,0,0).applyQuaternion(this.rotation);
     let support=-Infinity;
     for(let i=0;i<2;i++){
@@ -84,7 +106,7 @@ export class SkiSimulation {
   }
   private settle(support:number){
     this.position.y=support;
-    if(this.footprint)for(let i=0;i<2;i++)this.contact[i]=support-this.supports[i]<=.035;
+    if(this.footprint===true)for(let i=0;i<2;i++)this.contact[i]=support-this.supports[i]<=.035;
   }
   private step(input:SkiInput){
     const dt=tuning.dt;
@@ -116,7 +138,7 @@ export class SkiSimulation {
         this.age=0;
         this.yaw=Math.atan2(this.forward.x,this.forward.z);
         this.velocity.projectOnPlane(this.normal);
-        this.settle(support);
+        this.settle(this.footprint==="independent"?this.sample():support);
         this.angular.set(0,0,0);
         this.grab=false;
       }

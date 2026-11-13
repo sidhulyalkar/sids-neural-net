@@ -20,12 +20,20 @@ export const createSkiContact=():SkiContact=>({position:new THREE.Vector3(),rota
 /** Fit a rigid ski to its own footprint, then remove penetration of the sole.
  * The binding stays above the fitted support plane, rather than the highest
  * terrain sample translated a second time by the skier's tilt. */
-export function fitSkiContact(point:Point,heading:Point,side:number,height:(p:Point)=>number,pose=createSkiContact()):SkiContact{
+export function fitSkiContact(point:Point,heading:Point,side:number,height:(p:Point)=>number,pose=createSkiContact(),footprintPlane=false):SkiContact{
  const length=Math.hypot(heading.x,heading.z)||1;
  const fx=heading.x/length,fz=heading.z/length;
  const x=point.x+fz*side*SKI_STANCE,z=point.z-fx*side*SKI_STANCE;
- const dx=(height({x:x+.12,z})-height({x:x-.12,z}))/.24;
- const dz=(height({x,z:z+.12})-height({x,z:z-.12}))/.24;
+ let dx=(height({x:x+.12,z})-height({x:x-.12,z}))/.24;
+ let dz=(height({x,z:z+.12})-height({x,z:z-.12}))/.24;
+ if(footprintPlane){
+  // Fit longitudinal pitch over the running length so a steep tip does not
+  // set the whole ski to the tangent angle beneath the binding.
+  const span=SKI_HALF_LENGTH/Math.sqrt(1+(dx*fx+dz*fz)**2);
+  const pitch=(height({x:x+span*fx,z:z+span*fz})-height({x:x-span*fx,z:z-span*fz}))/(2*span);
+  const lateral=dx*fz-dz*fx;
+  dx=pitch*fx+lateral*fz;dz=pitch*fz-lateral*fx;
+ }
  const up=pose.up.set(-dx,1,-dz).normalize();
  const forward=pose.forward.set(fx,dx*fx+dz*fz,fz).normalize();
  const right=pose.right.crossVectors(up,forward).normalize();
