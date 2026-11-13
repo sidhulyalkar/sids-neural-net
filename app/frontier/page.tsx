@@ -3,12 +3,12 @@ import { FrontierFocusReader } from '@/components/frontier/FrontierFocusReader';
 import { getFrontierColdSnapshotFeed } from '@/lib/frontier/snapshotFeed';
 
 export const metadata: Metadata = {
-  title: 'FRONTIER · Focus Reader',
-  description: 'One story at a time. A faster daily reader for research, code, sports, games, and discoveries worth understanding.',
+  title: 'FRONTIER · Research Journal',
+  description: 'A thoughtfully edited journal of emerging research, code, culture and discoveries, grounded in original sources.',
   alternates: { canonical: '/frontier' },
   openGraph: {
-    title: 'FRONTIER · Focus Reader',
-    description: 'A calmer, focused personal discovery reader.',
+    title: 'FRONTIER · Research Journal',
+    description: 'An immersive research journal for curious minds.',
     url: '/frontier',
     type: 'website',
   },
