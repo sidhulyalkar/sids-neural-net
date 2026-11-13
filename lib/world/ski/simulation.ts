@@ -48,7 +48,7 @@ export class SkiSimulation {
   private readonly pivotStation=[0,0];
   private readonly supports=[0,0];
   private readonly solePoint=new Vector3();
-  constructor(private readonly height:Surface,x:number,z:number,readonly footprint:boolean|"independent"=false,readonly pivotEnabled=false){
+  constructor(private readonly height:Surface,x:number,z:number,readonly footprint:boolean|"independent"=false,readonly pivotEnabled:boolean|"overhang"=false){
     this.position.set(x,height(x,z),z);
     if(footprint)this.position.y=this.sample();
     this.previous.copy(this.position);
@@ -130,7 +130,16 @@ export class SkiSimulation {
         const sole=this.soles[i];
         // Closest end of the support interval to the loaded binding.
         const arm=Math.max(sole.supportStart,Math.min(0,sole.supportEnd));
-        const loaded=this.phase!=="air"&&this.contact[i];
+        let eligible=true;
+        if(this.pivotEnabled==="overhang"){
+         const narrow=sole.supportEnd-sole.supportStart<=.25*SKI_HALF_LENGTH;
+        // Reserve this response for an end overhanging more than the full
+        // suspension travel (twice the neutral-to-limit reach).
+        const endDeficit=Math.min(sole.deficits[0],sole.deficits[sole.deficits.length-1]);
+        const bridge=Math.max(...sole.deficits)-endDeficit;
+         eligible=narrow&&Math.abs(arm)>.12&&bridge>.9;
+        }
+        const loaded=this.phase!=="air"&&this.contact[i]&&eligible;
         this.pivotStation[i]=loaded?arm:0;
         const torque=loaded?-arm*this.load[i]*tuning.gravity:0;
         this.pitchRate[i]+=(torque-12*this.pitchOffset[i]-5*this.pitchRate[i])*dt;

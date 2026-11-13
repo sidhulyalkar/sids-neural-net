@@ -8,7 +8,7 @@ import {SoleProbe,createTrial,inside,bankOffset} from "./fiveCarve";
 import {EarlyEdgeController} from "./earlyEdge";
 import {SnowTracks} from "./snowTracks";
 import {FlexibleSoles,type SoleDeformation} from "./flexibleSoles";
-import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_SOLE_Y,constrainSkiCamera} from "@/components/world/worldSkiContact";
+import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_SOLE_Y,skiCameraHeight,constrainSkiCamera} from "@/components/world/worldSkiContact";
 import {neutral,SkiSimulation,tuning,type SkiInput} from "@/lib/world/ski/simulation";
 
 export default function SkiLab(){
@@ -47,7 +47,7 @@ export default function SkiLab(){
   const modeParam=new URLSearchParams(location.search).get("sole");
   const inspectView=new URLSearchParams(location.search).get("view")==="contact";
   const supportQuery=new URLSearchParams(location.search);
-  const pivot=supportQuery.has("pivot");
+  const pivot=supportQuery.get("pivot")==="overhang"?"overhang":supportQuery.has("pivot");
   const footprint=(pivot||supportQuery.has("independent"))?"independent":supportQuery.has("footprint");
   const sideView=new URLSearchParams(location.search).get("view")==="side";
   const soleMode:SoleDeformation=footprint?"rigid":modeParam==="bounded"||modeParam==="surface"?modeParam:"rigid";
@@ -165,7 +165,14 @@ export default function SkiLab(){
     offset.set(1,0,0).applyQuaternion(sim.rotation);
     offset.y=0;offset.normalize();
     if(offset.x*(sim.position.x-7)>0)offset.negate();
+    // Compare both lateral sightlines: the downhill side is not always
+    // the side facing the pipe center near its runout.
     camera.position.copy(cameraLook).addScaledVector(offset,3.5);
+    const first=skiCameraHeight(cameraLook,camera.position,snowHeight);
+    camera.position.copy(cameraLook).addScaledVector(offset,-3.5);
+    const second=skiCameraHeight(cameraLook,camera.position,snowHeight);
+    if(first<=second)camera.position.copy(cameraLook).addScaledVector(offset,3.5);
+    camera.position.y=Math.min(first,second);
     camera.lookAt(cameraLook);
    }else if(inspectView){
     // Physical-contact QA uses an inward, elevated angle, not a blinded

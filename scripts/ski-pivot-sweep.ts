@@ -3,7 +3,7 @@ import {EarlyEdgeController} from "../app/dev/ski-lab/earlyEdge";
 import {tuning} from "../lib/world/ski/simulation";
 
 for(const lead of [0,.5,1,1.5,2,2.5,3]){
- for(const pivot of [false,true]){
+ for(const pivot of [false,true,"overhang"] as const){
   const sim=createTrial("independent",pivot),control=new EarlyEdgeController(lead),probe=new SoleProbe();
   let peakGap=0,lowestGap=Infinity,peakPitch=0;
   while(sim.tick<3600&&control.visits<6&&inside(sim.position.x,sim.position.z)){
