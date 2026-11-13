@@ -1,20 +1,29 @@
 import type { FrontierItem, FrontierLaneId, FrontierMetric, FrontierSourceFigure } from './types';
 
-export type JournalRealm = 'research' | 'neural' | 'systems' | 'nature' | 'motion' | 'culture';
+export type JournalRealm = 'research' | 'neural' | 'behavior' | 'systems' | 'nature' | 'motion' | 'culture';
 export type JournalFormat = 'live' | 'measured' | 'visual' | 'technical' | 'brief';
 
 const NEURAL_LANES: readonly FrontierLaneId[] = ['neuro_frontier'];
 const SYSTEM_LANES: readonly FrontierLaneId[] = ['builder_signal', 'competitions', 'creative_tech'];
 const MOTION_LANES: readonly FrontierLaneId[] = ['premier_league', 'world_soccer', 'team_pulse', 'sports'];
 const CULTURE_LANES: readonly FrontierLaneId[] = ['gaming', 'screen', 'music', 'internet_culture'];
-const NATURE_LANES: readonly FrontierLaneId[] = ['life', 'wildcards', 'world_pulse'];
 
-export function journalRealm(item: Pick<FrontierItem, 'lane'>): JournalRealm {
-  if (NEURAL_LANES.includes(item.lane)) return 'neural';
-  if (SYSTEM_LANES.includes(item.lane)) return 'systems';
-  if (MOTION_LANES.includes(item.lane)) return 'motion';
-  if (CULTURE_LANES.includes(item.lane)) return 'culture';
-  if (NATURE_LANES.includes(item.lane)) return 'nature';
+/** Strong domain hints from actual source tags, not unverified semantic inferences.
+ * In particular a wildcard is never automatically classified as nature. */
+const BEHAVIOR_HINT = /(?:\banimal behavior\b|\bhuman behavior\b|\bbehavioral neuroscience\b|\bethology\b|\bbehavior(?:al)? tracking\b|\bpose estimation\b|\bbehavior(?:al)? quantification\b)/i;
+const NEURAL_HINT = /(?:\bneuroscience\b|\bconnectomics\b|\belectrophysiology\b|\bneuropixels\b|\bneural decoding\b|\bneural dynamics\b|\bbrain.computer interface\b|\bbrain atlas\b|\bcalcium imaging\b|\beeg\b|\bfmri\b|\bspike sorting\b)/i;
+const NATURE_HINT = /(?:\becology\b|\bbiodiversity\b|\bmarine biology\b|\bcoral\b|\breef\b|\bwildlife\b|\boceanography\b|\bconservation\b|\bnatural history\b|\bastronomy\b|\bspace science\b|\bnasa\b)/i;
+const MOTION_HINT = /(?:\bsoccer\b|\bfootball\b|\bbasketball\b|\bskating\b|\bskiing\b|\bmountain biking\b|\bmtb\b|\bclimbing\b|\bbouldering\b|\btrail running\b|\bsurfing\b|\bcycling\b|\bsports\b)/i;
+const CULTURE_HINT = /(?:\banime\b|\bmetroidvania\b|\bgaming\b|\bgame update\b|\bmovie\b|\bmusic discovery\b|\bbass music\b|\bdubstep\b)/i;
+
+export function journalRealm(item: Pick<FrontierItem, 'lane'> & Partial<Pick<FrontierItem, 'tags' | 'sourceKind'>>): JournalRealm {
+  const tags = (item.tags ?? []).join(' | ');
+  if (BEHAVIOR_HINT.test(tags)) return 'behavior';
+  if (NEURAL_LANES.includes(item.lane) || NEURAL_HINT.test(tags)) return 'neural';
+  if (MOTION_LANES.includes(item.lane) || MOTION_HINT.test(tags)) return 'motion';
+  if (CULTURE_LANES.includes(item.lane) || CULTURE_HINT.test(tags) || item.sourceKind === 'steam') return 'culture';
+  if (NATURE_HINT.test(tags) || item.sourceKind === 'nasa' || item.lane === 'life') return 'nature';
+  if (SYSTEM_LANES.includes(item.lane) || item.sourceKind === 'github') return 'systems';
   return 'research';
 }
 
