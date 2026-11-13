@@ -1,7 +1,7 @@
 /* FRONTIER / Research Journal. Quiet editorial surfaces; never decorative filler media. */
 .reader {
   --paper: #f3f0e9; --paper-soft: #ede9df; --ink: #202927; --subink: #3e4945;
-  --muted: #69716d; --faint: #868c86; --line: #d4d1c8; --accent: #95563d;
+  --muted: #69716d; --faint: #626d66; --line: #d4d1c8; --accent: #95563d;
   --serif: Georgia, 'Times New Roman', serif;
   min-height: calc(100svh - 74px); width: 100%; isolation: isolate; position: relative;
   background: var(--paper); color: var(--ink);
@@ -67,12 +67,12 @@
   display: flex; justify-content: space-between; align-items: center; gap: 18px;
   padding-bottom: 16px; border-bottom: 1px solid var(--line);
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 10px; line-height: 1.45; letter-spacing: .095em; color: var(--muted);
+  font-size: 11px; line-height: 1.45; letter-spacing: .095em; color: var(--muted);
 }
 .headline { max-width: 1180px; width: 100%; margin: clamp(32px, 4.5vw, 66px) 0 clamp(32px, 4vw, 60px); text-align: left; }
 .headlineMeta { position: relative; display: flex; align-items: center; gap: 16px; min-height: 20px; padding-right: 85px; margin-bottom: 20px; }
 .kicker {
-  color: var(--accent); font-size: 11px; font-weight: 720; letter-spacing: .12em;
+  color: var(--accent); font-size: 12px; font-weight: 720; letter-spacing: .12em;
   line-height: 1.5; text-transform: uppercase;
 }
 .separator { color: #b6a99d; padding: 0 6px; }
@@ -105,7 +105,7 @@
 .storyBodyText .content { max-width: 790px; }
 .briefSection { padding-top: 1px; }
 .sectionLabel, .overline, .ratingEyebrow, .railHeading > span {
-  display: block; margin: 0 0 16px; color: var(--accent); font: 710 10px/1.3 var(--font-geist-sans), system-ui, sans-serif;
+  display: block; margin: 0 0 16px; color: var(--accent); font: 710 11px/1.3 var(--font-geist-sans), system-ui, sans-serif;
   letter-spacing: .13em; text-transform: uppercase;
 }
 .summary {
@@ -213,9 +213,9 @@
   padding: 19px 0; background: none; border: 0; border-top: 1px solid var(--line); text-align: left;
 }
 .contentsEntry:hover strong, .contentsEntry[aria-current="true"] strong { color: var(--accent); }
-.contentsOrdinal { color: var(--muted); font: 11px var(--font-geist-mono), monospace; }
+.contentsOrdinal { color: var(--muted); font: 12px var(--font-geist-mono), monospace; }
 .contentsEntryBody { min-width: 0; display: grid; gap: 7px; }
-.contentsEntryBody .overline { color: var(--muted); margin: 0; font-size: 9px; }
+.contentsEntryBody .overline { color: var(--muted); margin: 0; font-size: 11px; }
 .contentsEntryBody strong { color: var(--ink); font: 400 clamp(18px, 1.75vw, 24px)/1.25 var(--serif); }
 .contentsEntry > svg { color: var(--accent); }
 .empty { display: grid; justify-items: center; align-content: center; text-align: center; gap: 16px; min-height: 65vh; padding: 50px 24px; }
@@ -260,11 +260,11 @@
   .checkingLatest { display: none; }
   .latestChip { font-size: 10px; padding: 5px; }
   .article { width: calc(100% - 42px); padding: 24px 0 90px; }
-  .editionMarker { font-size: 8px; }
+  .editionMarker { font-size: 10px; }
   .headline { margin: 28px 0 26px; }
   .headlineMeta { margin-bottom: 14px; padding-right: 64px; }
-  .kicker { font-size: 9px; letter-spacing: .08em; }
-  .counter { font-size: 9px; }
+  .kicker { font-size: 11px; letter-spacing: .08em; }
+  .counter { font-size: 11px; }
   .article h1 { font-size: clamp(38px, 9.6vw, 57px); letter-spacing: -.055em; }
   .byline { margin-top: 16px; font-size: 14px; }
   .summary { font-size: 19px; line-height: 1.55; }
