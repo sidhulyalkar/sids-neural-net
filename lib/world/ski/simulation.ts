@@ -1,3 +1,4 @@
+import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_STANCE,SKI_SOLE_Y} from "../../../components/world/worldSkiContact";
 import {Matrix4, Quaternion, Vector3} from "three";
 
 // iLand prototype tuning in world units and seconds. No Bonvo measurements.
@@ -39,8 +40,11 @@ export class SkiSimulation {
   private readonly axis=new Vector3();
   private readonly basis=new Matrix4();
   private readonly delta=new Quaternion();
-  constructor(private readonly height:Surface,x:number,z:number){
+  private readonly supports=[0,0];
+  private readonly solePoint=new Vector3();
+  constructor(private readonly height:Surface,x:number,z:number,readonly footprint=false){
     this.position.set(x,height(x,z),z);
+    if(footprint)this.position.y=this.sample();
     this.previous.copy(this.position);
   }
   advance(seconds:number,inputAt:(tick:number)=>SkiInput){
@@ -63,11 +67,24 @@ export class SkiSimulation {
     let support=-Infinity;
     for(let i=0;i<2;i++){
       const sign=i===0?-1:1;
-      const sole=this.height(x+sign*this.side.x,z+sign*this.side.z)-sign*this.side.y;
+      let sole=this.height(x+sign*this.side.x,z+sign*this.side.z)-sign*this.side.y;
+      if(this.footprint){
+        sole=-Infinity;
+        for(let j=0;j<=16;j++)for(let w=-1;w<=1;w++){
+          const p=this.solePoint.set(sign*SKI_STANCE+w*SKI_HALF_WIDTH,SKI_SOLE_Y,
+            (j/8-1)*SKI_HALF_LENGTH).applyQuaternion(this.rotation);
+          sole=Math.max(sole,this.height(x+p.x,z+p.z)-p.y);
+        }
+      }
+      this.supports[i]=sole;
       this.contact[i]=this.position.y-sole<=.035;
       support=Math.max(support,sole);
     }
     return support;
+  }
+  private settle(support:number){
+    this.position.y=support;
+    if(this.footprint)for(let i=0;i<2;i++)this.contact[i]=support-this.supports[i]<=.035;
   }
   private step(input:SkiInput){
     const dt=tuning.dt;
@@ -99,7 +116,7 @@ export class SkiSimulation {
         this.age=0;
         this.yaw=Math.atan2(this.forward.x,this.forward.z);
         this.velocity.projectOnPlane(this.normal);
-        this.position.y=support;
+        this.settle(support);
         this.angular.set(0,0,0);
         this.grab=false;
       }
@@ -139,7 +156,7 @@ export class SkiSimulation {
     if(this.phase!=="air"){
       if(this.position.y-support>.04&&this.velocity.dot(this.normal)>.15&&!impaired){
         this.phase="air";this.charge=0;
-      }else this.position.y=support;
+      }else this.settle(support);
     }
   }
 }
