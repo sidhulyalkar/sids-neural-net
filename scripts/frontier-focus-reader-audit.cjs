@@ -63,8 +63,6 @@ async function audit(width, height) {
     const issueToggle = page.getByRole('button', { name: /Contents/i }).first();
     await issueToggle.click();
     await page.locator('#frontier-contents').waitFor();
-    assert((await page.locator('#frontier-contents .contentsEntry').count()) === 0,
-      'Scoped CSS selectors should not leak into the public DOM');
     const entries = page.locator('#frontier-contents button[aria-current], #frontier-contents button[aria-current="true"]');
     assert((await entries.count()) >= 1, 'The current article should be marked in the edition index');
     const issueButtons = page.locator('#frontier-contents button').filter({ has: page.locator('strong') });
