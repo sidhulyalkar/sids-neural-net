@@ -107,6 +107,13 @@ async function audit(width, height) {
       const geometry = await page.evaluate(() => ({
         documentWidth: document.documentElement.scrollWidth,
         viewportWidth: innerWidth,
+        overflowElements: [...document.querySelectorAll('body *')]
+          .filter((el) => el instanceof HTMLElement)
+          .map((el) => ({ el, rect: el.getBoundingClientRect() }))
+          .filter(({ rect }) => rect.width > 0 && (rect.right > innerWidth + 2 || rect.left < -2))
+          .slice(0, 8)
+          .map(({ el, rect }) => ({ element: el.tagName, className: el.className,
+            left: Math.round(rect.left), right: Math.round(rect.right) })),
       }));
       assert(geometry.documentWidth <= geometry.viewportWidth + 2,
         'Mobile focus reader must not require sideways scrolling: ' + JSON.stringify(geometry));
