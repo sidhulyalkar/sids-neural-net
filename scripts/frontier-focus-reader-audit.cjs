@@ -57,7 +57,24 @@ async function audit(width, height) {
     assert.equal(await balloon.count(), 1, 'Exactly one radial interest control is mounted');
     assert.equal(await page.locator('footer').count(), 0, 'Reader must not render a bulky bottom navigation footer');
     assert.equal(await page.getByText('A quiet space for what is new').count(), 0, 'Remove redundant brand tagline');
-    assert.equal(await page.locator('article h1').count(), 1, 'Headline appears once, centered before the media');
+    assert.equal(await page.locator('article h1').count(), 1, 'Article headline must appear exactly once');
+    assert.equal(await page.locator('[aria-label="Editorial article cover"]').count(), 0,
+      'The journal cannot duplicate a headline inside a fake text-only poster');
+    const issueToggle = page.getByRole('button', { name: /Contents/i }).first();
+    await issueToggle.click();
+    await page.locator('#frontier-contents').waitFor();
+    assert((await page.locator('#frontier-contents .contentsEntry').count()) === 0,
+      'Scoped CSS selectors should not leak into the public DOM');
+    const entries = page.locator('#frontier-contents button[aria-current], #frontier-contents button[aria-current="true"]');
+    assert((await entries.count()) >= 1, 'The current article should be marked in the edition index');
+    const issueButtons = page.locator('#frontier-contents button').filter({ has: page.locator('strong') });
+    assert((await issueButtons.count()) >= 2, 'Contents should permit direct article navigation');
+    await issueButtons.nth(1).click();
+    await page.waitForFunction((prior) => document.querySelector('article h1')?.textContent !== prior, heading);
+    await page.locator('[data-frontier-previous="true"]').click();
+    assert.equal(await page.locator('article h1').first().textContent(), heading,
+      'Edition index navigation must preserve the standard back path');
+
     const navigationArea = page.locator('nav[aria-label="Article navigation"]');
     assert.equal(await navigationArea.count(), 1, 'Use an edge navigation overlay');
     const image = page.locator('figure img').first();
@@ -97,7 +114,7 @@ async function audit(width, height) {
         'Mobile focus reader must not require sideways scrolling: ' + JSON.stringify(geometry));
     }
 
-    const exact = page.locator('details').filter({ hasText: 'Choose exact score' });
+    const exact = page.locator('details').filter({ hasText: 'Fine-tune interest' });
     await exact.locator('summary').click();
     await exact.locator('input[type="range"]').focus();
     await page.keyboard.press('End');
@@ -113,7 +130,7 @@ async function audit(width, height) {
     assert.equal(candidateLookups.length, 1,
       'Returning reader should load the wider public snapshot once, after first paint');
     const beforeRevision = await page.evaluate(() => JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
-    const finalRating = page.locator('details').filter({ hasText: 'Choose exact score' });
+    const finalRating = page.locator('details').filter({ hasText: 'Fine-tune interest' });
     await finalRating.locator('summary').click();
     await finalRating.locator('input[type="range"]').focus();
     await page.keyboard.press('Home');
