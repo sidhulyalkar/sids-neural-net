@@ -11,7 +11,7 @@ import { buildFrontierSourceBrief, frontierSourceFigures } from '@/lib/frontier/
 import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierFeedResponse, FrontierItem } from '@/lib/frontier/types';
-import styles from './frontier-focus-reader.module.css';
+import styles from './frontier-journal.module.css';
 
 const EDITION_LIMIT = 36;
 
