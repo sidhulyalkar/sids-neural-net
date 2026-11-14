@@ -145,6 +145,24 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
  surface.name="skate-grove-ride-surface";
  surface.castShadow=false;surface.receiveShadow=true;
  group.add(surface);
+ // Exact height of the triangles actually sent to WebGL, not an analytic
+ // approximation of the heightfield. Thin decorative art must follow this
+ // interpolated surface or it can clip through a bank between vertices.
+ const deckSurfaceAt=(x:number,z:number)=>{
+  const sx=THREE.MathUtils.clamp((x-(SKATE_PARK.center.x-SKATE_PARK.halfWidth))*
+    widthSteps/(SKATE_PARK.halfWidth*2),0,widthSteps);
+  const sz=THREE.MathUtils.clamp((z-(SKATE_PARK.center.z-SKATE_PARK.halfDepth))*
+    depthSteps/(SKATE_PARK.halfDepth*2),0,depthSteps);
+  const ix=Math.min(widthSteps-1,Math.floor(sx));
+  const iz=Math.min(depthSteps-1,Math.floor(sz));
+  const fx=sx-ix,fz=sz-iz;
+  const a=iz*(widthSteps+1)+ix,b=a+1,c=a+widthSteps+1,d=c+1;
+  const y=(vertex:number)=>positions[vertex*3+1];
+  // Indices (a,c,b) and (b,c,d) form these two barycentric triangles.
+  return fx+fz<=1 ?
+   y(a)*(1-fx-fz)+y(b)*fx+y(c)*fz :
+   y(b)*(1-fz)+y(c)*(1-fx)+y(d)*(fx+fz-1);
+ };
 
  // The new landmark art is one semantic scene group. Root child count stays
  // within the original low-draw / easy-disposal contract.
@@ -434,11 +452,11 @@ export function createWorldSkateGrove(scene:THREE.Scene,support:(p:Point)=>numbe
    const p={x:REDWOOD_BOWL.center.x+r*Math.cos(a),
     z:REDWOOD_BOWL.center.z+r*Math.sin(a)};
    const flare=.028*Math.sin(a*27+f*4)+.022*Math.cos(a*43-f*8);
-   // The bark is a thin, independent VISUAL shell above the cedar deck.
-   // Its original +.025 rise intersected the primary +.035 deck, causing
-   // z-fighting and flashing; the open eastern split is cut from the index.
-   const rise=.067+.018*Math.max(0,flare);
-   barkVertices.push(p.x,ride(p)+rise,p.z);
+   // A broad secondary bark skin is cosmetic. Following the actual
+   // interpolated deck triangles with a small positive offset avoids
+   // z-fighting even on rapidly curved bank cells between support vertices.
+   const rise=.042+.012*Math.max(0,flare);
+   barkVertices.push(p.x,deckSurfaceAt(p.x,p.z)+rise,p.z);
    const grain=.47+.26*Math.sin(a*37+f*1.5)+.12*Math.cos(a*59-f*5);
    barkMix.copy(barkDark).lerp(barkLight,THREE.MathUtils.clamp(grain,0,1));
    barkColors.push(barkMix.r,barkMix.g,barkMix.b);
