@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {createSkiContact,fitSkiContact,SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_SOLE_Y}
-  from "../components/world/worldSkiContact";
+import {createSkiContact,fitSkiContact} from "../components/world/worldSkiContact";
 import {SkiVisualSole,SKI_VISUAL_BEND_LIMIT}
   from "../components/world/skiVisualSole";
 import {Vector3} from "three/src/Three.Core.js";
