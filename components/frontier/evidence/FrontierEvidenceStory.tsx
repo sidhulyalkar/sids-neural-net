@@ -149,7 +149,7 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
             {chapters.length ? (
               <section className={styles.sourceMap} aria-label="Original publication outline">
                 <p className={styles.outlineExplain}>Explore the published section headings. These links are source navigation, not inferred study conclusions.</p>
-                <div className={styles.chapterTabs} aria-label="Research chapters">
+                <div className={styles.chapterTabs} role="group" aria-label="Research chapters">
                   {chapters.map((chapter, chapterIndex) => (
                     <button type="button" key={chapter.id} className={styles.chapterTab}
                       aria-pressed={selectedChapter === chapter.id}
