@@ -184,16 +184,20 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
                 </div>
               </div>
             )}
-            <div className={styles.step}>
-              <span>02</span><div><strong>Inspect the evidence</strong>
-                <p>{figure ? 'Examine the original publisher figure and caption. Source claims are not independently reproduced measurements.' : 'No figure has passed the rights and provenance gates for this source yet.'}</p>
-              </div>
-            </div>
-            <div className={styles.step}>
-              <span>03</span><div><strong>Verify the original</strong>
-                <p>Follow the citation to see its scientific context, methods, and limitations at the publisher.</p>
-              </div>
-            </div>
+            {!chapters.length ? (
+              <>
+                <div className={styles.step}>
+                  <span>02</span><div><strong>Inspect the evidence</strong>
+                    <p>{figure ? 'Examine the original publisher figure and caption. Source claims are not independently reproduced measurements.' : 'No figure has passed the rights and provenance gates for this source yet.'}</p>
+                  </div>
+                </div>
+                <div className={styles.step}>
+                  <span>03</span><div><strong>Verify the original</strong>
+                    <p>Follow the citation to see its scientific context, methods, and limitations at the publisher.</p>
+                  </div>
+                </div>
+              </>
+            ) : null}
             <a href={manifest.source.url} target="_blank" rel="noopener noreferrer" className={styles.primaryLink}>
               Read the original document <ArrowUpRight size={16} aria-hidden="true"/>
             </a>
