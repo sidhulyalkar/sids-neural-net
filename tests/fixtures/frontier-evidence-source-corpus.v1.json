@@ -1,0 +1,139 @@
+{
+  "fixtureVersion": 1,
+  "snapshotGeneratedAt": "2026-11-14T19:13:13.373Z",
+  "description": "Historical source identities observed in the 2026-11-14 Frontier snapshot. No experimental results, asset rights, data series, or scene eligibility are asserted.",
+  "cases": [
+    {
+      "title": "AgentSSL: Can MLE Agents Leverage Unlabeled Data?",
+      "snapshotItemId": "ingest-arxiv-l2kgb2",
+      "manifest": {
+        "schemaVersion": 1,
+        "itemId": "ingest-arxiv-l2kgb2",
+        "source": {
+          "id": "arxiv:2611.17323v1",
+          "publisher": "arXiv",
+          "url": "https://arxiv.org/abs/2611.17323v1",
+          "kind": "paper",
+          "revision": "v1",
+          "observedAt": "2026-11-14T19:13:13.373Z"
+        },
+        "extractorVersion": "unextracted-v1",
+        "compilerVersion": "evidence-contract-v1",
+        "builtAt": "2026-11-14T19:13:13.373Z",
+        "state": "basic",
+        "evidence": [],
+        "scenes": []
+      }
+    },
+    {
+      "title": "SpikeInterface release preparation commit",
+      "snapshotItemId": "tooling-spikeinterface-commit-ubso3r",
+      "manifest": {
+        "schemaVersion": 1,
+        "itemId": "tooling-spikeinterface-commit-ubso3r",
+        "source": {
+          "id": "github:SpikeInterface/spikeinterface@923f305101de0644f5e752a6b59ca9bf654b9603",
+          "publisher": "GitHub · SpikeInterface",
+          "url": "https://github.com/SpikeInterface/spikeinterface/commit/923f305101de0644f5e752a6b59ca9bf654b9603",
+          "kind": "repository",
+          "revision": "923f305101de0644f5e752a6b59ca9bf654b9603",
+          "observedAt": "2026-11-14T19:13:13.373Z"
+        },
+        "extractorVersion": "unextracted-v1",
+        "compilerVersion": "evidence-contract-v1",
+        "builtAt": "2026-11-14T19:13:13.373Z",
+        "state": "basic",
+        "evidence": [],
+        "scenes": []
+      }
+    },
+    {
+      "title": "NBA scores and schedule, November 14",
+      "snapshotItemId": "sports-state-nba-scoreboard-2026-11-14",
+      "manifest": {
+        "schemaVersion": 1,
+        "itemId": "sports-state-nba-scoreboard-2026-11-14",
+        "source": {
+          "id": "sports:espn:nba-2026-11-14",
+          "publisher": "ESPN",
+          "url": "https://www.espn.com/nba/scoreboard",
+          "kind": "sports",
+          "revision": "snapshot:2026-11-14T19:13:13.373Z",
+          "observedAt": "2026-11-14T19:13:13.373Z"
+        },
+        "extractorVersion": "unextracted-v1",
+        "compilerVersion": "evidence-contract-v1",
+        "builtAt": "2026-11-14T19:13:13.373Z",
+        "state": "basic",
+        "evidence": [],
+        "scenes": []
+      }
+    },
+    {
+      "title": "World Climbing season finale source video",
+      "snapshotItemId": "watch-world-climbing-599d3n",
+      "manifest": {
+        "schemaVersion": 1,
+        "itemId": "watch-world-climbing-599d3n",
+        "source": {
+          "id": "youtube:AH315a5F8-g",
+          "publisher": "YouTube · World Climbing",
+          "url": "https://www.youtube.com/watch?v=AH315a5F8-g",
+          "kind": "video",
+          "revision": "unversioned-observed:2026-11-14",
+          "observedAt": "2026-11-14T19:13:13.373Z"
+        },
+        "extractorVersion": "unextracted-v1",
+        "compilerVersion": "evidence-contract-v1",
+        "builtAt": "2026-11-14T19:13:13.373Z",
+        "state": "basic",
+        "evidence": [],
+        "scenes": []
+      }
+    },
+    {
+      "title": "NASA Astronomy Picture of the Day, November 9",
+      "snapshotItemId": "expanded-nasa-xlt9g4",
+      "manifest": {
+        "schemaVersion": 1,
+        "itemId": "expanded-nasa-xlt9g4",
+        "source": {
+          "id": "nasa:apod:2026-11-09",
+          "publisher": "NASA APOD",
+          "url": "https://apod.nasa.gov/apod/ap261109.html",
+          "kind": "nature",
+          "revision": "ap261109",
+          "observedAt": "2026-11-14T19:13:13.373Z"
+        },
+        "extractorVersion": "unextracted-v1",
+        "compilerVersion": "evidence-contract-v1",
+        "builtAt": "2026-11-14T19:13:13.373Z",
+        "state": "basic",
+        "evidence": [],
+        "scenes": []
+      }
+    },
+    {
+      "title": "Hollow Knight: Silksong post-release update",
+      "snapshotItemId": "steam-1030300-1usteqd",
+      "manifest": {
+        "schemaVersion": 1,
+        "itemId": "steam-1030300-1usteqd",
+        "source": {
+          "id": "steam:1030300@2026-11-09",
+          "publisher": "Steam",
+          "url": "https://store.steampowered.com/app/1030300/",
+          "kind": "entertainment",
+          "revision": "unversioned-observed:2026-11-14",
+          "observedAt": "2026-11-14T19:13:13.373Z"
+        },
+        "extractorVersion": "unextracted-v1",
+        "compilerVersion": "evidence-contract-v1",
+        "builtAt": "2026-11-14T19:13:13.373Z",
+        "state": "basic",
+        "evidence": [],
+        "scenes": []
+      }
+    }
+  ]
+}
