@@ -131,7 +131,10 @@ try{
    const tick=()=>{
     frames++;
     samples.push({point:el.dataset.player,error:Number(el.dataset.bikeContactError),
-     pitch:Number(el.dataset.surfacePitch),activity:el.dataset.activity});
+     pitch:Number(el.dataset.surfacePitch),activity:el.dataset.activity,
+     sightline:el.dataset.bikeCameraSightlineClear,
+     lift:Number(el.dataset.bikeCameraClearanceLift),
+     boomRatio:Number(el.dataset.bikeCameraBoomRatio)});
     if(frames===35){key('keyup','w');key('keydown','s');}
     if(frames===70){key('keyup','s');resolve(samples);return;}
     requestAnimationFrame(tick);
@@ -140,6 +143,10 @@ try{
   }));
   assert.ok(bikeTrace.every(s=>s.activity==='bike'&&Number.isFinite(s.pitch)&&s.error<.003));
   assert.ok(new Set(bikeTrace.map(s=>s.point)).size>20,'bike must actually move on mountain');
+  assert.ok(bikeTrace.slice(-15).every(s=>s.sightline==="true"),
+   "bike camera must clear actual ridge between lens and rider");
+  assert.ok(bikeTrace.every(s=>Number.isFinite(s.lift)&&Number.isFinite(s.boomRatio)),
+   "camera solver must stay numerically stable during real riding");
   await page.screenshot({path:path.join(out,'03-mountain-bike-contact.png')});
   evidence.bikeTrace=bikeTrace;
   await page.getByRole('button',{name:'Open navigation menu'}).click();
