@@ -30,7 +30,10 @@ await page.addInitScript(()=>{
     if(tick===lastTick)return;
     lastTick=tick;
     const phase=d.skiRidePhase;
-    history.push({tick,phase,omega:Number(d.skiAngularY),rotation:d.skiRotation,runout:d.skiRunout});
+    history.push({tick,phase,omega:Number(d.skiAngularY),rotation:d.skiRotation,
+      airSpin:Number(d.skiAirSpinRadians),steer:Number(d.skiInputSteer),
+      leftBank:Number(d.skiLeftBankVisits),rightBank:Number(d.skiRightBankVisits),
+      crossings:Number(d.skiBankCrossings),runout:d.skiRunout});
     const name=phase==="charging"?"charge":phase==="air" && Math.abs(Number(d.skiAngularY))>.05?"air":
       sawFlight && phase!=="air" && d.skiLanding!=="none" && !frames.touchdown?"touchdown":
       d.skiRunout==="true"?"runout":null;
@@ -45,7 +48,17 @@ async function save(name){
   assert.ok(data.skiRidePhase);
   if(name==="air")assert.equal(data.skiRidePhase,"air");
   if(name==="charge")assert.equal(data.skiRidePhase,"charging");
-  if(name==="touchdown")assert.ok(["rough","clean","crash"].includes(data.skiLanding));
+  if(name==="touchdown"){
+    assert.ok(["rough","clean","crash"].includes(data.skiLanding));
+    assert.ok(Number.isFinite(Number(data.skiAirSpinRadians)),
+      "fixed-step yaw must be captured at actual touchdown");
+  }
+  if(data.skiContactActive==="true" && data.skiVisualSoleMin!==""){
+    assert.ok(Number(data.skiVisualSoleMin)>-.025,"visual sole penetrates snow");
+    assert.ok(Number(data.skiVisualBend)<=.181,"visual flex exceeds documented bound");
+    assert.ok(Number(data.skiVisualSoleMax)<=Number(data.skiSoleMax)+.12,
+      "visual skin must not increase rigid ski bridging");
+  }
   fs.writeFileSync(path.join(dir,name+".png"),Buffer.from(png.split(",")[1],"base64"));
   fs.writeFileSync(path.join(dir,name+".json"),JSON.stringify(data,null,2));
 }
