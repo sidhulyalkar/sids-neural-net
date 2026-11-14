@@ -27,7 +27,7 @@ import {
 } from "@/lib/world/model";
 import { ACTIVITIES, activityConfig, type Activity, type AquaticMode } from "@/lib/world/activities";
 import { COASTAL_FLORA, MARINE_LIFE } from "@/lib/world/ecology";
-import {cairnStoryFor} from "@/lib/world/cairnStories";
+import {cairnStoryFor,REGION_CAIRN_PHOTOS} from "@/lib/world/cairnStories";
 import { UNDERWATER_TRIDENTS } from "@/lib/world/artifacts";
 import { JOSHUA_TRIAL, JOSHUA_GATES, type TrialState } from "@/lib/world/trials";
 import { JOSHUA_GHOSTS } from "@/lib/world/joshuaGhostRace";
@@ -86,16 +86,6 @@ const INTRO: Record<RegionId, { title: string; text: string }> = {
   "north-shore": { title: "North shore.", text: "Skim the shorebreak." },
 };
 
-// Reuse archive records, keeping regional discoveries relevant to their surroundings.
-const REGION_PHOTOS: Partial<Record<RegionId, readonly string[]>> = {
-  mountain: ["lake", "shasta-lake"],
-  grove: ["shasta-trail", "shasta-stream"],
-  waterfall: ["shasta-water", "shasta-stream"],
-  // The underwater reef is not represented by Shasta’s dry-land field photo.
-  desert: ["desert-ridges"],
-  rainforest: ["rainforest-leaves"],
-  lagoon: ["lagoon-shore"],
-};
 const ROUTE_LABELS: Record<string, string> = Object.fromEntries(
   LINKS.map(([label, href]) => [href, label]),
 );
@@ -521,6 +511,15 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const current = REGIONS.find((r) => r.id === region)!;
   const selected = REGIONS.find((r) => r.id === panel);
   const cairnStory=selected?cairnStoryFor(selected.id):null;
+  // A short, curated glimpse of actual archive images prevents the coast
+  // Cairn from eagerly mounting all 49 thumbnails into one small dialog.
+  const cairnGalleryPhotos=selected
+    ? selected.id==="coast"
+      ? content.photos.slice(0,6)
+      : content.photos.filter(p=>REGION_CAIRN_PHOTOS[selected.id]?.includes(p.id))
+    : [];
+  const cairnPhoto=selected?.id==="coast"?null:cairnGalleryPhotos[0]??null;
+  const cairnThumbnails=cairnGalleryPhotos.filter(p=>p.id!==cairnPhoto?.id);
   const carvedGameIndex = panel?.startsWith("game:") ? Number(panel.slice(5)) : -1;
   const carvedGame = Number.isInteger(carvedGameIndex) ? content.games[carvedGameIndex] : undefined;
   const photo = content.photos.find((p) => p.id === panel ||
@@ -967,10 +966,28 @@ export function WorldHome({ content }: { content: WorldContent }) {
               {INTRO[selected.id].text && <p className={styles.panelIntro}>{INTRO[selected.id].text}</p>}
               {cairnStory && (
                 <section className={styles.cairnStory} aria-label={`${selected.name} field story`}>
-                  <p className={styles.cairnTheme}>{cairnStory.theme}</p>
-                  <h3>{cairnStory.title}</h3>
-                  <p>{cairnStory.lead}</p>
-                  <p>{cairnStory.perspective}</p>
+                  <div className={styles.cairnStoryLayout}>
+                    <div className={styles.cairnStoryCopy}>
+                      <p className={styles.cairnTheme}>{cairnStory.theme}</p>
+                      <h3>{cairnStory.title}</h3>
+                      <p>{cairnStory.lead}</p>
+                      <details className={styles.cairnNotes}>
+                        <summary>Behind this place</summary>
+                        <p>{cairnStory.perspective}</p>
+                      </details>
+                    </div>
+                    {cairnPhoto && (
+                      <figure className={styles.cairnStoryPhoto}>
+                        <button type="button" onClick={()=>setPanel(cairnPhoto.id)}
+                          aria-label={`View photograph: ${cairnPhoto.alt}`}>
+                          <Image src={cairnPhoto.src} alt={cairnPhoto.alt}
+                            width={540} height={420}
+                            sizes="(max-width: 760px) 85vw, 300px" />
+                        </button>
+                        <figcaption>From my photography archive · View photograph</figcaption>
+                      </figure>
+                    )}
+                  </div>
                   <nav aria-label="Related work" className={styles.cairnStoryLinks}>
                     {cairnStory.links.map(link=>(
                       <Link href={link.href} prefetch={false} key={link.href}>{link.label}</Link>
@@ -995,9 +1012,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
                     </Link>
                   ))}
               </div>
-              {(selected.id === "coast" || REGION_PHOTOS[selected.id]) && (
+              {cairnThumbnails.length>0 && (
                 <div className={styles.memoryList}>
-                  {content.photos.filter((p) => selected.id === "coast" || REGION_PHOTOS[selected.id]?.includes(p.id)).map((p) => {
+                  {cairnThumbnails.map((p) => {
                     const memory = MEMORY_POINTS.find((m) => m.id === p.id);
                     return (
                       <button
@@ -1032,6 +1049,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
                   </Link>
                 )}
               </div>
+              <button type="button" className={styles.cairnReturn} onClick={close}>
+                Return to the island
+              </button>
             </>
           )}
           {video && (

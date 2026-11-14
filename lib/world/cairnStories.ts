@@ -91,4 +91,14 @@ export const CAIRN_STORIES:Readonly<Record<RegionId,CairnStory>>={
     links:[{label:"Explore game projects",href:"/arcade"},{label:"See the wider project archive",href:"/projects"}],
   },
 };
+/** Photos in this list are real visual-archive memories, not illustrative
+ * stand-ins. Keep them linked to actual WorldContent photo IDs. */
+export const REGION_CAIRN_PHOTOS:Partial<Record<RegionId,readonly string[]>>={
+  mountain:["lake","shasta-lake"],
+  grove:["shasta-trail","shasta-stream"],
+  waterfall:["shasta-water","shasta-stream"],
+  desert:["desert-ridges"],
+  rainforest:["rainforest-leaves"],
+  lagoon:["lagoon-shore"],
+} as const;
 export const cairnStoryFor=(id:RegionId):CairnStory=>CAIRN_STORIES[id];
