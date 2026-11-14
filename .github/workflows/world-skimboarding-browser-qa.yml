@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   skimboarding-browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       WORLD_BASE_URL: http://localhost:3000
