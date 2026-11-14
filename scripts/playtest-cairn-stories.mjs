@@ -56,6 +56,13 @@ try{
     return img?.complete&&img.naturalWidth>0;
    },null,{timeout:15000});
    assert.ok(await photos.first().locator("img").isVisible());
+   // Inspect a real archive photograph then return to its original Cairn
+   // without dismissing the modal or losing the location in the world.
+   await photos.first().click();
+   await dialog.getByRole("heading",{name:/Shasta · trail|Wet beach/}).waitFor();
+   await dialog.getByRole("button",{name:`Back to ${scenario.region} story`}).click();
+   await dialog.getByRole("heading",{name:scenario.story}).waitFor();
+   assert.equal(await dialog.getByRole("navigation",{name:"Related work"}).count(),1);
   }
   const bounds=await dialog.evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth,
    height:el.clientHeight,scrollHeight:el.scrollHeight}));

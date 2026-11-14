@@ -110,6 +110,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [failed, setFailed] = useState(false);
   const [activity, setActivity] = useState<Activity>("run");
   const [sportsOpen, setSportsOpen] = useState(false);
+  // A photograph opened from a Cairn should let the visitor return to that
+  // story without teleporting or reopening the World navigation menu.
+  const [cairnPhotoReturn,setCairnPhotoReturn]=useState<RegionId|null>(null);
   const [skim, setSkim] = useState<SkimHeat>(idleSkimHeat);
   const [skimNearby, setSkimNearby] = useState<number|null>(null);
   const [skimCommand, setSkimCommand] = useState<"pickup"|"drop"|"pop"|"shuvit"|"big-spin"|"three-sixty"|"wrap"|"exit"|"restart">("pickup");
@@ -341,6 +344,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
   },[open,router,content.publications]);
   const close = useCallback(() => {
     setPanel(null);
+    setCairnPhotoReturn(null);
     // Return keyboard users to the action that opened the dialog.
     requestAnimationFrame(() => trigger.current?.focus());
   }, [setPanel]);
@@ -976,7 +980,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                     </div>
                     {cairnPhoto && (
                       <figure className={styles.cairnStoryPhoto}>
-                        <button type="button" onClick={()=>setPanel(cairnPhoto.id)}
+                        <button type="button" onClick={()=>{setCairnPhotoReturn(selected.id);setPanel(cairnPhoto.id);}}
                           aria-label={`View photograph: ${MEMORY_POINTS.find(m=>m.id===cairnPhoto.id)?.title??cairnPhoto.alt}`}>
                           <Image src={cairnPhoto.src} alt={cairnPhoto.alt}
                             width={540} height={420}
@@ -1018,7 +1022,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                       <button
                         key={p.id}
                         aria-label={memory?.title ?? p.alt}
-                        onClick={() => setPanel(p.id)}
+                        onClick={() => {setCairnPhotoReturn(selected.id);setPanel(p.id);}}
                       >
                         <Image
                           src={p.src}
@@ -1084,9 +1088,16 @@ export function WorldHome({ content }: { content: WorldContent }) {
                   {photo.location} ↗
                 </a>
               </p>
-              <Link prefetch={false} href="/photography">
-                Photography
-              </Link>
+              <div className={styles.panelLinks}>
+                {cairnPhotoReturn && (
+                  <button type="button" onClick={()=>setPanel(cairnPhotoReturn)}>
+                    Back to {REGIONS.find(r=>r.id===cairnPhotoReturn)?.name} story
+                  </button>
+                )}
+                <Link prefetch={false} href="/photography">
+                  Photography
+                </Link>
+              </div>
             </>
           )}
 
