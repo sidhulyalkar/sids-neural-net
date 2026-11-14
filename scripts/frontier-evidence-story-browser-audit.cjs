@@ -57,6 +57,10 @@ async function view(browser, width, height) {
   assert(geometry.scrollWidth <= geometry.viewport + 2, 'Unexpected horizontal overflow: ' + JSON.stringify(geometry));
   assert(geometry.titleSize <= 43, 'Oversized article title in reader');
   assert.deepEqual(errors, [], 'No client exceptions during interactive figure inspection');
+  await page.evaluate(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  });
   await page.screenshot({ path: OUT + '/story-' + width + '.png', fullPage: true });
 
   await page.close();
