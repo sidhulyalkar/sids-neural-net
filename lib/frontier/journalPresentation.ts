@@ -47,13 +47,38 @@ export function journalSourceActivity(item: Pick<FrontierItem, 'metrics'>): Fron
 /** Skip auto-generated social cover cards, which often just reprint the title.
  * Real publisher figures are retained. This only affects the Journal hero. */
 export function journalSourceFigures(item: FrontierItem, figures: FrontierSourceFigure[]): FrontierSourceFigure[] {
-  if (item.media?.type !== 'image') return figures;
-  const original = item.media.url?.toLowerCase() ?? '';
-  const isGenericCover = original.includes('opengraph.githubassets.com/')
-    || original.includes('cdn-thumbnails.huggingface.co/social-thumbnails/');
-  if (!isGenericCover) return figures;
-  const cardUrl = item.media.proxyUrl || item.media.url;
-  return figures.filter((figure) => figure.url !== cardUrl);
+  let retained = figures;
+  if (item.media?.type === 'image') {
+    const original = item.media.url?.toLowerCase() ?? '';
+    const isGenericCover = original.includes('opengraph.githubassets.com/')
+      || original.includes('cdn-thumbnails.huggingface.co/social-thumbnails/');
+    if (isGenericCover) {
+      const cardUrl = item.media.proxyUrl || item.media.url;
+      retained = retained.filter((figure) => figure.url !== cardUrl);
+    }
+  }
+  // The existing image gateway provides a bounded same-origin path with a
+  // source-original fallback. Only canonical arXiv paper figure URLs qualify;
+  // unrelated publisher images never enter the expanded proxy allowlist.
+  if (item.sourceKind !== 'arxiv') return retained;
+  return retained.map((figure) => {
+    try {
+      const source = new URL(figure.url);
+      if (source.protocol !== 'https:' || source.hostname !== 'arxiv.org'
+        || !/^\/html\/\d{4}\.\d{4,5}(?:v\d+)?\//.test(source.pathname)
+        || !/\.(?:png|jpe?g|webp)$/i.test(source.pathname)) return figure;
+      const proxy = '/api/frontier/media?url=' + encodeURIComponent(source.href);
+      return {
+        ...figure,
+        url: proxy,
+        fallbackUrl: source.href,
+        fallbackUrls: [...new Set([source.href, figure.fallbackUrl, ...(figure.fallbackUrls ?? [])]
+          .filter((url): url is string => Boolean(url && url !== proxy)))],
+      };
+    } catch {
+      return figure;
+    }
+  });
 }
 
 export function journalFormat(item: FrontierItem, hasSourceFigure: boolean): JournalFormat {
