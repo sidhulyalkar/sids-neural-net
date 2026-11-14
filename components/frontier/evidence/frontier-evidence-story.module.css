@@ -34,7 +34,7 @@
 .stage { padding: 24px clamp(20px, 2.7vw, 42px) 26px 0; min-width: 0; }
 .stageTop { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px; padding-bottom: 14px; font: 600 10px/1.5 ui-monospace, monospace; letter-spacing: .04em; color: var(--muted); }
 .sectionTitle { display: inline-flex; align-items: center; gap: 8px; color: var(--accent); letter-spacing: .075em; }
-.frame { position: relative; overflow: auto; display: grid; place-items: center; aspect-ratio: 4/3; min-height: 220px; max-height: 650px; border: 1px solid var(--line); background: #e9eae4; }
+.frame { position: relative; overflow: auto; display: grid; place-items: center; width: 100%; min-width: 0; aspect-ratio: 4/3; min-height: 220px; max-height: 650px; border: 1px solid var(--line); background: #e9eae4; }
 .figureImage, .figureExpanded { object-fit: contain; padding: clamp(12px, 2.2vw, 26px); transition: transform 200ms ease; }
 .figureExpanded { object-fit: contain; transform: scale(1.4); }
 .zoom { position: absolute; bottom: 14px; right: 14px; background: var(--paper); color: var(--ink); border: 1px solid var(--line); display: inline-flex; align-items: center; gap: 8px; font: 590 12px/1.3 system-ui, sans-serif; border-radius: 4px; padding: 10px 14px; min-height: 44px; }
@@ -76,7 +76,7 @@
   .header { padding: 12px 0; }
   .edition { order: 3; width: 100%; }
   .headlineBlock { padding: 25px 0 22px; }
-  .frame { min-height: 235px; aspect-ratio: 4/3; }
+  .frame { min-height: 0; width: 100%; min-width: 0; aspect-ratio: 4/3; }
   .frameEmpty strong { font-size: 18px; }
   .figureExpanded { transform: scale(1.2); }
   .headlineBlock h1 { font-size: 28px; }
