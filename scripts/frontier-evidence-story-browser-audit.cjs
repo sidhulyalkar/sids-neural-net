@@ -42,6 +42,17 @@ async function view(browser, width, height) {
     scrollWidth: document.documentElement.scrollWidth,
     viewport: window.innerWidth,
     titleSize: Number.parseFloat(getComputedStyle(document.querySelector('[data-frontier-story] h1')).fontSize),
+    offenders: Array.from(document.querySelectorAll('[data-frontier-story] *'))
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { tag: element.tagName.toLowerCase(),
+          cls: typeof element.className === 'string' ? element.className.slice(0, 110) : '',
+          left: Math.round(rect.left), right: Math.round(rect.right),
+          scrollWidth: element.scrollWidth, clientWidth: element.clientWidth,
+        };
+      })
+      .filter((entry) => entry.left < -2 || entry.right > window.innerWidth + 2)
+      .slice(0, 15),
   }));
   assert(geometry.scrollWidth <= geometry.viewport + 2, 'Unexpected horizontal overflow: ' + JSON.stringify(geometry));
   assert(geometry.titleSize <= 43, 'Oversized article title in reader');
