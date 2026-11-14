@@ -4684,14 +4684,15 @@ export function createWorld(
         skiInput.brake = forward < 0 || inRunout;
         skiInput.tuck = forward > 0;
         skiInput.grab = keys.has("shift");
-        ride.advance(rawDelta, readSkiInput);
+        ride.advance(rawDelta, readSkiInput,sim=>{
+          skiHalfpipe.observe({tick:sim.tick,x:sim.position.x,z:sim.position.z,
+            vx:sim.velocity.x,speed:Math.hypot(sim.velocity.x,sim.velocity.z),
+            grounded:sim.phase!=="air"&&sim.contact.some(Boolean)});
+        });
         tracks?.update(ride);
         player = {x:ride.position.x,z:ride.position.z};
         playerY = ride.position.y;
         const horizontal = Math.hypot(ride.velocity.x,ride.velocity.z);
-        skiHalfpipe.observe({tick:ride.tick,x:ride.position.x,z:ride.position.z,
-          vx:ride.velocity.x,speed:horizontal,
-          grounded:ride.phase!=="air"&&ride.contact.some(Boolean)});
         travel = {point:player,speed:horizontal,heading:horizontal>.05?
           {x:ride.velocity.x/horizontal,z:ride.velocity.z/horizontal}:travel.heading};
         airHeight = ride.phase==="air"?Math.max(.002,playerY-rideSnow(player.x,player.z)):0;
