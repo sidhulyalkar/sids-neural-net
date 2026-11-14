@@ -90,7 +90,7 @@ function buildPrivateBundleFixture() {
   const publish = path.resolve('content/frontier/stories', id);
   if (fs.existsSync(publish)) throw new Error('Refusing to overwrite existing published story test identity');
   const fixturePng = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLhXQAAAABJRU5ErkJggg==', 'base64');
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGOIq8v+DwAEzAJHvkJtgQAAAABJRU5ErkJggg==', 'base64');
   const assetRoot = path.join(work, 'reviewed');
   fs.mkdirSync(assetRoot);
   fs.writeFileSync(path.join(assetRoot, 'approved.png'), fixturePng);
