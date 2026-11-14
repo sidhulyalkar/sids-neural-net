@@ -16,7 +16,11 @@ const footerLinks = [
 export function Footer() {
   const pathname = usePathname();
 
-  if (pathname === '/' || pathname === '/frontier') return null;
+  // Evidence stories supply their own editorial provenance footer. Avoid a
+  // second dark global footer interrupting the full-bleed research page.
+  if (pathname === '/' || pathname === '/frontier'
+    || pathname === '/frontier/evidence-audit'
+    || pathname.startsWith('/frontier/story/')) return null;
 
   return (
     <footer className="relative z-10 border-t border-white/8 px-4 py-4">
