@@ -15,17 +15,18 @@ try{
  const page=await browser.newPage({viewport:{width:1440,height:900}});
  page.on("pageerror",e=>errors.push(e.message));
  try{
-  await page.goto(url);
+  await page.goto(url+(url.includes("?")?"&":"?")+"skate-start=hollow-log");
   await page.getByRole("button",{name:"Explore world",exact:true}).click();
   await page.waitForFunction(()=>
    Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
    null,{timeout:45000});
-  await page.getByRole("button",{name:"Skateboarding",exact:true}).click();
-  await page.getByRole("button",{name:"Show sport shortcuts",exact:true}).click();
-   await page.getByRole("button",{name:"Skatepark",exact:true}).click();
-  await page.waitForFunction(()=>
-   document.querySelector("canvas")?.dataset.skatePark==="true",
-   null,{timeout:15000});
+  // The actual hollow log is centered at z=59.1, not the old meadow z=30.7.
+  // Use the public shareable ride start, with an ordinary canvas-driven run-up.
+  await page.waitForFunction(()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   const [x,z]=(d?.player??"").split(",").map(Number);
+   return d?.activity==="skate" && x>5 && x<10 && z>55 && z<64;
+  },null,{timeout:15000});
   await page.locator("canvas").focus();
   // This uses the SAME W / A / D / Q event handler as a human visitor.
   // Position feedback chooses ordinary steering, never writes game state.
@@ -67,18 +68,14 @@ try{
      return;
     }
     if(stage==="approach"){
-     // First skate northwest across the real meadow. Correct small lateral
-     // drift while turning west to enter the eastern log mouth at speed.
-     hold("d",z>31.10);hold("a",z<30.30);
-     const aligned=Math.abs(z-30.7)<.55&&
-      x<(-11+5.35-.25)&&x>-12.3&&
-      s.heading[0]<-.75&&s.speed>=4.2;
-     if(aligned){
-      hold("a",false);hold("d",false);
-      key("keydown","q");key("keyup","q");
-      stage="wall";
-     }else if(x<-12.35){
-      fail("Normal steering missed hollow log mouth",s);return;
+     // The geometry owns entry: the skier crosses the open, west-facing log
+     // mouth at riding speed. No debug state writes and no fake Q activation.
+     if(s.entries>0){
+      entered=s;stage="wall";
+      // Steer into the wall using the same D key as a visitor.
+      hold("d",true);
+     }else if(x<-6.5||Math.abs(z-59.1)>1.6){
+      fail("Rider missed the actual hollow-log mouth",s);return;
      }
     }
     if(stage==="wall"&&s.entries>0){
