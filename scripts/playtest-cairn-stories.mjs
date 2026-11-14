@@ -28,7 +28,7 @@ try{
    null,{timeout:90000});
   await page.getByRole("button",{name:"Open navigation menu"}).click();
   const menu=page.getByRole("dialog");
-  await menu.getByRole("button",{name:new RegExp("^"+scenario.region)}).click();
+  await menu.getByRole("button",{name:new RegExp(scenario.region+"\\b")}).click();
   // Use actual Cairn navigation and live discovery instead of injecting UI state.
   const discovery=page.locator('button[class*="discovery"]');
   await discovery.waitFor({state:"visible",timeout:90000});
