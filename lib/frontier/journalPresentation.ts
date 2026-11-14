@@ -1,7 +1,7 @@
 import type { FrontierItem, FrontierLaneId, FrontierMetric, FrontierSourceFigure } from './types';
 
 export type JournalRealm = 'research' | 'neural' | 'behavior' | 'systems' | 'nature' | 'motion' | 'culture';
-export type JournalFormat = 'live' | 'measured' | 'visual' | 'technical' | 'brief';
+export type JournalFormat = 'live' | 'watch' | 'measured' | 'visual' | 'technical' | 'brief';
 
 const NEURAL_LANES: readonly FrontierLaneId[] = ['neuro_frontier'];
 const SYSTEM_LANES: readonly FrontierLaneId[] = ['builder_signal', 'competitions', 'creative_tech'];
@@ -57,6 +57,7 @@ export function journalSourceFigures(item: FrontierItem, figures: FrontierSource
 
 export function journalFormat(item: FrontierItem, hasSourceFigure: boolean): JournalFormat {
   if (item.sportsState) return 'live';
+  if (item.media?.type === 'video' || item.media?.type === 'youtube') return 'watch';
   if (journalMeasuredMetrics(item).length) return 'measured';
   if (hasSourceFigure) return 'visual';
   if (item.sourceKind === 'github' || item.artifacts?.some((artifact) => ['formula', 'benchmark', 'repository', 'release'].includes(artifact.kind))) {
@@ -85,11 +86,13 @@ export function journalPresentation(item: FrontierItem, hasSourceFigure: boolean
     : realm === 'culture' ? 'Culture & ideas'
     : 'Field report';
   const heading = format === 'live' ? 'The current picture'
+    : format === 'watch' ? 'What the footage shows'
     : format === 'measured' ? 'What the source reports'
     : format === 'visual' ? 'The story in context'
     : format === 'technical' ? 'The technical brief'
     : 'The essential context';
   const evidenceLabel = format === 'live' ? 'Scores & standings'
+    : format === 'watch' ? 'Original footage'
     : format === 'measured' ? 'Reported measurements'
     : format === 'visual' ? 'Source figures & evidence'
     : format === 'technical' ? 'Technical references'
