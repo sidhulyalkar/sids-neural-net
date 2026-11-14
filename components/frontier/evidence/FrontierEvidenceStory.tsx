@@ -49,8 +49,9 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
   const chapterFigureIds = new Set(activeChapter?.sections.flatMap((section) => section.figureIds) ?? []);
   // An unillustrated source section must never inherit another section's
   // image and imply that it supports the selected chapter.
-  const figure = !selectedChapter || chapterFigureIds.has(figures[index]?.id)
-    ? figures[index] : undefined;
+  const currentFigure = figures[index];
+  const figure = currentFigure && (!selectedChapter || chapterFigureIds.has(currentFigure.id))
+    ? currentFigure : undefined;
   const chooseChapter = (id: string) => {
     setSelectedChapter(id);
     setExpanded(false);
