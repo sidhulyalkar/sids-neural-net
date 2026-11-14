@@ -631,3 +631,12 @@
   font: 640 11px/1.3 var(--font-geist-sans), system-ui;
 }
 .imprintDocuments a:hover { background: var(--context-surface); }
+
+.figureAttribution { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 4px 10px; white-space: normal !important; text-align: right; }
+.figureAttribution a { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-weight: 640; text-decoration: none; }
+.figureAttribution a:hover { text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 560px) {
+  .caption { flex-wrap: wrap; }
+  .caption span:first-child { max-width: none; }
+  .figureAttribution { width: 100%; justify-content: flex-start; text-align: left; }
+}
