@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {existsSync} from "node:fs";
-import {REGIONS} from "../lib/world/model";
+import {REGIONS,MEMORY_POINTS} from "../lib/world/model";
 import {CAIRN_STORIES,cairnStoryFor,REGION_CAIRN_PHOTOS} from "../lib/world/cairnStories";
 import {getWorldContent} from "../lib/world/content";
 
@@ -38,7 +38,9 @@ test("Cairn stories retain distinct scientific, recreational and ecological dest
 test("Cairn photo collections use real archive images and keep the coast lightweight",()=>{
   const photos=getWorldContent().photos;
   const ids=new Set(photos.map(p=>p.id));
-  assert.ok(photos.length>=30);
+  assert.equal(photos.length,MEMORY_POINTS.length,
+    "The world intentionally curates a subset of the full 49-photo archive");
+  assert.ok(photos.length>6);
   for(const [region,collection] of Object.entries(REGION_CAIRN_PHOTOS)){
     assert.ok(REGIONS.some(r=>r.id===region),"unknown region "+region);
     assert.ok(collection!.length>0);

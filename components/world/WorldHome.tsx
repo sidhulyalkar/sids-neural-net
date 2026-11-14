@@ -512,7 +512,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const selected = REGIONS.find((r) => r.id === panel);
   const cairnStory=selected?cairnStoryFor(selected.id):null;
   // A short, curated glimpse of actual archive images prevents the coast
-  // Cairn from eagerly mounting all 49 thumbnails into one small dialog.
+  // Cairn from eagerly mounting every world memory into one small dialog.
   const cairnGalleryPhotos=selected
     ? selected.id==="coast"
       ? content.photos.slice(0,6)
