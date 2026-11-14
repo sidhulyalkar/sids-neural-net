@@ -73,6 +73,26 @@ test('generic social preview cards are not promoted to scientific figures', () =
     [sourceFigure]), [sourceFigure]);
 });
 
+test('original arXiv figures use the approved same-origin image proxy with source fallback', () => {
+  const item: FrontierItem = { ...fixture, url: 'https://arxiv.org/abs/2611.17323v1' };
+  const original = 'https://arxiv.org/html/2611.17323v1/x1.png';
+  const sourceFigure = { url: original, alt: 'Original publisher figure',
+    caption: 'Source caption: experimental setup for the published study.',
+    sourceUrl: 'https://arxiv.org/html/2611.17323v1#S1.F1' };
+  const figures = journalSourceFigures(item, [sourceFigure]);
+  assert.equal(figures.length, 1);
+  assert.equal(figures[0].url, '/api/frontier/media?url=' + encodeURIComponent(original));
+  assert.equal(figures[0].fallbackUrl, original);
+  assert.equal(figures[0].sourceUrl, sourceFigure.sourceUrl);
+  assert.deepEqual(journalSourceFigures(item, [{ ...sourceFigure,
+    url: 'https://arxiv.org/html/2611.99999v1/x1.png' }]), [{
+    ...sourceFigure, url: 'https://arxiv.org/html/2611.99999v1/x1.png',
+  }], 'Different papers cannot be treated as this paper figures');
+  const proxySecurity = fs.readFileSync('lib/frontier/media/proxySecurity.ts', 'utf8');
+  assert.match(proxySecurity, /'arxiv\.org'/);
+  assert.match(proxySecurity, /assertSafeMediaUrl/);
+});
+
 test('research threads require actual shared source tags rather than arbitrary visual proximity', () => {
   const shared = { ...fixture, id: 'shared', tags: ['Unlabeled Data', 'new method'] };
   const distant = { ...fixture, id: 'distant', tags: ['winter sports'] };
@@ -93,7 +113,7 @@ test('default reader uses source-evidence composition, never a duplicate text po
   assert.match(reader, /<FrontierJournalEvidence item=\{item\}/);
   assert.doesNotMatch(reader, /Editorial article cover/);
   assert.match(css, /font-size: clamp\(30px, 2\.9vw, 42px\)/);
-  for (const realm of ['research', 'neural', 'systems', 'nature', 'motion', 'culture']) {
+  for (const realm of ['research', 'neural', 'behavior', 'systems', 'nature', 'motion', 'culture']) {
     if (realm !== 'research') assert(css.includes("[data-realm='" + realm + "']"));
   }
   assert.match(evidence, /Reported, not inferred/);
