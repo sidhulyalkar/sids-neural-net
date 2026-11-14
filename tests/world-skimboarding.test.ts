@@ -332,7 +332,7 @@ test("dry sand, shallow wash and water use distinct boarding media",()=>{
 test("inland dry-sand rides lose speed and cannot pump indefinitely",()=>{
   const board=boardPoint(1),initial={x:board.x,z:northShoreZ(board.x)-10};
   const ready=pickupSkimBoard(board,1,idleSkimHeat());
-  let state=startSkimRide(ready,initial,9,{x:.98,z:.2});
+  let state=startSkimRide(ready,initial,9,{x:.95,z:.32});
   assert.equal(state.phase,"riding");
   let point=initial,peakDry=0;
   for(let tick=0;tick<90&&state.phase==="riding";tick++){

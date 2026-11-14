@@ -369,7 +369,11 @@ export function stepSkimHeat(
   s = { ...s, speed, heading, air, verticalSpeed, spin, airElapsed,
     ridePoints, waveHits, surface, drySeconds };
   const offshore = skimOffshore(point);
-  const clean = s.air<=0 && offshore < -9 && (s.waveHits > 0 || ridePoints > 35);
+  // A completed surf return ends on wet foreshore rather than demanding a
+  // long dry-sand slide inland. No wave encounter means no early clean exit.
+  const surfReturn=s.waveHits>0&&heading.z<-.05&&offshore< -1.5;
+  const clean=s.air<=0&&(surfReturn ||
+    (offshore < -9 && (s.waveHits > 0 || ridePoints > 35)));
   if (clean) s = commitRide(s, true);
   else if (drySeconds>.55 || speed < 2 || offshore > 29 || Math.abs(point.x) > 30 || offshore < -15) s = commitRide(s, false);
   else if (remaining === 0) s = commitRide(s, false);
