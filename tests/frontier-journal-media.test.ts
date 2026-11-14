@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
-import { journalMediaDuration, journalMediaPlan } from '../lib/frontier/journalMedia';
+import { journalMediaDuration, journalMediaPlan, journalSafePublicUrl } from '../lib/frontier/journalMedia';
 import { journalFormat } from '../lib/frontier/journalPresentation';
 import type { FrontierItem } from '../lib/frontier/types';
 
@@ -28,6 +28,10 @@ test('verified progressive source video can play only from its actual HTTPS asse
   assert.equal(journalMediaDuration(80), '1:20');
   assert.equal(journalMediaDuration(3663), '1:01:03');
   assert.equal(journalMediaDuration(Number.NaN), null);
+  assert.equal(journalSafePublicUrl('https://arxiv.org/html/2611.17323v1#S1.F1'),
+    'https://arxiv.org/html/2611.17323v1#S1.F1');
+  assert.equal(journalSafePublicUrl('https://127.0.0.1/admin'), undefined);
+  assert.equal(journalSafePublicUrl('javascript:alert(1)'), undefined);
 });
 
 test('YouTube watch surface opens the authentic source without a synthetic embed', () => {
