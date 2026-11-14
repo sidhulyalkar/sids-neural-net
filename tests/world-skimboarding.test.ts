@@ -160,7 +160,9 @@ test("easy trick assist produces an airborne rotation and a temporary landing ca
   assert.ok(maxSpin>Math.PI,"a visible rotation occurs before touchdown");
   assert.match(heat.lastTrick,/360 landed/);
   assert.ok(heat.trickCalloutTime>0);
-  for(let i=0;i<90;i++) heat=stepSkimHeat(heat,point,.05,3+i*.05,0,false).heat;
+  // The new shoreline return may show a fresh clean-ride callout after the
+  // trick; both messages must expire, including a late finishing callout.
+  for(let i=0;i<200;i++) heat=stepSkimHeat(heat,point,.05,3+i*.05,0,false).heat;
   assert.equal(heat.trickCalloutTime,0);
 });
 

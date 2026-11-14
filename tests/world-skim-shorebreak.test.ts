@@ -22,7 +22,8 @@ test("a real fast crest crossing gives substantial air, a completed trick and a 
   assert.ok(queued&&landed,"actual automatic launch and full trick, without pressing pop");
   assert.ok(apex>2.5&&apex<5);
   assert.match(h.lastTrick,/Clean ride/);
-  assert.ok(skimOffshore(p)<-9&&h.score>300);
+  // Finish a successful surf return in thin wash rather than sliding deep inland.
+  assert.ok(skimOffshore(p)<-1.5&&h.score>300);
   runs.push({apex,score:h.score});
  }
  assert.ok(Math.max(...runs.map(x=>x.apex))-Math.min(...runs.map(x=>x.apex))<.12);
