@@ -5,6 +5,7 @@ import { SnowTracks } from "./skiSnowTracks";
 import {createSkiContact,fitSkiContact,skiFollowYaw,constrainSkiCamera} from "./worldSkiContact";
 import {SkiVisualSole} from "./skiVisualSole";
 import {SkiHalfpipeQualification} from "@/lib/world/ski/halfpipeQualification";
+import {SkiTrickQualification} from "@/lib/world/ski/trickQualification";
 import {reefCanyonConstrainSwim,reefCanyonNear} from "@/lib/world/reefCanyon";
 import {createMossCanyonReef} from "./worldMossCanyonReef";
 import {bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
@@ -1950,6 +1951,16 @@ export function createWorld(
   const skiV3Enabled = skiPresentation && process.env.NEXT_PUBLIC_SKI_V3 === "1";
   let ride: SkiSimulation | null = null;
   let skiHalfpipe=new SkiHalfpipeQualification();
+  let skiTricks=new SkiTrickQualification();
+  let skiTrickNoticeUntil=0;
+  // A successful *player-executed* aerial rotation deserves quiet feedback.
+  // Never show a badge for an assisted animation or an incomplete landing.
+  const skiTrickNotice=document.createElement("div");
+  skiTrickNotice.setAttribute("role","status");
+  skiTrickNotice.setAttribute("aria-live","polite");
+  skiTrickNotice.setAttribute("aria-label","Landed skiing trick");
+  skiTrickNotice.style.cssText="display:none;position:absolute;top:19%;left:50%;transform:translateX(-50%);z-index:8;pointer-events:none;max-width:86%;padding:9px 16px;border-radius:13px;background:#143443df;border:1px solid #e8f5f3a8;color:#fff;text-align:center;font:750 17px/1.3 system-ui,sans-serif;text-shadow:0 1px 2px #0b2535";
+  host.appendChild(skiTrickNotice);
   let rideSnow: ReturnType<typeof renderedSnowHeight> | null = null;
   let runoutComplete=false;
   const skiCollision=(from:THREE.Vector3,to:THREE.Vector3)=>{
@@ -4185,7 +4196,8 @@ export function createWorld(
       const previousPoint = { ...player };
       const previousY = playerY;
       const useSkiRide = onSkiFace() && (ride !== null || airHeight <= .001);
-      if (!useSkiRide && ride) { ride = null; tracks?.reset(); tapTicks = 0; }
+      if (!useSkiRide && ride) { ride = null; tracks?.reset(); tapTicks = 0;
+        skiTrickNotice.style.display="none"; skiTrickNoticeUntil=0; }
       if(jetSki){
         const drive=jetSkiControlInput(keys,jetTouchInput,jetBoostState.active,jetSki.speed);
         const previousGate=jetSki.checkpoint;
@@ -4671,6 +4683,8 @@ export function createWorld(
         if (!ride) {
           ride = new SkiSimulation(rideSnow, player.x, player.z, "independent",false,skiCollision);
           skiHalfpipe=new SkiHalfpipeQualification();
+          skiTricks=new SkiTrickQualification();
+          skiTrickNotice.style.display="none";
           runoutComplete=false;
           ride.velocity.set(travel.heading.x, 0, travel.heading.z).multiplyScalar(travel.speed);
           ride.setHeading(travel.heading.x, travel.heading.z);
@@ -4684,12 +4698,18 @@ export function createWorld(
         skiInput.brake = forward < 0 || inRunout;
         skiInput.tuck = forward > 0;
         skiInput.grab = keys.has("shift");
-        ride.advance(rawDelta, readSkiInput,sim=>{
+        ride.advance(rawDelta, readSkiInput,(sim,input)=>{
+          const trick=skiTricks.observe(sim,input);
+          if(trick?.qualified){
+            skiTrickNotice.textContent=`${trick.name}° · clean landing`;
+            skiTrickNoticeUntil=elapsed+2.2;
+          }
           skiHalfpipe.observe({tick:sim.tick,x:sim.position.x,z:sim.position.z,
             vx:sim.velocity.x,speed:Math.hypot(sim.velocity.x,sim.velocity.z),
             grounded:sim.phase!=="air"&&sim.contact.some(Boolean)});
         });
         tracks?.update(ride);
+        skiTrickNotice.style.display=elapsed<skiTrickNoticeUntil?"block":"none";
         player = {x:ride.position.x,z:ride.position.z};
         playerY = ride.position.y;
         const horizontal = Math.hypot(ride.velocity.x,ride.velocity.z);
@@ -5315,6 +5335,13 @@ export function createWorld(
           canvas.dataset.skiTick=String(ride.tick);
           canvas.dataset.skiAngularY=String(ride.angular.y);
           canvas.dataset.skiAirSpinRadians=String(ride.airSpinRadians);
+          canvas.dataset.skiTrickSerial=String(skiTricks.serial);
+          canvas.dataset.skiTrickName=skiTricks.latest?.name??"";
+          canvas.dataset.skiTrickQualified=String(skiTricks.latest?.qualified??false);
+          canvas.dataset.skiTrickLanding=skiTricks.latest?.landing??"";
+          canvas.dataset.skiTrickInputTicks=String(skiTricks.latest?.inputSteeringTicks??0);
+          canvas.dataset.skiTrickTakeoffTick=String(skiTricks.latest?.takeoffTick??-1);
+          canvas.dataset.skiTrickTouchdownTick=String(skiTricks.latest?.touchdownTick??-1);
           canvas.dataset.skiInputSteer=String(skiInput.steer);
           canvas.dataset.skiInputJump=String(skiInput.jump);
           canvas.dataset.skiInputRoll=String(skiInput.roll);
@@ -7801,6 +7828,7 @@ export function createWorld(
       } else schedule();
     },
     dispose() {
+      skiTrickNotice.remove();
       tracks?.dispose();
       skiSoleVisuals.forEach(sole=>sole.dispose());
       arcadeGraffiti.dispose();
