@@ -64,6 +64,19 @@ async function missingAsset(browser) {
   return { failedAsset: true, sourceStillAvailable: true };
 }
 
+async function privateStoryBoundaries(browser) {
+  const page = await browser.newPage();
+  const origin = new URL(TARGET).origin;
+  const unknownStory = await page.request.get(origin + '/frontier/story/not-a-published-article');
+  assert.equal(unknownStory.status(), 404, 'Unknown public story must not display a synthetic fallback');
+  const missingAsset = await page.request.get(origin + '/api/frontier/story-assets/not-a-published-article/' + 'a'.repeat(64));
+  assert.equal(missingAsset.status(), 404, 'Private image gateway must not return unknown bytes');
+  const traversal = await page.request.get(origin + '/api/frontier/story-assets/%2E%2E/' + 'b'.repeat(64));
+  assert.notEqual(traversal.status(), 200, 'Encoded directory traversal must never expose an image');
+  await page.close();
+  return { unknownStory404: true, unknownAsset404: true, traversalRefused: true };
+}
+
 async function main() {
   await mkdir(OUT, { recursive: true });
   const browser = await chromium.launch({ headless: true });
@@ -73,6 +86,7 @@ async function main() {
       results.push(await view(browser, width, height));
     }
     results.push(await missingAsset(browser));
+    results.push(await privateStoryBoundaries(browser));
     console.log(JSON.stringify({ status: 'passed', results }));
   } finally {
     await browser.close();
