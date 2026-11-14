@@ -130,6 +130,31 @@ def create_review(payload: bytes, acquired_at: str, acquisition: str) -> tuple[d
     return candidates, source_report
 
 
+def make_figure_review_queue(candidates: dict) -> list[dict]:
+    """Candidate IDs and caption digests for a future explicit human review.
+
+    This is intentionally NOT a builder approval schema. A maintainer must
+    separately supply genuine verified image bytes, rights and attribution.
+    """
+    queue = []
+    for index, figure in enumerate(candidates["figures"], start=1):
+        queue.append({
+            "candidateNumber": index,
+            "sourceFigureId": figure["id"],
+            "sourceUrl": figure["sourceUrl"],
+            "imageUrl": figure["imageUrl"],
+            "sectionId": figure["sectionId"],
+            "caption": figure["caption"],
+            "captionSha256": hashlib.sha256(figure["caption"].encode("utf-8")).hexdigest(),
+            "reviewState": "pending",
+            "assetBytesVerified": False,
+            "publisherCaptionVerified": False,
+            "figureRights": {"display": "unknown", "license": None, "attribution": None},
+            "displayApproved": False,
+        })
+    return queue
+
+
 def write_report(directory: Path, candidates: dict, report: dict, source_html: bytes | None = None) -> None:
     directory.mkdir(parents=True, exist_ok=False)
     (directory / "candidates.json").write_text(
@@ -137,6 +162,10 @@ def write_report(directory: Path, candidates: dict, report: dict, source_html: b
     )
     (directory / "report.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+    (directory / "figure_review_queue.json").write_text(
+        json.dumps(make_figure_review_queue(candidates), indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
     )
     # Temporary build input only. The workflow uploads the JSON audit and
     # source-only manifests, never the downloaded publisher HTML bytes.
