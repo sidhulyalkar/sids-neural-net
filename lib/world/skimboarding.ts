@@ -371,7 +371,7 @@ export function stepSkimHeat(
   const offshore = skimOffshore(point);
   // A completed surf return ends on wet foreshore rather than demanding a
   // long dry-sand slide inland. No wave encounter means no early clean exit.
-  const surfReturn=s.waveHits>0&&heading.z<-.05&&offshore< -1.5;
+  const surfReturn=s.waveHits>0&&heading.z<-.05&&offshore< -4.1;
   const clean=s.air<=0&&(surfReturn ||
     (offshore < -9 && (s.waveHits > 0 || ridePoints > 35)));
   if (clean) s = commitRide(s, true);
