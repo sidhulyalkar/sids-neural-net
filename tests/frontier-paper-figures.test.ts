@@ -47,8 +47,10 @@ test('missing captions and unsafe locations cannot become scientific evidence', 
   }
   const escaped = '<figure class="ltx_figure"><img src="img&amp;one.png"><figcaption>'
     + 'Figure 2: Birds &amp; their habitats&#46; Detailed results.</figcaption></figure>';
-  assert.deepEqual(extractArxivHtmlFigures(escaped, '2611.17323v1'), [],
-    'Query-looking filenames are intentionally not promoted to paper figures');
+  const entityFigure = extractArxivHtmlFigures(escaped, '2611.17323v1');
+  assert.equal(entityFigure.length, 1, 'Caption-backed original source assets remain valid');
+  assert.equal(entityFigure[0].url, 'https://arxiv.org/html/2611.17323v1/img&one.png');
+  assert.equal(entityFigure[0].caption, 'Figure 2: Birds & their habitats. Detailed results.');
 });
 
 test('source fetch fails closed for 404, wrong content type, wrong host and unsupported IDs', async () => {
