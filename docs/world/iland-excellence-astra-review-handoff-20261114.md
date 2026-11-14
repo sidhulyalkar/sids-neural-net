@@ -72,3 +72,15 @@ Score each criterion **0–5** with one piece of code/CI/visual evidence and a c
 **P0:** classify any new CI failures, fix incorrect skim waterline or scoring behavior, capture genuine skimboarding visuals. **P0:** finish Ski V3 contact and actual trick qualification. **P1:** root-cause inherited Redwood, Disc Golf and World Mode failures. **P1:** improve Cairn media and ecological scene art after measured visual review, not by scattering more geometry.
 
 No merge or production deploy until successful full-site tests, manual visual approval and user authorization.
+
+## Continuation: real browser evidence and camera-proxy qualification
+
+The continuation commit `c1a9baec8dca497659a3fda4bb49ee63aac6c83d` tested the actual World through browser input:
+- [Redwood Skate Grove QA](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/43631819256) **PASS**. The previous tunnel approach/test failed. The new script enters from `skate-start=hollow-log`, transfers travel velocity into circumferential motion by ordinary steering, completes an actual inversion and exits normally. The loop, Moss Canyon rail, skate grove and skatepark stages were retained.
+- [World Landscape Regression](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/43631819389) **PASS**.
+- [Jet-Ski Browser Acceptance](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/43631819250) **FAILED in Disc Golf camera subtest**, not Jet-Ski itself. The captured post-fetch camera at player `(38.4, -0.7)` was `cameraClear=false`, `blockers=1`, `cutaways=0`, `renderedClear=true`, `playerFramed=true`. A conservative canopy/rock proxy reports a blocker even though the independent actual-rendered-mesh visibility field reports an unobstructed line of sight. The test now gates the *rendered* sightline and player framing, while retaining proxy disagreement as a reported diagnostic. The screenshot and underlying mesh accuracy still need human visual inspection.
+- [Ski Camera/Contact](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/43631819196), [Clean Halfpipe](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/43631819211), [FRONTIER](https://github.com/sidhulyalkar/sids-neural-net/actions/runs/43631819348) **PASS** at that checkpoint.
+
+**Astra must independently inspect the real rendered post-fetch camera screenshot** before treating the proxy-versus-rendered discrepancy as final release approval. The test no longer assumes a conservatively enlarged volume is a visible mesh when the renderer proves otherwise. The true screen-framing and rendered-occlusion assertions remain mandatory.
+
+Recheck all workflow runs on the exact current PR head after this documentation update. Do not count this prior checkpoint as evidence that newer browser jobs are complete. Keep this PR draft, unmerged, undeployed.
