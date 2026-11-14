@@ -18,6 +18,7 @@ export default function FrontierEvidenceAudit() {
     attribution: 'Synthetic visual regression data, not a research result' };
   const locator = (suffix: string) => ({
     sourceId: source.id, sourceUrl: source.url + '#' + suffix, revision: source.revision,
+    section: suffix === 'figure-one' ? 'S2' : suffix === 'figure-two' ? 'S3' : suffix,
   });
   const figure = (id: string, suffix: string, caption: string, letter: string) => ({
     type: 'figure' as const, id,
@@ -30,6 +31,14 @@ export default function FrontierEvidenceAudit() {
     source, extractorVersion: 'synthetic-audit-only', compilerVersion: 'synthetic-audit-only',
     builtAt: '2026-11-14T19:13:13.373Z', state: 'partial',
     evidence: [
+      { id: 'section-intro', type: 'quotation', status: 'publisher-reported',
+        locator: locator('S1'), text: '1 Introduction' },
+      { id: 'section-method', type: 'quotation', status: 'publisher-reported',
+        locator: locator('S2'), text: '2 Experiment Design' },
+      { id: 'section-results', type: 'quotation', status: 'publisher-reported',
+        locator: locator('S3'), text: '3 Results' },
+      { id: 'section-limits', type: 'quotation', status: 'publisher-reported',
+        locator: locator('S4'), text: '4 Limitations and future work' },
       figure('figure-one', 'figure-one', 'Figure one: A source-shaped synthetic schematic for testing image display and provenance.', 'a'),
       figure('figure-two', 'figure-two', 'Figure two: A second synthetic schematic for testing navigation and mobile readability.', 'b'),
     ],
