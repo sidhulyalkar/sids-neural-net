@@ -50,6 +50,7 @@ test("halfpipe: cannot count opposite bank without time and downhill travel",()=
   q.observe(sample(17,3,-49.9,-2));
   assert.equal(q.metrics.bankCrossings,0);
   q.observe(sample(20,3,-49.5,-2));
+  q.observe(sample(29,3,-48,-2));
   assert.equal(q.metrics.bankCrossings,0,"requires renewed center approach");
   q.observe(sample(30,7,-48,-2));
   q.observe(sample(42,3,-47,-2));
