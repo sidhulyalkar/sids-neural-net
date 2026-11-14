@@ -640,3 +640,49 @@
   .caption span:first-child { max-width: none; }
   .figureAttribution { width: 100%; justify-content: flex-start; text-align: left; }
 }
+
+/* Themed editorial shelves, not a second dashboard. All sections reuse the
+ * identical provenance/evidence grammar and a single mounted article. */
+.sectionNavigation {
+  width: 100%; border-bottom: 1px solid var(--line);
+  background: var(--paper-soft); overflow: hidden;
+  transition: background-color 260ms ease, border-color 260ms ease;
+}
+.sectionNavigationInner {
+  display: flex; gap: clamp(18px, 2.5vw, 38px); align-items: stretch;
+  max-width: 1600px; margin: 0 auto; padding: 0 clamp(24px, 4vw, 68px);
+  overflow-x: auto; overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+.sectionNavigationInner::-webkit-scrollbar { display: none; }
+.sectionTab {
+  min-height: 48px; position: relative; display: flex; align-items: center;
+  gap: 9px; flex: 0 0 auto; padding: 10px 1px;
+  border: 0; border-radius: 0; background: transparent;
+  color: var(--muted); white-space: nowrap;
+  font: 570 12px/1.25 var(--font-geist-sans), system-ui, sans-serif;
+  transition: color 180ms ease;
+}
+.sectionTab:hover { color: var(--ink); }
+.sectionTab[aria-selected='true'] { color: var(--ink); font-weight: 720; }
+.sectionTab[aria-selected='true']::after {
+  content: ''; position: absolute; height: 2px; left: 0; right: 0;
+  bottom: 0; background: var(--accent);
+}
+.sectionTabCount {
+  color: var(--faint); font: 460 10px/1 var(--font-geist-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}
+.sectionTab[aria-selected='true'] .sectionTabCount { color: var(--accent); }
+@media (max-width: 780px) {
+  .sectionNavigationInner { gap: 21px; padding: 0 22px; }
+  .sectionTab { min-height: 46px; font-size: 12px; }
+}
+@media (max-width: 560px) {
+  .sectionNavigationInner { gap: 17px; padding: 0 18px; }
+  .sectionTab { min-height: 43px; font-size: 11px; }
+  .sectionTabCount { font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sectionNavigation, .sectionTab { transition: none; }
+}
