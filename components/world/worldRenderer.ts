@@ -69,6 +69,7 @@ import { SHRINE_GALLERY, GALLERY_VIEWING, galleryConstrainMove, galleryStepWalk,
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import {resolveBikeTerrainSightline} from "@/lib/world/terrainCameraSightline";
+import {northShoreLogBlocksView,resolveNorthShoreCamera} from "@/lib/world/northShoreCamera";
 import { createSkimWake } from "./worldSkimWake";
 import { createNorthShoreLife } from "./worldNorthShoreLife";
 import { ringSurface, ribbon } from "./worldGeometry";
@@ -3248,7 +3249,7 @@ export function createWorld(
   const quality = new QualityController();
   let skiCameraYaw=0, skiCameraActive=false, skiLookUntil=0, snapSkiCamera=false;
   // Bike region fast travel must never lerp the lens through a mountain.
-  let snapBikeCamera=false;
+  let snapBikeCamera=false,snapShoreCamera=false;
   const bikeCameraFocus=new THREE.Vector3(),bikeScreenProbe=new THREE.Vector3();
   let yaw = 0.25,
     pitch = 0.32,
@@ -6815,12 +6816,31 @@ export function createWorld(
       }
       snowPuffs.instanceMatrix.needsUpdate=true;
     }
-    if(showingDiscGolfIntro || snapDiscCamera || snapSkiCamera || snapBikeCamera){
+    // Skimboarding beach and ordinary coastal exploration must look around
+    // the physical log, never straight through its huge bark exterior.
+    const shoreCameraActive=r==="north-shore"&&aquatic==="land"&&
+      !sequoiaCamera&&!skateTunnelRide&&!skateLoopRide&&!surfing&&
+      galleryPhase==="outside"&&discGolf.phase==="off"&&
+      bigAir.phase==="idle"&&!jetSki&&
+      Math.abs(player.x)<23&&player.z>northShoreZ(player.x)-10&&
+      player.z<northShoreZ(player.x)+11;
+    if(shoreCameraActive){
+      const pose=resolveNorthShoreCamera(targetCamera,targetLook,
+        (x,z)=>worldFloorHeight(x,z));
+      if(pose.adjusted)
+        targetCamera.set(pose.point.x,pose.point.y,pose.point.z);
+      canvas.dataset.northShoreCameraAdjusted=String(pose.adjusted);
+      canvas.dataset.northShoreCandidateClear=String(pose.clear);
+    }else{
+      canvas.dataset.northShoreCameraAdjusted="n/a";
+      canvas.dataset.northShoreCandidateClear="n/a";
+    }
+    if(showingDiscGolfIntro || snapDiscCamera || snapSkiCamera || snapBikeCamera || snapShoreCamera){
       // A direct time-derived pose starts on the basket instead of slowly
       // drifting there from a camera that previously followed the player.
       camera.position.copy(targetCamera);
       look.copy(targetLook);
-      snapDiscCamera=false;snapSkiCamera=false;snapBikeCamera=false;
+      snapDiscCamera=false;snapSkiCamera=false;snapBikeCamera=false;snapShoreCamera=false;
     }else{
       // Fast enough to keep the flying disc on screen, with smooth
       // cinematic blends instead of jumping between subjects.
@@ -6830,6 +6850,12 @@ export function createWorld(
       camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
       look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
     }
+    if(shoreCameraActive&&northShoreLogBlocksView(camera.position,look)){
+      camera.position.copy(targetCamera);
+      look.copy(targetLook);
+    }
+    canvas.dataset.northShoreRenderedCameraClear=shoreCameraActive?
+      String(!northShoreLogBlocksView(camera.position,look)):"n/a";
     if(skiCameraActive){
       // Clear the actual ski contact, not only a lagging look target.
       skiFootFocus.copy(explorer.position);skiFootFocus.y+=.12;
@@ -7620,6 +7646,8 @@ export function createWorld(
       if (next.command && next.command.serial !== lastSerial) {
         // Snap only biking transfers; Astra owns all ski camera handoffs.
         snapBikeCamera=next.activity==="bike"||next.command.activity==="bike";
+        snapShoreCamera=next.command.region==="north-shore"&&
+          next.activity!=="ski"&&next.command.activity!=="ski";
         if(skimHeat.phase!=="off"){
           skimHeat=idleSkimHeat();callbacks.onSkim(skimHeat);
         }
@@ -7755,10 +7783,13 @@ export function createWorld(
                 ? 1.15
                 : r.id === "lagoon"
                   ? -1.15
-                 : r.id === "north-shore" ? Math.PI
+                 : r.id === "north-shore" ? 2.0
                   : r.id === "neural"
                     ? -0.6
                     : 0.25;
+        }
+        if(r.id==="north-shore"&&next.command.activity!=="ski"){
+          pitch=.37;zoom=Math.min(zoom,16);
         }
         if (r.id === "cavern") {
           yaw = Math.PI;

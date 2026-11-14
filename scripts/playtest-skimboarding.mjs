@@ -72,6 +72,11 @@ try {
     waves:c.dataset.skimWaveRibbons,
   }));
   assert.ok(start.drawCalls>0);
+  await page.waitForFunction(()=>{
+    const d=document.querySelector('canvas[role="application"]')?.dataset;
+    return d?.northShoreRenderedCameraClear==="true";
+  },null,{timeout:15000});
+  assert.equal(await attr("north-shore-candidate-clear"),"true");
   await snap("01-north-shore");
   checks.push("North shore reachable; continuous wave surface rendered");
   const pickup=page.getByRole("button",{name:/Pick up aqua skimboard/});
@@ -282,6 +287,10 @@ try {
     return d?.skimPhase==="off"&&d?.shoreLifeVisible==="true";
   },null,{timeout:15000});
   await page.getByRole("button",{name:/Pick up aqua skimboard/}).waitFor({state:"visible"});
+  await page.waitForFunction(()=>{
+    const d=document.querySelector('canvas[role="application"]')?.dataset;
+    return d?.northShoreRenderedCameraClear==="true";
+  },null,{timeout:15000});
   await snap("07-beach-return-from-skatepark");
   checks.push("Single World session switches beach → rainforest → redwood skatepark → beach");
   assert.deepEqual(errors,[]);
