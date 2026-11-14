@@ -63,10 +63,20 @@ class PublisherProbeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "review"
             pilot.write_report(out, candidates, report)
-            self.assertEqual(sorted(x.name for x in out.iterdir()), ["candidates.json", "report.json"])
+            self.assertEqual(sorted(x.name for x in out.iterdir()), ["candidates.json", "figure_review_queue.json", "report.json"])
             copy = json.loads((out / "report.json").read_text())
             self.assertEqual(copy["sourceHtmlSha256"], report["sourceHtmlSha256"])
             self.assertEqual(copy["license"]["paperPageLicense"], "unverified")
+            queue = json.loads((out / "figure_review_queue.json").read_text())
+            self.assertEqual(len(queue), 2)
+            self.assertEqual(queue[0]["reviewState"], "pending")
+            self.assertFalse(queue[0]["displayApproved"])
+            self.assertFalse(queue[0]["assetBytesVerified"])
+            self.assertEqual(queue[0]["figureRights"]["display"], "unknown")
+            self.assertEqual(
+                queue[0]["captionSha256"],
+                hashlib.sha256(candidates["figures"][0]["caption"].encode("utf-8")).hexdigest()
+            )
             with self.assertRaises(FileExistsError):
                 pilot.write_report(out, candidates, report)
 
@@ -99,11 +109,6 @@ class PublisherProbeTests(unittest.TestCase):
 
         with patch.object(pilot.urllib.request, "build_opener", return_value=FakeOpener()):
             self.assertEqual(pilot.fetch_exact_source(), self.fixture)
-        self.assertIsNone(
-            pilot.RefuseRedirect().redirect_request(
-                None, None, 302, "redirect", None, pilot.SOURCE_URL
-            ) if False else None
-        )
         with self.assertRaisesRegex(ValueError, "redirect not approved"):
             pilot.RefuseRedirect().redirect_request(
                 None, None, 302, "redirect", {}, "https://other.example/evil"
