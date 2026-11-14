@@ -53,3 +53,16 @@ test("charged input trace lands a half and full rotation at four render cadences
     }
   }
 });
+
+test("a skier moving over a convex lip departs with no jump input",()=>{
+  const height=(_x:number,z:number)=>z<0?.35*z:-.9*z;
+  const sim=new SkiSimulation(height,0,-4,"independent");
+  sim.velocity.set(0,2.8,8);
+  let flightTicks=0;
+  for(let tick=0;tick<220;tick++){
+    sim.advance(tuning.dt,()=>neutral);
+    if(sim.phase==="air")flightTicks++;
+  }
+  assert.ok(flightTicks>1);
+  assert.notEqual(sim.landing,"none");
+});
