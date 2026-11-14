@@ -156,6 +156,7 @@ export function compileArxivEvidence(input: {
     text: section.title,
   }));
   const assets: VerifiedFigureAsset[] = [];
+  const consumedApprovals = new Set<string>();
 
   const approved = new Map<string, ApprovedFigure>();
   for (const figure of input.approvals ?? []) {
@@ -165,6 +166,7 @@ export function compileArxivEvidence(input: {
   for (const [index, figure] of parsed.figures.entries()) {
     const approval = approved.get(figure.sourceUrl);
     if (!approval) continue;
+    consumedApprovals.add(figure.sourceUrl);
     if (approval.imageUrl !== figure.imageUrl) {
       throw new Error('Figure image changed since rights/asset review');
     }
@@ -193,6 +195,10 @@ export function compileArxivEvidence(input: {
       rights,
     });
     assets.push({ key, sourceUrl: figure.imageUrl, mimeType, bytes: approval.bytes });
+  }
+
+  for (const key of approved.keys()) {
+    if (!consumedApprovals.has(key)) throw new Error('Asset approval references no candidate from this paper');
   }
 
   const candidate: StoryManifest = {
