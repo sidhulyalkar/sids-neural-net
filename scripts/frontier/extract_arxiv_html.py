@@ -22,7 +22,7 @@ from urllib.parse import quote, urljoin, urlsplit, unquote
 PAPER_ID_RE = re.compile(r"^\d{4}\.\d{4,5}v[1-9]\d*$")
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9:_.-]{1,120}$")
 ASSET_EXT_RE = re.compile(r"\.(?:png|jpe?g|webp)$", re.IGNORECASE)
-MAX_INPUT_BYTES = 1_400_000
+MAX_INPUT_BYTES = 12 * 1024 * 1024  # bounded offline source documents; no browser payload
 MAX_SECTIONS = 40
 MAX_FIGURES = 12
 MAX_CAPTION = 1_200
