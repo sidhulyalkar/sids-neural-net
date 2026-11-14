@@ -48,6 +48,7 @@ test('fully offline build emits atomic private source-only bundle with no fictio
     const provenance = JSON.parse(readFileSync(join(out, 'provenance.json'), 'utf8'));
     assert.match(provenance.htmlSha256, /^[0-9a-f]{64}$/);
     assert.equal(provenance.extractedFigureCandidates, 2);
+    assert.equal(provenance.rightsStatus, 'pending-figure-review');
     assert.equal(provenance.approvedDisplayAssets, 0);
 
     const duplicate = runBuild(out);
@@ -84,6 +85,8 @@ test('verified review binds original caption, rights and actual asset bytes to a
     assert.equal(result.status, 0, result.stderr);
     const manifest = parseQualifiedStoryManifest(JSON.parse(readFileSync(join(out, 'manifest.json'), 'utf8')));
     assert.equal(manifest.scenes.length, 1);
+    const provenance = JSON.parse(readFileSync(join(out, 'provenance.json'), 'utf8'));
+    assert.equal(provenance.rightsStatus, 'approved-for-listed-assets');
     assert.equal(manifest.scenes[0].type, 'original-figure');
     const digest = createHash('sha256').update(png).digest('hex');
     const assets = JSON.parse(readFileSync(join(out, 'assets.json'), 'utf8'));
