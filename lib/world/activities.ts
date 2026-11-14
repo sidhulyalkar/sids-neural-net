@@ -55,7 +55,9 @@ export const ACTIVITIES = [
     acceleration: 7,
     braking: 4,
     action: "Hop",
-    hint: "Snow and mountain jumps · Aim and shoot glowing rings for speed boosts",
+    hint: process.env.NEXT_PUBLIC_SKI_V3==="1"
+      ? "A/D carve or spin · W/S tuck or brake, pitch in air · Hold Space and release to jump · Q/E roll · Shift grab"
+      : "WASD ski · Space to hop",
   },
   {
     id: "boulder",

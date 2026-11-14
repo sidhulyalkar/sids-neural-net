@@ -1,4 +1,7 @@
 import {worldFrameDelta} from "@/lib/world/frameTiming";
+import { SkiSimulation, neutral as neutralSkiInput } from "@/lib/world/ski/simulation";
+import { renderedSnowHeight } from "@/lib/world/ski/renderedSnow";
+import { SnowTracks } from "./skiSnowTracks";
 import {createSkiContact,fitSkiContact,skiFollowYaw,constrainSkiCamera} from "./worldSkiContact";
 import {reefCanyonConstrainSwim,reefCanyonNear} from "@/lib/world/reefCanyon";
 import {createMossCanyonReef} from "./worldMossCanyonReef";
@@ -1933,6 +1936,23 @@ export function createWorld(
   const skiPresentation=new URLSearchParams(window.location.search).get("ski-view")!=="legacy";
   const skiKnees=legs.map(()=>mesh(boxGeo,dark,[0,0,0],[.19,.36,.23],bodyRoot));
   skiKnees.forEach(k=>{k.visible=false});
+  const skiV3Enabled = skiPresentation && process.env.NEXT_PUBLIC_SKI_V3 === "1";
+  let ride: SkiSimulation | null = null;
+  let rideSnow: ReturnType<typeof renderedSnowHeight> | null = null;
+  let tracks: SnowTracks | null = null;
+  let tapTicks = 0;
+  const skiInput = {...neutralSkiInput};
+  const readSkiInput = () => {
+    skiInput.jump = keys.has(" ") || tapTicks > 0;
+    if(tapTicks > 0) tapTicks--;
+    return skiInput;
+  };
+  function onSkiFace() {
+    return skiV3Enabled && state.activity === "ski" && aquatic === "land" &&
+      caveLayer === "surface" && galleryPhase === "outside" && bigAir.phase === "idle" &&
+      !grind && !climb && !jetSki && !jetChoosing && discGolf.phase === "off" &&
+      skimHeat.phase === "off" && mountainHalfpipeApproachClearance(player);
+  }
   const skiAirRotation=new THREE.Quaternion();
   const skiAirBones=[...legs,...skiKnees].map(()=>({position:new THREE.Vector3(),rotation:new THREE.Quaternion(),scale:new THREE.Vector3()}));
   let skiPoseReady=false;
@@ -3838,6 +3858,9 @@ export function createWorld(
     }
     // The land jump action must not fire while steering a jet ski.
     if(jetSki&&key===" "){if(e.target===canvas)e.preventDefault();return;}
+    if (onSkiFace() && [" ", "q", "e"].includes(key)) {
+      keys.add(key); e.preventDefault(); return;
+    }
     if (key === "shift") keys.add(key);
     if (key === " " && !e.repeat && aquatic === "land") {
       e.preventDefault();
@@ -3965,6 +3988,7 @@ export function createWorld(
       bigAir.phase==="flying"||
       climb||(grind&&state.activity!=="skate"&&!backsideLogs.some(log=>log.id===grind?.log.id))||
       (airHeight>0.01&&!(state.activity==="skate"&&verticalSpeed>0.1)))return;
+    if(onSkiFace()){tapTicks=18;return;}
     if(grind&&state.activity==="ski"){
       grind=null;verticalSpeed=5.5;airHeight=.04;lastRampAt=elapsed;return;
     }
@@ -4036,6 +4060,7 @@ export function createWorld(
     verticalSpeed = state.activity === "boulder" ? 7 : 5;
   }
   function clearInput() {
+    tapTicks=0;
     if(skateTrick.manual!=="none"){
       const next=finishSkateManual(skateTrick,elapsed);
       commitSkateTrick(next);
@@ -4142,6 +4167,8 @@ export function createWorld(
       }
       const previousPoint = { ...player };
       const previousY = playerY;
+      const useSkiRide = onSkiFace() && (ride !== null || airHeight <= .001);
+      if (!useSkiRide && ride) { ride = null; tracks?.reset(); tapTicks = 0; }
       if(jetSki){
         const drive=jetSkiControlInput(keys,jetTouchInput,jetBoostState.active,jetSki.speed);
         const previousGate=jetSki.checkpoint;
@@ -4618,6 +4645,31 @@ export function createWorld(
           playerY = SEA_SURFACE - (aquatic === "dive" ? Math.max(0.52, swimDepth) : 0.42);
         }
         }
+      } else if (useSkiRide) {
+        rideSnow ??= renderedSnowHeight(terrain, worldFloorHeight);
+        if (!ride) {
+          ride = new SkiSimulation(rideSnow, player.x, player.z, "independent");
+          ride.velocity.set(travel.heading.x, 0, travel.heading.z).multiplyScalar(travel.speed);
+          ride.setHeading(travel.heading.x, travel.heading.z);
+          if(!tracks){tracks = new SnowTracks(rideSnow);scene.add(tracks.mesh);}
+        }
+        // Local +X points left on screen with the skier facing downhill (+Z).
+        skiInput.steer = -right;
+        skiInput.pitch = forward;
+        skiInput.roll = Number(keys.has("q")) - Number(keys.has("e"));
+        skiInput.brake = forward < 0;
+        skiInput.tuck = forward > 0;
+        skiInput.grab = keys.has("shift");
+        ride.advance(rawDelta, readSkiInput);
+        tracks?.update(ride);
+        player = {x:ride.position.x,z:ride.position.z};
+        playerY = ride.position.y;
+        const horizontal = Math.hypot(ride.velocity.x,ride.velocity.z);
+        travel = {point:player,speed:horizontal,heading:horizontal>.05?
+          {x:ride.velocity.x/horizontal,z:ride.velocity.z/horizontal}:travel.heading};
+        airHeight = ride.phase==="air"?Math.max(.002,playerY-rideSnow(player.x,player.z)):0;
+        verticalSpeed = ride.phase==="air"?ride.velocity.y:0;
+        destination = null;
       } else {
         const previousHeading={...travel.heading};
         travel = stepTravel(
@@ -4819,7 +4871,7 @@ export function createWorld(
       if(isRideMode(watchedRideMode)&&caveLayer==="surface"&&
          aquatic==="land"&&!jetSki&&!jetChoosing&&
          discGolf.phase==="off"&&skimHeat.phase==="off"){
-        const controlled=!!grind||!!climb||!!skateLoopRide||
+        const controlled=!!ride||!!grind||!!climb||!!skateLoopRide||
           !!skateTunnelRide||!!skateRailGapRide||
           bigAir.phase==="armed"||bigAir.phase==="flying";
         const grounded=airHeight<=.03&&Math.abs(verticalSpeed)<.15;
@@ -5150,12 +5202,14 @@ export function createWorld(
         if(bikeContact)canvas.dataset.bikeContactError=bikeContact.error.toFixed(4);
         let minSkiClearance=Infinity,maxSkiClearance=-Infinity;
         if(skiGrounded){
-          const contacts=skiContacts;
-          for(let i=0;i<2;i++)fitSkiContact(player,travel.heading,i===0?-1:1,rigSupport,contacts[i]);
+          const contacts=ride?.soles ?? skiContacts;
+          if(!ride)for(let i=0;i<2;i++)fitSkiContact(player,travel.heading,i===0?-1:1,rigSupport,contacts[i]);
           explorer.position.copy(contacts[0].position).lerp(contacts[1].position,.5);
           explorer.quaternion.copy(contacts[0].rotation).slerp(contacts[1].rotation,.5);
-          bodyRoot.position.set(0,-.07,.04);
-          bodyRoot.rotation.set(.12,0,0);
+          const crouch = ride ? Math.min(.24,ride.charge*.32 + (skiInput.tuck?.1:0) + (ride.phase==="stumble"?.12:0)) : 0;
+          bodyRoot.position.set(0,-.07-crouch,.04);
+          bodyRoot.rotation.set(.12+crouch,ride ? -.12*ride.edge : 0,ride ? -.28*ride.edge : 0);
+          if(ride?.phase==="crash")bodyRoot.rotation.x=1.1;
           explorer.updateMatrixWorld(true);
           skiInverse.copy(explorer.quaternion).invert();
           contacts.forEach((pose,i)=>{
@@ -5168,7 +5222,7 @@ export function createWorld(
             bodyRoot.worldToLocal(ankle);
             const hip=skiHip.set(i===0?-.16:.16,.73,0);
             const knee=skiKnee.copy(hip).lerp(ankle,.5);
-            knee.z+=.16;
+            knee.z+=.16+crouch*.6;
             for(const [bone,a,b] of [[legs[i],hip,knee],[skiKnees[i],knee,ankle]] as const){
               bone.position.copy(a).lerp(b,.5);
               bone.scale.set(.19,a.distanceTo(b),.23);
@@ -5178,7 +5232,7 @@ export function createWorld(
             for(let j=0;j<=16;j++)for(const w of [-.095,0,.095]){
               skiProbe.set(w,-.0125,-1.275+2.55*j/16);
               plank.localToWorld(skiProbe);
-              const clearance=skiProbe.y-rigSupport({x:skiProbe.x,z:skiProbe.z});
+              const clearance=skiProbe.y-(ride && rideSnow ? rideSnow(skiProbe.x,skiProbe.z) : rigSupport(skiProbe));
               minSkiClearance=Math.min(minSkiClearance,clearance);
               maxSkiClearance=Math.max(maxSkiClearance,clearance);
             }
@@ -5191,8 +5245,9 @@ export function createWorld(
           });
           skiPoseReady=true;
         }else if(skiAirPose){
-          explorer.quaternion.copy(skiAirRotation);
-          bodyRoot.position.set(0,-.07,.04);bodyRoot.rotation.set(.12,0,0);
+          explorer.quaternion.copy(ride?.rotation ?? skiAirRotation);
+          bodyRoot.position.set(0,ride?.grab?-.23:-.07,.04);bodyRoot.rotation.set(ride?.grab?.42:.12,0,0);
+          if(ride?.grab){arms[0].rotation.x=.95;arms[1].rotation.x=.7;}
           [...legs,...skiKnees].forEach((bone,i)=>{
             bone.position.copy(skiAirBones[i].position);
             bone.quaternion.copy(skiAirBones[i].rotation);
@@ -5204,6 +5259,8 @@ export function createWorld(
             plank.position.set(i===0?-.23:.23,0,0);plank.quaternion.identity();
           });
         }
+        canvas.dataset.skiRidePhase=ride?.phase ?? "";
+        canvas.dataset.skiLanding=ride?.landing ?? "";
         canvas.dataset.skiContactActive=String(skiGrounded);
         canvas.dataset.skiSoleMin=Number.isFinite(minSkiClearance)?minSkiClearance.toFixed(4):"";
         canvas.dataset.skiSoleMax=Number.isFinite(maxSkiClearance)?maxSkiClearance.toFixed(4):"";
@@ -7506,6 +7563,7 @@ export function createWorld(
         skateLoopRide=null;skateTunnelRide=null;skateRailGapRide=null;lastSkateLoopEnd=-Infinity;
         skateBowlFlightActive=false;skateBowlLandings=skateBowlFailedLandings=0;
         skateBowlLastLanding="";skateBowlLastLandingSpeed=0;
+        ride=null;tracks?.reset();
         lastSerial = next.command.serial;
         const r = REGIONS.find((r) => r.id === next.command!.region)!;
         const jetPierStart=next.command.sportDestination==="jet-pier";
@@ -7671,6 +7729,7 @@ export function createWorld(
       } else schedule();
     },
     dispose() {
+      tracks?.dispose();
       arcadeGraffiti.dispose();
       mysticElectricity.dispose();
       mysticForest.dispose();

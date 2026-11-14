@@ -6,7 +6,7 @@ import {terrainHeight} from "@/lib/world/model";
 import {refineMountainSnow} from "@/components/world/worldMountainHalfpipe";
 import {SoleProbe,createTrial,inside,bankOffset} from "./fiveCarve";
 import {EarlyEdgeController} from "./earlyEdge";
-import {SnowTracks} from "./snowTracks";
+import {SnowTracks} from "@/components/world/skiSnowTracks";
 import {FlexibleSoles,type SoleDeformation} from "./flexibleSoles";
 import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_SOLE_Y,skiCameraHeight,constrainSkiCamera} from "@/components/world/worldSkiContact";
 import {neutral,SkiSimulation,tuning,type SkiInput} from "@/lib/world/ski/simulation";

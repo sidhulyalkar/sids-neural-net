@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {SnowTracks} from "../app/dev/ski-lab/snowTracks";
+import {SnowTracks} from "../components/world/skiSnowTracks";
 import {SkiSimulation,tuning,neutral} from "../lib/world/ski/simulation";
 
 test("loaded skis mark separate contact paths and replay clears pooled ribbons",()=>{

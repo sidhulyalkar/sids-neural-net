@@ -53,6 +53,11 @@ export class SkiSimulation {
     if(footprint)this.position.y=this.sample();
     this.previous.copy(this.position);
   }
+  setHeading(x:number,z:number){
+    if(Math.hypot(x,z)<1e-6)return;
+    this.yaw=Math.atan2(x,z);
+    this.rotation.setFromAxisAngle(up,this.yaw);
+  }
   advance(seconds:number,inputAt:(tick:number)=>SkiInput){
     if(!Number.isFinite(seconds)||seconds<=0)return;
     this.remainder+=Math.min(seconds,.25);
@@ -195,7 +200,9 @@ export class SkiSimulation {
     this.pressure=Math.max(0,this.normal.y)+Math.min(1,Math.abs(this.turn)*speed/tuning.gravity);
     this.grip=tuning.flatGrip+tuning.engagedGrip*Math.abs(this.edge)*this.pressure*
       (.25+.75*alignment)*(1-.45*this.charge/tuning.maxCharge);
-    this.velocity.addScaledVector(this.side,-lateral*(1-Math.exp(-this.grip*dt)));
+    const slipImpulse=lateral*(1-Math.exp(-this.grip*dt));
+    const contactLimit=this.footprint!=="independent"?Infinity:tuning.gravity*this.pressure*(.28+.92*Math.abs(this.edge))*dt;
+    this.velocity.addScaledVector(this.side,-Math.sign(slipImpulse)*Math.min(contactLimit,Math.abs(slipImpulse)));
     this.velocity.multiplyScalar(Math.exp(-dt*(tuning.drag*speed*(input.tuck?.55:1)+(impaired?2:0))));
     if(input.brake)this.velocity.multiplyScalar(Math.max(0,1-tuning.brake*dt/Math.max(.001,this.velocity.length())));
     const target=this.delta.setFromRotationMatrix(this.basis.makeBasis(this.side,this.normal,this.forward));
