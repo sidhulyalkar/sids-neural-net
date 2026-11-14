@@ -1,7 +1,7 @@
 {
   "fixtureVersion": 1,
   "snapshotGeneratedAt": "2026-11-14T19:13:13.373Z",
-  "description": "Historical source identities observed in the 2026-11-14 Frontier snapshot. No experimental results, asset rights, data series, or scene eligibility are asserted.",
+  "description": "Historical source identities observed in the 2026-11-14 Frontier snapshot. No experimental results, asset rights, data series, or scene eligibility are asserted. The Steam entry preserves the original observed source URL rather than substituting a storefront link.",
   "cases": [
     {
       "title": "AgentSSL: Can MLE Agents Leverage Unlabeled Data?",
@@ -122,7 +122,7 @@
         "source": {
           "id": "steam:1030300@2026-11-09",
           "publisher": "Steam",
-          "url": "https://store.steampowered.com/app/1030300/",
+          "url": "https://steamstore-a.akamaihd.net/news/externalpost/PlayGround.ru%20-%20%D0%BE%D1%84%D0%B8%D1%86%D0%B8%D0%B0%D0%BB%D1%8C%D0%BD%D0%B0%D1%8F%20%D0%B3%D1%80%D1%83%D0%BF%D0%BF%D0%B0/1848664643355320",
           "kind": "entertainment",
           "revision": "unversioned-observed:2026-11-14",
           "observedAt": "2026-11-14T19:13:13.373Z"
