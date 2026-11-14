@@ -88,6 +88,7 @@ jobs:
           path: |
             ${{ runner.temp }}/frontier-review/source/report.json
             ${{ runner.temp }}/frontier-review/source/candidates.json
+            ${{ runner.temp }}/frontier-review/source/figure_review_queue.json
             ${{ runner.temp }}/frontier-review/bundle/manifest.json
             ${{ runner.temp }}/frontier-review/bundle/provenance.json
             ${{ runner.temp }}/frontier-review/bundle/assets.json
