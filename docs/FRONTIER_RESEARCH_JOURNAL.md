@@ -56,6 +56,39 @@ does not change ranking, retrieval, seen state, personalization or source trust.
 visual collection to prevent flooding the reader. The content is source-based and
 never treated as a confidence measure or personalization vote.
 
+## Offline, verified research figures
+
+The initial snapshot and live search never fetch a paper's full HTML on a
+visitor's request. The scheduled/deep refresh can opt into
+`FRONTIER_ENRICH_SOURCE_FIGURES=1` through `scripts/build-frontier-snapshot.ts`.
+The scheduled workflow enables this on master, while pull-request candidate
+audits leave it disabled.
+
+The figure enrichment is intentionally bounded:
+- At most three canonical `https://arxiv.org/abs/<id>` papers per deep run.
+- At least three seconds between attempts, and a short deadline on each fetch.
+- Only arXiv-owned HTML and same-paper raster image paths are eligible.
+- Only actual `figure.ltx_figure` imagery paired with `figcaption` qualifies.
+- At most two original figures per paper, with source caption, credit, and
+  navigable HTML-figure provenance. Unknown captions or SVG/table-only content
+  cannot be promoted.
+- Errors, inaccessible HTML, non-HTML responses and exhausted budgets leave
+  the original paper payload unchanged.
+
+The site uses the resulting existing `FrontierItem.figures` field. A source
+figure gets its native caption and a link back to the figure on the source HTML,
+not an invented illustration or inferred experimental result.
+
+## Real motion sources
+
+A publisher-provided progressive HTTPS MP4/WebM/Ogg is only mounted into the
+player after an explicit Play gesture. Initial paint uses the authentic poster
+when present and never fetches the video bytes. YouTube/unsupported formats
+open the original source without adding a heavyweight embedded player.
+Playback errors retain a direct original-source link. Poster images are
+removed from the generic research-figure list to prevent duplicates.
+Canonical arXiv abstract records also expose their source-derived PDF link.
+
 ## Source-grounded research threads
 
 `journalRelatedItems` links stories only when normalized source tags actually intersect.
