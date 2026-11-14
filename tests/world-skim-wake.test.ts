@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
 import {createSkimWake} from "../components/world/worldSkimWake";
+import type {SkimPoint} from "../lib/world/skimboarding";
 
 test("foam wake follows rendered water and disappears immediately without wet board contact",()=>{
  const scene=new THREE.Scene(),wake=createSkimWake(scene);
- const sample=p=>.6+.04*Math.sin(p.x*.3+p.z*.2);
+ const sample=(p:SkimPoint)=>.6+.04*Math.sin(p.x*.3+p.z*.2);
  const heading={x:0,z:1};
  const point={x:0,z:45};
  try{
