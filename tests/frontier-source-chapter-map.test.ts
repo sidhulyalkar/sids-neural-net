@@ -11,7 +11,7 @@ const source = {
   publisher: 'Synthetic source', url: 'https://example.org/paper', observedAt: at,
 };
 const quote = (id: string, section: string, title: string, status: 'publisher-reported' | 'extracted-needs-review' = 'publisher-reported') => ({
-  id, type: 'quotation' as const, status, text: title,
+  id, type: 'quotation' as const, role: 'section-heading' as const, status, text: title,
   locator: {
     sourceId: source.id, sourceUrl: source.url + '#' + section,
     revision: source.revision, section,
