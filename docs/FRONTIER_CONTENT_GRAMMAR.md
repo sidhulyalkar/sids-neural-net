@@ -70,9 +70,17 @@ generated explanation is an explanation, not experimental evidence.
   paragraphs when the source format benefits from that treatment.
 - For software, give verified technical provenance visual priority over decorative
   social cards; platform stars/forks stay small and labeled as activity.
+- Research-paper imprints may link to a canonical arXiv PDF when the exact arxiv.org
+  document identity is present. Do not invent a PDF link for unrelated publisher URLs
+  or assume that a separate HTML rendering, repository, or dataset exists.
 - For live sports, show the status and observed scores first, clearly timestamped.
-- For short video, use poster, duration and a direct link to the verified original;
-  no fake play controls. Action frames and segment timelines require real frames.
+- For short source video, use the original poster and duration. Verified, HTTPS
+  progressive source clips can be played by an explicitly activated in-page native
+  player, with no stream request before the user clicks Play. YouTube and other
+  unsupported formats open the authentic publisher link rather than loading a
+  speculative embedded player. On playback failure, retain that source link.
+  Never mount a second copy of a video poster as a supposed research figure.
+  Action frames and segment timelines require real frames.
 - For behavior, explicitly privilege measurements, time alignment and tasks over
   generic brain imagery.
 - For a source with only text, embrace excellent typography instead of a fake
