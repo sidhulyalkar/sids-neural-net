@@ -707,8 +707,8 @@
 .chapterSteps button:hover, .chapterSteps button[aria-current='step'] { color: var(--ink); }
 .chapterSteps button[aria-current='step'] { text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 6px; }
 .chapterIndex { color: var(--accent); font: 550 10px/1.4 var(--font-geist-mono), monospace; font-variant-numeric: tabular-nums; }
-[id='frontier-story-summary'], [id='frontier-story-figure'], [id='frontier-story-media'],
-[id='frontier-evidence'], [id='frontier-story-source'] { scroll-margin-top: 30px; }
+.reader [id='frontier-story-summary'], .reader [id='frontier-story-figure'], .reader [id='frontier-story-media'],
+.reader [id='frontier-evidence'], .reader [id='frontier-story-source'] { scroll-margin-top: 30px; }
 @media (max-width: 780px) {
   .chapterMap { margin-bottom: 24px; gap: 8px 14px; }
   .chapterMapCaption { width: 100%; }
