@@ -19,7 +19,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import quote, urljoin, urlsplit, unquote
 
-PAPER_ID_RE = re.compile(r"^\d{4}\.\d{4,5}(?:v\d+)?$")
+PAPER_ID_RE = re.compile(r"^\d{4}\.\d{4,5}v[1-9]\d*$")
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9:_.-]{1,120}$")
 ASSET_EXT_RE = re.compile(r"\.(?:png|jpe?g|webp)$", re.IGNORECASE)
 MAX_INPUT_BYTES = 1_400_000
@@ -49,6 +49,7 @@ def safe_image_url(raw: str | None, paper_id: str) -> str | None:
     try:
         resolved = urlsplit(urljoin(base, raw.strip()))
         decoded = unquote(resolved.path)
+        port = resolved.port
     except (ValueError, UnicodeError):
         return None
     if (
@@ -56,11 +57,12 @@ def safe_image_url(raw: str | None, paper_id: str) -> str | None:
         or resolved.hostname != "arxiv.org"
         or resolved.username
         or resolved.password
-        or resolved.port
+        or port
         or resolved.query
         or resolved.fragment
         or not decoded.startswith(f"/html/{paper_id}/")
         or ".." in decoded.split("/")
+        or "%" in decoded  # reject double-encoded path escapes
         or "\\" in decoded
         or not ASSET_EXT_RE.search(decoded)
     ):
