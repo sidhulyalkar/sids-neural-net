@@ -16,6 +16,9 @@ const paper: FrontierItem = {
 test('each source type produces an accurate editorial lens, not a generic card', () => {
   assert.equal(journalSourceKind(paper), 'paper');
   assert.equal(journalSourceLens(paper, 0).identity, 'arXiv · 2611.01234');
+  assert.deepEqual(journalSourceLens(paper, 0).documentLinks, [
+    { label: 'Read paper PDF', url: 'https://arxiv.org/pdf/2611.01234' },
+  ]);
   assert.deepEqual(journalSourceLens(paper, 0).facts, [{ label: 'Authors listed', value: '2' }]);
   const repo = { ...paper, sourceKind: 'github' as const, url: 'https://github.com/allenai/ai2thor',
     metrics: [{ label: 'stars', value: '900' }, { label: 'forks', value: '87' }] };
@@ -51,6 +54,17 @@ test('source URL parsing cannot manufacture a GitHub repo or publication identit
   assert.equal(journalSourceLens({ ...paper, url: 'https://example.org/abs/2611.01234' }, 0).identity, 'arXiv');
   assert.equal(journalSourceLens({ ...paper, sourceKind: 'huggingface',
     url: 'https://huggingface.co/papers/2611.06789v2' }, 0).identity, 'HF Papers · 2611.06789v2');
+});
+
+test('primary document links require a matching canonical publisher URL', () => {
+  const falseHost = { ...paper, url: 'https://untrusted.example/abs/2611.01234' };
+  const invalidId = { ...paper, url: 'https://arxiv.org/abs/nothing-valid' };
+  const fakeGithub = { ...paper, sourceKind: 'github' as const };
+  assert.deepEqual(journalSourceLens(falseHost, 0).documentLinks, []);
+  assert.deepEqual(journalSourceLens(invalidId, 0).documentLinks, []);
+  assert.deepEqual(journalSourceLens(fakeGithub, 0).documentLinks, []);
+  assert.deepEqual(journalSourceLens({ ...paper, url: 'https://arxiv.org/abs/2611.01234v2' }, 0).documentLinks,
+    [{ label: 'Read paper PDF', url: 'https://arxiv.org/pdf/2611.01234v2' }]);
 });
 
 test('topic-driven visual atmosphere distinguishes behavior from neural systems and does not misclassify wildcards', () => {
