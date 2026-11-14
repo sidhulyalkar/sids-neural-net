@@ -392,6 +392,9 @@
 .cairnReturn:hover,.cairnReturn:focus-visible {background:#e4e8df;}
 @media(max-width:760px){
  .cairnStoryLayout {grid-template-columns:1fr;gap:14px;}
+ /* In compact layouts visitors encounter a place through its real
+    photograph before scrolling through technical interpretation. */
+ .cairnStoryPhoto {order:-1;}
  .cairnStory {padding:16px 17px;}
  .cairnStoryPhoto button {aspect-ratio:16/9;}
  .cairnStoryPhoto img {object-position:center 40%;}

@@ -56,6 +56,12 @@ try{
     return img?.complete&&img.naturalWidth>0;
    },null,{timeout:15000});
    assert.ok(await photos.first().locator("img").isVisible());
+   if(scenario.width<500){
+    const image=await photos.first().boundingBox();
+    const storyHeading=await dialog.getByRole("heading",{name:scenario.story}).boundingBox();
+    assert.ok(image&&storyHeading&&image.y<storyHeading.y,
+     "mobile Cairn must present real photography before long scientific context");
+   }
    // Inspect a real archive photograph then return to its original Cairn
    // without dismissing the modal or losing the location in the world.
    await photos.first().click();
