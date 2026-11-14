@@ -5248,7 +5248,7 @@ export function createWorld(
             const useSkin=!!ride && !!rideSnow && ride.contact[i] && ride.load[i]>.05;
             skiBases[i].visible=!useSkin;skiTips[i].visible=true;
             skiSoleMeshes[i].visible=useSkin;
-            if(useSkin && rideSnow){
+            if(useSkin && rideSnow && ride){
               const flex=skiSoleVisuals[i].update(pose,rideSnow,ride.load[i],true);
               minSkiVisual=Math.min(minSkiVisual,flex.min);
               maxSkiVisual=Math.max(maxSkiVisual,flex.max);
