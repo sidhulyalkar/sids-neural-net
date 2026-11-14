@@ -32,6 +32,9 @@ export class SkiSimulation {
   grip=0;
   grab=false;
   impact=0;
+  // Integrated in the fixed-step solver, not reconstructed from sparse RAFs.
+  // This is a measured rotation, not a claimed landed trick or score.
+  airSpinRadians=0;
   private held=false;
   private age=0;
   private yaw=0;
@@ -174,6 +177,7 @@ export class SkiSimulation {
       this.angular.lerp(this.axis.set(clamp(input.pitch)*tuning.flip,clamp(input.steer)*tuning.spin,
         clamp(input.roll)*tuning.flip),1-Math.exp(-6*dt));
       const rate=this.angular.length();
+      this.airSpinRadians+=this.angular.y*dt;
       if(rate>0)this.rotation.multiply(this.delta.setFromAxisAngle(this.axis.copy(this.angular).normalize(),rate*dt)).normalize();
       this.velocity.y-=tuning.gravity*dt;
       this.move();
@@ -226,7 +230,7 @@ export class SkiSimulation {
     if(!impaired&&input.jump){this.charge=Math.min(tuning.maxCharge,this.charge+dt);this.phase="charging";}
     if(released&&this.phase==="charging"){
       this.velocity.addScaledVector(this.normal,2+tuning.pop*this.charge/tuning.maxCharge);
-      this.phase="air";this.age=0;this.charge=0;
+      this.phase="air";this.age=0;this.charge=0;this.airSpinRadians=0;
     }
     this.move();
     const support=this.sample();
@@ -236,7 +240,7 @@ export class SkiSimulation {
       const lostSupport=this.footprint==="independent"&&this.unsupportedBoot()&&
         separation>tuning.gravity*dt*dt+.008;
       if(!impaired&&departing&&(separation>.04||lostSupport)){
-        this.phase="air";this.charge=0;this.age=0;
+        this.phase="air";this.charge=0;this.age=0;this.airSpinRadians=0;
         this.contact.fill(false);this.load.fill(0);
       }else this.settle(support);
     }
