@@ -126,6 +126,8 @@ export const SeriesEvidenceSchema = z.strictObject({
   clockId: shortKey,
   channel: label,
   sampleCount: z.number().int().min(2).max(100_000_000),
+  sampleRateHz: z.number().finite().positive().max(1_000_000),
+  startAt: timestamp,
 });
 
 export const EventEvidenceSchema = z.strictObject({
@@ -157,9 +159,42 @@ export const PipelineEdgeEvidenceSchema = z.strictObject({
   relation: z.enum(['flows-into', 'depends-on']),
 });
 
+export const VideoEvidenceSchema = z.strictObject({
+  type: z.literal('video'),
+  ...common,
+  sourceUrl: PublicSourceUrlSchema,
+  durationSeconds: z.number().finite().positive().max(86_400).optional(),
+  rights: AssetRightsSchema,
+});
+
+export const SportsStateEvidenceSchema = z.strictObject({
+  type: z.literal('sports-state'),
+  ...common,
+  eventId: shortKey,
+  league: label,
+  statusLabel: label,
+  observedAt: timestamp,
+  competitors: z.array(z.strictObject({
+    name: label,
+    score: z.number().int().nonnegative().optional(),
+  })).min(2).max(4),
+});
+
+export const GeoObservationEvidenceSchema = z.strictObject({
+  type: z.literal('geo-observation'),
+  ...common,
+  observationId: shortKey,
+  latitude: z.number().finite().min(-90).max(90),
+  longitude: z.number().finite().min(-180).max(180),
+  crs: z.literal('EPSG:4326'),
+  observedAt: timestamp,
+  accuracyMeters: z.number().finite().nonnegative().max(10_000_000).optional(),
+});
+
 export const EvidenceRecordSchema = z.discriminatedUnion('type', [
   QuotationEvidenceSchema, FigureEvidenceSchema, MeasurementEvidenceSchema,
   SeriesEvidenceSchema, EventEvidenceSchema, SourceFileEvidenceSchema, PipelineEdgeEvidenceSchema,
+  VideoEvidenceSchema, SportsStateEvidenceSchema, GeoObservationEvidenceSchema,
 ]);
 
 export const SceneTypeSchema = z.enum([
