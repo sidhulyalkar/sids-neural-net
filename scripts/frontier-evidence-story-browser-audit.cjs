@@ -58,6 +58,14 @@ async function view(browser, width, height) {
   assert.equal(new URL(await page.locator('[data-frontier-story] img').getAttribute('src'), TARGET).pathname,
     '/api/frontier/evidence-audit-image/a',
     'Choosing source methods selects an associated source figure without generating new media');
+  await chapters.getByRole('button', { name: /Limitations/ }).click();
+  await page.locator('[data-selected-source-chapter="limitations"]').waitFor();
+  await page.getByRole('heading', { name: 'No figure linked to this chapter' }).waitFor();
+  assert.equal(await page.locator('[data-frontier-story] img').count(), 0,
+    'An unillustrated chapter must not display a figure from another section');
+  await page.getByRole('link', { name: 'Open original section' }).waitFor();
+  await chapters.getByRole('button', { name: /Methods/ }).click();
+  await page.locator('[data-frontier-story] img').waitFor();
 
   const geometry = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
