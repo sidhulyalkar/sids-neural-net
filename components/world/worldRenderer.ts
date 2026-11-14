@@ -5313,6 +5313,11 @@ export function createWorld(
         if(ride){
           canvas.dataset.skiTick=String(ride.tick);
           canvas.dataset.skiAngularY=String(ride.angular.y);
+          canvas.dataset.skiAirSpinRadians=String(ride.airSpinRadians);
+          canvas.dataset.skiInputSteer=String(skiInput.steer);
+          canvas.dataset.skiInputJump=String(skiInput.jump);
+          canvas.dataset.skiInputRoll=String(skiInput.roll);
+          canvas.dataset.skiInputGrab=String(skiInput.grab);
           canvas.dataset.skiRotation=ride.rotation.toArray().join(",");
           canvas.dataset.skiDroppedSeconds=ride.droppedSeconds.toFixed(3);
           canvas.dataset.skiRunout=String(!mountainHalfpipeApproachClearance(player));
