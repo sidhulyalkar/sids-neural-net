@@ -1,6 +1,11 @@
 /* eslint-disable no-console */
 const assert = require('node:assert/strict');
 const { mkdir } = require('node:fs/promises');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+const { createHash } = require('node:crypto');
 const { chromium } = require('playwright');
 
 const TARGET = process.env.FRONTIER_EVIDENCE_STORY_AUDIT_URL || 'http://127.0.0.1:3000/frontier/evidence-audit';
@@ -79,6 +84,85 @@ async function missingAsset(browser) {
   return { failedAsset: true, sourceStillAvailable: true };
 }
 
+function buildPrivateBundleFixture() {
+  const id = 'qa-original-evidence';
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'frontier-reader-e2e-'));
+  const publish = path.resolve('content/frontier/stories', id);
+  if (fs.existsSync(publish)) throw new Error('Refusing to overwrite existing published story test identity');
+  const fixturePng = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLhXQAAAABJRU5ErkJggg==', 'base64');
+  const assetRoot = path.join(work, 'reviewed');
+  fs.mkdirSync(assetRoot);
+  fs.writeFileSync(path.join(assetRoot, 'approved.png'), fixturePng);
+  const caption = 'Figure 1: Synthetic demonstration of a source figure and its explanatory caption.';
+  const approvalFile = path.join(work, 'approvals.json');
+  fs.writeFileSync(approvalFile, JSON.stringify([{
+    sourceUrl: 'https://arxiv.org/html/2611.17323v1#S1.F1',
+    imageUrl: 'https://arxiv.org/html/2611.17323v1/x1.png',
+    captionSha256: createHash('sha256').update(caption).digest('hex'),
+    file: 'approved.png',
+    rights: { display: 'permitted', license: 'Synthetic test fixture',
+      attribution: 'CI-only synthetic diagram, not actual research' },
+  }]));
+  const bundle = path.join(work, 'bundle');
+  const at = '2026-11-14T19:13:13.373Z';
+  try {
+    const result = spawnSync(process.execPath, [
+      '--import', 'tsx', 'scripts/frontier/build-arxiv-story.ts',
+      '--paper-id', '2611.17323v1',
+      '--item-id', id,
+      '--html', 'tests/fixtures/frontier/arxiv-synthetic-structure.html',
+      '--observed-at', at, '--built-at', at,
+      '--out', bundle, '--approvals', approvalFile, '--asset-root', assetRoot,
+    ], { encoding: 'utf8', timeout: 30_000, maxBuffer: 2 * 1024 * 1024 });
+    assert.equal(result.status, 0, 'Source bundle builder failed: ' + result.stderr);
+    fs.mkdirSync(path.dirname(publish), { recursive: true });
+    fs.cpSync(bundle, publish, { recursive: true, force: false, errorOnExist: true });
+    return { id, publishedPath: publish, workDir: work,
+      imageDigest: createHash('sha256').update(fixturePng).digest('hex'), bytes: fixturePng };
+  } catch (error) {
+    fs.rmSync(publish, { recursive: true, force: true });
+    fs.rmSync(work, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+async function auditedPrivateBundle(browser, fixture) {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const origin = new URL(TARGET).origin;
+  try {
+    const route = origin + '/frontier/story/' + fixture.id;
+    const response = await page.goto(route, { waitUntil: 'domcontentloaded' });
+    assert.equal(response?.status(), 200, 'Reviewed private bundle must load through the opt-in story route');
+    await page.locator('[data-frontier-story="verified"]').waitFor();
+    await page.getByText(/Figure 1: Synthetic demonstration/).waitFor();
+    const image = page.locator('[data-frontier-story] img');
+    await page.waitForFunction(() => {
+      const img = document.querySelector('[data-frontier-story] img');
+      return img && img.complete && img.naturalWidth > 0;
+    });
+    const imageSrc = new URL(await image.getAttribute('src'), origin);
+    assert.equal(imageSrc.pathname,
+      '/api/frontier/story-assets/' + fixture.id + '/' + fixture.imageDigest);
+    const original = page.getByRole('link', { name: /Inspect at publisher/ });
+    assert.equal(await original.getAttribute('href'), 'https://arxiv.org/html/2611.17323v1#S1.F1');
+    const served = await page.request.get(imageSrc.href);
+    assert.equal(served.status(), 200);
+    assert.match(served.headers()['content-type'] || '', /^image\/png/);
+    assert.deepEqual(await served.body(), fixture.bytes);
+    const imagePath = path.join(fixture.publishedPath, 'assets', fixture.imageDigest + '.png');
+    const tampered = Buffer.from(fixture.bytes);
+    tampered[tampered.length - 1] ^= 1;
+    fs.writeFileSync(imagePath, tampered);
+    const tamperedReply = await page.request.get(imageSrc.href + '?tampered=1');
+    assert.equal(tamperedReply.status(), 503, 'Hash-mismatched published asset must not be exposed');
+    return { privateBundleLoaded: true, citationIntact: true, approvedBytesVerified: true,
+      tamperedHashRefused: true };
+  } finally {
+    await page.close();
+  }
+}
+
 async function privateStoryBoundaries(browser) {
   const page = await browser.newPage();
   const origin = new URL(TARGET).origin;
@@ -94,9 +178,11 @@ async function privateStoryBoundaries(browser) {
 
 async function main() {
   await mkdir(OUT, { recursive: true });
+  const fixture = buildPrivateBundleFixture();
   const browser = await chromium.launch({ headless: true });
   try {
     const results = [];
+    results.push(await auditedPrivateBundle(browser, fixture));
     for (const [width, height] of [[1440, 1000], [390, 844], [320, 760]]) {
       results.push(await view(browser, width, height));
     }
@@ -105,6 +191,8 @@ async function main() {
     console.log(JSON.stringify({ status: 'passed', results }));
   } finally {
     await browser.close();
+    fs.rmSync(fixture.publishedPath, { recursive: true, force: true });
+    fs.rmSync(fixture.workDir, { recursive: true, force: true });
   }
 }
 main().catch((error) => {
