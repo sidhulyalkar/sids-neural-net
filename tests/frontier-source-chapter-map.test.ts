@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { sourceChapterMap } from '../lib/frontier/evidence/sourceChapterMap';
 import { parseQualifiedStoryManifest } from '../lib/frontier/evidence/eligibility';
 import type { EvidenceRecord } from '../lib/frontier/evidence/schema';
@@ -76,8 +77,7 @@ test('publisher headings remain bounded and duplicate section IDs cannot create 
 });
 
 test('source chapters require the source route and no additional publisher fetch', () => {
-  const fs = require('node:fs') as typeof import('node:fs');
-  const view = fs.readFileSync('components/frontier/evidence/FrontierEvidenceStory.tsx', 'utf8');
+  const view = readFileSync('components/frontier/evidence/FrontierEvidenceStory.tsx', 'utf8');
   assert.match(view, /sourceChapterMap\(manifest\)/);
   assert.match(view, /aria-label="Research chapters"/);
   assert.match(view, /data-selected-source-chapter=\{chapter\.id\}/);
