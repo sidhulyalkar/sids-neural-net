@@ -27,7 +27,7 @@ import {
   type ApprovedFigure,
 } from '../../lib/frontier/evidence/arxivAdapter';
 
-const MAX_HTML_BYTES = 1_400_000;
+const MAX_HTML_BYTES = 12 * 1024 * 1024; // offline source HTML only, never in a client bundle
 const MAX_APPROVAL_BYTES = 80_000;
 const MAX_ASSET_BYTES = 4 * 1024 * 1024;
 const PYTHON_SCRIPT = resolve(process.cwd(), 'scripts/frontier/extract_arxiv_html.py');
