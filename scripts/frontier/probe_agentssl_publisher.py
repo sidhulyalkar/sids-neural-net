@@ -130,7 +130,7 @@ def create_review(payload: bytes, acquired_at: str, acquisition: str) -> tuple[d
     return candidates, source_report
 
 
-def write_report(directory: Path, candidates: dict, report: dict) -> None:
+def write_report(directory: Path, candidates: dict, report: dict, source_html: bytes | None = None) -> None:
     directory.mkdir(parents=True, exist_ok=False)
     (directory / "candidates.json").write_text(
         json.dumps(candidates, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
@@ -138,6 +138,10 @@ def write_report(directory: Path, candidates: dict, report: dict) -> None:
     (directory / "report.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
+    # Temporary build input only. The workflow uploads the JSON audit and
+    # source-only manifests, never the downloaded publisher HTML bytes.
+    if source_html is not None:
+        (directory / "source.html").write_bytes(checked_html(source_html))
 
 
 def main() -> int:
@@ -160,7 +164,7 @@ def main() -> int:
             payload = args.input.read_bytes()
             acquisition = "offline-reviewed-file"
         candidates, report = create_review(payload, acquired_at, acquisition)
-        write_report(args.out, candidates, report)
+        write_report(args.out, candidates, report, payload)
         print(json.dumps({
             "status": report["status"],
             "sha256": report["sourceHtmlSha256"],
