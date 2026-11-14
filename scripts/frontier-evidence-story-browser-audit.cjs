@@ -23,14 +23,14 @@ async function view(browser, width, height) {
     return image && image.complete && image.naturalWidth > 0;
   }, { timeout: 10_000 });
   const img = page.locator('[data-frontier-story] img');
-  assert.match(await img.getAttribute('src'), /^\/api\/frontier\/evidence-audit-image\/a$/);
+  assert.equal(new URL(await img.getAttribute('src'), TARGET).pathname, '/api/frontier/evidence-audit-image/a');
   const source = page.getByRole('link', { name: /Inspect at publisher/ });
   assert.match(await source.getAttribute('href'), /#figure-one$/);
   assert.equal(await page.getByRole('button', { name: 'Next original figure' }).count(), 1);
   await page.getByRole('button', { name: 'Next original figure' }).click();
   await page.getByText(/Figure two: A second synthetic schematic/).waitFor();
-  assert.match(await page.locator('[data-frontier-story] img').getAttribute('src'),
-    /^\/api\/frontier\/evidence-audit-image\/b$/);
+  assert.equal(new URL(await page.locator('[data-frontier-story] img').getAttribute('src'), TARGET).pathname,
+    '/api/frontier/evidence-audit-image/b');
   assert.match(await source.getAttribute('href'), /#figure-two$/);
   await page.getByRole('button', { name: 'Magnify original figure' }).click();
   assert.equal(await page.getByRole('button', { name: 'Fit original figure to stage' }).getAttribute('aria-pressed'), 'true');
