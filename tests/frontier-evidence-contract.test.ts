@@ -180,7 +180,8 @@ test('verified engineering graph needs exact pinned commit, explicit source stag
     .get('verified-pipeline')?.eligible, false);
   assert.equal(index(withEvidence([f1, f2, { ...edge, toId: 'not-documented' } as EvidenceRecord], source))
     .get('verified-pipeline')?.eligible, false);
-  assert.equal(index(withEvidence([f1, f2, edge])).get('verified-pipeline')?.eligible, false);
+  assert.equal(StoryManifestSchema.safeParse(withEvidence([f1, f2, edge])).success, false,
+    'A manifest cannot relabel a Git commit as a different source revision');
 });
 
 test('temporal and physiological views require real time bases; sports and geography require typed observations', () => {
