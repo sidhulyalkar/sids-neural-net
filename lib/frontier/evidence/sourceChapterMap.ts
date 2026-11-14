@@ -45,8 +45,8 @@ export function sourceChapterMap(manifest: StoryManifest): SourceChapter[] {
   const groups = new Map<ChapterId, SourceSection[]>();
 
   for (const evidence of manifest.evidence) {
-    if (evidence.type !== 'quotation' || evidence.status === 'extracted-needs-review'
-      || !evidence.locator.section) continue;
+    if (evidence.type !== 'quotation' || evidence.role !== 'section-heading'
+      || evidence.status !== 'publisher-reported' || !evidence.locator.section) continue;
     // Every record is already checked against the canonical publisher and
     // revision by parseQualifiedStoryManifest at the story boundary.
     const sectionId = evidence.locator.section;
