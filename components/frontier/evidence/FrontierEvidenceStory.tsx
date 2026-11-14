@@ -123,7 +123,7 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
               <div className={styles.emptyStage}>
                 <FileText size={30} strokeWidth={1.2} aria-hidden="true"/>
                 <h2>Start with the original source</h2>
-                <p>This story has no rights-cleared, source-verified figure available for display. Read the publisher's document instead.</p>
+                <p>This story has no rights-cleared, source-verified figure available for display. Read the original publisher document instead.</p>
                 <a href={manifest.source.url} target="_blank" rel="noopener noreferrer">Open research source <ArrowUpRight size={14} aria-hidden="true"/></a>
               </div>
             )}
