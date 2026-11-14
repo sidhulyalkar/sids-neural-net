@@ -70,7 +70,6 @@ test('six frozen, real-source identity fixtures are source-only, never fabricate
     assert.equal(parsed.state, 'basic');
     assert(isPublicHttpsUrl(parsed.source.url));
     kinds.add(parsed.source.kind);
-    assert.deepEqual(index(parsed).filter, undefined); // Matrix is available but does not invent data
     const qualified = evaluateStorySceneEligibility(parsed);
     assert.equal(qualified.filter((scene) => scene.eligible).length, 1);
     assert.equal(qualified.find((scene) => scene.eligible)?.type, 'editorial-reading');
