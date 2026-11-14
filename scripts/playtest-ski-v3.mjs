@@ -32,13 +32,14 @@ await page.addInitScript(()=>{
     const phase=d.skiRidePhase;
     history.push({tick,phase,omega:Number(d.skiAngularY),rotation:d.skiRotation,runout:d.skiRunout});
     const name=phase==="charging"?"charge":phase==="air" && Math.abs(Number(d.skiAngularY))>.05?"air":
-      sawFlight && phase!=="air" && d.skiLanding!=="none"?"touchdown":null;
+      sawFlight && phase!=="air" && d.skiLanding!=="none" && !frames.touchdown?"touchdown":
+      d.skiRunout==="true"?"runout":null;
     if(phase==="air")sawFlight=true;
     if(name && !frames[name])frames[name]={data:{...d},png:c.toDataURL("image/png")};
   });
 });
 async function save(name){
-  await page.waitForFunction(n=>!!window.skiEvidence.frames[n],name,{timeout:90000});
+  await page.waitForFunction(n=>!!window.skiEvidence.frames[n],name,{timeout:180000});
   const {data,png}=await page.evaluate(n=>window.skiEvidence.frames[n],name);
   assert.equal(data.bigAirPhase,"idle");
   assert.ok(data.skiRidePhase);
@@ -60,6 +61,12 @@ try{
   await save("air");
   await page.keyboard.up("a");
   await save("touchdown");
+  await save("runout");
+  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.skiRidePhase==="",null,{timeout:180000});
+  const handoff=await canvas.evaluate(c=>({...c.dataset}));
+  assert.equal(handoff.activity,"ski");
+  assert.equal(handoff.airborne,"false");
+  fs.writeFileSync(path.join(dir,"handoff.json"),JSON.stringify(handoff,null,2));
   await page.getByRole("button",{name:"Trail running",exact:true}).click();
   await phase("");
   assert.deepEqual(errors,[]);
