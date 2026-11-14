@@ -53,6 +53,8 @@ test('YouTube watch surface opens the authentic source without a synthetic embed
 test('unknown formats, unsafe destinations, and malformed URLs never become direct players', () => {
   assert.equal(journalMediaPlan({ ...source, media: { type: 'image', url: 'https://example.com/photo.jpg' } }), null);
   assert.equal(journalMediaPlan({ ...source, url: 'http://example.com/video' }), null);
+  assert.equal(journalFormat({ ...source, url: 'http://example.com/video' }, false), 'brief',
+    'Unavailable original sources cannot masquerade as watchable media');
   assert.equal(journalMediaPlan({ ...source, url: 'https://localhost/watch' }), null);
   const unsafe = [
     'http://cdn.example.com/file.mp4', 'https://127.0.0.1/video.mp4',
