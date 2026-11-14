@@ -3,6 +3,7 @@ import { SkiSimulation, neutral as neutralSkiInput } from "@/lib/world/ski/simul
 import { renderedSnowHeight } from "@/lib/world/ski/renderedSnow";
 import { SnowTracks } from "./skiSnowTracks";
 import {createSkiContact,fitSkiContact,skiFollowYaw,constrainSkiCamera} from "./worldSkiContact";
+import {SkiVisualSole} from "./skiVisualSole";
 import {reefCanyonConstrainSwim,reefCanyonNear} from "@/lib/world/reefCanyon";
 import {createMossCanyonReef} from "./worldMossCanyonReef";
 import {bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
@@ -1919,13 +1920,22 @@ export function createWorld(
 
   // Skis read as separate planks with upturned tips and poles.
   const skiPlanks:THREE.Group[]=[];
+  const skiBases:THREE.Mesh[]=[];
+  const skiTips:THREE.Mesh[]=[];
+  const skiSoleVisuals:SkiVisualSole[]=[];
+  const skiSoleMeshes:THREE.Mesh[]=[];
   for (const side of [-1, 1]) {
     const plank=new THREE.Group();
     skis.add(plank);skiPlanks.push(plank);
     plank.position.x=side*.23;
-    mesh(boxGeo, skiMat, [0, 0.02, 0], [0.19, 0.065, 2.55], plank);
+    skiBases.push(mesh(boxGeo, skiMat, [0, 0.02, 0], [0.19, 0.065, 2.55], plank));
     const tip = mesh(boxGeo, skiMat, [0, 0.12, 1.36], [0.19, 0.06, 0.24], plank);
     tip.rotation.x = -0.42;
+    skiTips.push(tip);
+    const sole=new SkiVisualSole();skiSoleVisuals.push(sole);
+    const skin=new THREE.Mesh(sole.geometry,skiMat);
+    skin.castShadow=true;skin.receiveShadow=true;skin.visible=false;
+    plank.add(skin);skiSoleMeshes.push(skin);
     mesh(boxGeo,charcoal,[0,.105,0],[.17,.13,.34],plank);
     mesh(cylinder, metal, [side * 0.61, 0.6, 0], [0.024, 1.15, 0.024], skis);
   }
@@ -5216,6 +5226,7 @@ export function createWorld(
         }
         if(bikeContact)canvas.dataset.bikeContactError=bikeContact.error.toFixed(4);
         let minSkiClearance=Infinity,maxSkiClearance=-Infinity;
+        let minSkiVisual=Infinity,maxSkiVisual=-Infinity,maxSkiBend=0;
         if(skiGrounded){
           const contacts=ride?.soles ?? skiContacts;
           if(!ride)for(let i=0;i<2;i++)fitSkiContact(player,travel.heading,i===0?-1:1,rigSupport,contacts[i]);
@@ -5228,6 +5239,15 @@ export function createWorld(
           explorer.updateMatrixWorld(true);
           skiInverse.copy(explorer.quaternion).invert();
           contacts.forEach((pose,i)=>{
+            const useSkin=!!ride && !!rideSnow && ride.contact[i] && ride.load[i]>.05;
+            skiBases[i].visible=!useSkin;skiTips[i].visible=!useSkin;
+            skiSoleMeshes[i].visible=useSkin;
+            if(useSkin && rideSnow){
+              const flex=skiSoleVisuals[i].update(pose,rideSnow,ride.load[i],true);
+              minSkiVisual=Math.min(minSkiVisual,flex.min);
+              maxSkiVisual=Math.max(maxSkiVisual,flex.max);
+              maxSkiBend=Math.max(maxSkiBend,flex.maxBend);
+            }
             const plank=skiPlanks[i];
             plank.position.copy(pose.position);
             explorer.worldToLocal(plank.position);
@@ -5264,6 +5284,9 @@ export function createWorld(
           });
           skiPoseReady=true;
         }else if(skiAirPose){
+          skiSoleMeshes.forEach(mesh=>{mesh.visible=false});
+          skiBases.forEach(mesh=>{mesh.visible=true});
+          skiTips.forEach(mesh=>{mesh.visible=true});
           explorer.quaternion.copy(ride?.rotation ?? skiAirRotation);
           bodyRoot.position.set(0,ride?.grab?-.23:-.07,.04);bodyRoot.rotation.set(ride?.grab?.42:.12,0,0);
           if(ride?.grab){arms[0].rotation.x=.95;arms[1].rotation.x=.7;}
@@ -5274,6 +5297,9 @@ export function createWorld(
           });
         }else{
           skiPoseReady=false;
+          skiSoleMeshes.forEach(mesh=>{mesh.visible=false});
+          skiBases.forEach(mesh=>{mesh.visible=true});
+          skiTips.forEach(mesh=>{mesh.visible=true});
           skiPlanks.forEach((plank,i)=>{
             plank.position.set(i===0?-.23:.23,0,0);plank.quaternion.identity();
           });
@@ -5290,6 +5316,10 @@ export function createWorld(
         canvas.dataset.skiContactActive=String(skiGrounded);
         canvas.dataset.skiSoleMin=Number.isFinite(minSkiClearance)?minSkiClearance.toFixed(4):"";
         canvas.dataset.skiSoleMax=Number.isFinite(maxSkiClearance)?maxSkiClearance.toFixed(4):"";
+        // Cosmetic flex is reported separately; rigid solver support remains unchanged.
+        canvas.dataset.skiVisualSoleMin=Number.isFinite(minSkiVisual)?minSkiVisual.toFixed(4):"";
+        canvas.dataset.skiVisualSoleMax=Number.isFinite(maxSkiVisual)?maxSkiVisual.toFixed(4):"";
+        canvas.dataset.skiVisualBend=maxSkiBend.toFixed(4);
 
       }
       // Measure the actual transformed soles against the actual deck plane.
@@ -7756,6 +7786,7 @@ export function createWorld(
     },
     dispose() {
       tracks?.dispose();
+      skiSoleVisuals.forEach(sole=>sole.dispose());
       arcadeGraffiti.dispose();
       mysticElectricity.dispose();
       mysticForest.dispose();
