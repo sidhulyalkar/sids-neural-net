@@ -5246,7 +5246,7 @@ export function createWorld(
           skiInverse.copy(explorer.quaternion).invert();
           contacts.forEach((pose,i)=>{
             const useSkin=!!ride && !!rideSnow && ride.contact[i] && ride.load[i]>.05;
-            skiBases[i].visible=!useSkin;skiTips[i].visible=!useSkin;
+            skiBases[i].visible=!useSkin;skiTips[i].visible=true;
             skiSoleMeshes[i].visible=useSkin;
             if(useSkin && rideSnow){
               const flex=skiSoleVisuals[i].update(pose,rideSnow,ride.load[i],true);
