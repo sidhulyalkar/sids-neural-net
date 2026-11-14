@@ -13,6 +13,8 @@ import { FrontierJournalSourceLens } from './FrontierJournalSourceLens';
 import { FrontierJournalEvidence } from './FrontierJournalEvidence';
 import { FrontierJournalMedia } from './FrontierJournalMedia';
 import { journalMediaPlan, journalSafePublicUrl } from '@/lib/frontier/journalMedia';
+import { JOURNAL_SECTIONS, journalSectionInventory, journalSectionMatches } from '@/lib/frontier/journalSections';
+import type { JournalSectionId } from '@/lib/frontier/journalSections';
 import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierFeedResponse, FrontierItem } from '@/lib/frontier/types';
@@ -35,7 +37,9 @@ function sourceDate(date: string): string {
 /** One DOM article and at most one image are mounted at any point in time. */
 export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   // Deterministic diverse first edition during SSR, before preference hydration.
-  const [items, setItems] = useState(() => selectDailyRun(initialItems, {}, EDITION_LIMIT));
+  const [baseItems, setItems] = useState(() => selectDailyRun(initialItems, {}, EDITION_LIMIT));
+  const [poolItems, setPoolItems] = useState<FrontierItem[]>(initialItems);
+  const [activeSection, setActiveSection] = useState<JournalSectionId>('for-you');
   const [position, setPosition] = useState(0);
   const [contentsOpen, setContentsOpen] = useState(false);
   const [editionAt, setEditionAt] = useState(generatedAt);
@@ -69,6 +73,16 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const rateInterest = useFrontierStore((state) => state.rateInterest);
   const toggleSave = useFrontierStore((state) => state.toggleSave);
 
+  const items = useMemo(() => activeSection === 'for-you'
+    ? baseItems
+    : selectDailyRun(poolItems.filter((candidate) =>
+        journalSectionMatches(candidate, activeSection)), history, EDITION_LIMIT),
+    [activeSection, baseItems, poolItems, history]);
+  const sectionCounts = useMemo(() => {
+    const inventory = journalSectionInventory(poolItems);
+    return { ...inventory, 'for-you': baseItems.length };
+  }, [poolItems, baseItems.length]);
+  const sectionMeta = JOURNAL_SECTIONS.find((section) => section.id === activeSection) ?? JOURNAL_SECTIONS[0];
   const item = items[position];
   const rating = item ? history[item.id]?.interestScore : undefined;
   const sliderScore = sliderDraft?.id === item?.id ? sliderDraft.value : (rating ?? 5);
@@ -135,6 +149,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       const ranked = rankFrontierItems(candidates, latest.profile, latest.history, new Date(), latest.behavior);
       const selected = selectDailyRun(ranked, latest.history, EDITION_LIMIT);
       if (!selected.length || controller.signal.aborted || readerInteractedRef.current) return;
+      setPoolItems(candidates);
       setItems((current) => {
         const first = current[0];
         // Pin the initially visible story so a preference update never flashes
@@ -207,6 +222,20 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     finishHold();
   };
 
+  const selectSection = (section: JournalSectionId) => {
+    if (section === activeSection) return;
+    readerInteractedRef.current = true;
+    cancelHold();
+    setActiveSection(section);
+    setPosition(0);
+    setContentsOpen(false);
+    setFailedImages([]);
+    setFigureIndex(0);
+    setNativeImageWidth(null);
+    setNotice('');
+    contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
   const move = useCallback((delta: number) => {
     readerInteractedRef.current = true;
     cancelHold();
@@ -267,7 +296,9 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const applyLatest = useCallback((edition: { items: FrontierItem[]; generatedAt: string }) => {
     editionVersionRef.current += 1;
     cancelHold();
+    setPoolItems(edition.items);
     setItems(edition.items.slice(0, EDITION_LIMIT));
+    setActiveSection('for-you');
     setPosition(0);
     setContentsOpen(false);
     setEditionAt(edition.generatedAt);
@@ -367,7 +398,9 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       const ranked = rankFrontierItems(payload.items, state.profile, state.history, new Date(), state.behavior);
       const next = selectDailyRun(ranked.length ? ranked : payload.items, state.history, EDITION_LIMIT);
       editionVersionRef.current += 1;
+      setPoolItems(payload.items);
       setItems(next);
+      setActiveSection('for-you');
       setPosition(0);
       setContentsOpen(false);
       setEditionAt(payload.generatedAt);
@@ -399,9 +432,9 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
   return (
     <section className={styles.reader} aria-label="Frontier focused reader" data-frontier-journal="true"
-      data-frontier-edition-at={editionAt} data-realm={presentation?.realm ?? "research"} data-format={presentation?.format ?? "brief"}>
+      data-frontier-edition-at={editionAt} data-realm={presentation?.realm ?? sectionMeta.realm} data-format={presentation?.format ?? "brief"}>
       <header className={styles.masthead}>
-        <div className={styles.identity}><Link href="/" className={styles.brand}>FRONTIER<span className={styles.brandDot}>.</span></Link><span className={styles.identityCaption}>A journal of what matters next</span></div>
+        <div className={styles.identity}><Link href="/" className={styles.brand}>FRONTIER<span className={styles.brandDot}>.</span></Link><span className={styles.identityCaption}>{activeSection === 'for-you' ? 'A journal of what matters next' : sectionMeta.subtitle}</span></div>
         <div className={styles.topActions}>
           <button type="button" className={styles.contentsToggle} aria-expanded={contentsOpen} aria-controls="frontier-contents" onClick={() => setContentsOpen((open) => !open)}>
             <span>Contents</span><span className={styles.contentsCount}>{String(items.length).padStart(2, '0')}</span>
@@ -425,6 +458,18 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
           <a href="/frontier/advanced" className={styles.advanced} title="Explore the complete frontier">Explore <span aria-hidden="true">↗</span></a>
         </div>
       </header>
+      <nav className={styles.sectionNavigation} aria-label="Frontier subject collections">
+        <div className={styles.sectionNavigationInner} role="tablist" aria-label="Content areas">
+          {JOURNAL_SECTIONS.map((section) => (
+            <button key={section.id} type="button" role="tab" data-journal-section={section.id}
+              className={styles.sectionTab} aria-selected={activeSection === section.id}
+              aria-controls="frontier-reader-stage" onClick={() => selectSection(section.id)}>
+              <span>{section.label}</span>
+              <span className={styles.sectionTabCount}>{sectionCounts[section.id]}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
       <div className={styles.realmRibbon} aria-live="off"><span className={styles.realmSignal} aria-hidden="true"/><span>{presentation?.kindLabel ?? "The journal"}</span><span className={styles.realmDivider} aria-hidden="true">/</span><span>{item?.lane.replace(/_/g, " ") ?? "Daily discoveries"}</span><span className={styles.realmCounter}>{item ? String(position + 1).padStart(2,"0") : "00"} / {String(items.length).padStart(2,"0")}</span></div>
       <div className={styles.progressTrack} role="progressbar" aria-valuenow={position + (items.length ? 1 : 0)}
         aria-valuemin={0} aria-valuemax={items.length || 1} aria-label="Article progress">
@@ -447,9 +492,10 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       {error && <div className={styles.error} role="alert">{error} <button type="button" onClick={() => setError('')}>Dismiss</button></div>}
 
       {item ? (
-        <div className={styles.stage} key={item.id}>
+        <div id="frontier-reader-stage" role="tabpanel" aria-label={sectionMeta.label + " discoveries"}
+          className={styles.stage} key={item.id}>
           <article className={styles.article}>
-            <div className={styles.editionMarker}><span>FRONTIER / THE RESEARCH JOURNAL</span><span>{sourceDate(editionAt)}</span></div>
+            <div className={styles.editionMarker}><span>FRONTIER / {sectionMeta.label.toUpperCase()}</span><span>{sourceDate(editionAt)}</span></div>
             <div className={styles.headline}>
               <div className={styles.headlineMeta}>
                 <span className={styles.kicker}>{item.lane.replace(/_/g, ' ')} <span className={styles.separator}>/</span> {item.sourceLabel}</span>
@@ -631,10 +677,12 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
           </nav>
         </div>
       ) : (
-        <div className={styles.empty}>
-          <h1>No articles in this edition</h1>
-          <p>The saved edition may have expired. Request the latest stories.</p>
-          <button type="button" onClick={() => void retrieve('', true)}>Find fresh stories</button>
+        <div id="frontier-reader-stage" role="tabpanel" aria-label={sectionMeta.label + " discoveries"} className={styles.empty}>
+          <h1>{activeSection === 'for-you' ? 'No articles in this edition' : 'No stories in ' + sectionMeta.label + ' yet'}</h1>
+          <p>{activeSection === 'for-you' ? 'The saved edition may have expired. Request the latest stories.' : 'This collection has no verified sources in the current snapshot. Explore the rest of the edition or search for a subject.'}</p>
+          {activeSection !== 'for-you' ? (
+            <button type="button" onClick={() => selectSection('for-you')}>Return to For you</button>
+          ) : <button type="button" onClick={() => void retrieve('', true)}>Find fresh stories</button>}
         </div>
       )}
     </section>
