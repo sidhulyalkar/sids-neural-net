@@ -28,7 +28,8 @@ concurrency:
 
 jobs:
   skimboarding-browser:
-    runs-on: ubuntu-latest
+    # Pinned Playwright browser releases are unsupported on Ubuntu 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       WORLD_BASE_URL: http://localhost:3000
