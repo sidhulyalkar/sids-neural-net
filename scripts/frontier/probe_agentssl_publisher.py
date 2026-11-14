@@ -59,7 +59,7 @@ def fetch_exact_source() -> bytes:
             raise ValueError("Expected original publisher HTML content type")
         declared_size = response.headers.get("Content-Length")
         if declared_size and int(declared_size) > MAX_INPUT_BYTES:
-            raise ValueError("Publisher exceeds agreed extraction byte budget")
+            raise ValueError(f"Publisher Content-Length {declared_size} exceeds {MAX_INPUT_BYTES} byte extraction budget")
         # Read a single bounded response. No images or secondary URLs fetched.
         return checked_html(response.read(MAX_INPUT_BYTES + 1))
 
