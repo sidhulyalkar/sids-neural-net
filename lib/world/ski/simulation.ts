@@ -1,5 +1,5 @@
 import {createSkiContact,fitSkiContact,SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_STANCE,SKI_SOLE_Y} from "../../../components/world/worldSkiContact";
-import {Matrix4, Quaternion, Vector3} from "three";
+import {Matrix4, Quaternion, Vector3} from "three/src/Three.Core.js";
 
 // iLand prototype tuning in world units and seconds. No Bonvo measurements.
 export const tuning = Object.freeze({
@@ -25,6 +25,7 @@ export class SkiSimulation {
   landing:"none"|"clean"|"rough"|"crash"="none";
   tick=0;
   remainder=0;
+  droppedSeconds=0;
   charge=0;
   edge=0;
   pressure=0;
@@ -48,13 +49,20 @@ export class SkiSimulation {
   private readonly pivotStation=[0,0];
   private readonly supports=[0,0];
   private readonly solePoint=new Vector3();
-  constructor(private readonly height:Surface,x:number,z:number,readonly footprint:boolean|"independent"=false,readonly pivotEnabled:boolean|"overhang"=false){
+  constructor(private readonly height:Surface,x:number,z:number,readonly footprint:boolean|"independent"=false,readonly pivotEnabled:boolean|"overhang"=false,private readonly constrain?:(from:Vector3,to:Vector3)=>{x:number;z:number}){
     this.position.set(x,height(x,z),z);
     if(footprint)this.position.y=this.sample();
     this.previous.copy(this.position);
   }
+  setHeading(x:number,z:number){
+    if(Math.hypot(x,z)<1e-6)return;
+    this.yaw=Math.atan2(x,z);
+    this.rotation.setFromAxisAngle(up,this.yaw);
+  }
   advance(seconds:number,inputAt:(tick:number)=>SkiInput){
     if(!Number.isFinite(seconds)||seconds<=0)return;
+    // Bound work to 30 fixed ticks per displayed frame under sustained overload.
+    this.droppedSeconds+=Math.max(0,seconds-.25);
     this.remainder+=Math.min(seconds,.25);
     while(this.remainder+1e-12>=tuning.dt){
       this.step(inputAt(this.tick));
@@ -119,6 +127,19 @@ export class SkiSimulation {
     this.position.y=support;
     if(this.footprint===true)for(let i=0;i<2;i++)this.contact[i]=support-this.supports[i]<=.035;
   }
+  private move(){
+    this.position.addScaledVector(this.velocity,tuning.dt);
+    if(!this.constrain)return;
+    const target=this.constrain(this.previous,this.position);
+    const dx=this.position.x-target.x,dz=this.position.z-target.z;
+    const blocked=dx*dx+dz*dz;
+    if(blocked>1e-14){
+      const inward=Math.max(0,this.velocity.x*dx+this.velocity.z*dz)/blocked;
+      this.velocity.x-=inward*dx;
+      this.velocity.z-=inward*dz;
+      this.position.x=target.x;this.position.z=target.z;
+    }
+  }
   private step(input:SkiInput){
     const dt=tuning.dt;
     this.previous.copy(this.position);
@@ -155,7 +176,7 @@ export class SkiSimulation {
       const rate=this.angular.length();
       if(rate>0)this.rotation.multiply(this.delta.setFromAxisAngle(this.axis.copy(this.angular).normalize(),rate*dt)).normalize();
       this.velocity.y-=tuning.gravity*dt;
-      this.position.addScaledVector(this.velocity,dt);
+      this.move();
       const support=this.sample();
       if(this.position.y<=support && this.velocity.dot(this.normal)<=0){
         this.impact=-this.velocity.dot(this.normal);
@@ -195,7 +216,9 @@ export class SkiSimulation {
     this.pressure=Math.max(0,this.normal.y)+Math.min(1,Math.abs(this.turn)*speed/tuning.gravity);
     this.grip=tuning.flatGrip+tuning.engagedGrip*Math.abs(this.edge)*this.pressure*
       (.25+.75*alignment)*(1-.45*this.charge/tuning.maxCharge);
-    this.velocity.addScaledVector(this.side,-lateral*(1-Math.exp(-this.grip*dt)));
+    const slipImpulse=lateral*(1-Math.exp(-this.grip*dt));
+    const contactLimit=this.footprint!=="independent"?Infinity:tuning.gravity*this.pressure*(.28+.92*Math.abs(this.edge))*dt;
+    this.velocity.addScaledVector(this.side,-Math.sign(slipImpulse)*Math.min(contactLimit,Math.abs(slipImpulse)));
     this.velocity.multiplyScalar(Math.exp(-dt*(tuning.drag*speed*(input.tuck?.55:1)+(impaired?2:0))));
     if(input.brake)this.velocity.multiplyScalar(Math.max(0,1-tuning.brake*dt/Math.max(.001,this.velocity.length())));
     const target=this.delta.setFromRotationMatrix(this.basis.makeBasis(this.side,this.normal,this.forward));
@@ -205,7 +228,7 @@ export class SkiSimulation {
       this.velocity.addScaledVector(this.normal,2+tuning.pop*this.charge/tuning.maxCharge);
       this.phase="air";this.age=0;this.charge=0;
     }
-    this.position.addScaledVector(this.velocity,dt);
+    this.move();
     const support=this.sample();
     if(this.phase!=="air"){
       const separation=this.position.y-support;

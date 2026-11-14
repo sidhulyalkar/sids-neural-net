@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import * as THREE from "three/src/Three.Core.js";
 import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_SOLE_Y} from "@/components/world/worldSkiContact";
 import {tuning,type SkiSimulation} from "@/lib/world/ski/simulation";
 

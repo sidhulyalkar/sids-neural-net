@@ -55,7 +55,9 @@ export const ACTIVITIES = [
     acceleration: 7,
     braking: 4,
     action: "Hop",
-    hint: "Snow and mountain jumps · Aim and shoot glowing rings for speed boosts",
+    hint: process.env.NEXT_PUBLIC_SKI_V3==="1"
+      ? "A/D carve or spin · W/S tuck or brake, pitch in air · Hold Space and release to jump · Q/E roll · Shift grab"
+      : "WASD ski · Space to hop",
   },
   {
     id: "boulder",
@@ -395,7 +397,7 @@ export function activityLanding(id: Activity): Point | null {
   // *single* downhill halfpipe. It does not arm the separate Ski Jump game.
   if (id === "ski") return {
     x:MOUNTAIN_HALFPIPE.centerX,
-    z:MOUNTAIN_HALFPIPE.startZ-1.65,
+    z:MOUNTAIN_HALFPIPE.startZ+(process.env.NEXT_PUBLIC_SKI_V3==="1"?-.05:-1.65),
   };
   if (id === "skate") return {...SKATE_GROVE_FLOW.approach};
   if (id === "boulder") return { x: 13, z: -15 };

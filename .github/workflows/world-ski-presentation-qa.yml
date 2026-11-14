@@ -2,6 +2,9 @@ name: Ski Camera and Contact Browser QA
 on:
   pull_request:
     paths:
+      - 'lib/world/ski/**'
+      - 'components/world/skiSnowTracks.ts'
+      - 'scripts/playtest-ski-v3.mjs'
       - 'lib/world/frameTiming.ts'
       - 'components/world/worldSkiContact.ts'
       - 'lib/world/mountainHalfpipe.ts'
@@ -67,3 +70,35 @@ jobs:
             artifacts/ski-presentation/
             /tmp/world-halfpipe-next.log
           if-no-files-found: warn
+
+  ski-v3-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SKI_V3: '1'
+      PLAYWRIGHT_MODULE_ROOT: /tmp/ski-v3-browser/node_modules/playwright
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm install --prefix /tmp/ski-v3-browser --no-package-lock playwright@1.56.1
+      - run: /tmp/ski-v3-browser/node_modules/.bin/playwright install --with-deps chromium
+      - run: |
+          npm run dev > /tmp/world-ski-v3.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -fsS http://localhost:3000/ >/dev/null; then break; fi
+            sleep 2
+          done
+          node scripts/playtest-ski-v3.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ski-v3-island-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            artifacts/ski-v3/
+            /tmp/world-ski-v3.log
