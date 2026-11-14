@@ -27,7 +27,7 @@ from extract_arxiv_html import MAX_INPUT_BYTES, parse_document
 PAPER_ID = "2611.17323v1"
 SOURCE_URL = f"https://arxiv.org/html/{PAPER_ID}"
 LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/"
-MAX_REPORT_SECTIONS = 40
+MAX_REPORT_SECTIONS = 80
 USER_AGENT = "FRONTIER EvidencePilot/0.1 (bounded single-paper review)"
 # Purposefully no automatic redirect following, even to another arXiv endpoint.
 class RefuseRedirect(urllib.request.HTTPRedirectHandler):
