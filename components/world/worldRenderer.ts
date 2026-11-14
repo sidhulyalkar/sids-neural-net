@@ -68,6 +68,7 @@ import { createWorldPaperGallery } from "./worldPaperGallery";
 import { SHRINE_GALLERY, GALLERY_VIEWING, galleryConstrainMove, galleryStepWalk, galleryNearShaft, galleryWalkable, shrineReachable, galleryPhotoSlots, galleryPhotoViewpoint, galleryPhotoClearance, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
+import {resolveBikeTerrainSightline} from "@/lib/world/terrainCameraSightline";
 import { createSkimWake } from "./worldSkimWake";
 import { createNorthShoreLife } from "./worldNorthShoreLife";
 import { ringSurface, ribbon } from "./worldGeometry";
@@ -3246,6 +3247,8 @@ export function createWorld(
   const frameSampler = new FrameSampler();
   const quality = new QualityController();
   let skiCameraYaw=0, skiCameraActive=false, skiLookUntil=0, snapSkiCamera=false;
+  // Bike region fast travel must never lerp the lens through a mountain.
+  let snapBikeCamera=false;
   let yaw = 0.25,
     pitch = 0.32,
     zoom = 19;
@@ -6811,12 +6814,12 @@ export function createWorld(
       }
       snowPuffs.instanceMatrix.needsUpdate=true;
     }
-    if(showingDiscGolfIntro || snapDiscCamera || snapSkiCamera){
+    if(showingDiscGolfIntro || snapDiscCamera || snapSkiCamera || snapBikeCamera){
       // A direct time-derived pose starts on the basket instead of slowly
       // drifting there from a camera that previously followed the player.
       camera.position.copy(targetCamera);
       look.copy(targetLook);
-      snapDiscCamera=false;snapSkiCamera=false;
+      snapDiscCamera=false;snapSkiCamera=false;snapBikeCamera=false;
     }else{
       // Fast enough to keep the flying disc on screen, with smooth
       // cinematic blends instead of jumping between subjects.
@@ -6902,6 +6905,24 @@ export function createWorld(
       camera.updateProjectionMatrix();
     }
     canvas.dataset.hiddenGalleryFov=camera.fov.toFixed(1);
+    // Bike-only camera safety. The existing lens-height clamp misses
+    // mountains BETWEEN camera and player: it can show only snow despite
+    // perfect wheel contact. This does not touch skier or skate dynamics.
+    if(state.activity==="bike"&&aquatic==="land"&&caveLayer==="surface"&&
+       galleryPhase==="outside"&&discGolf.phase==="off"&&
+       bigAir.phase==="idle"&&!jetSki){
+      const shot=resolveBikeTerrainSightline(camera.position,look,
+        (x,z)=>worldFloorHeight(x,z));
+      if(shot.adjusted&&shot.clear)
+        camera.position.set(shot.point.x,shot.point.y,shot.point.z);
+      canvas.dataset.bikeCameraSightlineClear=String(shot.clear);
+      canvas.dataset.bikeCameraClearanceLift=shot.lift.toFixed(2);
+      canvas.dataset.bikeCameraBoomRatio=shot.boomRatio.toFixed(3);
+    }else{
+      canvas.dataset.bikeCameraSightlineClear="n/a";
+      canvas.dataset.bikeCameraClearanceLift="0";
+      canvas.dataset.bikeCameraBoomRatio="1";
+    }
     camera.lookAt(look);
     if(skiCameraActive){
       camera.updateMatrixWorld();skiProbe.copy(skiFocus).project(camera);
@@ -7568,6 +7589,8 @@ export function createWorld(
       if (next.entered && (!wasEntered || (wasPaused && !next.paused)))
         canvas.focus({ preventScroll: true });
       if (next.command && next.command.serial !== lastSerial) {
+        // Snap only biking transfers; Astra owns all ski camera handoffs.
+        snapBikeCamera=next.activity==="bike"||next.command.activity==="bike";
         if(skimHeat.phase!=="off"){
           skimHeat=idleSkimHeat();callbacks.onSkim(skimHeat);
         }

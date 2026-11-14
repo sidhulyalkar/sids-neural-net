@@ -36,7 +36,10 @@ export function createWorldCameraOcclusion(scene:THREE.Scene){
   }
  });
  const field=new CameraVisibilityField(volumes);
- const hidden:{mesh:THREE.Mesh;instance?:number;matrix?:THREE.Matrix4;part?:Part;visible:boolean}[]=[];
+ // Never assume an indexed mesh used identity indices. Saving the exact
+ // original subrange avoids scrambling geometry after a camera cutaway.
+ const hidden:{mesh:THREE.Mesh;instance?:number;matrix?:THREE.Matrix4;
+  part?:Part;indices?:number[];visible:boolean}[]=[];
  let hiddenKey="";
  function restore(){
   for(const h of hidden){
@@ -44,7 +47,8 @@ export function createWorldCameraOcclusion(scene:THREE.Scene){
     h.mesh.setMatrixAt(h.instance,h.matrix!);h.mesh.instanceMatrix.needsUpdate=true;
    }else if(h.part){
     const index=h.mesh.geometry.index!;
-    for(let i=h.part.start;i<h.part.start+h.part.count;i++)index.setX(i,i);
+    const saved=h.indices!;
+    for(let i=0;i<saved.length;i++)index.setX(h.part.start+i,saved[i]);
     index.needsUpdate=true;
    }else h.mesh.visible=h.visible;
   }
@@ -65,9 +69,13 @@ export function createWorldCameraOcclusion(scene:THREE.Scene){
     e.mesh.setMatrixAt(e.instance,new THREE.Matrix4().makeScale(0,0,0));
     e.mesh.instanceMatrix.needsUpdate=true;
    }else if(e.part){
-    hidden.push({...e,visible:e.mesh.visible});
     const index=e.mesh.geometry.index!;
-    for(let i=e.part.start;i<e.part.start+e.part.count;i++)index.setX(i,e.part.start);
+    const indices=Array.from({length:e.part.count},(_,i)=>index.getX(e.part!.start+i));
+    hidden.push({...e,indices,visible:e.mesh.visible});
+    // Collapse only this authored part to a degenerate triangle.
+    // The anchor is a vertex ID, never an index-buffer offset.
+    for(let i=e.part.start;i<e.part.start+e.part.count;i++)
+      index.setX(i,indices[0]);
     index.needsUpdate=true;
    }else{hidden.push({...e,visible:e.mesh.visible});e.mesh.visible=false;}
   }

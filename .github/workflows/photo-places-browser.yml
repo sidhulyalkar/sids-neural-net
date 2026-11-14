@@ -10,6 +10,10 @@ on:
       - 'lib/world/model.ts'
       - 'lib/world/content.ts'
       - 'components/world/WorldHome.tsx'
+      - 'components/world/world.module.css'
+      - 'lib/world/cairnStories.ts'
+      - 'tests/world-cairn-stories.test.ts'
+      - 'scripts/playtest-cairn-stories.mjs'
       - 'tests/world-photo-place-links.test.ts'
       - 'scripts/playtest-photo-places.mjs'
       - '.github/workflows/photo-places-browser.yml'
@@ -21,6 +25,10 @@ on:
       - 'lib/world/model.ts'
       - 'lib/world/content.ts'
       - 'components/world/WorldHome.tsx'
+      - 'components/world/world.module.css'
+      - 'lib/world/cairnStories.ts'
+      - 'tests/world-cairn-stories.test.ts'
+      - 'scripts/playtest-cairn-stories.mjs'
       - 'tests/world-photo-place-links.test.ts'
       - 'scripts/playtest-photo-places.mjs'
       - '.github/workflows/photo-places-browser.yml'
@@ -75,12 +83,20 @@ jobs:
           WORLD_BASE_URL: http://127.0.0.1:3000
           WORLD_AUDIT_DIR: artifacts/photos/map-location-links
         run: node scripts/playtest-photo-places.mjs
+      - name: Verify Cairn visual stories and return focus on desktop/mobile
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/photo-places-playwright/node_modules/playwright
+          WORLD_BASE_URL: http://127.0.0.1:3000
+          WORLD_AUDIT_DIR: artifacts/world/cairn-stories
+        run: node scripts/playtest-cairn-stories.mjs
       - name: Upload screenshot evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: photo-places-${{ github.sha }}
-          path: artifacts/photos/map-location-links/
+          path: |
+            artifacts/photos/map-location-links/
+            artifacts/world/cairn-stories/
           if-no-files-found: warn
       - name: Print diagnostics on failure
         if: failure()

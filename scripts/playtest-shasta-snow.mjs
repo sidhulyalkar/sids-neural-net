@@ -28,24 +28,36 @@ try{
  const legWidth=Number(await canvas.getAttribute("data-shasta-leg-width"));
  assert.ok(pawWidth<=.10&&Math.abs(pawWidth-legWidth)<.001,
   "Slim paws must match the four straight legs in width");
+ // Install before triggering the celebration. The zoom lasts only 2.8 s
+ // in simulation time and is easy to miss via separate software-WebGL polls.
+ // Observe real rendered data without controlling or mutating Shasta's state.
+ await canvas.evaluate(c=>{
+  const record={frames:[],stages:[],lastStage:""};
+  c.__shastaSnowEvidence=record;
+  const tick=()=>{
+   if(!c.isConnected)return;
+   const d=c.dataset,stage=d.dogSnowStage??"";
+   if(stage!==record.lastStage){
+    record.stages.push(stage);
+    record.lastStage=stage;
+   }
+   if(stage==="zoom"&&record.frames.length<60)
+    record.frames.push({gait:d.dogGait,bodyBob:Number(d.dogBodyBob),
+     stage,footLift:Number(d.dogFootLiftMax)});
+   requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+ });
  await page.getByRole("button",{name:"Skiing",exact:true}).click();
  await page.waitForFunction(()=>{
-  const stage=document.querySelector("canvas")?.dataset.dogSnowStage;
-  return stage==="perk"||stage==="zoom";
- },null,{timeout:15000});
- await page.waitForFunction(()=>
-  document.querySelector("canvas")?.dataset.dogSnowStage==="zoom",
-  null,{timeout:9000});
- const frames=await page.evaluate(async ()=>{
-  const out=[];
-  for(let i=0;i<10;i++){
-   const d=document.querySelector("canvas")?.dataset;
-   out.push({gait:d?.dogGait,bodyBob:Number(d?.dogBodyBob),
-    stage:d?.dogSnowStage,footLift:Number(d?.dogFootLiftMax)});
-   await new Promise(resolve=>setTimeout(resolve,90));
-  }
-  return out;
- });
+  const c=document.querySelector("canvas");
+  return c?.dataset.dogSnowHistory?.includes("zoom") &&
+    c.__shastaSnowEvidence?.frames.length>0;
+ },null,{timeout:35000});
+ const frames=await canvas.evaluate(c=>c.__shastaSnowEvidence.frames);
+ assert.ok(frames.length>0,"at least one real zoom frame must be rendered");
+ assert.ok(frames.every(f=>f.stage==="zoom"),
+  "gait evidence must belong to Shasta's zoom phase, not a later roll");
  assert.ok(frames.every(f=>Math.abs(f.bodyBob)<.03),
   "Snow sprint must run on planted legs, not whole-body hopping");
  assert.ok(frames.some(f=>f.gait==="trot"||f.gait==="canter"||f.gait==="walk"),
