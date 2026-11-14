@@ -60,6 +60,30 @@ async function audit(width, height) {
     assert.equal(await page.locator('footer').count(), 0, 'Reader must not render a bulky bottom navigation footer');
     assert.equal(await page.getByText('A quiet space for what is new').count(), 0, 'Remove redundant brand tagline');
     assert.equal(await page.locator('article h1').count(), 1, 'Article headline must appear exactly once');
+    const subjectTabs = page.getByRole('tablist', { name: 'Content areas' });
+    assert.equal(await subjectTabs.getByRole('tab').count(), 6,
+      'Research, engineering, sports, entertainment, and nature must be independently browsable');
+    const availableTabs = await subjectTabs.getByRole('tab').all();
+    const validTab = [];
+    for (const tab of availableTabs) {
+      const section = await tab.getAttribute('data-journal-section');
+      const label = (await tab.textContent()) || '';
+      if (section !== 'for-you' && /[1-9]/.test(label.replace(/\\D/g, ''))) {
+        validTab.push(tab);
+      }
+    }
+    assert(validTab.length > 0, 'The edition should contain at least one themed source');
+    const requestsBeforeTab = feedRequests.length;
+    await validTab[0].click();
+    assert.equal(await validTab[0].getAttribute('aria-selected'), 'true');
+    assert.equal(await page.locator('article').count(), 1,
+      'Changing subject must replace the source article, never duplicate it');
+    assert.equal(feedRequests.length, requestsBeforeTab,
+      'Switching subject shelves must use already-loaded sources, not fetch a new feed');
+    await subjectTabs.getByRole('tab', { name: /^For you/ }).click();
+    assert.equal(await page.locator('article h1').first().textContent(), heading,
+      'Returning to For you preserves the editorial starting point');
+
     const sourceLens = page.locator('[aria-label="Source identity"]');
     assert.equal(await sourceLens.count(), 1, 'One source-specific identity should be visible');
     const kind = await sourceLens.getAttribute('data-source-kind');
