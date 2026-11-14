@@ -99,6 +99,9 @@ test('strict manifest parsing rejects unsafe URLs, unknown keys, invalid timesta
     locator: { ...locator, revision: 'different-source-revision' }, status: 'publisher-reported',
   };
   assert(!StoryManifestSchema.safeParse(withEvidence([quote])).success);
+  assert(!StoryManifestSchema.safeParse(withEvidence([{
+    ...quote, locator: { ...locator, sourceUrl: 'https://unrelated.example/other-paper' },
+  }])).success, 'An unrelated publisher cannot be smuggled in as supporting evidence');
 });
 
 test('a single source figure is eligible only when its display rights are qualified', () => {
@@ -249,6 +252,29 @@ test('a manifest cannot declare fabricated operations, missing evidence, false d
   ] }).success);
   const unreviewed = { ...sampleFigure('source-figure'), status: 'extracted-needs-review' };
   assert(!StoryManifestSchema.safeParse({ ...paper, evidence: [unreviewed], scenes: [scene] }).success);
+});
+
+test('scenes cannot combine individually eligible but incompatible subsets', () => {
+  const before = {
+    ...sampleFigure('fig-before'), comparisonGroup: 'same-plot',
+    viewpointKey: 'fixed', registration: 'publisher-paired', condition: 'before',
+  } as EvidenceRecord;
+  const after = { ...before, id: 'fig-after', condition: 'after' } as EvidenceRecord;
+  const anotherBefore = { ...before, id: 'fig-another-before' } as EvidenceRecord;
+  const source = withEvidence([before, after, anotherBefore]);
+  const valid: StoryScene = {
+    id: 'figure-comparison', type: 'figure-compare',
+    title: 'Compare original figures',
+    question: 'How did the reported condition change?',
+    evidenceIds: ['fig-before', 'fig-after'],
+    operations: ['compare'], accessibleSummary: 'Compare source-paired observations.',
+    annotation: 'publisher-original',
+  };
+  assert.equal(parseQualifiedStoryManifest({ ...source, scenes: [valid] }).scenes.length, 1);
+  assert.throws(() => parseQualifiedStoryManifest({
+    ...source,
+    scenes: [{ ...valid, evidenceIds: ['fig-before', 'fig-another-before'] }],
+  }), /own eligibility gate/, 'Two before images cannot masquerade as a before-and-after comparison');
 });
 
 test('scene eligibility is deterministic, bounded, and emits reasons for every unsupported scene', () => {
