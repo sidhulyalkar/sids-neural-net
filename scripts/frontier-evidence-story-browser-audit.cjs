@@ -45,6 +45,7 @@ async function view(browser, width, height) {
   const chapters = page.getByRole('group', { name: 'Research chapters' });
   const sectionMap = page.getByRole('region', { name: 'Original publication outline' });
   assert.equal(await sectionMap.count(), 1, 'A source with actual section headings should render the publication map');
+  await chapters.getByRole('button', { name: /Context/ }).click();
   assert.equal(await sectionMap.getByRole('link', { name: /1 Introduction/ }).count(), 1);
   await chapters.getByRole('button', { name: /Evidence/ }).click();
   await page.locator('[data-selected-source-chapter="results"]').waitFor();
