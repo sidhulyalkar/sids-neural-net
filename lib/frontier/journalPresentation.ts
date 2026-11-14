@@ -61,11 +61,22 @@ export function journalSourceFigures(item: FrontierItem, figures: FrontierSource
   // source-original fallback. Only canonical arXiv paper figure URLs qualify;
   // unrelated publisher images never enter the expanded proxy allowlist.
   if (item.sourceKind !== 'arxiv') return retained;
+  let paperId: string;
+  try {
+    const paperUrl = new URL(item.url);
+    const parts = paperUrl.pathname.split('/').filter(Boolean);
+    const candidate = parts[0] === 'abs' && parts.length === 2 ? parts[1] : '';
+    if (paperUrl.protocol !== 'https:' || paperUrl.hostname !== 'arxiv.org'
+      || !/^\d{4}\.\d{4,5}(?:v\d+)?$/.test(candidate)) return retained;
+    paperId = candidate;
+  } catch {
+    return retained;
+  }
   return retained.map((figure) => {
     try {
       const source = new URL(figure.url);
       if (source.protocol !== 'https:' || source.hostname !== 'arxiv.org'
-        || !/^\/html\/\d{4}\.\d{4,5}(?:v\d+)?\//.test(source.pathname)
+        || !source.pathname.startsWith('/html/' + paperId + '/')
         || !/\.(?:png|jpe?g|webp)$/i.test(source.pathname)) return figure;
       const proxy = '/api/frontier/media?url=' + encodeURIComponent(source.href);
       return {
