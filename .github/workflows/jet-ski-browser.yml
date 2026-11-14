@@ -95,7 +95,7 @@ jobs:
         run: |
           export PLAYWRIGHT_MODULE_ROOT="/tmp/island-playwright/node_modules/playwright"
           node scripts/playtest-jet-ski.mjs
-      - name: Test freeform mountain ski flight and companion birds
+      - name: Test explicitly armed mountain ski jump and companion birds
         env:
           WORLD_BASE_URL: http://127.0.0.1:3000
           WORLD_AUDIT_DIR: artifacts/world/mountain-jump-browser
