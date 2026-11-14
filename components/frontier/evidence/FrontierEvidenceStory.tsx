@@ -29,34 +29,48 @@ function vettedAssetUrl(src: string | undefined): string | null {
 }
 
 export function FrontierEvidenceStory({ manifest, title, summary, assets, syntheticFixture = false }: Props) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [expanded, setExpanded] = useState(false);
-  const [failed, setFailed] = useState<string[]>([]);
   const chapters = sourceChapterMap(manifest);
-  const [selectedChapter, setSelectedChapter] = useState<string>(chapters[0]?.id ?? '');
   const figureScene = manifest.scenes.find((scene) => scene.type === 'original-figure');
   const indexed = new Map(manifest.evidence.map((evidence) => [evidence.id, evidence]));
   const figures: StoryFigure[] = (figureScene?.evidenceIds ?? [])
     .map((id) => indexed.get(id))
     .filter((entry): entry is StoryFigure => entry?.type === 'figure' && entry.rights.display === 'permitted');
+  const firstChapter = chapters.find((chapter) =>
+    chapter.sections.some((section) => section.figureIds.includes(figures[0]?.id ?? '')))
+    ?.id ?? chapters[0]?.id ?? '';
+
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [selectedChapter, setSelectedChapter] = useState<string>(firstChapter);
+  const [expanded, setExpanded] = useState(false);
+  const [failed, setFailed] = useState<string[]>([]);
+
   const index = Math.min(activeIndex, Math.max(0, figures.length - 1));
-  const figure = figures[index];
+  const activeChapter = chapters.find((chapter) => chapter.id === selectedChapter);
+  const chapterFigureIds = new Set(activeChapter?.sections.flatMap((section) => section.figureIds) ?? []);
+  // An unillustrated source section must never inherit another section's
+  // image and imply that it supports the selected chapter.
+  const figure = !selectedChapter || chapterFigureIds.has(figures[index]?.id)
+    ? figures[index] : undefined;
   const chooseChapter = (id: string) => {
     setSelectedChapter(id);
+    setExpanded(false);
     const chapter = chapters.find((item) => item.id === id);
     const firstFigureId = chapter?.sections.flatMap((section) => section.figureIds)[0];
     if (!firstFigureId) return;
     const matched = figures.findIndex((item) => item.id === firstFigureId);
-    if (matched >= 0) {
-      setExpanded(false);
-      setActiveIndex(matched);
-    }
+    if (matched >= 0) setActiveIndex(matched);
   };
   const imageUrl = figure ? vettedAssetUrl(assets[figure.assetKey]) : null;
   const imageAvailable = Boolean(figure && imageUrl && !failed.includes(figure.id));
   const advance = (delta: number) => {
+    if (!figures.length) return;
+    const nextIndex = (index + delta + figures.length) % figures.length;
+    const next = figures[nextIndex];
+    const relatedChapter = chapters.find((chapter) =>
+      chapter.sections.some((section) => section.figureIds.includes(next.id)));
+    setSelectedChapter(relatedChapter?.id ?? '');
     setExpanded(false);
-    setActiveIndex((current) => (current + delta + figures.length) % figures.length);
+    setActiveIndex(nextIndex);
   };
 
   return (
@@ -86,7 +100,7 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
           <section className={styles.stage} aria-label="Original scientific figures">
             <div className={styles.stageTop}>
               <div className={styles.sectionTitle}><Images size={17} aria-hidden="true"/> ORIGINAL SOURCE MATERIAL</div>
-              <span>{figures.length ? String(index + 1).padStart(2, '0') + ' / ' + String(figures.length).padStart(2, '0') : 'NO QUALIFIED FIGURES'}</span>
+              <span>{figure ? String(index + 1).padStart(2, '0') + ' / ' + String(figures.length).padStart(2, '0') : selectedChapter ? 'NO FIGURE IN CHAPTER' : 'NO QUALIFIED FIGURES'}</span>
             </div>
             {figure && figureScene ? (
               <>
@@ -136,9 +150,12 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
             ) : (
               <div className={styles.emptyStage}>
                 <FileText size={30} strokeWidth={1.2} aria-hidden="true"/>
-                <h2>Start with the original source</h2>
-                <p>This story has no rights-cleared, source-verified figure available for display. Read the original publisher document instead.</p>
-                <a href={manifest.source.url} target="_blank" rel="noopener noreferrer">Open research source <ArrowUpRight size={14} aria-hidden="true"/></a>
+                <h2>{selectedChapter ? 'No figure linked to this chapter' : 'Start with the original source'}</h2>
+                <p>{selectedChapter
+                  ? 'This section has no approved original figure associated with it. Follow the source heading to inspect its actual material.'
+                  : 'This story has no rights-cleared, source-verified figure available for display. Read the original publisher document instead.'}</p>
+                <a href={activeChapter?.sections[0]?.sourceUrl ?? manifest.source.url}
+                  target="_blank" rel="noopener noreferrer">Open original section <ArrowUpRight size={14} aria-hidden="true"/></a>
               </div>
             )}
           </section>
