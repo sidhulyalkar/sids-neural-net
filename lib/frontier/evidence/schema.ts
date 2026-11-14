@@ -239,6 +239,15 @@ export const StoryManifestSchema = z.strictObject({
         message: 'Evidence must refer to this exact source revision',
       });
     }
+    // In V1, the locator must resolve on the canonical publisher host.
+    // Future adapters can expose narrowly authorized cross-host origins,
+    // but arbitrary citations to other domains are never inferred as proof.
+    if (new URL(evidence.locator.sourceUrl).origin !== new URL(manifest.source.url).origin) {
+      ctx.addIssue({
+        code: 'custom', path: ['evidence', index, 'locator', 'sourceUrl'],
+        message: 'Evidence locator must use the canonical source publisher origin',
+      });
+    }
   }
   const sceneIds = new Set<string>();
   for (const [index, scene] of manifest.scenes.entries()) {
