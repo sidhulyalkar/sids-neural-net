@@ -169,10 +169,14 @@ export function parseQualifiedStoryManifest(input: unknown): StoryManifest {
     if (scene.evidenceIds.some((id) => !allowed.has(id))) {
       throw new Error('Scene references evidence outside its eligible group: ' + scene.id);
     }
-    if (scene.type !== 'editorial-reading' && scene.evidenceIds.length < Math.min(2,
-      ['benchmark-table', 'figure-compare', 'event-timeline', 'time-aligned-signals', 'verified-pipeline'].includes(scene.type)
-        ? 2 : 1)) {
-      throw new Error('Scene has insufficient qualifying records: ' + scene.id);
+    // Re-evaluate the exact subset selected by the scene. Valid members of
+    // separate comparison groups must never be mixed into a fake comparison.
+    const selected = new Set(scene.evidenceIds);
+    const scoped = evaluate({
+      ...manifest, evidence: manifest.evidence.filter((record) => selected.has(record.id)),
+    }).find((candidate) => candidate.type === scene.type);
+    if (!scoped?.eligible || scene.evidenceIds.some((id) => !scoped.evidenceIds.includes(id))) {
+      throw new Error('Scene evidence cannot independently satisfy its own eligibility gate: ' + scene.id);
     }
     if (scene.operations.some((operation) => !gate.operations.includes(operation))) {
       throw new Error('Scene requests an unsupported operation: ' + scene.id);
