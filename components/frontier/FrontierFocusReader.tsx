@@ -11,6 +11,8 @@ import { buildFrontierSourceBrief, frontierSourceFigures } from '@/lib/frontier/
 import { journalPresentation, journalRelatedItems, journalRealm, journalSourceFigures } from '@/lib/frontier/journalPresentation';
 import { FrontierJournalSourceLens } from './FrontierJournalSourceLens';
 import { FrontierJournalEvidence } from './FrontierJournalEvidence';
+import { FrontierJournalMedia } from './FrontierJournalMedia';
+import { journalMediaPlan } from '@/lib/frontier/journalMedia';
 import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierFeedResponse, FrontierItem } from '@/lib/frontier/types';
@@ -71,7 +73,19 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const rating = item ? history[item.id]?.interestScore : undefined;
   const sliderScore = sliderDraft?.id === item?.id ? sliderDraft.value : (rating ?? 5);
   const isSaved = Boolean(item && saved[item.id]);
-  const figures = useMemo(() => item ? journalSourceFigures(item, frontierSourceFigures(item)) : [], [item]);
+  const sourceFigures = useMemo(() => item ? journalSourceFigures(item, frontierSourceFigures(item)) : [], [item]);
+  const mediaPlan = item ? journalMediaPlan(item) : null;
+  // A publisher-supplied video poster is a gateway to the actual footage,
+  // not a second research figure below the same footage.
+  const originalPoster = item?.media?.poster;
+  const proxiedPoster = item?.media?.posterProxyUrl;
+  const mediaPosterFigure = mediaPlan && originalPoster
+    ? sourceFigures.find((figure) => figure.url === (proxiedPoster || originalPoster))
+    : undefined;
+  const mediaPoster = mediaPosterFigure?.url;
+  const figures = mediaPosterFigure
+    ? sourceFigures.filter((figure) => figure.url !== mediaPosterFigure.url)
+    : sourceFigures;
   const activeFigure = figures[Math.min(figureIndex, Math.max(0, figures.length - 1))];
   // A failed HD proxy must retry the original publisher image before the
   // editorial fallback. Never retry a source that already failed.
@@ -463,6 +477,10 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
                 {presentation?.format === 'live' || presentation?.format === 'measured' ? (
                   <FrontierJournalEvidence item={item} />
+                ) : null}
+                {mediaPlan ? (
+                  <FrontierJournalMedia plan={mediaPlan} title={item.title} posterUrl={mediaPoster}
+                    onOpenSource={() => { readerInteractedRef.current = true; recordOpen(item); }} />
                 ) : null}
               {canShowImage || hasFigureChoices ? <figure className={styles.visual} data-frontier-figure-count={figures.length}>
                 <div className={styles.visualViewport}>
