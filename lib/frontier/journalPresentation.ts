@@ -1,4 +1,5 @@
 import type { FrontierItem, FrontierLaneId, FrontierMetric, FrontierSourceFigure } from './types';
+import { journalMediaPlan } from './journalMedia';
 
 export type JournalRealm = 'research' | 'neural' | 'behavior' | 'systems' | 'nature' | 'motion' | 'culture';
 export type JournalFormat = 'live' | 'watch' | 'measured' | 'visual' | 'technical' | 'brief';
@@ -57,7 +58,7 @@ export function journalSourceFigures(item: FrontierItem, figures: FrontierSource
 
 export function journalFormat(item: FrontierItem, hasSourceFigure: boolean): JournalFormat {
   if (item.sportsState) return 'live';
-  if (item.media?.type === 'video' || item.media?.type === 'youtube') return 'watch';
+  if (journalMediaPlan(item)) return 'watch';
   if (journalMeasuredMetrics(item).length) return 'measured';
   if (hasSourceFigure) return 'visual';
   if (item.sourceKind === 'github' || item.artifacts?.some((artifact) => ['formula', 'benchmark', 'repository', 'release'].includes(artifact.kind))) {
