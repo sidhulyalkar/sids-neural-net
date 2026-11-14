@@ -87,6 +87,21 @@ test('the parser fails closed on unsafe paper IDs, excess bytes and invalid enco
   assert.match(oversized.stderr, /exceeds bounded extraction limit/);
 });
 
+test('malformed image ports and doubly encoded traversal cannot poison an otherwise parseable paper', () => {
+  const malicious = '<section id="S1"><h2>1 Example</h2>'
+    + '<figure class="ltx_figure" id="S1.F1"><img src="https://arxiv.org:garbage/html/2611.17323v1/a.png">'
+    + '<figcaption>This test figure is not allowed to smuggle malformed network destinations.</figcaption></figure>'
+    + '<figure class="ltx_figure" id="S1.F2"><img src="%252e%252e/escape.png">'
+    + '<figcaption>Double-encoded parent paths cannot become original publisher assets.</figcaption></figure>'
+    + '</section>';
+  const result = extract(PAPER_ID, malicious);
+  assert.equal(result.status, 0, result.stderr);
+  const candidate = ArxivHtmlCandidateSchema.parse(result.output);
+  assert.equal(candidate.figures.length, 0);
+  assert.equal(candidate.sections.length, 1);
+  assert.equal(candidate.diagnostics.rejectedImageReferences, 2);
+});
+
 test('source HTML is candidate data, not permission to render source figures', () => {
   const parsed = candidates();
   const { manifest, assets } = compileArxivEvidence({
