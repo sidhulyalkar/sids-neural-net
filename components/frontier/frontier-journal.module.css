@@ -573,3 +573,51 @@
 @media (max-width: 480px) {
   .imprintFacts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Genuine motion is a separate evidence format. On cold paint only the
+ * publisher's authentic poster is loaded; the video stream requires action. */
+.journalMedia { order: 0; min-width: 0; margin: 22px 0 10px; }
+.reader[data-format='watch'] .content .journalMedia { order: -1; margin: 0 0 26px; }
+.mediaHeading, .mediaFoot {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px 20px;
+  flex-wrap: wrap; color: var(--muted);
+}
+.mediaHeading {
+  padding: 0 0 12px; font: 650 10px/1.4 var(--font-geist-mono), monospace;
+  letter-spacing: .085em; text-transform: uppercase;
+}
+.mediaHeading span:first-child { color: var(--accent); }
+.mediaHeading span:last-child { text-transform: none; letter-spacing: 0; font-weight: 450; }
+.mediaPoster, .journalVideo {
+  position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden;
+  display: grid; place-items: center; background: var(--context-surface);
+  border: 1px solid var(--line);
+}
+.mediaPosterImage { width: 100%; height: 100%; object-fit: contain; }
+.mediaFallback {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  color: var(--muted); font: 13px/1.45 var(--font-geist-mono), monospace;
+  text-align: center; padding: 20px;
+}
+.mediaPlay {
+  position: absolute; z-index: 1; display: inline-flex; align-items: center;
+  justify-content: center; gap: 10px; max-width: calc(100% - 28px);
+  padding: 12px 19px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--paper); color: var(--ink); text-decoration: none;
+  font: 650 12px/1.2 var(--font-geist-sans), system-ui;
+  box-shadow: 0 8px 26px #14221f20; transition: background-color 180ms ease, transform 180ms ease;
+}
+.mediaPlay:hover { transform: translateY(-1px); background: var(--paper-soft); }
+.mediaPlay svg { flex: 0 0 auto; }
+.journalVideo { height: auto; object-fit: contain; display: block; }
+.mediaFoot { padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 11px; line-height: 1.5; }
+.mediaFoot a { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-weight: 650; text-decoration: none; white-space: nowrap; }
+.mediaFoot a:hover { text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 560px) {
+  .mediaPlay { font-size: 11px; padding: 11px 14px; }
+  .mediaFoot { gap: 6px 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mediaPlay { transition: none; }
+  .mediaPlay:hover { transform: none; }
+}
