@@ -31,3 +31,25 @@ test("threat response persists through intermittent detections and wet edges",()
  const stopped=stepCritterLocomotion(next.motion,0,5.4,null,()=>false);
  assert.equal(stopped.motion,next.motion);
 });
+
+test("wildlife gait varies by species, rests naturally and flees immediately",()=>{
+  const walk=(kind:"lizard"|"rabbit"|"quail")=>{
+    let motion:CritterLocomotion={...start,kind,point:{...start.point},home:{...start.home}};
+    let stopped=0,moved=0;
+    for(let i=0;i<600;i++){
+      const out=stepCritterLocomotion(motion,1/60,2+i/60,null,()=>false);
+      if(out.step===0)stopped++;else moved++;
+      motion=out.motion;
+      assert.ok(Math.hypot(motion.point.x,motion.point.z)<start.roam*1.75+1e-6);
+    }
+    assert.ok(stopped>40 && moved>40,kind+" should pause and explore");
+    const fleeing=stepCritterLocomotion(motion,1/60,13,
+      {x:motion.point.x+.4,z:motion.point.z+.2},()=>false);
+    assert.ok(fleeing.motion.panicUntil>13);
+    assert.ok(fleeing.step>0,"threat overrides resting motion");
+    return [motion.point.x,motion.point.z,stopped,moved];
+  };
+  assert.notDeepEqual(walk("lizard"),walk("rabbit"));
+  assert.notDeepEqual(walk("quail"),walk("rabbit"));
+  assert.deepEqual(walk("lizard"),walk("lizard"),"repeatable per-species animation");
+});

@@ -517,6 +517,23 @@ export function createHabitats(scene: THREE.Scene, obstacles: Obstacle[]) {
               Math.PI*.49,angle,0);
           }
         }
+        if (region === "redwood" && i % 9 === 4) {
+          // Modest redwood-sorrel patches sit under the ferns. Three small
+          // trifoliate crowns use the existing plant batch, not new draw calls.
+          for(let shoot=0;shoot<3;shoot++){
+            const a=i*1.17+shoot*2.4;
+            const sx=x+Math.cos(a)*.36,sz=z+Math.sin(a)*.36;
+            if(clear({x:sx,z:sz}))continue;
+            const sy=terrainHeight(sx,sz);
+            stem(b,"#54764b",V(sx,sy+.015,sz),V(sx,sy+.11,sz),.012);
+            for(let petal=0;petal<3;petal++){
+              const theta=a+petal*2*Math.PI/3;
+              add(b,sphere,petal===1?"#638f58":"#719960",
+                sx+Math.cos(theta)*.105,sy+.115,sz+Math.sin(theta)*.105,
+                .09,.027,.073,0,theta);
+            }
+          }
+        }
         if (region === "rainforest")
           for (let j = 0; j < 3; j++) {
             const lx = x + Math.cos(j * 2.4 + i) * 0.55, lz = z + Math.sin(j * 2.4 + i) * 0.55;
