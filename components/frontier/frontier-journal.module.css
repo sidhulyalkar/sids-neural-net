@@ -621,3 +621,13 @@
   .mediaPlay { transition: none; }
   .mediaPlay:hover { transform: none; }
 }
+
+.imprintDocuments {
+  display: flex; gap: 12px; flex-wrap: wrap; margin-top: 15px;
+}
+.imprintDocuments a {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px;
+  color: var(--accent); border: 1px solid var(--line); text-decoration: none;
+  font: 640 11px/1.3 var(--font-geist-sans), system-ui;
+}
+.imprintDocuments a:hover { background: var(--context-surface); }
