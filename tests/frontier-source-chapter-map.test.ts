@@ -62,6 +62,7 @@ test('only verified source headings are navigable and no empty chapters are made
   const reviewed = sourceChapterMap(manifest([
     quote('intro', 'S1', '1 Introduction'),
     quote('unreviewed', 'S2', '2 Results', 'extracted-needs-review'),
+    { ...quote('excerpt', 'S3', '3 Results'), role: 'excerpt' },
   ]));
   assert.deepEqual(reviewed.map((chapter) => chapter.id), ['context']);
 });
