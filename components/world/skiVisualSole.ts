@@ -58,8 +58,11 @@ export class SkiVisualSole {
       const outside=Math.max(0,pose.supportStart-along,along-pose.supportEnd);
       const supportWeight=Math.max(0,1-outside/.55);
       const bindingWeight=Math.min(1,Math.abs(along)/.25);
+      // The original upturned tip remains attached to this strip: pin both
+      // running-length ends so the authored silhouette has no seam.
+      const endWeight=Math.min(1,(SKI_HALF_LENGTH-Math.abs(along))/.25);
       const requested=active?
-        SKI_VISUAL_BEND_LIMIT*Math.sqrt(Math.min(1,load))*supportWeight*bindingWeight:0;
+        SKI_VISUAL_BEND_LIMIT*Math.sqrt(Math.min(1,load))*supportWeight*bindingWeight*endWeight:0;
       // A short bisection resolves the world-space movement along the bank
       // normal. Never push a vertex beneath the actual terrain height.
       let low=0,high=requested;
