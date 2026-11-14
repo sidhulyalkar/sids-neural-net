@@ -39,7 +39,7 @@ Do **not** put full document HTML, binary figures, long time-series, embedding t
 
 Suggested first schema (Zod 4 already exists in package dependencies):
 
-\`\`\`ts
+```ts
 type EvidenceStatus =
   | 'publisher-reported'        // sourced claim, not independently reproduced
   | 'extracted-needs-review'    // may be shown as quotation with caution; not data chart
@@ -104,7 +104,7 @@ type StoryManifest = {
   evidence: EvidenceRecord[];
   scenes: StoryScene[];
 };
-\`\`\`
+```
 
 The example is a **conceptual contract**, not drop-in production code. Define bounded text lengths, URL validation, numeric limits, stable IDs and exhaustive type guards in the actual Zod schemas. Keep claim-level confidence/verification semantics distinct from source popularity. An extraction timestamp must not be used as the publication time.
 
