@@ -12,7 +12,7 @@ import { journalPresentation, journalRelatedItems, journalRealm, journalSourceFi
 import { FrontierJournalSourceLens } from './FrontierJournalSourceLens';
 import { FrontierJournalEvidence } from './FrontierJournalEvidence';
 import { FrontierJournalMedia } from './FrontierJournalMedia';
-import { journalMediaPlan } from '@/lib/frontier/journalMedia';
+import { journalMediaPlan, journalSafePublicUrl } from '@/lib/frontier/journalMedia';
 import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierFeedResponse, FrontierItem } from '@/lib/frontier/types';
@@ -87,6 +87,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     ? sourceFigures.filter((figure) => figure.url !== mediaPosterFigure.url)
     : sourceFigures;
   const activeFigure = figures[Math.min(figureIndex, Math.max(0, figures.length - 1))];
+  const figureSourceHref = journalSafePublicUrl(activeFigure?.sourceUrl);
   // A failed HD proxy must retry the original publisher image before the
   // editorial fallback. Never retry a source that already failed.
   const imageCandidates = activeFigure
@@ -523,7 +524,15 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                 {activeFigure?.caption && activeFigure.caption !== item.title ? (
                   <figcaption className={styles.caption}>
                     <span>{activeFigure.caption}</span>
-                    <span>{activeFigure.credit || item.sourceLabel}</span>
+                    <span className={styles.figureAttribution}>
+                      {activeFigure.credit || item.sourceLabel}
+                      {figureSourceHref ? (
+                        <a href={figureSourceHref} target="_blank" rel="noopener noreferrer"
+                          onClick={() => { readerInteractedRef.current = true; recordOpen(item); }}>
+                          Figure source <ExternalLink size={12} aria-hidden="true"/>
+                        </a>
+                      ) : null}
+                    </span>
                   </figcaption>
                 ) : null}
               </figure> : null}
