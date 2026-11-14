@@ -26,7 +26,7 @@ export function FrontierJournalMedia({ plan, title, posterUrl, onOpenSource }: P
   const duration = journalMediaDuration(plan.durationSeconds);
   const activeVideo = plan.kind === 'direct-video' && activated && !failed;
   return (
-    <section className={styles.journalMedia} data-frontier-media={plan.kind} aria-label="Original source video">
+    <section id="frontier-story-media" className={styles.journalMedia} data-frontier-media={plan.kind} aria-label="Original source video">
       <div className={styles.mediaHeading}>
         <span>ON THE SOURCE</span>
         <span>{duration ? 'Runtime ' + duration : 'Original footage'}</span>
