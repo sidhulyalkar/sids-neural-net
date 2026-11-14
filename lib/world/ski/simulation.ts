@@ -62,14 +62,19 @@ export class SkiSimulation {
     this.yaw=Math.atan2(x,z);
     this.rotation.setFromAxisAngle(up,this.yaw);
   }
-  advance(seconds:number,inputAt:(tick:number)=>SkiInput){
+  advance(seconds:number,inputAt:(tick:number)=>SkiInput,
+    afterStep?:(sim:SkiSimulation,input:SkiInput)=>void){
     if(!Number.isFinite(seconds)||seconds<=0)return;
     // Bound work to 30 fixed ticks per displayed frame under sustained overload.
     this.droppedSeconds+=Math.max(0,seconds-.25);
     this.remainder+=Math.min(seconds,.25);
     while(this.remainder+1e-12>=tuning.dt){
-      this.step(inputAt(this.tick));
+      const input=inputAt(this.tick);
+      this.step(input);
       this.remainder=Math.max(0,this.remainder-tuning.dt);
+      // Exact physical state *after* every fixed step, regardless of how
+      // infrequently the renderer wakes up. Instrumentation is observational.
+      afterStep?.(this,input);
     }
   }
   interpolate(out:Vector3){
