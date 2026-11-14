@@ -96,6 +96,9 @@ export const CAIRN_STORIES:Readonly<Record<RegionId,CairnStory>>={
 export const REGION_CAIRN_PHOTOS:Partial<Record<RegionId,readonly string[]>>={
   mountain:["lake","shasta-lake"],
   grove:["shasta-trail","shasta-stream"],
+  // Genuine coast memories only: shoreline, flowers, coastal trail and beach.
+  // Avoid unrelated alpine lake/tropical lagoon shots in the Wild coast Cairn.
+  coast:["shore","wildflowers","shasta-trail","shasta-beach"],
   waterfall:["shasta-water","shasta-stream"],
   desert:["desert-ridges"],
   rainforest:["rainforest-leaves"],

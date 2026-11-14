@@ -47,6 +47,8 @@ test("Cairn photo collections use real archive images and keep the coast lightwe
     assert.equal(new Set(collection).size,collection!.length);
     for(const id of collection!)assert.ok(ids.has(id),region+" references absent photo "+id);
   }
-  assert.ok(photos.slice(0,6).length<photos.length,
-    "Coast should initially show a curated glimpse, not all archive thumbnails");
+  assert.deepEqual(REGION_CAIRN_PHOTOS.coast,
+    ["shore","wildflowers","shasta-trail","shasta-beach"]);
+  assert.ok(REGION_CAIRN_PHOTOS.coast.length<photos.length,
+    "Coast should show a geographically curated glimpse, not every world memory");
 });

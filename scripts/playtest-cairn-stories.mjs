@@ -15,7 +15,7 @@ const browser=await chromium.launch({
 const errors=[],report=[];
 const cases=[
  {width:1280,height:800,region:"Redwood grove",story:"Building the experiment before analyzing the brain",hero:true,thumbs:1},
- {width:390,height:844,region:"Wild coast",story:"Where observation becomes a collection of questions",hero:false,thumbs:6},
+ {width:390,height:844,region:"Wild coast",story:"Where observation becomes a collection of questions",hero:true,thumbs:3},
 ];
 try{
  for(const scenario of cases){

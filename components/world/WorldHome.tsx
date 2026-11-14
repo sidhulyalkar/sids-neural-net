@@ -511,14 +511,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const current = REGIONS.find((r) => r.id === region)!;
   const selected = REGIONS.find((r) => r.id === panel);
   const cairnStory=selected?cairnStoryFor(selected.id):null;
-  // A short, curated glimpse of actual archive images prevents the coast
-  // Cairn from eagerly mounting every world memory into one small dialog.
+  // Every Cairn selects geographically and personally relevant real memories,
+  // rather than taking arbitrary first images from a world-wide archive.
   const cairnGalleryPhotos=selected
-    ? selected.id==="coast"
-      ? content.photos.slice(0,6)
-      : content.photos.filter(p=>REGION_CAIRN_PHOTOS[selected.id]?.includes(p.id))
+    ? content.photos.filter(p=>REGION_CAIRN_PHOTOS[selected.id]?.includes(p.id))
     : [];
-  const cairnPhoto=selected?.id==="coast"?null:cairnGalleryPhotos[0]??null;
+  const cairnPhoto=cairnGalleryPhotos[0]??null;
   const cairnThumbnails=cairnGalleryPhotos.filter(p=>p.id!==cairnPhoto?.id);
   const carvedGameIndex = panel?.startsWith("game:") ? Number(panel.slice(5)) : -1;
   const carvedGame = Number.isInteger(carvedGameIndex) ? content.games[carvedGameIndex] : undefined;
