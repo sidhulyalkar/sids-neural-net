@@ -67,8 +67,8 @@ async function audit(width, height) {
     const validTab = [];
     for (const tab of availableTabs) {
       const section = await tab.getAttribute('data-journal-section');
-      const label = (await tab.textContent()) || '';
-      if (section !== 'for-you' && /[1-9]/.test(label.replace(/\\D/g, ''))) {
+      const count = Number((await tab.locator('span').last().textContent()) || '0');
+      if (section !== 'for-you' && count > 0) {
         validTab.push(tab);
       }
     }
