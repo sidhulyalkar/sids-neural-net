@@ -7,7 +7,11 @@ const file = (path: string) => readFileSync(path, 'utf8');
 test('first reader navigation serializes 36 full items, not the 96-candidate inventory', () => {
   const page = file('app/frontier/page.tsx');
   const reader = file('components/frontier/FrontierFocusReader.tsx');
-  assert.match(page, /initialItems=\{feed\.items\.slice\(0, 36\)\}/);
+  assert.match(page, /selectFrontierColdEdition\(feed\.items, 36\)/);
+  assert.match(page, /initialItems=\{edition\}/);
+  assert.match(file('lib/frontier/coldEdition.ts'), /rankFrontierItems\(\[\.\.\.candidates\]/);
+  assert.match(file('lib/frontier/coldEdition.ts'), /selectDailyRun\(ranked, \{\}, limit/);
+  assert.doesNotMatch(page, /feed\.items\.slice\(0, 36\)/);
   assert.match(reader, /fetch\('\/api\/frontier\/feed\?candidates=1'/);
   assert.match(reader, /state\.profile\.meaningfulInteractions > 0/);
   assert.match(reader, /readerInteractedRef\.current/);
