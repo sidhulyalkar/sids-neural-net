@@ -65,8 +65,18 @@ export class SkiVisualSole {
         SKI_VISUAL_BEND_LIMIT*Math.sqrt(Math.min(1,load))*supportWeight*bindingWeight*endWeight:0;
       // A short bisection resolves the world-space movement along the bank
       // normal. Never push a vertex beneath the actual terrain height.
+      if(requested<=1e-5||gap<=CLEARANCE+.002){
+        this.raw[j]=0;
+        continue;
+      }
+      const atLimit=Math.min(this.gap(pose,-SKI_HALF_WIDTH,along,requested,height),
+        this.gap(pose,SKI_HALF_WIDTH,along,requested,height));
+      if(atLimit>=CLEARANCE){
+        this.raw[j]=requested;
+        continue;
+      }
       let low=0,high=requested;
-      for(let k=0;k<7;k++){
+      for(let k=0;k<5;k++){
         const mid=(low+high)*.5;
         const left=this.gap(pose,-SKI_HALF_WIDTH,along,mid,height);
         const right=this.gap(pose,SKI_HALF_WIDTH,along,mid,height);
