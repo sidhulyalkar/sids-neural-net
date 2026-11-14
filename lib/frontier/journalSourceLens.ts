@@ -15,6 +15,7 @@ export type JournalSourceLens = {
   identity: string;
   provenance: string;
   facts: JournalSourceFact[];
+  documentLinks: { label: string; url: string }[];
 };
 
 const PAPER_SOURCES: ReadonlySet<FrontierSourceKind> = new Set([
@@ -31,6 +32,19 @@ function parsedUrl(value: string): URL | null {
   } catch {
     return null;
   }
+}
+
+/** Canonical original-document affordances. Derived only from a source URL on
+ * the known publisher host; existence is never assumed for other formats. */
+function sourceDocumentLinks(item: FrontierItem): { label: string; url: string }[] {
+  if (item.sourceKind !== 'arxiv') return [];
+  const url = parsedUrl(item.url);
+  if (!url || url.hostname.toLowerCase() !== 'arxiv.org') return [];
+  const paths = url.pathname.split('/').filter(Boolean);
+  const id = paths.length === 2 && ['abs', 'pdf'].includes(paths[0])
+    ? paths[1].replace(/\.pdf$/i, '') : '';
+  if (!/^\d{4}\.\d{4,5}(?:v\d+)?$/.test(id)) return [];
+  return [{ label: 'Read paper PDF', url: 'https://arxiv.org/pdf/' + id }];
 }
 
 function identityFromUrl(item: FrontierItem): string | null {
@@ -123,5 +137,6 @@ export function journalSourceLens(item: FrontierItem, availableFigureCount: numb
       : (kind === 'paper' || kind === 'repository' ? identityFromUrl(item) : null) ?? item.sourceLabel,
     provenance: item.sourceLabel,
     facts: facts.slice(0, 5),
+    documentLinks: sourceDocumentLinks(item),
   };
 }
