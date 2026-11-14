@@ -1,11 +1,12 @@
 import type { BufferGeometry } from "three";
-import { MOUNTAIN_HALFPIPE as pipe } from "../mountainHalfpipe";
+import { WORLD_BOUNDS } from "../model";
 
 // Index the actual refined terrain once. Within each cell the planes use
 // barycentric coordinates, so even triangles crossing a cell boundary agree
 // with the vertices sent to WebGL.
 export function renderedSnowHeight(mesh: BufferGeometry, fallback: (x:number,z:number)=>number) {
-  const minX = -13, width = 35, minZ = pipe.startZ - 6, depth = pipe.endZ + 6 - minZ;
+  const {minX,minZ,maxX,maxZ}=WORLD_BOUNDS;
+  const width=maxX-minX+1, depth=maxZ-minZ+1;
   const cells = Array.from({length: width * depth}, () => [] as number[]);
   const planes: number[][] = [];
   const vertices = mesh.getAttribute("position");

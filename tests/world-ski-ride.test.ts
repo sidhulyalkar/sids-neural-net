@@ -66,3 +66,28 @@ test("a skier moving over a convex lip departs with no jump input",()=>{
   assert.ok(flightTicks>1);
   assert.notEqual(sim.landing,"none");
 });
+
+test("a jump crossing the runout keeps momentum until collision or touchdown",()=>{
+  const wallZ=-25;
+  const height=()=>0;
+  const sim=new SkiSimulation(height,7,-32,"independent",false,(_from,to)=>({x:to.x,z:Math.min(wallZ,to.z)}));
+  sim.velocity.z=8;
+  let crossedInFlight=false,hitWall=false;
+  for(let tick=0;tick<350;tick++){
+    sim.advance(tuning.dt,()=>({...neutral,jump:tick<20}));
+    if(sim.previous.z<-30 && sim.position.z>=-30){
+      crossedInFlight=sim.phase==="air";
+      assert.ok(sim.velocity.z>6);
+    }
+    if(sim.position.z===wallZ){hitWall=true;assert.ok(sim.velocity.z<.01);}
+  }
+  assert.ok(crossedInFlight && hitWall);
+  assert.notEqual(sim.landing,"none");
+});
+
+test("slow frames report the time excluded from the bounded catch-up",()=>{
+  const sim=new SkiSimulation(()=>0,0,0);
+  sim.advance(.8,()=>neutral);
+  assert.equal(sim.tick,30);
+  assert.ok(Math.abs(sim.tick*tuning.dt+sim.droppedSeconds-.8)<1e-9);
+});

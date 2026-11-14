@@ -14,11 +14,39 @@ page.on("pageerror",e=>errors.push(e.message));
 async function phase(value){
   await page.waitForFunction(s=>document.querySelector("canvas")?.dataset.skiRidePhase===s,value,{timeout:90000});
 }
-async function capture(name){
-  await page.screenshot({path:path.join(dir,name+".png")});
-  const data=await canvas.evaluate(c=>({...c.dataset}));
-  fs.writeFileSync(path.join(dir,name+".json"),JSON.stringify(data,null,2));
+// Capture immediately after the world's render callback, while its WebGL
+// drawing buffer and telemetry still describe the same frame. This observer
+// never advances physics, pauses a frame or supplies gameplay input.
+await page.addInitScript(()=>{
+  const frames={}, history=[];
+  window.skiEvidence={frames,history};
+  let sawFlight=false,lastTick=-1;
+  const raf=window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame=callback=>raf(time=>{
+    callback(time);
+    const c=document.querySelector("canvas[data-ski-ride-phase]");
+    if(!c || !c.dataset.skiRidePhase)return;
+    const d=c.dataset,tick=Number(d.skiTick);
+    if(tick===lastTick)return;
+    lastTick=tick;
+    const phase=d.skiRidePhase;
+    history.push({tick,phase,omega:Number(d.skiAngularY),rotation:d.skiRotation,runout:d.skiRunout});
+    const name=phase==="charging"?"charge":phase==="air" && Math.abs(Number(d.skiAngularY))>.05?"air":
+      sawFlight && phase!=="air" && d.skiLanding!=="none"?"touchdown":null;
+    if(phase==="air")sawFlight=true;
+    if(name && !frames[name])frames[name]={data:{...d},png:c.toDataURL("image/png")};
+  });
+});
+async function save(name){
+  await page.waitForFunction(n=>!!window.skiEvidence.frames[n],name,{timeout:90000});
+  const {data,png}=await page.evaluate(n=>window.skiEvidence.frames[n],name);
   assert.equal(data.bigAirPhase,"idle");
+  assert.ok(data.skiRidePhase);
+  if(name==="air")assert.equal(data.skiRidePhase,"air");
+  if(name==="charge")assert.equal(data.skiRidePhase,"charging");
+  if(name==="touchdown")assert.ok(["rough","clean","crash"].includes(data.skiLanding));
+  fs.writeFileSync(path.join(dir,name+".png"),Buffer.from(png.split(",")[1],"base64"));
+  fs.writeFileSync(path.join(dir,name+".json"),JSON.stringify(data,null,2));
 }
 try{
   await page.goto(process.env.WORLD_BASE_URL ?? "http://localhost:3000",{timeout:120000});
@@ -26,19 +54,18 @@ try{
   await page.getByRole("button",{name:"Skiing",exact:true}).click();
   await phase("riding");
   await page.keyboard.down("Space");
-  await phase("charging");
-  await capture("charge");
-  await page.keyboard.up("Space");
-  await phase("air");
+  await save("charge");
   await page.keyboard.down("a");
-  await capture("air");
+  await page.keyboard.up("Space");
+  await save("air");
   await page.keyboard.up("a");
-  await page.waitForFunction(()=>["rough","clean","crash"].includes(document.querySelector("canvas")?.dataset.skiLanding),null,{timeout:90000});
-  await capture("touchdown");
+  await save("touchdown");
   await page.getByRole("button",{name:"Trail running",exact:true}).click();
   await phase("");
   assert.deepEqual(errors,[]);
 } finally {
+  const history=await page.evaluate(()=>window.skiEvidence?.history ?? []).catch(()=>[]);
+  fs.writeFileSync(path.join(dir,"frames.json"),JSON.stringify(history));
   fs.writeFileSync(path.join(dir,"errors.json"),JSON.stringify(errors));
   await page.close();await browser.close();
 }

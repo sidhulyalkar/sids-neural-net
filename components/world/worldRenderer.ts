@@ -1939,6 +1939,11 @@ export function createWorld(
   const skiV3Enabled = skiPresentation && process.env.NEXT_PUBLIC_SKI_V3 === "1";
   let ride: SkiSimulation | null = null;
   let rideSnow: ReturnType<typeof renderedSnowHeight> | null = null;
+  let runoutComplete=false;
+  const skiCollision=(from:THREE.Vector3,to:THREE.Vector3)=>{
+    const solids=ride?.phase==="air"?obstacles.filter(o=>o.topY===undefined||to.y<=o.topY+.45):groundedObstacles;
+    return constrainMove(from,to,solids);
+  };
   let tracks: SnowTracks | null = null;
   let tapTicks = 0;
   const skiInput = {...neutralSkiInput};
@@ -1951,7 +1956,7 @@ export function createWorld(
     return skiV3Enabled && state.activity === "ski" && aquatic === "land" &&
       caveLayer === "surface" && galleryPhase === "outside" && bigAir.phase === "idle" &&
       !grind && !climb && !jetSki && !jetChoosing && discGolf.phase === "off" &&
-      skimHeat.phase === "off" && mountainHalfpipeApproachClearance(player);
+      skimHeat.phase === "off" && (mountainHalfpipeApproachClearance(player) || (!!ride && !runoutComplete));
   }
   const skiAirRotation=new THREE.Quaternion();
   const skiAirBones=[...legs,...skiKnees].map(()=>({position:new THREE.Vector3(),rotation:new THREE.Quaternion(),scale:new THREE.Vector3()}));
@@ -4646,9 +4651,14 @@ export function createWorld(
         }
         }
       } else if (useSkiRide) {
-        rideSnow ??= renderedSnowHeight(terrain, worldFloorHeight);
+        if(!rideSnow){
+          const started=performance.now();
+          rideSnow=renderedSnowHeight(terrain,worldFloorHeight);
+          canvas.dataset.skiIndexMs=(performance.now()-started).toFixed(2);
+        }
         if (!ride) {
-          ride = new SkiSimulation(rideSnow, player.x, player.z, "independent");
+          ride = new SkiSimulation(rideSnow, player.x, player.z, "independent",false,skiCollision);
+          runoutComplete=false;
           ride.velocity.set(travel.heading.x, 0, travel.heading.z).multiplyScalar(travel.speed);
           ride.setHeading(travel.heading.x, travel.heading.z);
           if(!tracks){tracks = new SnowTracks(rideSnow);scene.add(tracks.mesh);}
@@ -4657,7 +4667,8 @@ export function createWorld(
         skiInput.steer = -right;
         skiInput.pitch = forward;
         skiInput.roll = Number(keys.has("q")) - Number(keys.has("e"));
-        skiInput.brake = forward < 0;
+        const inRunout=!mountainHalfpipeApproachClearance(player);
+        skiInput.brake = forward < 0 || inRunout;
         skiInput.tuck = forward > 0;
         skiInput.grab = keys.has("shift");
         ride.advance(rawDelta, readSkiInput);
@@ -4669,6 +4680,10 @@ export function createWorld(
           {x:ride.velocity.x/horizontal,z:ride.velocity.z/horizontal}:travel.heading};
         airHeight = ride.phase==="air"?Math.max(.002,playerY-rideSnow(player.x,player.z)):0;
         verticalSpeed = ride.phase==="air"?ride.velocity.y:0;
+        // Continue across the face boundary through landing and recovery.
+        // Yield to exploration at rest, retaining the last travel heading.
+        runoutComplete=inRunout && ride.phase==="riding" && horizontal<.06;
+        if(runoutComplete)travel.speed=0;
         destination = null;
       } else {
         const previousHeading={...travel.heading};
@@ -5229,13 +5244,17 @@ export function createWorld(
               bone.quaternion.setFromUnitVectors(UP,skiBoneDirection.copy(b).sub(a).normalize());
             }
             plank.updateWorldMatrix(true,false);
+            let soleMin=Infinity,soleMax=-Infinity,sum=0;
             for(let j=0;j<=16;j++)for(const w of [-.095,0,.095]){
               skiProbe.set(w,-.0125,-1.275+2.55*j/16);
               plank.localToWorld(skiProbe);
               const clearance=skiProbe.y-(ride && rideSnow ? rideSnow(skiProbe.x,skiProbe.z) : rigSupport(skiProbe));
+              soleMin=Math.min(soleMin,clearance);soleMax=Math.max(soleMax,clearance);sum+=clearance;
               minSkiClearance=Math.min(minSkiClearance,clearance);
               maxSkiClearance=Math.max(maxSkiClearance,clearance);
             }
+            if(ride)canvas.dataset[i===0?"skiLeftSupport":"skiRightSupport"]=
+              [ride.tick,ride.contact[i]?1:0,ride.load[i],pose.supportStart,pose.supportEnd,soleMin,sum/51,soleMax].join(",");
           });
           skiAirRotation.copy(explorer.quaternion);
           [...legs,...skiKnees].forEach((bone,i)=>{
@@ -5258,6 +5277,13 @@ export function createWorld(
           skiPlanks.forEach((plank,i)=>{
             plank.position.set(i===0?-.23:.23,0,0);plank.quaternion.identity();
           });
+        }
+        if(ride){
+          canvas.dataset.skiTick=String(ride.tick);
+          canvas.dataset.skiAngularY=String(ride.angular.y);
+          canvas.dataset.skiRotation=ride.rotation.toArray().join(",");
+          canvas.dataset.skiDroppedSeconds=ride.droppedSeconds.toFixed(3);
+          canvas.dataset.skiRunout=String(!mountainHalfpipeApproachClearance(player));
         }
         canvas.dataset.skiRidePhase=ride?.phase ?? "";
         canvas.dataset.skiLanding=ride?.landing ?? "";
@@ -5606,7 +5632,7 @@ export function createWorld(
           ? (photoHit.object.userData.discovery as string|undefined ?? null)
           : null;
       }
-      discovery = galleryPhase==="inside" ?
+      discovery = ride && travel.speed>1 ? null : galleryPhase==="inside" ?
         (galleryPhotoId ? "gallery-photo:"+galleryPhotoId : null) :
         aquatic === "land" ? (paperArtwork ?? gazeGame ?? layeredNearby) :
         // Preserve dive-gated tridents first, but expose the canyon discovery
@@ -5781,7 +5807,7 @@ export function createWorld(
         if(!previousSkiCameraActive||manual)skiCameraYaw=yaw;
         else skiCameraYaw=skiFollowYaw(skiCameraYaw,travel.heading,dt);
         skiCameraActive=true;
-        const followDistance=manual?Math.min(zoom,12):7;
+        const followDistance=manual?Math.min(zoom,12):ride?5.5:7;
         const elevation=manual?followDistance*Math.sin(pitch):3;
         // Keep the focus close to the rider on steep walls; a distant flat
         // lookahead can end up buried inside the opposite bank.
