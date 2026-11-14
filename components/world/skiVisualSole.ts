@@ -1,5 +1,5 @@
 import {BufferAttribute,BufferGeometry,DynamicDrawUsage,Vector3} from "three/src/Three.Core.js";
-import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_SOLE_Y,type SkiContact} from "../worldSkiContact";
+import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_SOLE_Y,type SkiContact} from "./worldSkiContact";
 
 // Presentation-only deformation: the collision solver and ski bindings remain
 // authoritative. The limit is deliberately conservative, not a fitted ski
@@ -27,11 +27,11 @@ export class SkiVisualSole {
     for(let j=0;j<SECTIONS;j++){
       for(const [a,b] of [[0,1],[2,3],[0,2],[1,3]]){
         const lo=j*STRIDE,hi=(j+1)*STRIDE;
-        indices.push(lo+a,hi+a,lo+b,hi+a,hi+b,lo+b);
+        if(a===0&&b===1||a===1&&b===3)\n          indices.push(lo+a,lo+b,hi+a,hi+a,lo+b,hi+b);\n        else indices.push(lo+a,hi+a,lo+b,hi+a,hi+b,lo+b);
       }
     }
     const last=SECTIONS*STRIDE;
-    indices.push(0,1,2,1,3,2,last,last+2,last+1,last+1,last+2,last+3);
+    indices.push(0,2,1,1,2,3,last,last+1,last+2,last+1,last+3,last+2);
     geometry.setIndex(indices);
     this.geometry=geometry;
   }
