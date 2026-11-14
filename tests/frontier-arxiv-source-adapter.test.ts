@@ -141,7 +141,7 @@ test('stale, unlicensed, off-source, mismatched, duplicate or invalid assets nev
     assert.throws(() => compileArxivEvidence({
       candidates: parsed, itemId: 'test-item', observedAt: AT, builtAt: AT,
       approvals: [approvalFor(first, override)],
-    }), undefined, reason);
+    }), /./, reason);
   }
   assert.throws(() => compileArxivEvidence({
     candidates: parsed, itemId: 'test-item', observedAt: AT, builtAt: AT,
