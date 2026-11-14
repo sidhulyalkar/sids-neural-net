@@ -40,8 +40,12 @@ export class SkiHalfpipeQualification{
     const bank=offset<0?"left":"right";
     const last=this.metrics.lastBank;
     if(last===bank){this.passedCenter=false;return this.metrics;}
-    if(last && (s.tick-this.metrics.lastTick<12||s.z-this.metrics.lastZ<.35))
+    if(last && (s.tick-this.metrics.lastTick<12||s.z-this.metrics.lastZ<.35)){
+      // A premature bank arrival cannot become a valid visit merely by
+      // standing still: a new, real center traverse is required.
+      this.passedCenter=false;
       return this.metrics;
+    }
     if(bank==="left")this.metrics.leftVisits++;
     else this.metrics.rightVisits++;
     if(last)this.metrics.bankCrossings++;
