@@ -183,7 +183,7 @@ async function build() {
       extractedSections: candidates.sections.length,
       extractedFigureCandidates: candidates.figures.length,
       approvedDisplayAssets: assetIndex.length,
-      rightsStatus: 'reviewed-individually',
+      rightsStatus: assets.length ? 'approved-for-listed-assets' : 'pending-figure-review',
       extractorVersion: manifest.extractorVersion,
     }, null, 2) + '\n');
     await rename(staging, output);
