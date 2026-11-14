@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, Expand, Minimize, FileText, Images, ShieldCheck } from 'lucide-react';
 import type { StoryManifest, EvidenceRecord } from '@/lib/frontier/evidence/schema';
+import { sourceChapterMap } from '@/lib/frontier/evidence/sourceChapterMap';
 import styles from './frontier-evidence-story.module.css';
 
 export type StoryFigure = Extract<EvidenceRecord, { type: 'figure' }>;
@@ -31,6 +32,8 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
   const [activeIndex, setActiveIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState<string[]>([]);
+  const chapters = sourceChapterMap(manifest);
+  const [selectedChapter, setSelectedChapter] = useState<string>(chapters[0]?.id ?? '');
   const figureScene = manifest.scenes.find((scene) => scene.type === 'original-figure');
   const indexed = new Map(manifest.evidence.map((evidence) => [evidence.id, evidence]));
   const figures: StoryFigure[] = (figureScene?.evidenceIds ?? [])
@@ -38,6 +41,17 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
     .filter((entry): entry is StoryFigure => entry?.type === 'figure' && entry.rights.display === 'permitted');
   const index = Math.min(activeIndex, Math.max(0, figures.length - 1));
   const figure = figures[index];
+  const chooseChapter = (id: string) => {
+    setSelectedChapter(id);
+    const chapter = chapters.find((item) => item.id === id);
+    const firstFigureId = chapter?.sections.flatMap((section) => section.figureIds)[0];
+    if (!firstFigureId) return;
+    const matched = figures.findIndex((item) => item.id === firstFigureId);
+    if (matched >= 0) {
+      setExpanded(false);
+      setActiveIndex(matched);
+    }
+  };
   const imageUrl = figure ? vettedAssetUrl(assets[figure.assetKey]) : null;
   const imageAvailable = Boolean(figure && imageUrl && !failed.includes(figure.id));
   const advance = (delta: number) => {
@@ -132,11 +146,44 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
           <aside className={styles.narrative} aria-label="Guided research explanation">
             <span className={styles.narrativeOverline}>YOUR READING GUIDE</span>
             <h2>From source to understanding</h2>
-            <div className={styles.step}>
-              <span>01</span><div><strong>Understand the question</strong>
-                <p>{summary || 'Open the original paper for the researchers’ question and reported findings. No summary has been inferred.'}</p>
+            {chapters.length ? (
+              <section className={styles.sourceMap} aria-label="Original publication outline">
+                <p className={styles.outlineExplain}>Explore the published section headings. These links are source navigation, not inferred study conclusions.</p>
+                <div className={styles.chapterTabs} aria-label="Research chapters">
+                  {chapters.map((chapter, chapterIndex) => (
+                    <button type="button" key={chapter.id} className={styles.chapterTab}
+                      aria-pressed={selectedChapter === chapter.id}
+                      onClick={() => chooseChapter(chapter.id)}>
+                      <span>{String(chapterIndex + 1).padStart(2, '0')}</span>{chapter.shortLabel}
+                    </button>
+                  ))}
+                </div>
+                {chapters.filter((chapter) => chapter.id === selectedChapter).map((chapter) => (
+                  <div className={styles.chapterDetail} key={chapter.id}
+                    data-selected-source-chapter={chapter.id}>
+                    <h3>{chapter.label}</h3>
+                    <ul className={styles.sourceSections}>
+                      {chapter.sections.map((section) => (
+                        <li key={section.id}>
+                          <a href={section.sourceUrl} target="_blank" rel="noopener noreferrer">
+                            {section.title}<ArrowUpRight size={13} aria-hidden="true"/>
+                          </a>
+                          {section.figureIds.length > 0 ? (
+                            <span>{section.figureIds.length} linked original {section.figureIds.length === 1 ? 'figure' : 'figures'}</span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </section>
+            ) : (
+              <div className={styles.step}>
+                <span>01</span><div><strong>Understand the question</strong>
+                  <p>{summary || 'Open the original paper for the research question and reported findings. No summary has been inferred.'}</p>
+                </div>
               </div>
-            </div>
+            )}
             <div className={styles.step}>
               <span>02</span><div><strong>Inspect the evidence</strong>
                 <p>{figure ? 'Examine the original publisher figure and caption. Source claims are not independently reproduced measurements.' : 'No figure has passed the rights and provenance gates for this source yet.'}</p>
