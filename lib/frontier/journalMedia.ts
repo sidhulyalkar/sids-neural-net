@@ -15,7 +15,7 @@ export type JournalMediaPlan = {
  * third-party player. Reject non-HTTPS/private-host links before handing a
  * direct video to the browser; video streams are loaded after a user gesture.
  */
-function safePublicHttpsUrl(value?: string): string | undefined {
+export function journalSafePublicUrl(value?: string): string | undefined {
   if (!value) return undefined;
   try {
     const parsed = new URL(value);
@@ -34,12 +34,12 @@ function safePublicHttpsUrl(value?: string): string | undefined {
 export function journalMediaPlan(item: FrontierItem): JournalMediaPlan | null {
   const media = item.media;
   if (!media || (media.type !== 'video' && media.type !== 'youtube')) return null;
-  const sourceUrl = safePublicHttpsUrl(item.url);
+  const sourceUrl = journalSafePublicUrl(item.url);
   if (!sourceUrl) return null;
   const durationSeconds = typeof media.duration === 'number'
     && Number.isFinite(media.duration) && media.duration > 0 && media.duration <= 86_400
     ? media.duration : undefined;
-  const playableUrl = media.type === 'video' ? safePublicHttpsUrl(media.url) : undefined;
+  const playableUrl = media.type === 'video' ? journalSafePublicUrl(media.url) : undefined;
   const canPlay = Boolean(playableUrl && /\.(?:mp4|webm|ogv)$/i.test(new URL(playableUrl).pathname));
   return {
     kind: canPlay ? 'direct-video' : 'source-video',
