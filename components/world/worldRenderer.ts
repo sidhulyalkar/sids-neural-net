@@ -6908,7 +6908,7 @@ export function createWorld(
     // Bike-only camera safety. The existing lens-height clamp misses
     // mountains BETWEEN camera and player: it can show only snow despite
     // perfect wheel contact. This does not touch skier or skate dynamics.
-    if(mode==="bike"&&aquatic==="land"&&caveLayer==="surface"&&
+    if(state.activity==="bike"&&aquatic==="land"&&caveLayer==="surface"&&
        galleryPhase==="outside"&&discGolf.phase==="off"&&
        bigAir.phase==="idle"&&!jetSki){
       const shot=resolveBikeTerrainSightline(camera.position,look,
