@@ -37,7 +37,7 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
     .filter((entry): entry is StoryFigure => entry?.type === 'figure' && entry.rights.display === 'permitted');
   const firstChapter = chapters.find((chapter) =>
     chapter.sections.some((section) => section.figureIds.includes(figures[0]?.id ?? '')))
-    ?.id ?? chapters[0]?.id ?? '';
+    ?.id ?? (figures.length ? '' : chapters[0]?.id ?? '');
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedChapter, setSelectedChapter] = useState<string>(firstChapter);
