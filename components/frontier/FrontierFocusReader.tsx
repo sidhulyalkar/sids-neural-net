@@ -12,6 +12,8 @@ import { journalPresentation, journalRelatedItems, journalRealm, journalSourceFi
 import { FrontierJournalSourceLens } from './FrontierJournalSourceLens';
 import { FrontierJournalEvidence } from './FrontierJournalEvidence';
 import { FrontierJournalMedia } from './FrontierJournalMedia';
+import { FrontierJournalChapters } from './FrontierJournalChapters';
+import { journalChapters } from '@/lib/frontier/journalChapters';
 import { journalMediaPlan, journalSafePublicUrl } from '@/lib/frontier/journalMedia';
 import { JOURNAL_SECTIONS, journalSectionInventory, journalSectionMatches } from '@/lib/frontier/journalSections';
 import type { JournalSectionId } from '@/lib/frontier/journalSections';
@@ -112,6 +114,9 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const hasFigureChoices = figures.length > 1;
   const currentVisualGrade = holdValue ?? rating;
   const presentation = item ? journalPresentation(item, canShowImage) : undefined;
+  const chapters = item ? journalChapters(item, {
+    hasSourceVideo: Boolean(mediaPlan), hasSourceFigure: Boolean(canShowImage),
+  }) : [];
   const related = item ? journalRelatedItems(item, items, 3) : [];
 
 
@@ -505,13 +510,14 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
               {item.authors?.length ? <p className={styles.byline}>{item.authors.slice(0, 3).join(', ')}</p> : null}
             </div>
 
+            <FrontierJournalChapters key={item.id} chapters={chapters}/>
             <div className={`${styles.storyBody} ${!canShowImage ? styles.storyBodyText : ''}`}>
 
 
               <div ref={contentRef} className={styles.content}
                 onScroll={() => { readerInteractedRef.current = true; }}
                 onTouchStart={() => { readerInteractedRef.current = true; }}>
-                <section className={styles.briefSection} aria-label="Source-grounded summary">
+                <section id="frontier-story-summary" className={styles.briefSection} aria-label="Source-grounded summary">
                   <h2 className={styles.sectionLabel}>{presentation?.heading ?? "The brief"}</h2>
                   <p className={styles.summary}>{sourceBrief.lead || 'This source did not include a synopsis. Read the original for the full story.'}</p>
                   {sourceBrief.hasFullerContext ? (
@@ -529,7 +535,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                   <FrontierJournalMedia plan={mediaPlan} title={item.title} posterUrl={mediaPoster}
                     onOpenSource={() => { readerInteractedRef.current = true; recordOpen(item); }} />
                 ) : null}
-              {canShowImage || hasFigureChoices ? <figure className={styles.visual} data-frontier-figure-count={figures.length}>
+              {canShowImage || hasFigureChoices ? <figure id="frontier-story-figure" className={styles.visual} data-frontier-figure-count={figures.length}>
                 <div className={styles.visualViewport}>
                   {image ? (
                     <Image
@@ -636,7 +642,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                   <span className={styles.sourceDate}>{sourceDate(item.publishedAt)}</span>
                 </div>
               </div>
-              <aside className={styles.journalRail} aria-label="Source context and next reading">
+              <aside id="frontier-story-source" className={styles.journalRail} aria-label="Source context and next reading">
                 <FrontierJournalSourceLens item={item} figureCount={figures.length} publishedLabel={sourceDate(item.publishedAt)}
                   onOpenSource={() => { readerInteractedRef.current = true; recordOpen(item); }} />
                 {presentation?.hasEvidence ? <a className={styles.railJump} href="#frontier-evidence">{presentation.evidenceLabel} <ArrowRight size={13} aria-hidden="true"/></a> : null}
