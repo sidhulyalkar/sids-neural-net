@@ -146,11 +146,33 @@ try {
  await page.waitForFunction(()=>
   document.querySelector("canvas")?.dataset.discGolfHandoffPending==="false",
   null,{timeout:35000});
- await page.waitForFunction(()=>{
-  const d=document.querySelector("canvas")?.dataset;
-  return d?.discGolfRenderedCameraClear==="true"&&d.discGolfPlayerFramed==="true"&&
-    (d.discGolfCameraClear==="true"||Number(d.discGolfCameraCutaways)>0);
- },null,{timeout:12000});
+ try{
+  await page.waitForFunction(()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   return d?.discGolfRenderedCameraClear==="true"&&d.discGolfPlayerFramed==="true"&&
+     (d.discGolfCameraClear==="true"||Number(d.discGolfCameraCutaways)>0);
+  },null,{timeout:12000});
+ }catch(error){
+  // A timed-out camera acceptance assertion is not an actionable physics
+  // failure without knowing which part of the visibility contract failed.
+  const diagnostic=await canvas.evaluate(c=>({
+   player:c.dataset.player,lieX:c.dataset.discGolfLieX,lieZ:c.dataset.discGolfLieZ,
+   phase:c.dataset.discGolfPhase,handoff:c.dataset.discGolfHandoffPending,
+   cameraClear:c.dataset.discGolfCameraClear,
+   renderedClear:c.dataset.discGolfRenderedCameraClear,
+   framed:c.dataset.discGolfPlayerFramed,
+   blockers:c.dataset.discGolfCameraBlockers,
+   cutaways:c.dataset.discGolfCameraCutaways,
+   volumes:c.dataset.discGolfCameraVolumes,
+   lens:c.dataset.skiCameraPosition,
+   look:c.dataset.skiCameraLook,
+   targetError:c.dataset.cameraTargetError,
+  }));
+  fs.writeFileSync(path.join(out,"camera-failure.json"),JSON.stringify(diagnostic,null,2)+"\n");
+  await page.screenshot({path:path.join(out,"camera-failure.png")});
+  throw Error("Hole 1 second-shot camera acceptance failure: "+
+    JSON.stringify(diagnostic)+"; original "+String(error));
+ }
  await page.waitForTimeout(700);
  const secondShot=await canvas.evaluate(c=>({
   phase:c.dataset.discGolfPhase,
