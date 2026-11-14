@@ -69,9 +69,9 @@ async function audit(width, height) {
     const journal = page.locator('[data-frontier-journal="true"]');
     const realm = await journal.getAttribute('data-realm');
     const format = await journal.getAttribute('data-format');
-    assert(['research', 'neural', 'systems', 'nature', 'motion', 'culture'].includes(realm),
+    assert(['research', 'neural', 'behavior', 'systems', 'nature', 'motion', 'culture'].includes(realm),
       'Every source should resolve to an explicit visual realm: ' + realm);
-    assert(['live', 'measured', 'visual', 'technical', 'brief'].includes(format),
+    assert(['live', 'watch', 'measured', 'visual', 'technical', 'brief'].includes(format),
       'The journal must adopt a source-evidence layout: ' + format);
     const titleSize = await page.locator('article h1').first().evaluate((node) =>
       Number.parseFloat(getComputedStyle(node).fontSize));
@@ -241,12 +241,83 @@ async function auditBackgroundLatest() {
   }
 }
 
+async function auditSourceVideo() {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  let videoRequests = 0;
+  let searchRequests = 0;
+  try {
+    const base = new URL(TARGET);
+    const snapshotResponse = await page.request.get(base.origin + '/api/frontier/feed');
+    assert(snapshotResponse.ok(), 'Need an existing source-backed article fixture');
+    const snapshot = await snapshotResponse.json();
+    assert(snapshot.items?.length, 'Source snapshot should include at least one item');
+    // Test-only fixture. The URL is intentionally intercepted, not displayed
+    // as real editorial material and never included in production snapshots.
+    const item = {
+      ...snapshot.items[0],
+      id: 'frontier-journal-test-video',
+      title: 'Source video audit fixture',
+      summary: 'Test of consent-controlled source video behavior.',
+      url: 'https://example.org/verified-source',
+      source: 'example.org', sourceLabel: 'Test source', sourceKind: 'youtube',
+      lane: 'sports', tags: ['media audit'], figures: [], metrics: [],
+      sportsState: undefined, artifacts: [], convergence: undefined,
+      media: { type: 'video', url: 'https://media.example.org/journal-media-audit.mp4', duration: 80 },
+    };
+    await page.route('**/api/frontier/feed?latest=1', (route) => route.fulfill({
+      status: 200, contentType: 'application/json',
+      headers: { 'X-Frontier-Live': 'snapshot-fallback' },
+      body: JSON.stringify({ items: [], generatedAt: snapshot.generatedAt, sources: [] }),
+    }));
+    await page.route('**/api/frontier/feed?focus=*', (route) => {
+      searchRequests += 1;
+      return route.fulfill({ status: 200, contentType: 'application/json',
+        headers: { 'X-Frontier-Live': 'source-test-fixture' },
+        body: JSON.stringify({ items: [item], generatedAt: new Date().toISOString(), sources: [] }) });
+    });
+    await page.route('**/journal-media-audit.mp4', (route) => {
+      videoRequests += 1;
+      return route.abort();
+    });
+    await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
+    await page.locator('article h1').waitFor();
+    const search = page.getByRole('textbox', { name: 'Search live topics' });
+    await search.fill('journal media audit');
+    await search.press('Enter');
+    await page.getByRole('heading', { name: 'Source video audit fixture', exact: true }).waitFor({ timeout: 8000 });
+    assert.equal(searchRequests, 1, 'Media fixture should only be requested when deliberately searched');
+    assert.equal(await page.locator('[data-frontier-media="direct-video"]').count(), 1);
+    assert.equal(await page.locator('video').count(), 0, 'Never load video before user activation');
+    assert.equal(videoRequests, 0, 'Video resource must not fetch during reader first paint');
+    assert.equal(await page.locator('figure img').count(), 0,
+      'A video poster cannot also become a duplicate research figure');
+    await page.getByRole('button', { name: /Play original source clip/ }).click();
+    await page.getByText('The direct clip could not play here.').waitFor({ timeout: 6000 });
+    assert.equal(videoRequests, 1, 'Video should be requested once after explicit play');
+    const original = page.locator('[aria-label="Original source video"] a').filter({ hasText: 'Open original' });
+    assert.equal(await original.getAttribute('href'), item.url,
+      'Playback failure must preserve a genuine external source link');
+    const geometry = await page.evaluate(() => ({
+      documentWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth,
+    }));
+    assert(geometry.documentWidth <= geometry.viewportWidth + 2,
+      'Video and fallback must fit the mobile viewport: ' + JSON.stringify(geometry));
+    return { watchFormat: true, initialVideoRequests: 0, activatedVideoRequests: videoRequests,
+      failureHasSourceFallback: true, noDuplicatePoster: true };
+  } finally {
+    await page.close();
+    await browser.close();
+  }
+}
+
 async function main() {
   const results = [];
   results.push(await audit(1440, 900));
   results.push(await audit(390, 844));
   results.push(await audit(320, 700));
   results.push(await auditBackgroundLatest());
+  results.push(await auditSourceVideo());
   console.log('FRONTIER focus reader audit:', JSON.stringify(results));
 }
 
