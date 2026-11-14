@@ -582,7 +582,8 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                 </div>
               </div>
               <aside className={styles.journalRail} aria-label="Source context and next reading">
-                <FrontierJournalSourceLens item={item} figureCount={figures.length} publishedLabel={sourceDate(item.publishedAt)} />
+                <FrontierJournalSourceLens item={item} figureCount={figures.length} publishedLabel={sourceDate(item.publishedAt)}
+                  onOpenSource={() => { readerInteractedRef.current = true; recordOpen(item); }} />
                 {presentation?.hasEvidence ? <a className={styles.railJump} href="#frontier-evidence">{presentation.evidenceLabel} <ArrowRight size={13} aria-hidden="true"/></a> : null}
                 {item.tags.length ? (
                   <div className={styles.railTopics}><div className={styles.railHeading}><span className={styles.overline}>TOPICS</span></div>
