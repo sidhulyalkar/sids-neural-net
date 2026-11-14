@@ -85,6 +85,7 @@ const shortKey = z.string().min(2).max(120).regex(/^[a-z0-9][a-z0-9._:-]+$/i);
 export const QuotationEvidenceSchema = z.strictObject({
   type: z.literal('quotation'),
   ...common,
+  role: z.enum(['section-heading', 'excerpt']).optional(),
   text: z.string().trim().min(1).max(1600),
 });
 
