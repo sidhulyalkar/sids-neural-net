@@ -275,7 +275,7 @@ const TRICK_POINTS: Record<Exclude<SkimTrick, "wrap">, number> = {
 };
 /** Fixed-step friendly heat logic. Incoming waves add momentum but never teleport the rider.
  * Scoring is paid on landing/ride completion, never merely on pressing a trick key. */
-export function stepSkimHeat(
+function stepSkimHeatSlice(
   state: SkimHeat, p: SkimPoint, dt: number, seconds: number,
   steer: number, pumping: boolean, surfaceAt:SkimSurfaceAt=waterSupport,
 ): { heat: SkimHeat; point: SkimPoint } {
@@ -378,4 +378,26 @@ export function stepSkimHeat(
   else if (drySeconds>.55 || speed < 2 || offshore > 29 || Math.abs(point.x) > 30 || offshore < -15) s = commitRide(s, false);
   else if (remaining === 0) s = commitRide(s, false);
   return { heat: s, point };
+}
+
+/**
+ * Integrate the same 120 Hz water/board motion irrespective of 20/40/60 FPS.
+ * External callers still receive one state transition per render frame.
+ * Existing recovery and trick clocks advance by the actual summed duration.
+ */
+export function stepSkimHeat(
+  state:SkimHeat,p:SkimPoint,dt:number,seconds:number,
+  steer:number,pumping:boolean,surfaceAt:SkimSurfaceAt=waterSupport,
+):{heat:SkimHeat;point:SkimPoint}{
+  const elapsed=clamp(Number.isFinite(dt)?dt:0,0,.05);
+  if(elapsed===0)return {heat:state,point:p};
+  const slices=Math.max(1,Math.round(elapsed*120));
+  const slice=elapsed/slices;
+  let result:{heat:SkimHeat;point:SkimPoint}={heat:state,point:p};
+  for(let i=0;i<slices;i++){
+    result=stepSkimHeatSlice(result.heat,result.point,slice,
+      seconds-elapsed+(i+1)*slice,steer,pumping,surfaceAt);
+    if(result.heat.phase==="finished")break;
+  }
+  return result;
 }
