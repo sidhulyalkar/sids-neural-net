@@ -42,6 +42,22 @@ async function view(browser, width, height) {
   await page.getByRole('button', { name: 'Fit original figure to stage' }).click();
   await page.getByRole('button', { name: 'Previous original figure' }).click();
   await page.getByText(/Figure one: A source-shaped synthetic schematic/).waitFor();
+  const chapters = page.getByRole('group', { name: 'Research chapters' });
+  const sectionMap = page.getByRole('region', { name: 'Original publication outline' });
+  assert.equal(await sectionMap.count(), 1, 'A source with actual section headings should render the publication map');
+  assert.equal(await sectionMap.getByRole('link', { name: /1 Introduction/ }).count(), 1);
+  await chapters.getByRole('button', { name: /Evidence/ }).click();
+  await page.locator('[data-selected-source-chapter="results"]').waitFor();
+  await page.getByRole('link', { name: /3 Results/ }).waitFor();
+  assert.equal(new URL(await page.locator('[data-frontier-story] img').getAttribute('src'), TARGET).pathname,
+    '/api/frontier/evidence-audit-image/b',
+    'Choosing a real results section selects a source figure within that section');
+  await chapters.getByRole('button', { name: /Methods/ }).click();
+  await page.locator('[data-selected-source-chapter="methods"]').waitFor();
+  await page.getByRole('link', { name: /2 Experiment Design/ }).waitFor();
+  assert.equal(new URL(await page.locator('[data-frontier-story] img').getAttribute('src'), TARGET).pathname,
+    '/api/frontier/evidence-audit-image/a',
+    'Choosing source methods selects an associated source figure without generating new media');
 
   const geometry = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -69,7 +85,7 @@ async function view(browser, width, height) {
   await page.screenshot({ path: OUT + '/story-' + width + '.png', fullPage: true });
 
   await page.close();
-  return { width, captionSwitch: true, originalSourceAnchors: true, noOverflow: true };
+  return { width, captionSwitch: true, originalSourceAnchors: true, sourceOutline: true, noOverflow: true };
 }
 
 async function missingAsset(browser) {
