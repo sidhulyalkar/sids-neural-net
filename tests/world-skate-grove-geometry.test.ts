@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three/src/Three.Core.js";
 import {createWorldSkateGrove} from "../components/world/worldSkateGroveGeometry";
-import {skateParkSurface,SKATE_PARK,REDWOOD_BOWL,redwoodBowlBankRise,SKATE_PARK_RAILS,railLiftAt,insideCanyonFlow} from "../lib/world/skatepark";
+import {skateParkSurface,SKATE_PARK,REDWOOD_BOWL,redwoodBowlBankRise,SKATE_PARK_RAILS,railLiftAt,insideCanyonFlow,SKATE_LOOP,insideSkateLoopFootprint,skateParkZone} from "../lib/world/skatepark";
+import {beginSkateLoop,skateLoopSample,LOOP_TAU} from "../lib/world/skateLoop";
 import {groundHeight} from "../lib/world/activities";
 
 test("authored wood geometry is static, named, low-draw and disposable",()=>{
@@ -176,5 +177,98 @@ test("Moss Canyon terrain ribbon and kinked rail art share physics heights",()=>
   // Every instance is pooled; the scene root must not balloon with single
   // segment objects or reduce frame rate in the forest.
   assert.ok(grove.root.children.length<=22);
+ }finally{grove.dispose();}
+});
+
+test("the rendered full 360-degree loop shares its complete footprint and contact frame",()=>{
+ const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
+ try{
+  const tread=grove.root.getObjectByName("full-360-loop-polished-tread");
+  const backing=grove.root.getObjectByName("full-360-loop-bark-understructure");
+  assert.ok(tread instanceof THREE.Mesh&&backing instanceof THREE.Mesh);
+  if(!(tread instanceof THREE.Mesh)||!(backing instanceof THREE.Mesh))return;
+  const points=tread.geometry.getAttribute("position");
+  const underside=backing.geometry.getAttribute("position");
+  const segments=(points.count/2)-1;
+  assert.equal(segments,144);
+  const exit={x:SKATE_LOOP.center.x-SKATE_LOOP.exitOffset,
+   z:SKATE_LOOP.center.z+SKATE_LOOP.laneOffset};
+  const ride=beginSkateLoop(9,groundHeight(SKATE_LOOP.center),
+   SKATE_LOOP.center.z,groundHeight(exit));
+  for(let i=0;i<=segments;i+=3){
+   const pose=skateLoopSample({...ride,angle:LOOP_TAU*i/segments});
+   assert.equal(skateParkZone(pose.point),"timber-loop",
+    "3D loop position must retain the correct biome/HUD zone at angle "+i);
+   for(const [side,index] of [[-1,0],[1,1]] as const){
+    const spread=side*SKATE_LOOP.width*.5,vertex=i*2+index;
+    const expected=[
+     pose.point.x+pose.right[0]*spread,
+     pose.y+pose.right[1]*spread,
+     pose.point.z+pose.right[2]*spread,
+    ];
+    for(let axis=0;axis<3;axis++){
+     const actual=axis===0?points.getX(vertex):axis===1?points.getY(vertex):points.getZ(vertex);
+     assert.ok(Math.abs(actual-expected[axis])<.0002,
+      "tread must track runtime 3D contact at angle "+i+" axis "+axis);
+     const backingActual=axis===0?underside.getX(vertex):
+      axis===1?underside.getY(vertex):underside.getZ(vertex);
+     assert.ok(Math.abs(backingActual-(expected[axis]-
+       pose.up[axis]*SKATE_LOOP.supportThickness))<.0002,
+      "underside must remain strictly behind the riding surface");
+    }
+    assert.ok(insideSkateLoopFootprint({x:expected[0],z:expected[2]}),
+     "all edges of the offset loop must lie in the same bounded footprint");
+   }
+  }
+ }finally{grove.dispose();}
+});
+
+test("redwood bark art has no coincident surfaces or filled faces through the open split",()=>{
+ const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
+ try{
+  const bark=grove.root.getObjectByName("stump-bowl-outer-bark-apron");
+  const deck=grove.root.getObjectByName("skate-grove-ride-surface");
+  assert.ok(bark instanceof THREE.Mesh&&deck instanceof THREE.Mesh);
+  if(!(bark instanceof THREE.Mesh)||!(deck instanceof THREE.Mesh))return;
+  const pos=bark.geometry.getAttribute("position"),faces=bark.geometry.getIndex();
+  assert.ok(faces&&faces.count>6000);
+  for(let t=0;t<faces.count;t+=3){
+   let mx=0,mz=0;
+   for(let corner=0;corner<3;corner++){
+    const i=faces.getX(t+corner),x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);
+    const ground=skateParkSurface({x,z});
+    assert.ok(ground!==null&&y-ground>.059,
+     "decorative bark must never intersect the visible +.035 riding mesh");
+    mx+=x/3;mz+=z/3;
+   }
+   const a=Math.atan2(mz-REDWOOD_BOWL.center.z,mx-REDWOOD_BOWL.center.x);
+   const split=Math.abs(Math.atan2(Math.sin(a-.15),Math.cos(a-.15)));
+   assert.ok(split>.39,"actual roll-in must have no bark triangles across it");
+  }
+ }finally{grove.dispose();}
+});
+
+test("sampled redwood bank triangles track physical wheel support between vertices",()=>{
+ const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
+ try{
+  const mesh=grove.root.getObjectByName("skate-grove-ride-surface");
+  assert.ok(mesh instanceof THREE.Mesh);
+  if(!(mesh instanceof THREE.Mesh))return;
+  const positions=mesh.geometry.getAttribute("position");
+  const faces=mesh.geometry.getIndex();
+  assert.ok(faces);
+  let worst=0,location="";
+  for(let t=0;t<faces.count;t+=33){
+   const a=faces.getX(t),b=faces.getX(t+1),c=faces.getX(t+2);
+   const x=(positions.getX(a)+positions.getX(b)+positions.getX(c))/3;
+   const z=(positions.getZ(a)+positions.getZ(b)+positions.getZ(c))/3;
+   const interpolated=(positions.getY(a)+positions.getY(b)+positions.getY(c))/3-.035;
+   const physical=skateParkSurface({x,z});
+   assert.ok(physical!==null,"all visible triangles must occupy actual riding support");
+   const err=Math.abs(interpolated-physical);
+   if(err>worst){worst=err;location=x.toFixed(2)+","+z.toFixed(2);}
+  }
+  assert.ok(worst<.18,
+   "physical wheel and rendered bank must not bridge the triangulated mesh; max error "+worst+" at "+location);
  }finally{grove.dispose();}
 });
