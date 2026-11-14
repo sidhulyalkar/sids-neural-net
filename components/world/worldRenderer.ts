@@ -81,7 +81,7 @@ import { FrameSampler, QualityController } from "@/lib/world/performance";
 import {
   SKIM_BOARDS, boardPoint, beachBlend, northShoreZ, skimBeachClearance, nearbySkimBoard,
   idleSkimHeat, pickupSkimBoard, startSkimRide, stepSkimHeat, skimAction,
-  skimWaterHeight, skimWaveAt, skimBreakAmountAt, skimBoardContact,
+  skimWaterHeight, skimWaveAt, skimBreakAmountAt, skimBoardContact, skimSurfaceMode,
   skimTrickForKey, type SkimHeat, type SkimTrick,
 } from "@/lib/world/skimboarding";
 import { shastaDetour, initialChaseState, stepChase, gaitBlendForSpeed, smoothAngle, smoothPoint, smoothingAlpha, steerShastaVelocity } from "@/lib/world/shastaMotion";
@@ -5411,6 +5411,8 @@ export function createWorld(
       canvas.dataset.skimRemaining=skimHeat.remaining.toFixed(1);
       canvas.dataset.skimRidePoints=skimHeat.ridePoints.toFixed(0);
       canvas.dataset.skimWave=skimWaterHeight(player,surfClock,SEA_SURFACE).toFixed(2);
+      canvas.dataset.skimSurface=skimHeat.surface;
+      canvas.dataset.skimDrySeconds=skimHeat.drySeconds.toFixed(3);
       canvas.dataset.skimWaveStyle="continuous-peeling-surf-v3";
       canvas.dataset.skimBreaking=skimBreakAmountAt(player,surfClock).toFixed(2);
       canvas.dataset.skimWaterOpacity=waterMaterial.opacity.toFixed(3);
@@ -7259,7 +7261,7 @@ export function createWorld(
     canvas.dataset.shoreFish=String(shoreLife.visible?shoreLife.counts.baitfish:0);
     canvas.dataset.shoreRays=String(shoreLife.visible?shoreLife.counts.stingray:0);
     skimWake.update(player,travel.heading,skimHeat.speed,surfClock,
-      skimHeat.phase==="riding"&&skimHeat.air<.06,
+      skimHeat.phase==="riding"&&skimHeat.air<.06&&skimSurfaceMode(player,surfClock)!=="dry",
       p=>skimWaterHeight(p,surfClock,SEA_SURFACE));
     if(aquatic === "land" && scene.fog instanceof THREE.Fog) {
       const w = biomeAt({x:camera.position.x,z:camera.position.z}).weights;

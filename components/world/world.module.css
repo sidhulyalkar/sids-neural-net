@@ -340,6 +340,45 @@
   max-width: 720px;
   color: #50665e;
 }
+.cairnStory {
+  margin: 0 0 24px;
+  padding: 20px 22px;
+  background: #eeeade;
+  border-left: 3px solid #aa8e66;
+  border-radius: 0 10px 10px 0;
+  color: #263c35;
+}
+.cairnStory .cairnTheme {
+  margin: 0 0 9px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  color: #77634b;
+}
+.cairnStory h3 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(21px, 2.2vw, 27px);
+  font-weight: 400;
+  line-height: 1.23;
+  margin-bottom: 12px;
+}
+.cairnStory p {
+  line-height: 1.65;
+  font-size: 14px;
+  margin: 0 0 11px;
+}
+.cairnStoryLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin-top: 18px;
+}
+.cairnStoryLinks a {
+  font-size: 13px;
+  color: #315e57;
+  border-bottom: 1px solid #658a82;
+  padding-bottom: 3px;
+}
 .projectList {
   display: grid;
 }

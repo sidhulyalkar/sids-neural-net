@@ -76,6 +76,43 @@ export const SKATE_LOOP={
  supportThickness:.24,
 } as const;
 
+/**
+ * Ground projection of the actual open spiral.
+ * A center/radius rectangle wrongly omitted the western offset exit and
+ * the dipping quarter of the ring; trace the same parametric centerline as
+ * skateLoopSample and use a bounded lateral footprint.
+ */
+const LOOP_FOOTPRINT_SAMPLES=96;
+const loopSpiralCenterline=Array.from({length:LOOP_FOOTPRINT_SAMPLES+1},(_,i)=>{
+ const t=i/LOOP_FOOTPRINT_SAMPLES,a=2*Math.PI*t;
+ return {
+  x:SKATE_LOOP.center.x-SKATE_LOOP.radius*Math.sin(a)-SKATE_LOOP.exitOffset*t,
+  z:SKATE_LOOP.center.z+SKATE_LOOP.laneOffset*t*t*(2-t),
+ };
+});
+const loopFootprintPadding=SKATE_LOOP.width*.5+.25;
+export const SKATE_LOOP_BOUNDS={
+ minX:Math.min(...loopSpiralCenterline.map(p=>p.x))-loopFootprintPadding,
+ maxX:Math.max(...loopSpiralCenterline.map(p=>p.x))+loopFootprintPadding,
+ minZ:Math.min(...loopSpiralCenterline.map(p=>p.z))-loopFootprintPadding,
+ maxZ:Math.max(...loopSpiralCenterline.map(p=>p.z))+loopFootprintPadding,
+} as const;
+export function insideSkateLoopFootprint(p:Point,margin=0):boolean {
+ const reach=loopFootprintPadding+Math.max(0,margin);
+ if(p.x<SKATE_LOOP_BOUNDS.minX-margin||p.x>SKATE_LOOP_BOUNDS.maxX+margin||
+    p.z<SKATE_LOOP_BOUNDS.minZ-margin||p.z>SKATE_LOOP_BOUNDS.maxZ+margin)
+   return false;
+ const radiusSquared=reach*reach;
+ for(let i=1;i<loopSpiralCenterline.length;i++){
+  const a=loopSpiralCenterline[i-1],b=loopSpiralCenterline[i];
+  const dx=b.x-a.x,dz=b.z-a.z;
+  const t=Math.max(0,Math.min(1,
+    ((p.x-a.x)*dx+(p.z-a.z)*dz)/(dx*dx+dz*dz||1)));
+  const x=p.x-a.x-t*dx,z=p.z-a.z-t*dz;
+  if(x*x+z*z<=radiusSquared)return true;
+ }
+ return false;
+}
 /** Old-growth framing trees stay OUTSIDE the rideable meadow and use the
  * World tree renderer's same visible trunk + navigation obstacle contract.
  * Water positions are skipped by the caller. No decorative phantom trunks. */
@@ -116,10 +153,7 @@ export function groveStoneRise(p:Point):number{
 export type SkateParkZone="redwood-bowl"|"timber-quarter"|"stump-pad"|"street"|"apron"|"sequoia-tunnel"|"timber-loop"|"canyon-flow";
 export function skateParkZone(p:Point):SkateParkZone{
 
- if(Math.abs(p.x-SKATE_LOOP.center.x)<SKATE_LOOP.radius+0.55&&
-  p.z>SKATE_LOOP.center.z-SKATE_LOOP.width*.55-.18&&
-  p.z<SKATE_LOOP.center.z+SKATE_LOOP.laneOffset+SKATE_LOOP.width*.55+.18)
-  return "timber-loop";
+ if(insideSkateLoopFootprint(p))return "timber-loop";
 
  if(Math.abs(p.x-GROVE_TUNNEL.center.x)<GROVE_TUNNEL.halfLength+.15&&
   Math.abs(p.z-GROVE_TUNNEL.center.z)<GROVE_LOG.halfWidth*.92)

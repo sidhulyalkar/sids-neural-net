@@ -99,6 +99,7 @@ try{
   const c=document.querySelector("canvas");if(!c){reject(Error("No world canvas"));return;}
   const began=performance.now(),data=[],start=c.dataset.player?.split(",").map(Number);
   let inPipe=false,highestSpeed=0;
+  let bestZ=start?.[1]??-Infinity,lastProgressAt=performance.now();
   const tick=()=>{
    const d=c.dataset,p=d.player?.split(",").map(Number);
    if(!p?.every(Number.isFinite))return reject(Error("Nonfinite skier position"));
@@ -108,12 +109,18 @@ try{
    if(data.length>=30)data.shift();data.push(sample);
    inPipe||=sample.pipe==="true";
    highestSpeed=Math.max(highestSpeed,sample.speed);
+   if(sample.z>bestZ+.18){bestZ=sample.z;lastProgressAt=performance.now();}
    if(sample.bigAir!=="idle"||sample.authorized!=="false")
     return reject(Error("Unrequested Big Air launch: "+JSON.stringify(sample)));
    if(p[1]>-44){
     return resolve({start,finish:sample,inPipe,highestSpeed,trace:data});
    }
-   if(performance.now()-began>75000)
+   if(performance.now()-lastProgressAt>22000)
+     return reject(Error("Skier stopped advancing with active downhill input: "+
+       JSON.stringify({bestZ,sample,trace:data})));
+   // SwiftShader can run below one frame/sec, even as physics advances at a
+   // measured 6.5 world units/s in simulation time. Preserve spatial exit.
+   if(performance.now()-began>125000)
      return reject(Error("Downhill halfpipe traversal failed: "+JSON.stringify(data)));
    requestAnimationFrame(tick);
   };

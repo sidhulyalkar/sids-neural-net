@@ -15,17 +15,18 @@ try{
  const page=await browser.newPage({viewport:{width:1440,height:900}});
  page.on("pageerror",e=>errors.push(e.message));
  try{
-  await page.goto(url);
+  await page.goto(url+(url.includes("?")?"&":"?")+"skate-start=hollow-log");
   await page.getByRole("button",{name:"Explore world",exact:true}).click();
   await page.waitForFunction(()=>
    Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
    null,{timeout:45000});
-  await page.getByRole("button",{name:"Skateboarding",exact:true}).click();
-  await page.getByRole("button",{name:"Show sport shortcuts",exact:true}).click();
-   await page.getByRole("button",{name:"Skatepark",exact:true}).click();
-  await page.waitForFunction(()=>
-   document.querySelector("canvas")?.dataset.skatePark==="true",
-   null,{timeout:15000});
+  // The actual hollow log is centered at z=59.1, not the old meadow z=30.7.
+  // Use the public shareable ride start, with an ordinary canvas-driven run-up.
+  await page.waitForFunction(()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   const [x,z]=(d?.player??"").split(",").map(Number);
+   return d?.activity==="skate" && x>5 && x<10 && z>55 && z<64;
+  },null,{timeout:15000});
   await page.locator("canvas").focus();
   // This uses the SAME W / A / D / Q event handler as a human visitor.
   // Position feedback chooses ordinary steering, never writes game state.
@@ -46,6 +47,8 @@ try{
     stage,point:d.player?.split(",").map(Number)??[],
     heading:d.skateHeading?.split(",").map(Number)??[],
     speed:Number(d.speed),angle:Number(d.skateTunnelAngle),
+    alongSpeed:Number(d.skateTunnelAlongSpeed),circumSpeed:Number(d.skateTunnelCircumSpeed),
+    airborne:d.skateTunnelAir,
     phase:d.skateTunnelPhase,entries:Number(d.skateTunnelEntries),
     completions:Number(d.skateTunnelCompletions),
     result:d.skateLastResult,activity:d.activity,zone:d.skateGroveZone,
@@ -58,7 +61,7 @@ try{
    let frames=0;
    const tick=()=>{
     frames++;const s=sample(),[x,z]=s.point;
-    if(frames%12===0)samples.push(s);
+    if(frames%3===0)samples.push(s);
     if(!Number.isFinite(x)||!Number.isFinite(z)){
      fail("Non-finite wheel contact",s);return;
     }
@@ -67,25 +70,30 @@ try{
      return;
     }
     if(stage==="approach"){
-     // First skate northwest across the real meadow. Correct small lateral
-     // drift while turning west to enter the eastern log mouth at speed.
-     hold("d",z>31.10);hold("a",z<30.30);
-     const aligned=Math.abs(z-30.7)<.55&&
-      x<(-11+5.35-.25)&&x>-12.3&&
-      s.heading[0]<-.75&&s.speed>=4.2;
-     if(aligned){
-      hold("a",false);hold("d",false);
-      key("keydown","q");key("keyup","q");
-      stage="wall";
-     }else if(x<-12.35){
-      fail("Normal steering missed hollow log mouth",s);return;
+     // The geometry owns entry: the skier crosses the open, west-facing log
+     // mouth at riding speed. No debug state writes and no fake Q activation.
+     if(s.entries>0){
+      entered=s;stage="wall";
+     }else if(x<-6.5||Math.abs(z-59.1)>1.6){
+      fail("Rider missed the actual hollow-log mouth",s);return;
      }
     }
     if(stage==="wall"&&s.entries>0){
      entered??=s;
-     if(!ceiling&&s.phase==="wall-ride"&&s.angle>.45&&s.angle<.55)
+     if(s.phase!=="wall-ride"&&s.completions===0){
+      fail("Tunnel surface exited without completing a full revolution",s);return;
+     }
+     if(s.phase==="wall-ride"){
+      // Transfer the incoming -X velocity into positive circumferential
+      // speed, then stop steering so the board can follow physical curvature.
+      // After one revolution, turn velocity back down the -X tunnel axis.
+      const fullTurn=s.angle>=Math.PI*2;
+      hold("d",!fullTurn&&s.alongSpeed< -1.25);
+      hold("a",fullTurn&&s.alongSpeed> -5.0);
+     }
+     if(!ceiling&&s.phase==="wall-ride"&&s.angle>.45)
       ceiling=s;
-     if(s.completions>0){completed=s;stage="exit";}
+     if(s.completions>0){completed=s;stage="exit";hold("d",false);hold("a",false);}
     }
     if(stage==="exit"&&completed&&s.phase==="free"&&
       Math.hypot(x-completed.point[0],z-completed.point[1])>1.0){
@@ -98,8 +106,9 @@ try{
   }));
   console.log("SEQUOIA TUNNEL RIDE TRACE",JSON.stringify({trace,errors}));
   assert.ok(trace.entered?.entries===1,"Q must capture the actual inner wood wall");
-  assert.ok(trace.ceiling&&trace.ceiling.angle>.45&&trace.ceiling.angle<.55,
-   "skateboard must actually ride inverted across the ceiling");
+  assert.ok(trace.ceiling?.angle>.45,"skateboard must rise onto the actual wooden wall");
+  assert.ok(trace.samples.some(s=>s.phase==="wall-ride"&&s.angle>Math.PI),
+   "skateboard must reach the inverted ceiling rather than only entering the log");
   assert.equal(trace.completed?.completions,1);
   assert.equal(trace.completed?.phase,"free");
   assert.match(trace.completed?.result??"",/Sequoia Hollow 360°/);

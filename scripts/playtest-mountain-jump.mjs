@@ -27,8 +27,8 @@ try{
  }
  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
   null,{timeout:45000});
- // Pick Skiing, which navigates to mountain terrain. Do not arm the
- // original fixed-lip big-air challenge.
+ // Free skiing never authorizes a scored jump, regardless of a terrain crest.
+ // Its actual V3 air control is covered separately in playtest-ski-v3.mjs.
  await page.getByRole("button",{name:"Skiing",exact:true}).click();
  await page.waitForFunction(()=>{
   const d=document.querySelector("canvas")?.dataset;
@@ -36,30 +36,48 @@ try{
  },null,{timeout:30000});
  const canvas=page.locator("canvas");
  assert.equal(await canvas.getAttribute("data-big-air-phase"),"idle");
- // A free mountain jump must derive from actual skier momentum. Gain speed
- // through normal input; the downhill lip might auto-launch before Space.
+ // Select the real Ski Jump shortcut, which arms the authored physical lip.
+ await page.getByRole("button",{name:"Show sport shortcuts",exact:true}).click();
+ await page.getByRole("button",{name:"Ski jump",exact:true}).click();
+ await page.waitForFunction(()=>{
+  const d=document.querySelector("canvas")?.dataset;
+  return d?.activity==="ski"&&d.bigAirPhase==="armed";
+ },null,{timeout:18000});
+ assert.equal(await canvas.getAttribute("data-mountain-ski-jump-authorized"),"true");
  await canvas.focus();
+ await page.evaluate(()=>{
+  const c=document.querySelector("canvas");
+  c.__mountainJumpEvidence={flight:null,transitions:[],lastPhase:""};
+  const collect=()=>{
+   if(!c.isConnected)return;
+   const d=c.dataset,store=c.__mountainJumpEvidence;
+   if(d.bigAirPhase!==store.lastPhase){
+    store.transitions.push({phase:d.bigAirPhase,z:d.player,at:performance.now()});
+    store.lastPhase=d.bigAirPhase;
+   }
+   // Capture pixels and physics metadata from the same rendered frame.
+   if(!store.flight&&d.bigAirPhase==="flying"&&d.bigAirBirdsFollowing==="true")
+    store.flight={data:{...d},png:c.toDataURL("image/png")};
+   requestAnimationFrame(collect);
+  };
+  requestAnimationFrame(collect);
+ });
  let flight;
  await page.keyboard.down("w");
  try{
-   await page.waitForFunction(()=>{
-    const d=document.querySelector("canvas")?.dataset;
-    return d?.bigAirPhase==="flying"||Number(d?.speed)>=6;
-   },null,{timeout:35000});
-   if(await canvas.getAttribute("data-big-air-phase")==="idle")
-    await page.keyboard.press("Space");
-   // Sample the active bird/flight state atomically. A short jump can land
-   // between independent Playwright evaluate requests on 4 FPS SwiftShader.
-   const sample=await page.waitForFunction(()=>{
-    const d=document.querySelector("canvas")?.dataset;
-    if(d?.bigAirPhase!=="flying"||d.bigAirBirdsFollowing!=="true")
-     return false;
-    return {phase:d.bigAirPhase,distance:Number(d.bigAirDistance),
-     altitude:Number(d.bigAirAltitude),birds:d.bigAirBirdsFollowing,
-     outward:Number(d.bigAirOutwardGain),
-     peak:Number(d.bigAirPeakClearance),mode:d.activity};
-   },null,{timeout:35000});
-   flight=await sample.jsonValue();
+  await page.waitForFunction(()=>Boolean(
+   document.querySelector("canvas")?.__mountainJumpEvidence?.flight),
+   null,{timeout:150000});
+  const saved=await canvas.evaluate(c=>c.__mountainJumpEvidence.flight);
+  assert.equal(saved.data.bigAirPhase,"flying");
+  assert.equal(saved.data.bigAirBirdsFollowing,"true");
+  assert.equal(saved.data.mountainSkiJumpAuthorized,"true");
+  fs.writeFileSync(path.join(out,"01-authorized-mountain-jump.png"),
+   Buffer.from(saved.png.split(",")[1],"base64"));
+  flight={phase:saved.data.bigAirPhase,distance:Number(saved.data.bigAirDistance),
+   altitude:Number(saved.data.bigAirAltitude),birds:saved.data.bigAirBirdsFollowing,
+   outward:Number(saved.data.bigAirOutwardGain),
+   peak:Number(saved.data.bigAirPeakClearance),mode:saved.data.activity};
  }finally{await page.keyboard.up("w");}
  assert.equal(flight.mode,"ski");
  assert.equal(flight.birds,"true");
@@ -71,7 +89,8 @@ try{
  const during=await canvas.evaluate(el=>({phase:el.dataset.bigAirPhase,
   session:document.querySelector("[data-world-session]")?.getAttribute("data-world-session")}));
  if(during.phase==="flying")assert.equal(during.session,"playing");
- await page.screenshot({path:path.join(out,"01-arbitrary-mountain-jump.png")});
+ assert.ok(fs.existsSync(path.join(out,"01-authorized-mountain-jump.png")),
+  "actual airborne pixels must come from the same observed flight frame");
  await page.waitForFunction(()=>{
   const d=document.querySelector("canvas")?.dataset;
   return Number(d?.bigAirDistance)>2||d?.bigAirPhase==="landed"||
@@ -86,7 +105,7 @@ try{
  await page.waitForFunction(()=>{
   const phase=document.querySelector("canvas")?.dataset.bigAirPhase;
   return phase==="landed"||phase==="missed";
- },null,{timeout:45000});
+ },null,{timeout:90000});
  await page.waitForFunction(()=>document.querySelector("[data-world-session]")?.getAttribute("data-world-session")==="results");
  if(await canvas.getAttribute("data-aquatic")==="land")
   await page.getByRole("group",{name:"Movement activity",exact:true}).waitFor({state:"visible"});

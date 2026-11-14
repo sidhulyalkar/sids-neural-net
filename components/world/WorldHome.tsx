@@ -27,6 +27,7 @@ import {
 } from "@/lib/world/model";
 import { ACTIVITIES, activityConfig, type Activity, type AquaticMode } from "@/lib/world/activities";
 import { COASTAL_FLORA, MARINE_LIFE } from "@/lib/world/ecology";
+import {cairnStoryFor} from "@/lib/world/cairnStories";
 import { UNDERWATER_TRIDENTS } from "@/lib/world/artifacts";
 import { JOSHUA_TRIAL, JOSHUA_GATES, type TrialState } from "@/lib/world/trials";
 import { JOSHUA_GHOSTS } from "@/lib/world/joshuaGhostRace";
@@ -519,6 +520,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
         WILDLIFE_DISCOVERIES.find((a)=>a.id===nearby)?.title);
   const current = REGIONS.find((r) => r.id === region)!;
   const selected = REGIONS.find((r) => r.id === panel);
+  const cairnStory=selected?cairnStoryFor(selected.id):null;
   const carvedGameIndex = panel?.startsWith("game:") ? Number(panel.slice(5)) : -1;
   const carvedGame = Number.isInteger(carvedGameIndex) ? content.games[carvedGameIndex] : undefined;
   const photo = content.photos.find((p) => p.id === panel ||
@@ -963,6 +965,19 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <p className={styles.eyebrow}>{selected.name}</p>
               <h2 id="world-panel-title">{INTRO[selected.id].title}</h2>
               {INTRO[selected.id].text && <p className={styles.panelIntro}>{INTRO[selected.id].text}</p>}
+              {cairnStory && (
+                <section className={styles.cairnStory} aria-label={`${selected.name} field story`}>
+                  <p className={styles.cairnTheme}>{cairnStory.theme}</p>
+                  <h3>{cairnStory.title}</h3>
+                  <p>{cairnStory.lead}</p>
+                  <p>{cairnStory.perspective}</p>
+                  <nav aria-label="Related work" className={styles.cairnStoryLinks}>
+                    {cairnStory.links.map(link=>(
+                      <Link href={link.href} prefetch={false} key={link.href}>{link.label}</Link>
+                    ))}
+                  </nav>
+                </section>
+              )}
               {selected.id === "cavern" && <div className={styles.projectList}>
                 {content.games.map((game, index) => <Link key={game.href} href={game.href} prefetch={false}>
                   {index === 0 && <span>FEATURED GAME</span>}

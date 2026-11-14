@@ -45,6 +45,9 @@ export type SkimHeat = {
   launchKind: "none" | "flat-pop" | "lip-air";
   waveRideSeconds: number;
   trickDuration: number;
+  /** Contact medium is tracked separately from rigid board support height. */
+  surface: SkimSurfaceMode;
+  drySeconds: number;
 };
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const smooth = (x: number) => { const t = clamp(x, 0, 1); return t * t * (3 - 2 * t); };
@@ -136,6 +139,13 @@ export function skimWashDepthAt(p: SkimPoint, seconds: number): number {
     .5+.5*Math.sin(seconds*1.25+p.x*.085));
   return Math.max(0,pulse*spread*onSand);
 }
+/** Sand may mechanically support a board without providing water for planing. */
+export type SkimSurfaceMode = "dry" | "wash" | "water";
+export function skimSurfaceMode(p:SkimPoint,seconds:number):SkimSurfaceMode {
+  const offshore=skimOffshore(p);
+  if(offshore>=.35) return "water";
+  return offshore>=-4 && skimWashDepthAt(p,seconds)>=.015 ? "wash" : "dry";
+}
 export function skimWaterHeight(p: SkimPoint, seconds: number, seaSurface: number): number {
   const offshore=skimOffshore(p);
   const shoal=1.15+.55*(1-smooth((offshore-10)/22));
@@ -208,7 +218,7 @@ export function idleSkimHeat(): SkimHeat {
     trickStart: 0, wrapCooldown: 0, trickCallout: "", trickCalloutTime: 0,
     pendingTrick: null, repeats: {},
     lastTrick: "", waveHits: 0, recovery: 0, flightY:null, launchCooldown:0,
-    launchKind:"none",waveRideSeconds:0,trickDuration:0 };
+    launchKind:"none",waveRideSeconds:0,trickDuration:0,surface:"dry",drySeconds:0 };
 }
 export function pickupSkimBoard(p: SkimPoint, index: number, previous: SkimHeat): SkimHeat {
   if (previous.phase !== "off" && previous.phase !== "finished") return previous;
@@ -222,7 +232,8 @@ export function startSkimRide(state: SkimHeat, p: SkimPoint, speed: number, head
   return { ...state, phase: "riding", speed: Math.max(7, speed * 1.05),
     heading: normalize(heading), ridePoints: 0, waveHits: 0, air: 0,
     verticalSpeed: 0, spin: 0, airElapsed: 0, airDuration: 0, trickStart: 0,
-    pendingTrick: null,flightY:null,launchCooldown:0,launchKind:"none",waveRideSeconds:0,trickDuration:0 };
+    pendingTrick: null,flightY:null,launchCooldown:0,launchKind:"none",waveRideSeconds:0,trickDuration:0,
+    surface:skimSurfaceMode(p,0),drySeconds:0 };
 }
 function commitRide(s: SkimHeat, clean: boolean): SkimHeat {
   const points = Math.round(s.ridePoints * (clean ? 1.2 : 0.35));
@@ -264,7 +275,7 @@ const TRICK_POINTS: Record<Exclude<SkimTrick, "wrap">, number> = {
 };
 /** Fixed-step friendly heat logic. Incoming waves add momentum but never teleport the rider.
  * Scoring is paid on landing/ride completion, never merely on pressing a trick key. */
-export function stepSkimHeat(
+function stepSkimHeatSlice(
   state: SkimHeat, p: SkimPoint, dt: number, seconds: number,
   steer: number, pumping: boolean, surfaceAt:SkimSurfaceAt=waterSupport,
 ): { heat: SkimHeat; point: SkimPoint } {
@@ -296,9 +307,13 @@ export function stepSkimHeat(
   const caught=s.air<.02&&heading.z<-.12&&pocket.delta>-3.6&&pocket.delta<.6&&wave>.16;
   // Momentum comes from riding the shoreward face. Pumping on deep flat water
   // cannot act like a motor; on thin wash it mainly preserves the run-up.
-  const pump=pumping&&s.air<.02?(offshoreStart<1?1.6:wave*1.5):0;
-  const drive=caught?4.6*wave:0;
-  let speed=clamp(s.speed+(pump+drive-.60-Math.abs(steer)*.42)*step,0,16);
+  const entrySurface=skimSurfaceMode(p,seconds);
+  // Briefly gliding across sand is possible, but neither water propulsion nor
+  // a long-lived surf ride can be sustained without wash or actual water.
+  const pump=pumping&&s.air<.02&&entrySurface!=="dry"?(offshoreStart<1?1.6:wave*1.5):0;
+  const drive=entrySurface==="dry"?0:caught?4.6*wave:0;
+  const drag=entrySurface==="dry"?8.5:entrySurface==="wash"?1.4:.60;
+  let speed=clamp(s.speed+(pump+drive-drag-Math.abs(steer)*.42)*step,0,16);
   const point={x:p.x+heading.x*speed*step,z:p.z+heading.z*speed*step};
   if(s.air<=0&&s.launchCooldown<=0&&
     skimLipCrossing(p,point,seconds-step,seconds,heading,speed)){
@@ -349,11 +364,40 @@ export function stepSkimHeat(
       s = { ...s, pendingTrick: null, airDuration: 0, trickStart: 0, flightY:null,trickDuration:0 };
     }
   }
-  s = { ...s, speed, heading, air, verticalSpeed, spin, airElapsed, ridePoints, waveHits };
+  const surface=skimSurfaceMode(point,seconds);
+  const drySeconds=air<=0&&surface==="dry"?s.drySeconds+step:0;
+  s = { ...s, speed, heading, air, verticalSpeed, spin, airElapsed,
+    ridePoints, waveHits, surface, drySeconds };
   const offshore = skimOffshore(point);
-  const clean = s.air<=0 && offshore < -9 && (s.waveHits > 0 || ridePoints > 35);
+  // A completed surf return ends on wet foreshore rather than demanding a
+  // long dry-sand slide inland. No wave encounter means no early clean exit.
+  const surfReturn=s.waveHits>0&&heading.z<-.05&&offshore< -4.1;
+  const clean=s.air<=0&&(surfReturn ||
+    (offshore < -9 && (s.waveHits > 0 || ridePoints > 35)));
   if (clean) s = commitRide(s, true);
-  else if (speed < 2 || offshore > 29 || Math.abs(point.x) > 30 || offshore < -15) s = commitRide(s, false);
+  else if (drySeconds>.55 || speed < 2 || offshore > 29 || Math.abs(point.x) > 30 || offshore < -15) s = commitRide(s, false);
   else if (remaining === 0) s = commitRide(s, false);
   return { heat: s, point };
+}
+
+/**
+ * Integrate the same 120 Hz water/board motion irrespective of 20/40/60 FPS.
+ * External callers still receive one state transition per render frame.
+ * Existing recovery and trick clocks advance by the actual summed duration.
+ */
+export function stepSkimHeat(
+  state:SkimHeat,p:SkimPoint,dt:number,seconds:number,
+  steer:number,pumping:boolean,surfaceAt:SkimSurfaceAt=waterSupport,
+):{heat:SkimHeat;point:SkimPoint}{
+  const elapsed=clamp(Number.isFinite(dt)?dt:0,0,.05);
+  if(elapsed===0)return {heat:state,point:p};
+  const slices=Math.max(1,Math.round(elapsed*120));
+  const slice=elapsed/slices;
+  let result:{heat:SkimHeat;point:SkimPoint}={heat:state,point:p};
+  for(let i=0;i<slices;i++){
+    result=stepSkimHeatSlice(result.heat,result.point,slice,
+      seconds-elapsed+(i+1)*slice,steer,pumping,surfaceAt);
+    if(result.heat.phase==="finished")break;
+  }
+  return result;
 }

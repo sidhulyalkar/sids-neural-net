@@ -4,7 +4,7 @@ import {terrainHeight,isWater} from "../lib/world/model";
 import {groundHeight,nearestGrind,rampImpulseCrossing} from "../lib/world/activities";
 import {
  SKATE_PARK,SKATE_PARK_RAILS,STUMP_PADS,REDWOOD_BOWL,
- insideSkatePark,skateParkZone,skateParkSurface,
+ insideSkatePark,skateParkZone,skateParkSurface,insideSkateLoopFootprint,SKATE_LOOP_BOUNDS,SKATE_LOOP,
  insideMeadowConnector,GROVE_BRIDGE,GROVE_LOG,groveBridgeRise,groveLogRise,
 } from "../lib/world/skatepark";
 
@@ -94,4 +94,16 @@ test("reference bridge and split log have continuous physical entrances and clea
    prior=y;
   }
  }
+});
+
+test("loop footprint bounds are finite, tight and do not classify distant meadow",()=>{
+ const b=SKATE_LOOP_BOUNDS;
+ assert.ok([b.minX,b.maxX,b.minZ,b.maxZ].every(Number.isFinite));
+ assert.ok(b.maxX-b.minX<SKATE_LOOP.radius*3.6);
+ assert.ok(b.maxZ-b.minZ<SKATE_LOOP.laneOffset+SKATE_LOOP.width*2.2);
+ assert.ok(insideSkateLoopFootprint(SKATE_LOOP.center));
+ assert.ok(!insideSkateLoopFootprint({x:SKATE_LOOP.center.x+20,z:SKATE_LOOP.center.z}));
+ assert.equal(skateParkZone({x:SKATE_LOOP.center.x-SKATE_LOOP.exitOffset,
+  z:SKATE_LOOP.center.z+SKATE_LOOP.laneOffset}),"timber-loop",
+  "offset western exit must remain in the loop's semantic region");
 });

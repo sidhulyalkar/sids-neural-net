@@ -9,7 +9,7 @@ import {
   skimOffshore, nearbySkimBoard, waveCrestOffshore, skimWaveAt, skimWaterHeight,
   idleSkimHeat, pickupSkimBoard, startSkimRide, skimAction, stepSkimHeat,
   skimTrickForKey, SKIM_TRICK_KEYS, waveCrestAtX,
-  skimBreakAmountAt,skimWashDepthAt,skimBoardContact,skimSurfEnvelope,
+  skimBreakAmountAt,skimWashDepthAt,skimBoardContact,skimSurfEnvelope,skimSurfaceMode,
   type SkimHeat,
 } from "../lib/world/skimboarding";
 import {
@@ -160,7 +160,9 @@ test("easy trick assist produces an airborne rotation and a temporary landing ca
   assert.ok(maxSpin>Math.PI,"a visible rotation occurs before touchdown");
   assert.match(heat.lastTrick,/360 landed/);
   assert.ok(heat.trickCalloutTime>0);
-  for(let i=0;i<90;i++) heat=stepSkimHeat(heat,point,.05,3+i*.05,0,false).heat;
+  // The new shoreline return may show a fresh clean-ride callout after the
+  // trick; both messages must expire, including a late finishing callout.
+  for(let i=0;i<200;i++) heat=stepSkimHeat(heat,point,.05,3+i*.05,0,false).heat;
   assert.equal(heat.trickCalloutTime,0);
 });
 
@@ -320,4 +322,44 @@ test("skatepark and north shore remain separate contiguous outdoor activities",(
     assert.ok(skimBeachClearance(p));
     assert.equal(waterZone({x:p.x,z:northShoreZ(p.x)+1}),"north-shore");
   }
+});
+
+test("dry sand, shallow wash and water use distinct boarding media",()=>{
+  const shore=northShoreZ(0);
+  assert.equal(skimSurfaceMode({x:0,z:shore-8},0),"dry");
+  assert.equal(skimSurfaceMode({x:0,z:shore-2},0),"wash");
+  assert.equal(skimSurfaceMode({x:0,z:shore+1},0),"water");
+});
+
+test("inland dry-sand rides lose speed and cannot pump indefinitely",()=>{
+  const board=boardPoint(1),initial={x:board.x,z:northShoreZ(board.x)-10};
+  const ready=pickupSkimBoard(board,1,idleSkimHeat());
+  let state=startSkimRide(ready,initial,9,{x:.95,z:.32});
+  assert.equal(state.phase,"riding");
+  let point=initial,peakDry=0;
+  for(let tick=0;tick<90&&state.phase==="riding";tick++){
+    const next=stepSkimHeat(state,point,.025,tick*.025,0,true);
+    state=next.heat;point=next.point;
+    peakDry=Math.max(peakDry,state.drySeconds);
+    assert.notEqual(state.surface,"water");
+  }
+  assert.ok(peakDry>.3);
+  assert.equal(state.phase,"recovering");
+  assert.equal(state.waveHits,0);
+  assert.equal(state.rides,1);
+});
+
+test("a legitimate wet-sand start crosses wash into planing water",()=>{
+  const board=boardPoint(1),ready=pickupSkimBoard(board,1,idleSkimHeat());
+  let point={x:0,z:northShoreZ(0)-2.8};
+  let state=startSkimRide(ready,point,9,{x:0,z:1});
+  let wash=false,water=false;
+  for(let i=0;i<45&&state.phase==="riding";i++){
+    const next=stepSkimHeat(state,point,.025,i*.025,0,true);
+    point=next.point;state=next.heat;
+    wash ||=state.surface==="wash";
+    water ||=state.surface==="water";
+  }
+  assert.ok(wash&&water,"wet sand must transition to genuine shallow water");
+  assert.equal(state.drySeconds,0);
 });
