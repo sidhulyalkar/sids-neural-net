@@ -3249,6 +3249,7 @@ export function createWorld(
   let skiCameraYaw=0, skiCameraActive=false, skiLookUntil=0, snapSkiCamera=false;
   // Bike region fast travel must never lerp the lens through a mountain.
   let snapBikeCamera=false;
+  const bikeCameraFocus=new THREE.Vector3(),bikeScreenProbe=new THREE.Vector3();
   let yaw = 0.25,
     pitch = 0.32,
     zoom = 19;
@@ -6911,19 +6912,47 @@ export function createWorld(
     if(state.activity==="bike"&&aquatic==="land"&&caveLayer==="surface"&&
        galleryPhase==="outside"&&discGolf.phase==="off"&&
        bigAir.phase==="idle"&&!jetSki){
-      const shot=resolveBikeTerrainSightline(camera.position,look,
+      // A clear ray aimed 2.8 units ABOVE the biker can still put the actual
+      // rider outside the image, especially after switching from the sequoia.
+      // Solve against the rider's body and qualify its *projected* silhouette.
+      bikeCameraFocus.set(player.x,playerY+1.25,player.z);
+      const shot=resolveBikeTerrainSightline(camera.position,bikeCameraFocus,
         (x,z)=>worldFloorHeight(x,z));
       if(shot.adjusted&&shot.clear)
         camera.position.set(shot.point.x,shot.point.y,shot.point.z);
+      // This changes only presentation and does not fight the player's yaw.
+      look.lerp(bikeCameraFocus,1-Math.exp(-dt*9));
+      camera.lookAt(look);camera.updateMatrixWorld();
+      bikeScreenProbe.copy(bikeCameraFocus).project(camera);
+      const insideFrame=()=>Number.isFinite(bikeScreenProbe.x)&&
+        Number.isFinite(bikeScreenProbe.y)&&bikeScreenProbe.z>=-1&&
+        bikeScreenProbe.z<=1&&Math.abs(bikeScreenProbe.x)<.68&&
+        Math.abs(bikeScreenProbe.y)<.62;
+      if(!insideFrame()){
+        // Avoid a 3-second cinematic blend pointing at the last region
+        // while the actual rider disappears below the camera viewport.
+        look.copy(bikeCameraFocus);camera.lookAt(look);camera.updateMatrixWorld();
+        bikeScreenProbe.copy(bikeCameraFocus).project(camera);
+      }
+      canvas.dataset.bikePlayerFramed=String(insideFrame());
+      canvas.dataset.bikePlayerScreen=[
+        bikeScreenProbe.x,bikeScreenProbe.y,bikeScreenProbe.z
+      ].map(v=>v.toFixed(3)).join(",");
       canvas.dataset.bikeCameraSightlineClear=String(shot.clear);
       canvas.dataset.bikeCameraClearanceLift=shot.lift.toFixed(2);
       canvas.dataset.bikeCameraBoomRatio=shot.boomRatio.toFixed(3);
+      canvas.dataset.bikeCameraPosition=[
+        camera.position.x,camera.position.y,camera.position.z
+      ].map(v=>v.toFixed(2)).join(",");
     }else{
+      camera.lookAt(look);
+      canvas.dataset.bikePlayerFramed="n/a";
+      canvas.dataset.bikePlayerScreen="";
+      canvas.dataset.bikeCameraPosition="";
       canvas.dataset.bikeCameraSightlineClear="n/a";
       canvas.dataset.bikeCameraClearanceLift="0";
       canvas.dataset.bikeCameraBoomRatio="1";
     }
-    camera.lookAt(look);
     if(skiCameraActive){
       camera.updateMatrixWorld();skiProbe.copy(skiFocus).project(camera);
       if(Math.abs(skiProbe.x)>.65||Math.abs(skiProbe.y)>.65){
