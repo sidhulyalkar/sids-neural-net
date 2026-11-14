@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   ski-flex-visual:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 24
     env:
       WORLD_BASE_URL: http://localhost:3000

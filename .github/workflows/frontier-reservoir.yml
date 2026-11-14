@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   reservoir-gate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
