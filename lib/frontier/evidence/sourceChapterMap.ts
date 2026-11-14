@@ -33,7 +33,7 @@ function groupFor(title: string): ChapterId {
   const heading = title.replace(/^(?:[A-Z]|\d+(?:\.\d+)*)(?:\s+|[.:]\s*)/, '').trim();
   // Order is meaningful: "Experiment Design" must not become "Results".
   if (/\b(?:limitations?|future work|discussion|conclusions?|caveats?)\b/i.test(heading)) return 'limitations';
-  if (/\b(?:methods?|methodology|problem setup|experimental? design|approach|implementation|dataset description|data collection|design space|procedures?)\b/i.test(heading)) return 'methods';
+  if (/\b(?:methods?|methodology|problem setup|experiment(?:al)? design|approach|implementation|dataset description|data collection|design space|procedures?)\b/i.test(heading)) return 'methods';
   if (/\b(?:results?|analysis|evaluation|benchmarks?|ablation|findings|comparisons?)\b/i.test(heading)) return 'results';
   if (/\b(?:introductions?|background|motivation|research questions?|related work|overview)\b/i.test(heading)) return 'context';
   return 'other';
