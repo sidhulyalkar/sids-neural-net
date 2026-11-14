@@ -4,6 +4,7 @@ import { renderedSnowHeight } from "@/lib/world/ski/renderedSnow";
 import { SnowTracks } from "./skiSnowTracks";
 import {createSkiContact,fitSkiContact,skiFollowYaw,constrainSkiCamera} from "./worldSkiContact";
 import {SkiVisualSole} from "./skiVisualSole";
+import {SkiHalfpipeQualification} from "@/lib/world/ski/halfpipeQualification";
 import {reefCanyonConstrainSwim,reefCanyonNear} from "@/lib/world/reefCanyon";
 import {createMossCanyonReef} from "./worldMossCanyonReef";
 import {bikeTerrainPose,wheelTerrainPose} from "@/lib/world/bikeContact";
@@ -1948,6 +1949,7 @@ export function createWorld(
   skiKnees.forEach(k=>{k.visible=false});
   const skiV3Enabled = skiPresentation && process.env.NEXT_PUBLIC_SKI_V3 === "1";
   let ride: SkiSimulation | null = null;
+  let skiHalfpipe=new SkiHalfpipeQualification();
   let rideSnow: ReturnType<typeof renderedSnowHeight> | null = null;
   let runoutComplete=false;
   const skiCollision=(from:THREE.Vector3,to:THREE.Vector3)=>{
@@ -4668,6 +4670,7 @@ export function createWorld(
         }
         if (!ride) {
           ride = new SkiSimulation(rideSnow, player.x, player.z, "independent",false,skiCollision);
+          skiHalfpipe=new SkiHalfpipeQualification();
           runoutComplete=false;
           ride.velocity.set(travel.heading.x, 0, travel.heading.z).multiplyScalar(travel.speed);
           ride.setHeading(travel.heading.x, travel.heading.z);
@@ -4686,6 +4689,9 @@ export function createWorld(
         player = {x:ride.position.x,z:ride.position.z};
         playerY = ride.position.y;
         const horizontal = Math.hypot(ride.velocity.x,ride.velocity.z);
+        skiHalfpipe.observe({tick:ride.tick,x:ride.position.x,z:ride.position.z,
+          vx:ride.velocity.x,speed:horizontal,
+          grounded:ride.phase!=="air"&&ride.contact.some(Boolean)});
         travel = {point:player,speed:horizontal,heading:horizontal>.05?
           {x:ride.velocity.x/horizontal,z:ride.velocity.z/horizontal}:travel.heading};
         airHeight = ride.phase==="air"?Math.max(.002,playerY-rideSnow(player.x,player.z)):0;
@@ -5310,6 +5316,10 @@ export function createWorld(
           canvas.dataset.skiRotation=ride.rotation.toArray().join(",");
           canvas.dataset.skiDroppedSeconds=ride.droppedSeconds.toFixed(3);
           canvas.dataset.skiRunout=String(!mountainHalfpipeApproachClearance(player));
+          canvas.dataset.skiLeftBankVisits=String(skiHalfpipe.metrics.leftVisits);
+          canvas.dataset.skiRightBankVisits=String(skiHalfpipe.metrics.rightVisits);
+          canvas.dataset.skiBankCrossings=String(skiHalfpipe.metrics.bankCrossings);
+          canvas.dataset.skiLateralReversals=String(skiHalfpipe.metrics.lateralReversals);
         }
         canvas.dataset.skiRidePhase=ride?.phase ?? "";
         canvas.dataset.skiLanding=ride?.landing ?? "";
