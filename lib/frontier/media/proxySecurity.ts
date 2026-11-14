@@ -19,6 +19,10 @@ const DEFAULT_MEDIA_HOSTS = new Set([
   // Official Hugging Face social-thumbnail CDN. Paper URLs are derived only
   // from canonical huggingface.co/papers/<arxiv-id> identities.
   'cdn-thumbnails.huggingface.co',
+  // Original arXiv HTML figures. The ingest step accepts only an arxiv.org
+  // figure + caption from the canonical source paper; this proxy independently
+  // enforces HTTPS, public DNS, MIME, size and redirect limits.
+  'arxiv.org',
   // Guardian's first-party image transform/original media hosts. RSS entries
   // carry these URLs directly; the gateway still validates DNS, MIME, size,
   // redirects and timeout before exposing same-origin bytes to the GPU worker.

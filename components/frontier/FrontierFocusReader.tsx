@@ -8,10 +8,19 @@ import { ArrowLeft, ArrowRight, Bookmark, ExternalLink, RefreshCw, Search } from
 import { holdToInterestScore } from '@/lib/frontier/interestRating';
 import { frontierHasNewStories, frontierShouldCheckLatest } from '@/lib/frontier/liveFeedPolicy';
 import { buildFrontierSourceBrief, frontierSourceFigures } from '@/lib/frontier/sourceBrief';
+import { journalPresentation, journalRelatedItems, journalRealm, journalSourceFigures } from '@/lib/frontier/journalPresentation';
+import { FrontierJournalSourceLens } from './FrontierJournalSourceLens';
+import { FrontierJournalEvidence } from './FrontierJournalEvidence';
+import { FrontierJournalMedia } from './FrontierJournalMedia';
+import { FrontierJournalChapters } from './FrontierJournalChapters';
+import { journalChapters } from '@/lib/frontier/journalChapters';
+import { journalMediaPlan, journalSafePublicUrl } from '@/lib/frontier/journalMedia';
+import { JOURNAL_SECTIONS, journalSectionInventory, journalSectionMatches } from '@/lib/frontier/journalSections';
+import type { JournalSectionId } from '@/lib/frontier/journalSections';
 import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierFeedResponse, FrontierItem } from '@/lib/frontier/types';
-import styles from './frontier-focus-reader.module.css';
+import styles from './frontier-journal.module.css';
 
 const EDITION_LIMIT = 36;
 
@@ -19,10 +28,6 @@ type Props = {
   initialItems: FrontierItem[];
   generatedAt: string;
 };
-
-function cleanUrlHost(url: string): string {
-  try { return new URL(url).hostname.replace(/^www[.]/, ''); } catch { return ''; }
-}
 
 function sourceDate(date: string): string {
   const parsed = new Date(date);
@@ -34,8 +39,11 @@ function sourceDate(date: string): string {
 /** One DOM article and at most one image are mounted at any point in time. */
 export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   // Deterministic diverse first edition during SSR, before preference hydration.
-  const [items, setItems] = useState(() => selectDailyRun(initialItems, {}, EDITION_LIMIT));
+  const [baseItems, setItems] = useState(() => selectDailyRun(initialItems, {}, EDITION_LIMIT));
+  const [poolItems, setPoolItems] = useState<FrontierItem[]>(initialItems);
+  const [activeSection, setActiveSection] = useState<JournalSectionId>('for-you');
   const [position, setPosition] = useState(0);
+  const [contentsOpen, setContentsOpen] = useState(false);
   const [editionAt, setEditionAt] = useState(generatedAt);
   const [searchDraft, setSearchDraft] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
@@ -67,12 +75,35 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const rateInterest = useFrontierStore((state) => state.rateInterest);
   const toggleSave = useFrontierStore((state) => state.toggleSave);
 
+  const items = useMemo(() => activeSection === 'for-you'
+    ? baseItems
+    : selectDailyRun(poolItems.filter((candidate) =>
+        journalSectionMatches(candidate, activeSection)), history, EDITION_LIMIT),
+    [activeSection, baseItems, poolItems, history]);
+  const sectionCounts = useMemo(() => {
+    const inventory = journalSectionInventory(poolItems);
+    return { ...inventory, 'for-you': baseItems.length };
+  }, [poolItems, baseItems.length]);
+  const sectionMeta = JOURNAL_SECTIONS.find((section) => section.id === activeSection) ?? JOURNAL_SECTIONS[0];
   const item = items[position];
   const rating = item ? history[item.id]?.interestScore : undefined;
   const sliderScore = sliderDraft?.id === item?.id ? sliderDraft.value : (rating ?? 5);
   const isSaved = Boolean(item && saved[item.id]);
-  const figures = useMemo(() => item ? frontierSourceFigures(item) : [], [item]);
+  const sourceFigures = useMemo(() => item ? journalSourceFigures(item, frontierSourceFigures(item)) : [], [item]);
+  const mediaPlan = item ? journalMediaPlan(item) : null;
+  // A publisher-supplied video poster is a gateway to the actual footage,
+  // not a second research figure below the same footage.
+  const originalPoster = item?.media?.poster;
+  const proxiedPoster = item?.media?.posterProxyUrl;
+  const mediaPosterFigure = mediaPlan && originalPoster
+    ? sourceFigures.find((figure) => figure.url === (proxiedPoster || originalPoster))
+    : undefined;
+  const mediaPoster = mediaPosterFigure?.url;
+  const figures = mediaPosterFigure
+    ? sourceFigures.filter((figure) => figure.url !== mediaPosterFigure.url)
+    : sourceFigures;
   const activeFigure = figures[Math.min(figureIndex, Math.max(0, figures.length - 1))];
+  const figureSourceHref = journalSafePublicUrl(activeFigure?.sourceUrl);
   // A failed HD proxy must retry the original publisher image before the
   // editorial fallback. Never retry a source that already failed.
   const imageCandidates = activeFigure
@@ -80,9 +111,14 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     : [];
   const image = imageCandidates.find((candidate) => !failedImages.includes(candidate));
   const canShowImage = Boolean(image);
+  const hasFigureChoices = figures.length > 1;
   const currentVisualGrade = holdValue ?? rating;
-  const orbScale = (0.96 + 0.08 * ((currentVisualGrade ?? 0) / 10)).toFixed(3);
-  const orbProgress = Math.round(((currentVisualGrade ?? 0) / 10) * 100) + '%';
+  const presentation = item ? journalPresentation(item, canShowImage) : undefined;
+  const chapters = item ? journalChapters(item, {
+    hasSourceVideo: Boolean(mediaPlan), hasSourceFigure: Boolean(canShowImage),
+  }) : [];
+  const related = item ? journalRelatedItems(item, items, 3) : [];
+
 
   useEffect(() => {
     if (!hydrated || initialPersonalizationAppliedRef.current) return;
@@ -118,6 +154,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       const ranked = rankFrontierItems(candidates, latest.profile, latest.history, new Date(), latest.behavior);
       const selected = selectDailyRun(ranked, latest.history, EDITION_LIMIT);
       if (!selected.length || controller.signal.aborted || readerInteractedRef.current) return;
+      setPoolItems(candidates);
       setItems((current) => {
         const first = current[0];
         // Pin the initially visible story so a preference update never flashes
@@ -190,6 +227,20 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
     finishHold();
   };
 
+  const selectSection = (section: JournalSectionId) => {
+    if (section === activeSection) return;
+    readerInteractedRef.current = true;
+    cancelHold();
+    setActiveSection(section);
+    setPosition(0);
+    setContentsOpen(false);
+    setFailedImages([]);
+    setFigureIndex(0);
+    setNativeImageWidth(null);
+    setNotice('');
+    contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
   const move = useCallback((delta: number) => {
     readerInteractedRef.current = true;
     cancelHold();
@@ -250,8 +301,11 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const applyLatest = useCallback((edition: { items: FrontierItem[]; generatedAt: string }) => {
     editionVersionRef.current += 1;
     cancelHold();
+    setPoolItems(edition.items);
     setItems(edition.items.slice(0, EDITION_LIMIT));
+    setActiveSection('for-you');
     setPosition(0);
+    setContentsOpen(false);
     setEditionAt(edition.generatedAt);
     setActiveQuery('');
     setFailedImages([]);
@@ -349,8 +403,11 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       const ranked = rankFrontierItems(payload.items, state.profile, state.history, new Date(), state.behavior);
       const next = selectDailyRun(ranked.length ? ranked : payload.items, state.history, EDITION_LIMIT);
       editionVersionRef.current += 1;
+      setPoolItems(payload.items);
       setItems(next);
+      setActiveSection('for-you');
       setPosition(0);
+      setContentsOpen(false);
       setEditionAt(payload.generatedAt);
       setActiveQuery(query);
       setNotice('');
@@ -379,10 +436,14 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const sourceBrief = useMemo(() => buildFrontierSourceBrief(item?.summary || '', item?.sourceKind), [item?.summary, item?.sourceKind]);
 
   return (
-    <section className={styles.reader} aria-label="Frontier focused reader" data-frontier-edition-at={editionAt}>
+    <section className={styles.reader} aria-label="Frontier focused reader" data-frontier-journal="true"
+      data-frontier-edition-at={editionAt} data-realm={presentation?.realm ?? sectionMeta.realm} data-format={presentation?.format ?? "brief"}>
       <header className={styles.masthead}>
-        <Link href="/" className={styles.brand}>FRONTIER<span className={styles.brandDot}>.</span></Link>
+        <div className={styles.identity}><Link href="/" className={styles.brand}>FRONTIER<span className={styles.brandDot}>.</span></Link><span className={styles.identityCaption}>{activeSection === 'for-you' ? 'A journal of what matters next' : sectionMeta.subtitle}</span></div>
         <div className={styles.topActions}>
+          <button type="button" className={styles.contentsToggle} aria-expanded={contentsOpen} aria-controls="frontier-contents" onClick={() => setContentsOpen((open) => !open)}>
+            <span>Contents</span><span className={styles.contentsCount}>{String(items.length).padStart(2, '0')}</span>
+          </button>
           <form role="search" onSubmit={onSearch} className={styles.search}>
             <Search aria-hidden="true" size={17} />
             <input aria-label="Search live topics" placeholder="Search" value={searchDraft}
@@ -402,16 +463,44 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
           <a href="/frontier/advanced" className={styles.advanced} title="Explore the complete frontier">Explore <span aria-hidden="true">↗</span></a>
         </div>
       </header>
+      <nav className={styles.sectionNavigation} aria-label="Frontier subject collections">
+        <div className={styles.sectionNavigationInner} role="tablist" aria-label="Content areas">
+          {JOURNAL_SECTIONS.map((section) => (
+            <button key={section.id} type="button" role="tab" data-journal-section={section.id}
+              className={styles.sectionTab} aria-selected={activeSection === section.id}
+              aria-controls="frontier-reader-stage" onClick={() => selectSection(section.id)}>
+              <span>{section.label}</span>
+              <span className={styles.sectionTabCount}>{sectionCounts[section.id]}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+      <div className={styles.realmRibbon} aria-live="off"><span className={styles.realmSignal} aria-hidden="true"/><span>{presentation?.kindLabel ?? "The journal"}</span><span className={styles.realmDivider} aria-hidden="true">/</span><span>{item?.lane.replace(/_/g, " ") ?? "Daily discoveries"}</span><span className={styles.realmCounter}>{item ? String(position + 1).padStart(2,"0") : "00"} / {String(items.length).padStart(2,"0")}</span></div>
       <div className={styles.progressTrack} role="progressbar" aria-valuenow={position + (items.length ? 1 : 0)}
         aria-valuemin={0} aria-valuemax={items.length || 1} aria-label="Article progress">
         <span style={{ width: progress + '%' }} />
       </div>
 
+      {contentsOpen ? (
+        <section id="frontier-contents" className={styles.contentsPanel} aria-label="Edition contents">
+          <div className={styles.contentsHeading}><div><span className={styles.overline}>THE CURRENT EDITION</span><h2>Explore the issue.</h2></div><button type="button" onClick={() => setContentsOpen(false)} aria-label="Close contents">Close ×</button></div>
+          <div className={styles.contentsGrid}>{items.map((entry, index) => (
+            <button type="button" key={entry.id} className={styles.contentsEntry} data-realm={journalRealm(entry)} aria-current={position === index ? 'true' : undefined} onClick={() => { move(index - position); setContentsOpen(false); }}>
+              <span className={styles.contentsOrdinal}>{String(index + 1).padStart(2, '0')}</span>
+              <span className={styles.contentsEntryBody}><span className={styles.overline}>{entry.lane.replace(/_/g, ' ')} · {entry.sourceLabel}</span><strong>{entry.title}</strong></span>
+              <ArrowRight size={16} aria-hidden="true" />
+            </button>
+          ))}</div>
+        </section>
+      ) : null}
+
       {error && <div className={styles.error} role="alert">{error} <button type="button" onClick={() => setError('')}>Dismiss</button></div>}
 
       {item ? (
-        <div className={styles.stage} key={item.id}>
+        <div id="frontier-reader-stage" role="tabpanel" aria-label={sectionMeta.label + " discoveries"}
+          className={styles.stage} key={item.id}>
           <article className={styles.article}>
+            <div className={styles.editionMarker}><span>FRONTIER / {sectionMeta.label.toUpperCase()}</span><span>{sourceDate(editionAt)}</span></div>
             <div className={styles.headline}>
               <div className={styles.headlineMeta}>
                 <span className={styles.kicker}>{item.lane.replace(/_/g, ' ')} <span className={styles.separator}>/</span> {item.sourceLabel}</span>
@@ -421,10 +510,34 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
               {item.authors?.length ? <p className={styles.byline}>{item.authors.slice(0, 3).join(', ')}</p> : null}
             </div>
 
-            <div className={styles.storyBody}>
-              <figure className={styles.visual} data-frontier-figure-count={figures.length}>
+            <FrontierJournalChapters key={item.id} chapters={chapters}/>
+            <div className={`${styles.storyBody} ${!canShowImage ? styles.storyBodyText : ''}`}>
+
+
+              <div ref={contentRef} className={styles.content}
+                onScroll={() => { readerInteractedRef.current = true; }}
+                onTouchStart={() => { readerInteractedRef.current = true; }}>
+                <section id="frontier-story-summary" className={styles.briefSection} aria-label="Source-grounded summary">
+                  <h2 className={styles.sectionLabel}>{presentation?.heading ?? "The brief"}</h2>
+                  <p className={styles.summary}>{sourceBrief.lead || 'This source did not include a synopsis. Read the original for the full story.'}</p>
+                  {sourceBrief.hasFullerContext ? (
+                    <details className={styles.sourceDetail}>
+                      <summary>Continue reading <span aria-hidden="true">↗</span></summary>
+                      <div className={styles.detailBody}>{sourceBrief.details.map((part, index) => <p key={index}>{part}</p>)}</div>
+                    </details>
+                  ) : null}
+                </section>
+
+                {presentation?.format === 'live' || presentation?.format === 'measured' ? (
+                  <FrontierJournalEvidence item={item} />
+                ) : null}
+                {mediaPlan ? (
+                  <FrontierJournalMedia plan={mediaPlan} title={item.title} posterUrl={mediaPoster}
+                    onOpenSource={() => { readerInteractedRef.current = true; recordOpen(item); }} />
+                ) : null}
+              {canShowImage || hasFigureChoices ? <figure id="frontier-story-figure" className={styles.visual} data-frontier-figure-count={figures.length}>
                 <div className={styles.visualViewport}>
-                  {canShowImage && image ? (
+                  {image ? (
                     <Image
                       unoptimized
                       src={image}
@@ -445,14 +558,9 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                       }}
                       onError={() => setFailedImages((current) => current.includes(image) ? current : [...current, image])}
                     />
-                  ) : (
-                    <div className={styles.editorial} aria-label="Editorial article cover">
-                      <span className={styles.editorialKicker}>{item.lane.replace(/_/g, ' ')}</span>
-                      <strong className={styles.editorialTitle}>{item.title}</strong>
-                      <span className={styles.editorialDomain}>{cleanUrlHost(item.url)}</span>
-                    </div>
-                  )}
+                  ) : null}
                 </div>
+                {!image && hasFigureChoices ? <p className={styles.figureFailure} role="status">This source figure is unavailable. Choose another figure below.</p> : null}
                 {figures.length > 1 ? (
                   <nav className={styles.figureRail} aria-label="Source figures">
                     {figures.map((figure, index) => (
@@ -468,31 +576,29 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                 {activeFigure?.caption && activeFigure.caption !== item.title ? (
                   <figcaption className={styles.caption}>
                     <span>{activeFigure.caption}</span>
-                    <span>{activeFigure.credit || item.sourceLabel}</span>
+                    <span className={styles.figureAttribution}>
+                      {activeFigure.credit || item.sourceLabel}
+                      {figureSourceHref ? (
+                        <a href={figureSourceHref} target="_blank" rel="noopener noreferrer"
+                          onClick={() => { readerInteractedRef.current = true; recordOpen(item); }}>
+                          Figure source <ExternalLink size={12} aria-hidden="true"/>
+                        </a>
+                      ) : null}
+                    </span>
                   </figcaption>
                 ) : null}
-              </figure>
-
-              <div ref={contentRef} className={styles.content}
-                onScroll={() => { readerInteractedRef.current = true; }}
-                onTouchStart={() => { readerInteractedRef.current = true; }}>
-                <section className={styles.briefSection} aria-label="Source-grounded summary">
-                  <p className={styles.summary}>{sourceBrief.lead || 'This source did not include a synopsis. Read the original for the full story.'}</p>
-                  {sourceBrief.hasFullerContext ? (
-                    <details className={styles.sourceDetail}>
-                      <summary>More context</summary>
-                      <div className={styles.detailBody}>{sourceBrief.details.map((part, index) => <p key={index}>{part}</p>)}</div>
-                    </details>
-                  ) : null}
-                </section>
+              </figure> : null}
+                {presentation?.format !== 'live' && presentation?.format !== 'measured' ? (
+                  <FrontierJournalEvidence item={item} />
+                ) : null}
 
                 <div className={styles.interactionArea}>
                   <div className={styles.ratingZone}>
+                    <div className={styles.ratingEyebrow}>Your curiosity <span>Shape what you discover next</span></div>
                     <button
                       type="button"
                       className={styles.holdButton}
                       data-frontier-balloon={holdValue !== null ? 'inflating' : (rating ? 'rated' : 'idle')}
-                      style={{ ['--orb-scale' as string]: orbScale, ['--orb-progress' as string]: orbProgress }}
                       disabled={!item}
                       aria-label="Hold to rate interest from one to ten; release to save"
                       onPointerDown={onHoldPointerDown}
@@ -511,7 +617,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                         : rating ? rating + '/10 · Hold to revise' : 'Hold to rate'}</span>
                     </button>
                     <details className={styles.precision} onToggle={() => { readerInteractedRef.current = true; }}>
-                      <summary>Choose exact score</summary>
+                      <summary>Fine-tune interest</summary>
                       <div className={styles.precisionContent}>
                         <label htmlFor="frontier-interest-slider">Interest: {sliderScore}/10</label>
                         <input id="frontier-interest-slider" type="range" min={1} max={10} step={1}
@@ -524,54 +630,6 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                   </div>
                 </div>
 
-                {item.metrics?.length || item.sportsState || item.artifacts?.length ? (
-                  <details className={styles.evidenceDetails}>
-                    <summary>Data &amp; sources</summary>
-                    {item.metrics?.length ? (
-                      <section className={styles.evidenceSection} aria-label="Source metrics">
-                        <h2>Reported numbers</h2>
-                        <dl className={styles.metricGrid}>{item.metrics.slice(0, 6).map((metric, index) => (
-                          <div key={metric.label + index} className={styles.metricCard}>
-                            <dt>{metric.label}</dt><dd>{metric.value}</dd>
-                            {metric.detail ? <p>{metric.detail}</p> : null}
-                          </div>
-                        ))}</dl>
-                      </section>
-                    ) : null}
-                    {item.sportsState ? (
-                      <section className={styles.evidenceSection} aria-label="Source sports evidence">
-                        <h2>{item.sportsState.leagueLabel}</h2>
-                        <div className={styles.gameRows}>{item.sportsState.kind === 'scoreboard'
-                          ? item.sportsState.games.slice(0, 5).map((game) => (
-                            <div key={game.id} className={styles.gameRow}>
-                              <span>{game.competitors.map((team) => team.shortName).join(' · ')}</span>
-                              <strong>{game.competitors.map((team) => team.score ?? '–').join(' : ')}</strong>
-                              <small>{game.status}</small>
-                            </div>
-                          ))
-                          : item.sportsState.standings.slice(0, 6).map((team) => (
-                            <div key={team.team} className={styles.gameRow}>
-                              <span>{team.rank}. {team.team}</span>
-                              <strong>{team.record || (team.points === undefined ? '–' : String(team.points) + ' pts')}</strong>
-                            </div>
-                          ))}</div>
-                      </section>
-                    ) : null}
-                    {item.artifacts?.length ? (
-                      <section className={styles.evidenceSection} aria-label="Source artifacts">
-                        <h2>References</h2>
-                        <div className={styles.artifactGrid}>{item.artifacts.slice(0, 6).map((artifact, index) => (
-                          <div className={styles.artifact} key={artifact.label + index}>
-                            {artifact.url?.startsWith('https://') ? (
-                              <a href={artifact.url} target="_blank" rel="noopener noreferrer">{artifact.label} ↗</a>
-                            ) : <strong>{artifact.label}</strong>}
-                            {artifact.value ? <small>{artifact.value}</small> : null}
-                          </div>
-                        ))}</div>
-                      </section>
-                    ) : null}
-                  </details>
-                ) : null}
                 <div className={styles.articleActions}>
                   <a href={item.url} target="_blank" rel="noopener noreferrer"
                     onClick={() => { readerInteractedRef.current = true; recordOpen(item); }}
@@ -584,6 +642,29 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                   <span className={styles.sourceDate}>{sourceDate(item.publishedAt)}</span>
                 </div>
               </div>
+              <aside id="frontier-story-source" className={styles.journalRail} aria-label="Source context and next reading">
+                <FrontierJournalSourceLens item={item} figureCount={figures.length} publishedLabel={sourceDate(item.publishedAt)}
+                  onOpenSource={() => { readerInteractedRef.current = true; recordOpen(item); }} />
+                {presentation?.hasEvidence ? <a className={styles.railJump} href="#frontier-evidence">{presentation.evidenceLabel} <ArrowRight size={13} aria-hidden="true"/></a> : null}
+                {item.tags.length ? (
+                  <div className={styles.railTopics}><div className={styles.railHeading}><span className={styles.overline}>TOPICS</span></div>
+                    <div className={styles.tagGroup}>{item.tags.slice(0, 5).map((tag) => <span key={tag}>{tag}</span>)}</div>
+                  </div>
+                ) : null}
+                <div className={styles.railHeading}><span className={styles.overline}>{related.length ? 'SHARED RESEARCH THREADS' : 'CONTINUE THE EDITION'}</span><button type="button" onClick={() => setContentsOpen(true)}>All stories <ArrowRight size={13}/></button></div>
+                <ol className={styles.relatedList}>
+                  {related.length ? related.map(({ item: nextItem, sharedTopics }) => (
+                    <li key={nextItem.id}><button type="button" onClick={() => move(items.findIndex((entry) => entry.id === nextItem.id) - position)}>
+                      <span>{nextItem.sourceLabel} / {sharedTopics.join(', ')}</span><strong>{nextItem.title}</strong><ArrowRight size={14} aria-hidden="true"/>
+                    </button></li>
+                  )) : items.slice(position + 1, position + 4).map((nextItem, index) => (
+                    <li key={nextItem.id}><button type="button" onClick={() => move(index + 1)}>
+                      <span>{String(position + index + 2).padStart(2, '0')} / {nextItem.lane.replace(/_/g, ' ')}</span><strong>{nextItem.title}</strong><ArrowRight size={14} aria-hidden="true"/>
+                    </button></li>
+                  ))}
+                </ol>
+                {!related.length && position + 1 >= items.length ? <p className={styles.railEnd}>You have reached the end of this edition.</p> : null}
+              </aside>
             </div>
           </article>
           <nav className={styles.navigation} aria-label="Article navigation">
@@ -602,10 +683,12 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
           </nav>
         </div>
       ) : (
-        <div className={styles.empty}>
-          <h1>No articles in this edition</h1>
-          <p>The saved edition may have expired. Request the latest stories.</p>
-          <button type="button" onClick={() => void retrieve('', true)}>Find fresh stories</button>
+        <div id="frontier-reader-stage" role="tabpanel" aria-label={sectionMeta.label + " discoveries"} className={styles.empty}>
+          <h1>{activeSection === 'for-you' ? 'No articles in this edition' : 'No stories in ' + sectionMeta.label + ' yet'}</h1>
+          <p>{activeSection === 'for-you' ? 'The saved edition may have expired. Request the latest stories.' : 'This collection has no verified sources in the current snapshot. Explore the rest of the edition or search for a subject.'}</p>
+          {activeSection !== 'for-you' ? (
+            <button type="button" onClick={() => selectSection('for-you')}>Return to For you</button>
+          ) : <button type="button" onClick={() => void retrieve('', true)}>Find fresh stories</button>}
         </div>
       )}
     </section>
