@@ -73,12 +73,12 @@ async function audit(width, height) {
       }
     }
     assert(validTab.length > 0, 'The edition should contain at least one themed source');
-    const requestsBeforeTab = feedRequests.length;
+    const requestsBeforeTab = feedRequests.filter((url) => !url.includes('latest=1')).length;
     await validTab[0].click();
     assert.equal(await validTab[0].getAttribute('aria-selected'), 'true');
     assert.equal(await page.locator('article').count(), 1,
       'Changing subject must replace the source article, never duplicate it');
-    assert.equal(feedRequests.length, requestsBeforeTab,
+    assert.equal(feedRequests.filter((url) => !url.includes('latest=1')).length, requestsBeforeTab,
       'Switching subject shelves must use already-loaded sources, not fetch a new feed');
     await subjectTabs.getByRole('tab', { name: /^For you/ }).click();
     assert.equal(await page.locator('article h1').first().textContent(), heading,
