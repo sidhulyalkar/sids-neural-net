@@ -151,6 +151,7 @@ export function compileArxivEvidence(input: {
   const evidence: EvidenceRecord[] = parsed.sections.map((section, index) => ({
     id: 'section-' + String(index + 1).padStart(3, '0'),
     type: 'quotation',
+    role: 'section-heading',
     status: 'publisher-reported',
     locator: locator(section.sourceUrl, section.id),
     text: section.title,
