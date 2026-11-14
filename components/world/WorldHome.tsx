@@ -977,7 +977,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                     {cairnPhoto && (
                       <figure className={styles.cairnStoryPhoto}>
                         <button type="button" onClick={()=>setPanel(cairnPhoto.id)}
-                          aria-label={`View photograph: ${cairnPhoto.alt}`}>
+                          aria-label={`View photograph: ${MEMORY_POINTS.find(m=>m.id===cairnPhoto.id)?.title??cairnPhoto.alt}`}>
                           <Image src={cairnPhoto.src} alt={cairnPhoto.alt}
                             width={540} height={420}
                             sizes="(max-width: 760px) 85vw, 300px" />
