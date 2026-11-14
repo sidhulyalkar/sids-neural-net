@@ -84,6 +84,18 @@ async function audit(width, height) {
     assert.equal(await page.locator('article h1').first().textContent(), heading,
       'Returning to For you preserves the editorial starting point');
 
+    const chapterMap = page.getByRole('navigation', { name: 'Story chapters' });
+    const chapterButtons = chapterMap.getByRole('button');
+    assert((await chapterButtons.count()) >= 2, 'Every article should explain itself and link to the original source');
+    for (const button of await chapterButtons.all()) {
+      const label = await button.getAttribute('aria-label');
+      assert(label?.trim(), 'Every story step needs a semantic accessible label');
+    }
+    await chapterMap.getByRole('button', { name: 'Trace the original source' }).click();
+    assert.equal(await chapterMap.locator('button[aria-current="step"]').count(), 1,
+      'A reader can follow individual source-grounded chapter anchors');
+    await chapterMap.getByRole('button', { name: 'Understand the story' }).click();
+
     const sourceLens = page.locator('[aria-label="Source identity"]');
     assert.equal(await sourceLens.count(), 1, 'One source-specific identity should be visible');
     const kind = await sourceLens.getAttribute('data-source-kind');
