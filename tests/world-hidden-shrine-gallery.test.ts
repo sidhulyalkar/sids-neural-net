@@ -10,7 +10,7 @@ import {
   galleryFloorFootprint, galleryDoorThresholds, galleryCeilingTiles,
   GALLERY_FLOOR_GEOMETRY, galleryStepWalk, GALLERY_VIEWING,
   galleryPhotoViewpoint, galleryPhotoClearance, galleryImageContainScale,
-  galleryFrameFitsWall,
+  galleryFrameFitsWall, galleryFocusedFov, galleryFocusedViewpoint,
 } from "../lib/world/hiddenShrineGallery";
 
 test("the shrine is a discoverable WEST-coast underwater entrance near the UCSD trident",()=>{
@@ -362,4 +362,29 @@ test("metadata/native replacement fallback preserves aspect without cropping",()
  assert.match(code,/const slot=slots\[i\]/);
  assert.match(code,/hd\.userData\.discovery=slot\.id/);
  assert.match(code,/selectedHighRes\.has\(i\)/);
+});
+
+
+test("portrait viewports see the full wide gilded frame without leaving the museum chamber",()=>{
+ const aspect=390/844;
+ for(const slot of galleryPhotoSlots()){
+  const mobile=galleryFocusedViewpoint(slot,aspect);
+  const desktop=galleryFocusedViewpoint(slot,1440/900);
+  const standard=galleryPhotoViewpoint(slot);
+  assert.deepEqual(desktop,standard,"desktop viewing poses remain unchanged");
+  assert.equal(galleryFocusedFov(slot,aspect),92);
+  assert.equal(galleryFocusedFov(slot,1440/900),74);
+  assert.ok(galleryWalkable(mobile),slot.id+" phone focus is outside stone room");
+  const distance=Math.hypot(mobile.x-slot.x,mobile.z-slot.z);
+  assert.ok(distance>=GALLERY_VIEWING.standOff);
+  assert.ok(distance<SHRINE_GALLERY.halfRoom*2-.7);
+  const visibleWidth=2*distance*Math.tan(92*Math.PI/360)*aspect;
+  const outside=slot.width+2*GALLERY_VIEWING.frameOutsideArtwork+.38;
+  assert.ok(visibleWidth>=outside*1.04,
+    slot.id+" full frame clips on portrait phone");
+ }
+ const renderer=readFileSync(
+  new URL("../components/world/worldRenderer.ts",import.meta.url),"utf8");
+ assert.match(renderer,/galleryFocusedViewpoint\(focus,camera\.aspect\)/);
+ assert.match(renderer,/galleryFocusedFov\(gallerySlots\[galleryFocusIndex\],camera\.aspect\)/);
 });

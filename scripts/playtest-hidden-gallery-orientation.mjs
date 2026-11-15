@@ -45,6 +45,8 @@ try{
    assert.ok(["photo-001","photo-003"].includes(result.focus),
     "gallery focus must select a wide landscape on the first room\u0027s full walls");
    await page.waitForTimeout(1200);
+   result.fov=await canvas.getAttribute("data-hidden-gallery-fov");
+   assert.equal(result.fov,vp.name==="mobile"?"92.0":"74.0");
    await page.screenshot({path:path.join(out,vp.name+"-02-landscape-focus.png")});
    await page.keyboard.press("Escape");
    await page.waitForFunction(()=>
