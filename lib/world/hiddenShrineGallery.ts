@@ -257,6 +257,33 @@ export function galleryPhotoViewpoint(slot:GalleryPhotoSlot):Point{
   };
 }
 
+/**
+ * A portrait phone cannot show a 3m-wide wall frame from a 2.45m museum
+ * viewing pose at a 74° vertical FOV. For focused artwork, back the camera
+ * into the same room and widen its lens slightly. The WALKING pose and
+ * click/picking behavior remain unchanged. Desktop uses the original lens.
+ */
+export function galleryFocusedFov(_slot:GalleryPhotoSlot,viewportAspect:number):number{
+ return Number.isFinite(viewportAspect)&&viewportAspect<.85?92:74;
+}
+export function galleryFocusedViewpoint(
+ slot:GalleryPhotoSlot,viewportAspect:number):Point{
+ const safeAspect=Number.isFinite(viewportAspect)&&viewportAspect>.2
+   ?viewportAspect:1.6;
+ const fov=galleryFocusedFov(slot,safeAspect);
+ // The crown and corner scrolls project wider than the image aperture.
+ const outerWidth=slot.width+2*GALLERY_VIEWING.frameOutsideArtwork+.38;
+ const needed=outerWidth/(2*Math.tan(fov*Math.PI/360)*safeAspect)*1.045;
+ // The frame can be viewed from within its 7.6m room; never cross the far
+ // stone wall when fitting a landscape into a phone's narrow field of view.
+ const distance=Math.max(GALLERY_VIEWING.standOff,
+   Math.min(SHRINE_GALLERY.halfRoom*2-.72,needed));
+ return {
+  x:slot.x+Math.sin(slot.yaw)*distance,
+  z:slot.z+Math.cos(slot.yaw)*distance,
+ };
+}
+
 /** Every frame has a full-width standing circle and straight unobstructed
  * sightline inside its actual chamber, including door-adjacent frames.
  */
