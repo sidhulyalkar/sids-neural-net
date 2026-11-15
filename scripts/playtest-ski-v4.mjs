@@ -58,67 +58,80 @@ try{
   const [entryX,entryZ]=(entry.player??"").split(",").map(Number);
   assert.ok(Math.abs(entryX-7)<1&&entryZ>-61&&entryZ<-55,
     "The first displayed skier must still be at Granite Ridge: "+entry.player);
-  // Read telemetry *before* taking slow software-WebGL screenshots.
-  // This distinguishes actual input dynamics from screenshots of the coast.
+  // Prove real snow braking FIRST, while still near the mountain start.
+  // Software WebGL screenshots are intentionally deferred until after both
+  // controls; otherwise several seconds of live simulation elapse off-snow.
   await page.keyboard.down("w");
   await page.waitForFunction(()=>{
     const d=document.querySelector("canvas")?.dataset;
-    return d?.skiV4AwaitingStart==="false"&&Number(d.speed)>1.5;
+    return d?.skiV4AwaitingStart==="false" && Number(d.speed)>1.5 &&
+      Number(d.skiV4SnowCoverage)>.55;
   },null,{timeout:20000});
   const glide=await canvas.evaluate(el=>({...el.dataset}));
-  frames.push({stage:"02-v4-glide",time:Date.now(),player:glide.player,
-    speed:glide.speed,awaiting:glide.skiV4AwaitingStart});
+  frames.push({stage:"02-v4-snow-glide",player:glide.player,speed:glide.speed,
+    surface:glide.skiV4SurfaceMode,snow:glide.skiV4SnowCoverage});
+  await page.keyboard.up("w");
+  const brakeEntrySpeed=Number(glide.speed);
+  await page.keyboard.down("s");
+  await page.waitForFunction(()=>{
+    const d=document.querySelector("canvas")?.dataset;
+    return Number(d?.skiV4SnowCoverage)>.5 &&
+      Number(d?.skiV4BrakeEngagement)>.8 &&
+      Number(d?.skiV4SkidDeceleration)>1 &&
+      d?.skiV4TurnRegime==="skid";
+  },null,{timeout:20000});
+  const braking=await canvas.evaluate(el=>({...el.dataset}));
+  await page.waitForTimeout(800);
+  const braked=await canvas.evaluate(el=>({...el.dataset}));
+  frames.push({stage:"03-v4-snow-brake",player:braked.player,
+    speed:braked.speed,skid:braking.skiV4SkidDeceleration,
+    snow:braking.skiV4SnowCoverage,engagement:braking.skiV4BrakeEngagement,
+    surface:braking.skiV4SurfaceMode});
+  await page.keyboard.up("s");
+  assert.ok(Number(braking.skiV4SnowCoverage)>.5,
+    "The snowplow proof must actually occur ON SNOW, never on Joshua dirt");
+  assert.ok(Number(braking.skiV4SkidDeceleration)>1,
+    "Held S must apply dissipative snow shearing while a real edge touches snow");
+  assert.equal(braking.skiV4TurnRegime,"skid");
+  assert.ok(Number(braked.speed)<brakeEntrySpeed||Number(braked.speed)<.4,
+    "Snow braking must lower actual speed without a maximum-speed clamp");
+
+  // Regain speed naturally; a new held D must produce a true low-slip carve.
+  await page.keyboard.down("w");
+  await page.waitForFunction(()=>{
+    const d=document.querySelector("canvas")?.dataset;
+    return Number(d?.speed)>2 && Number(d?.skiV4SnowCoverage)>.55;
+  },null,{timeout:25000});
   await page.keyboard.up("w");
   await page.keyboard.down("d");
   await page.waitForFunction(()=>{
     const d=document.querySelector("canvas")?.dataset;
-    return d?.skiEngine==="v4"&&Number(d?.skiInputSteer)>.5 &&
+    return d?.skiEngine==="v4" && Number(d?.skiInputSteer)>.5 &&
+      Number(d?.skiV4SnowCoverage)>.45 &&
       Math.abs(Number(d?.skiV4EdgeRadians))>.25 &&
       Math.abs(Number(d?.skiV4CarveAcceleration))>.05 &&
       Math.abs(Number(d?.skiV4ActualSlipRadians))<.12 &&
       Number(d?.skiV4ContactCoverage)>.45 &&
       d?.skiV4TurnRegime==="carve";
-  },null,{timeout:20000});
+  },null,{timeout:25000});
   const carved=await canvas.evaluate(el=>({...el.dataset}));
-  frames.push({stage:"03-v4-edge",time:Date.now(),player:carved.player,
-    speed:carved.speed,edge:carved.skiV4EdgeRadians,
+  frames.push({stage:"04-v4-carve",player:carved.player,
+    speed:carved.speed,surface:carved.skiV4SurfaceMode,
+    snow:carved.skiV4SnowCoverage,edge:carved.skiV4EdgeRadians,
     carve:carved.skiV4CarveAcceleration,steer:carved.skiInputSteer,
-    actualSlip:carved.skiV4ActualSlipRadians,carveQuality:carved.skiV4CarveQuality,
-    contactCoverage:carved.skiV4ContactCoverage,regime:carved.skiV4TurnRegime,
-    actualTurnRate:carved.skiV4ObservedTurnRate,turnRadius:carved.skiV4ObservedTurnRadius});
+    slip:carved.skiV4ActualSlipRadians,contact:carved.skiV4ContactCoverage,
+    regime:carved.skiV4TurnRegime,turnRate:carved.skiV4ObservedTurnRate,
+    turnRadius:carved.skiV4ObservedTurnRadius});
+  await page.keyboard.up("d");
+  await page.screenshot({path:path.join(out,"04-v4-carve.png")});
   assert.ok(Number(carved.skiInputSteer)>.5 &&
     Math.abs(Number(carved.skiV4EdgeRadians))>.25);
-  assert.equal(carved.skiV4TurnRegime,"carve",
-    "Requested edge force alone is not proof of actual ski carving");
-  assert.ok(Math.abs(Number(carved.skiV4ActualSlipRadians))<.12,
-    "True carving must have low velocity-relative ski slip");
-  assert.ok(Number(carved.skiV4ContactCoverage)>.45,
-    "Edge force without load-bearing contact cannot qualify as carving");
-  assert.ok(Math.abs(Number(carved.skiV4ObservedTurnRate))>.01,
-    "Carved turn must change actual velocity heading");
-  await page.keyboard.up("d");
-  const brakeEntrySpeed=Number(carved.speed);
-  await page.keyboard.down("s");
-  await page.waitForFunction(()=>{
-    const d=document.querySelector("canvas")?.dataset;
-    return Number(d?.skiV4BrakeEngagement)>.8 &&
-      Number(d?.skiV4SkidDeceleration)>.1 &&
-      Number(d?.skiV4SnowPower)>=0;
-  },null,{timeout:20000});
-  const braking=await canvas.evaluate(el=>({...el.dataset}));
-  await page.waitForTimeout(1000);
-  const braked=await canvas.evaluate(el=>({...el.dataset}));
-  frames.push({stage:"04-v4-brake",time:Date.now(),player:braked.player,
-    speed:braked.speed,skid:braking.skiV4SkidDeceleration,
-    brakeEngagement:braked.skiV4BrakeEngagement});
-  await page.screenshot({path:path.join(out,"04-v4-brake.png")});
-  await page.keyboard.up("s");
-  assert.equal(braking.skiV4TurnRegime,"skid",
-    "Deliberate snowplow must be identified as skidding, not carving");
-  assert.ok(Number(braking.skiV4SkidDeceleration)>.1,
-    "Held S must apply a real positive snowplow resistance");
-  assert.ok(Number(braked.speed)<brakeEntrySpeed||Number(braked.speed)<.4,
-    "Snow braking must reduce measured speed without velocity clamping");
+  assert.equal(carved.skiV4TurnRegime,"carve");
+  assert.ok(Number(carved.skiV4SnowCoverage)>.45,
+    "An edge over bare rock cannot be classified as snow carving");
+  assert.ok(Math.abs(Number(carved.skiV4ActualSlipRadians))<.12);
+  assert.ok(Number(carved.skiV4ContactCoverage)>.45);
+  assert.ok(Math.abs(Number(carved.skiV4ObservedTurnRate))>.01);
   assert.equal(braked.bigAirPhase,"idle");
   assert.deepEqual(errors,[],"No uncaught WebGL/browser exceptions");
   fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({url:url.toString(),
