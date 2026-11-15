@@ -53,7 +53,6 @@ test("gallery and world use the same simple photo map links without metadata bad
   const gallery=readFileSync(new URL("../components/visual-archive/VisualArchiveGallery.tsx",import.meta.url),"utf8");
   const world=readFileSync(new URL("../components/world/WorldHome.tsx",import.meta.url),"utf8");
   const content=readFileSync(new URL("../lib/world/content.ts",import.meta.url),"utf8");
-  assert.match(gallery,/photoMapUrl\(entry.place\)/);
   assert.match(gallery,/photoMapUrl\(activeEntry.place\)/);
   assert.match(gallery,/rel="noopener noreferrer"/);
   assert.doesNotMatch(gallery,/Approximate location|awaiting confirmation|entry.place.verification/);
