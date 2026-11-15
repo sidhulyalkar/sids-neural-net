@@ -27,8 +27,8 @@ test("South Shore menu arrives in actual water, with land boundaries unchanged",
  assert.equal(SOUTH_CHANNEL_SHORE_Z,WORLD_BOUNDS.minZ);
  assert.equal(SOUTH_CHANNEL_MIN_Z,-166);
  const arrival=regionLanding("south-shore");
- assert.deepEqual(arrival,{x:11,z:-110});
- assert.ok(Math.hypot(arrival.x-17,arrival.z+118)>5,
+ assert.deepEqual(arrival,{x:7,z:-110});
+ assert.ok(Math.hypot(arrival.x-17,arrival.z+118)>10,
   "South Shore menu must not face the lava-window north pillar");
  const nearest=JET_SKI_ROCKS.filter(r=>r.archId==="lava-window")
   .map(r=>Math.hypot(arrival.x-r.point.x,arrival.z-r.point.z)-r.radius);
