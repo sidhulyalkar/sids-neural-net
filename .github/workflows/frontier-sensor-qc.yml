@@ -17,7 +17,8 @@ concurrency:
 
 jobs:
   literal-head-qc:
-    runs-on: ubuntu-latest
+    # Playwright/Chromium pinned here: the current version does not support Ubuntu 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
       TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
