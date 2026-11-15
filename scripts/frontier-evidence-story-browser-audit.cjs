@@ -258,6 +258,30 @@ async function genuineSourceOnlyPilot(browser) {
         window.scrollTo({ top: 0, behavior: 'instant' });
         if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       });
+      const editorialIndex = await page.evaluate(() => {
+        const heading = document.querySelector('[data-frontier-story] h1');
+        const cards = document.querySelectorAll('[aria-label="Research chapters"] button');
+        const sourceLinks = document.querySelectorAll('[aria-label="Original publication outline"] a');
+        const cols = document.querySelector('[aria-label="Original publication outline"] ul');
+        const h = heading ? getComputedStyle(heading) : null;
+        return {
+          headingSize: h ? parseFloat(h.fontSize) : -1,
+          headingLineRatio: h ? parseFloat(h.lineHeight) / parseFloat(h.fontSize) : -1,
+          cardCount: cards.length,
+          smallestCardHeight: cards.length ? Math.min(...Array.from(cards).map((x) => x.getBoundingClientRect().height)) : 0,
+          sourceLinkCount: sourceLinks.length,
+          columns: cols ? getComputedStyle(cols).gridTemplateColumns.split(' ').length : 0,
+        };
+      });
+      assert(editorialIndex.headingSize <= 42 && editorialIndex.headingSize >= 28
+        && editorialIndex.headingLineRatio >= 1.15,
+        'Source-only research title must be compact, readable editorial type: ' + JSON.stringify(editorialIndex));
+      assert(editorialIndex.cardCount >= 2 && editorialIndex.smallestCardHeight >= 44,
+        'Publication chapter cards must be genuine navigation targets: ' + JSON.stringify(editorialIndex));
+      assert(editorialIndex.sourceLinkCount >= 1,
+        'Publication index must expose actual publisher section anchors');
+      assert(editorialIndex.columns >= 1 && (width <= 500 ? editorialIndex.columns === 1 : true),
+        'Source index must be mobile-readable and never rely on sideways scrolling: ' + JSON.stringify(editorialIndex));
       await page.screenshot({ path: OUT + '/agentssl-source-' + width + '.png', fullPage: true });
       results.push({ width, genuineSource: true, publisherAnchors: true, unapprovedAssets: 0, noOverflow: true });
     } finally {

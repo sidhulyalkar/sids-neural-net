@@ -81,7 +81,7 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
       <div className={styles.shell}>
         <header className={styles.header}>
           <a href="/frontier" className={styles.back}><ArrowLeft size={14} aria-hidden="true"/> FRONTIER</a>
-          <span className={styles.edition}>RESEARCH / EVIDENCE-BASED EXPLANATION</span>
+          <span className={styles.edition}>{figures.length ? 'RESEARCH / ORIGINAL FIGURE READER' : 'RESEARCH / ORIGINAL SOURCE READER'}</span>
           <span className={styles.revision}>SOURCE REVISION {manifest.source.revision}</span>
         </header>
 
@@ -165,9 +165,9 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
             )}
           </section>
 
-          <aside className={styles.narrative} aria-label="Guided research explanation">
+          <aside className={styles.narrative} aria-label={figures.length ? 'Guided research explanation' : 'Original publication navigation'}>
             <span className={styles.narrativeOverline}>YOUR READING GUIDE</span>
-            <h2>From source to understanding</h2>
+            <h2>{figures.length ? 'From source to understanding' : 'Follow the paper, section by section'}</h2>
             {chapters.length ? (
               <section className={styles.sourceMap} aria-label="Original publication outline">
                 <p className={styles.outlineExplain}>Explore the published section headings. These links are source navigation, not inferred study conclusions.</p>

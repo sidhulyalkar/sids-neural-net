@@ -145,3 +145,232 @@
   .storyGridSourceOnly .emptyStage h2 { font-size: 17px; }
   .storyGridSourceOnly .stageTop { padding-bottom: 10px; }
 }
+/* Frontier research reader V3.2: source-only publication as a beautiful
+ * scholarly index, rather than a failed figure gallery. Real figures keep
+ * their existing evidence-backed stage and image gateway. */
+.page {
+  --hairline: color-mix(in srgb, var(--ink) 14%, transparent);
+  --chapter-wash: color-mix(in srgb, var(--accent) 7%, var(--paper));
+  background:
+    radial-gradient(ellipse 52% 36% at 88% 1%, #c7d0c033, transparent 83%),
+    var(--paper);
+}
+.page .shell { max-width: 1510px; }
+.page .header { min-height: 76px; border-color: var(--hairline); }
+.page .back { min-height: 44px; font-weight: 650; }
+.page .edition { letter-spacing: .125em; }
+.page .revision { font-size: 10px; }
+.page .headlineBlock { padding-top: clamp(34px, 4.5vw, 64px); }
+.page .eyebrow { letter-spacing: .105em; }
+.page .headlineBlock h1 {
+  font-size: clamp(29px, 3.2vw, 42px);
+  line-height: 1.21;
+  letter-spacing: -.03em;
+  max-width: 28ch;
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+.page .summary {
+  max-width: 72ch;
+  margin-top: 22px;
+  color: var(--ink);
+  font: 400 clamp(16px, 1.4vw, 19px)/1.66 Georgia, Cambria, serif;
+  text-wrap: pretty;
+}
+.page .provenance {
+  margin-top: 29px;
+  padding-top: 18px;
+  border-color: var(--hairline);
+}
+.page .provenance a { min-height: 44px; }
+.page .storyGrid { border-top-color: var(--hairline); }
+.page .stageTop { padding-bottom: 19px; }
+.page .frame { background: var(--paper-raised); border-color: var(--hairline); }
+.page .caption {
+  max-width: 80ch;
+  padding-top: 23px;
+  line-height: 1.65;
+}
+.page .caption p { font-size: clamp(16px, 1.5vw, 20px); }
+.page .narrative h2 { max-width: 19ch; line-height: 1.25; }
+.page .sourceSections a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+}
+.page .sourceSections li { border-color: var(--hairline); }
+.page .primaryLink { min-height: 44px; }
+.page .footer { border-color: var(--hairline); }
+
+/* No media rights: remove empty-stage drama, let verified headings become
+ * the page's visual story. No invented charts, diagrams or claim summaries. */
+.page .storyGridSourceOnly { border-top: 1px solid var(--hairline); }
+.page .storyGridSourceOnly .stageSourceOnly { padding-top: 16px; padding-bottom: 0; }
+.page .storyGridSourceOnly .stageTop { padding-bottom: 12px; }
+.page .storyGridSourceOnly .emptyStage {
+  min-height: 0;
+  background: var(--chapter-wash);
+  border: 0;
+  border-left: 2px solid var(--accent);
+  padding: 14px 19px;
+  gap: 9px 17px;
+}
+.page .storyGridSourceOnly .emptyStage > svg {
+  width: 21px;
+  height: 21px;
+  flex: 0 0 21px;
+}
+.page .storyGridSourceOnly .emptyStage h2 {
+  font-size: 16px;
+  line-height: 1.4;
+}
+.page .storyGridSourceOnly .emptyStage p {
+  font: 400 12px/1.65 system-ui, sans-serif;
+}
+.page .storyGridSourceOnly .emptyStage a {
+  min-height: 44px;
+  color: var(--ink);
+  font-size: 12px;
+}
+.page .storyGridSourceOnly .narrative {
+  padding-top: clamp(27px, 3.5vw, 49px);
+  width: 100%;
+  max-width: 1080px;
+}
+.page .storyGridSourceOnly .narrativeOverline {
+  letter-spacing: .145em;
+}
+.page .storyGridSourceOnly .narrative h2 {
+  font-size: clamp(23px, 2.6vw, 35px);
+  line-height: 1.2;
+  letter-spacing: -.035em;
+  max-width: 32ch;
+  margin: 12px 0 24px;
+}
+.page .storyGridSourceOnly .sourceMap {
+  border-top-color: var(--hairline);
+  padding-top: 23px;
+}
+.page .storyGridSourceOnly .outlineExplain {
+  font-size: 13px;
+  line-height: 1.7;
+  max-width: 70ch;
+  margin: 0 0 25px;
+}
+.page .storyGridSourceOnly .chapterTabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr));
+  gap: 0;
+  margin: 0 0 clamp(27px, 4vw, 49px);
+  border-block: 1px solid var(--hairline);
+  border-left: 1px solid var(--hairline);
+}
+.page .storyGridSourceOnly .chapterTab {
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  border: 0;
+  border-right: 1px solid var(--hairline);
+  border-radius: 0;
+  padding: 16px 14px;
+  font-size: 13px;
+  font-weight: 590;
+  line-height: 1.32;
+  text-align: left;
+  background: transparent;
+  color: var(--ink);
+  transition: background-color 160ms ease;
+}
+.page .storyGridSourceOnly .chapterTab > span {
+  color: var(--accent);
+  font-size: 10px;
+  letter-spacing: .08em;
+  opacity: 1;
+}
+.page .storyGridSourceOnly .chapterTab[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--hairline);
+}
+.page .storyGridSourceOnly .chapterTab[aria-pressed='true'] > span {
+  color: var(--paper);
+}
+.page .storyGridSourceOnly .chapterTab:hover:not([aria-pressed='true']) {
+  background: var(--chapter-wash);
+}
+.page .storyGridSourceOnly .chapterDetail {
+  display: grid;
+  grid-template-columns: minmax(170px, .7fr) minmax(0, 2fr);
+  gap: clamp(20px, 3vw, 46px);
+  padding: 0 0 33px;
+  min-width: 0;
+}
+.page .storyGridSourceOnly .chapterDetail h3 {
+  font-size: clamp(22px, 2.1vw, 28px);
+  line-height: 1.2;
+  letter-spacing: -.028em;
+  max-width: 18ch;
+}
+.page .storyGridSourceOnly .sourceSections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 clamp(18px, 3vw, 37px);
+  align-items: start;
+  min-width: 0;
+}
+.page .storyGridSourceOnly .sourceSections li {
+  min-width: 0;
+  padding: 9px 0;
+}
+.page .storyGridSourceOnly .sourceSections a {
+  font-size: 14px;
+  font-weight: 530;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+.page .storyGridSourceOnly .primaryLink {
+  min-height: 50px;
+  display: inline-flex;
+  background: transparent;
+  color: var(--ink);
+  padding: 14px 0;
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+}
+.page .storyGridSourceOnly .primaryLink:hover {
+  background: transparent;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.page .storyGridSourceOnly .evidenceNote { max-width: 70ch; }
+@media (max-width: 860px) {
+  .page .storyGridSourceOnly .chapterDetail { grid-template-columns: minmax(0,1fr); gap: 12px; }
+  .page .storyGridSourceOnly .chapterDetail h3 { max-width: none; }
+}
+@media (max-width: 500px) {
+  .page .header { min-height: 72px; }
+  .page .summary { font-size: 17px; }
+  .page .headlineBlock h1 { font-size: clamp(28px, 7.3vw, 34px); }
+  .page .storyGridSourceOnly .stageSourceOnly { padding-top: 15px; }
+  .page .storyGridSourceOnly .emptyStage {
+    display: flex;
+    align-items: flex-start;
+    padding: 15px 16px;
+    gap: 9px;
+  }
+  .page .storyGridSourceOnly .narrative { padding-top: 29px; }
+  .page .storyGridSourceOnly .chapterTabs { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .page .storyGridSourceOnly .chapterTab { min-height: 80px; padding: 13px 11px; }
+  .page .storyGridSourceOnly .sourceSections { grid-template-columns: minmax(0,1fr); }
+  .page .storyGridSourceOnly .sourceSections a { font-size: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page .storyGridSourceOnly .chapterTab { transition: none; }
+}
+@media (prefers-contrast: more) {
+  .page { --hairline: var(--ink); --chapter-wash: var(--paper-raised); }
+}
