@@ -130,8 +130,13 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
   }, [activeIndex, close, showNext, showPrevious]);
 
   useEffect(() => {
-    const id=parsePhotoArchiveId(window.location.search,entries.map(entry=>entry.id));
-    if(id)setActiveIndex(entries.findIndex(entry=>entry.id===id));
+    // Defer the one-time deep-link activation until after the first paint.
+    // Server and hydration markup match, with no synchronous render cascade.
+    const frame=requestAnimationFrame(()=>{
+      const id=parsePhotoArchiveId(window.location.search,entries.map(entry=>entry.id));
+      if(id)setActiveIndex(entries.findIndex(entry=>entry.id===id));
+    });
+    return ()=>cancelAnimationFrame(frame);
   },[entries]);
 
   useEffect(() => {
