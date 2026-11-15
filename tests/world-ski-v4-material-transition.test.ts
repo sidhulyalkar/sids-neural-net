@@ -81,3 +81,16 @@ test("same slope height but no painted snow means no carving",()=>{
   assert.ok(Math.abs(snowy.telemetry.gravityAcceleration.z)>0);
   assert.equal(bare.telemetry.snowResistance,0);
 });
+
+test("loaded ski contact is not enough: carving also requires cutting-edge contact",()=>{
+  const sim=new SkiV4Physics(()=>0,0,0,undefined,()=>1);
+  sim.setHeading(0,1);sim.setHorizontalVelocity(0,5);
+  run(sim,.4,{steer:.8});
+  const contacts=sim.contact;
+  for(const c of contacts){
+    assert.ok(c.edgeContactStations>0,"a ski cutting into flat snow should load its edge");
+    assert.ok(c.edgeContactFraction<=c.contactFraction+1e-10);
+    assert.ok(c.snowLoad>0);
+  }
+  assert.ok(sim.telemetry.contactCoverage>.3);
+});
