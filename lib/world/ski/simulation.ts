@@ -6,6 +6,16 @@ export const tuning = Object.freeze({
   version: 2, dt: 1/120, gravity: 12, drag: .012, flatGrip: .65, engagedGrip: 6, edgeResponse: 5,
   brake: 7, maxTurn: 2.6, maxCharge: .65, pop: 6, spin: 8, flip: 6,
 });
+/** Controlled A/B parameters. Default values are bit-identical to V3 baseline. */
+export type SkiCarveSettings={
+ maxTurn:number;edgeResponse:number;flatGrip:number;
+ engagedGrip:number;contactForceScale:number;drag:number;
+};
+export const SKI_CARVE_BASELINE:Readonly<SkiCarveSettings>=Object.freeze({
+ maxTurn:tuning.maxTurn,edgeResponse:tuning.edgeResponse,
+ flatGrip:tuning.flatGrip,engagedGrip:tuning.engagedGrip,
+ contactForceScale:1,drag:tuning.drag
+});
 export type SkiInput = { steer:number; pitch:number; roll:number; tuck:boolean; brake:boolean; jump:boolean; grab:boolean };
 export const neutral:SkiInput = {steer:0,pitch:0,roll:0,tuck:false,brake:false,jump:false,grab:false};
 type Surface = (x:number,z:number)=>number;
@@ -52,7 +62,14 @@ export class SkiSimulation {
   private readonly pivotStation=[0,0];
   private readonly supports=[0,0];
   private readonly solePoint=new Vector3();
-  constructor(private readonly height:Surface,x:number,z:number,readonly footprint:boolean|"independent"=false,readonly pivotEnabled:boolean|"overhang"=false,private readonly constrain?:(from:Vector3,to:Vector3)=>{x:number;z:number}){
+  readonly dynamics:Readonly<SkiCarveSettings>;
+  constructor(private readonly height:Surface,x:number,z:number,readonly footprint:boolean|"independent"=false,readonly pivotEnabled:boolean|"overhang"=false,private readonly constrain?:(from:Vector3,to:Vector3)=>{x:number;z:number},
+    overrides:Partial<SkiCarveSettings>={}){
+    this.dynamics=Object.freeze({...SKI_CARVE_BASELINE,...overrides});
+    for(const [name,value] of Object.entries(this.dynamics))
+      if(!Number.isFinite(value)||value<0||
+        (name==="contactForceScale"&&value>3))
+        throw Error("Invalid experimental ski dynamics: "+name);
     this.position.set(x,height(x,z),z);
     if(footprint)this.position.y=this.sample();
     this.previous.copy(this.position);
@@ -212,23 +229,23 @@ export class SkiSimulation {
     }
     this.velocity.projectOnPlane(this.normal);
     const speed=this.velocity.length();
-    this.turn+=((impaired?0:clamp(input.steer))*Math.min(tuning.maxTurn,10/Math.max(2,speed))-this.turn)*(1-Math.exp(-5*dt));
+    this.turn+=((impaired?0:clamp(input.steer))*Math.min(this.dynamics.maxTurn,10/Math.max(2,speed))-this.turn)*(1-Math.exp(-5*dt));
     this.yaw+=this.turn*dt;
     this.forward.set(Math.sin(this.yaw),0,Math.cos(this.yaw)).projectOnPlane(this.normal).normalize();
     this.side.crossVectors(this.normal,this.forward).normalize();
     this.velocity.addScaledVector(this.axis.set(0,-tuning.gravity,0).projectOnPlane(this.normal),dt);
     // Signed edge passes through flat during a direction change.
-    this.edge+=((impaired?0:clamp(input.steer))-this.edge)*(1-Math.exp(-tuning.edgeResponse*dt));
+    this.edge+=((impaired?0:clamp(input.steer))-this.edge)*(1-Math.exp(-this.dynamics.edgeResponse*dt));
     const lateral=this.velocity.dot(this.side);
     const alignment=Math.abs(this.velocity.dot(this.forward))/Math.max(.01,this.velocity.length());
     // Load proxy combines normal gravity and turning demand; squat unloads the edge.
     this.pressure=Math.max(0,this.normal.y)+Math.min(1,Math.abs(this.turn)*speed/tuning.gravity);
-    this.grip=tuning.flatGrip+tuning.engagedGrip*Math.abs(this.edge)*this.pressure*
+    this.grip=this.dynamics.flatGrip+this.dynamics.engagedGrip*Math.abs(this.edge)*this.pressure*
       (.25+.75*alignment)*(1-.45*this.charge/tuning.maxCharge);
     const slipImpulse=lateral*(1-Math.exp(-this.grip*dt));
-    const contactLimit=this.footprint!=="independent"?Infinity:tuning.gravity*this.pressure*(.28+.92*Math.abs(this.edge))*dt;
+    const contactLimit=this.footprint!=="independent"?Infinity:tuning.gravity*this.pressure*(.28+.92*Math.abs(this.edge))*this.dynamics.contactForceScale*dt;
     this.velocity.addScaledVector(this.side,-Math.sign(slipImpulse)*Math.min(contactLimit,Math.abs(slipImpulse)));
-    this.velocity.multiplyScalar(Math.exp(-dt*(tuning.drag*speed*(input.tuck?.55:1)+(impaired?2:0))));
+    this.velocity.multiplyScalar(Math.exp(-dt*(this.dynamics.drag*speed*(input.tuck?.55:1)+(impaired?2:0))));
     if(input.brake)this.velocity.multiplyScalar(Math.max(0,1-tuning.brake*dt/Math.max(.001,this.velocity.length())));
     const target=this.delta.setFromRotationMatrix(this.basis.makeBasis(this.side,this.normal,this.forward));
     if(this.phase!=="crash")this.rotation.slerp(target,1-Math.exp(-(impaired?3:15)*dt));
