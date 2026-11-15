@@ -214,7 +214,7 @@ export function galleryPhotoSlots():readonly GalleryPhotoSlot[]{
   return {
    id:photo.id,mountId:m.mountId,roomIndex:m.roomIndex,side:m.side,
    wallKind:m.wallKind,wallSpan:m.wallSpan,
-   x:m.x,y:m.y,z:m.z,yaw:m.y,
+   x:m.x,y:m.y,z:m.z,yaw:m.yaw,
    width:height*aspectRatio,height,aspectRatio,
   };
  });
