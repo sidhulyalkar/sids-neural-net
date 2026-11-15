@@ -213,7 +213,7 @@ test("all 49 photographs have the same eye-level straight-on viewing pose",()=>{
     assert.ok(Math.abs(slot.width/slot.height-slot.aspectRatio)<1e-9);
     assert.equal(slot.y,SHRINE_GALLERY.floorY+v.imageCenterAboveFloor);
     const position=galleryPhotoViewpoint(slot);
-    assert.ok(galleryWalkable(position),slot.id+" has a walkable front-on viewpoint");
+    assert.ok(galleryWalkable(position),slot.id+" has a walkable front-on viewpoint: "+JSON.stringify({slot,position,room:GALLERY_ROOMS[slot.roomIndex]}));
     assert.ok(galleryPhotoClearance(slot),slot.id+" has no blocked viewing corridor");
     const delta={x:position.x-slot.x,z:position.z-slot.z};
     assert.ok(Math.abs(Math.hypot(delta.x,delta.z)-v.standOff)<1e-8);
@@ -273,7 +273,7 @@ test("frames are outside door apertures and cannot block corridor approaches",()
   );
   assert.ok(lineOfSightSpacing>2*v.clearRadius+.5);
   assert.ok(!slots.some(s=>s.mountId==="room-0-south-left"&&Math.abs(s.yaw)!==Math.PI),
-    "The 49th picture must be straight wall-mounted, not diagonal freestanding");
+    "The 49th picture must be straight wall-mounted, not diagonal freestanding: "+JSON.stringify(slots.find(s=>s.mountId==="room-0-south-left")));
 });
 
 test("no freestanding plinth or corner columns occlude the equal-view artwork",()=>{
