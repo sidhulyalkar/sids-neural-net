@@ -1,0 +1,37 @@
+name: Ski Carve Energy Physics Experiment
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/ski-carve-energy.yml"
+      - "scripts/ski-carve-energy-experiment.ts"
+      - "tests/world-ski-carve-physics.test.ts"
+      - "lib/world/ski/simulation.ts"
+  workflow_dispatch:
+
+jobs:
+  ski-carve-energy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Typecheck experimental physics
+        run: npm run typecheck
+      - name: Default parity and dissipative force unit regressions
+        run: node --import tsx --test tests/world-ski-carve-physics.test.ts tests/world-ski-simulation.test.ts tests/world-ski-halfpipe-qualification.test.ts tests/world-ski-trick-qualification.test.ts
+      - name: Actual rendered snow A/B sweep
+        run: |
+          node --import tsx scripts/ski-carve-energy-experiment.ts
+          git rev-parse HEAD > artifacts/ski-carve-energy/tested-sha.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ski-carve-energy-${{ github.sha }}
+          path: artifacts/ski-carve-energy/
+          if-no-files-found: warn
