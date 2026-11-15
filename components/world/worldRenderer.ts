@@ -5419,6 +5419,7 @@ export function createWorld(
           canvas.dataset.skiV4SkidDeceleration=p.skidDeceleration.toFixed(4);
           canvas.dataset.skiV4SnowResistance=p.snowResistance.toFixed(4);
           canvas.dataset.skiV4SnowPower=p.powerToSnow.toFixed(4);
+          canvas.dataset.skiV4BrakeEngagement=ride.v4.brakeEngagement.toFixed(3);
           canvas.dataset.skiV4LeftLoaded=String(ride.v4.contact[0].loaded);
           canvas.dataset.skiV4RightLoaded=String(ride.v4.contact[1].loaded);
           canvas.dataset.skiV4SoleMismatch=ride.visualContactMismatch.map(x=>x.toFixed(4)).join(",");
@@ -7846,6 +7847,8 @@ export function createWorld(
           tubeStart?{x:GROVE_TUNNEL.center.x+GROVE_TUNNEL.halfLength+3,z:GROVE_TUNNEL.center.z}:loopStart?{x:SKATE_LOOP.center.x+SKATE_LOOP.leadLength,z:SKATE_LOOP.center.z}:flowStart?{...CANYON_FLOW.start}:
           (next.command.activity && activityLanding(next.command.activity,skiV4Enabled)) ||
           regionLanding(r.id);
+        if(skiV4Enabled && next.command.activity==="ski")
+          canvas.dataset.skiV4Spawn=player.x.toFixed(2)+","+player.z.toFixed(2);
         clearInput();
         travel = { point: player, speed: 0, heading:
           reverseStart?reversePose.heading:tubeStart?{x:-1,z:0}:loopStart?{x:-1,z:0}:flowStart?{x:1,z:0}:

@@ -13,7 +13,7 @@ export const SKI_V4_TUNING=Object.freeze({
   revision:1,dt:1/120,gravity:9.81,sidecutRadius:7.5,maxEdge:0.82,edgeRise:4.4,
   maxSkiAttack:0.53,attackRise:5.6,carveMu:0.86,skidMu:0.62,
   skidVelocityScale:1.15,baseSnowResistance:0.18,airDrag:0.008,
-  wedgeAngle:0.70,snowplowMu:0.72,rollInertia:0.14,
+  wedgeAngle:0.70,snowplowMu:2.35,brakeRise:2,brakeRelease:4,rollInertia:0.14,
   bootStance:0.23,skiHalfLength:1.275,skiHalfWidth:0.095,
   maxSoleFlex:0.16,contactTolerance:0.05,chargeMax:0.68,
   minPop:3.3,maxPop:5.5,airSpinRate:7.2,airFlipRate:4.6,
@@ -132,6 +132,7 @@ export class SkiV4Physics{
   airYawRate=0;airPitchRate=0;airRollRate=0;
   tick=0;remainder=0;droppedSeconds=0;
   edge=0;pressure=0;grip=0;
+  brakeEngagement=0;
   readonly telemetry:SkiV4Telemetry={tick:0,speed:0,edgeRadians:0,attackRadians:0,
     carveAcceleration:0,skidDeceleration:0,gravityAcceleration:{x:0,z:0},
     leftLoad:.5,rightLoad:.5,snowResistance:0,powerToSnow:0,heading:0,phase:"riding"};
@@ -198,6 +199,10 @@ export class SkiV4Physics{
     this.phaseAge+=dt;
     const steer=clamp(Number.isFinite(input.steer)?input.steer:0,-1,1);
     const brake=clamp(Number.isFinite(input.brake)?input.brake:0,0,1);
+    // Weight transfer into a braking wedge takes time, and releasing the edge
+    // is quicker. A high drag coefficient represents snow ploughing, not air drag.
+    this.brakeEngagement+=clamp(brake-this.brakeEngagement,
+      -t.brakeRelease*dt,t.brakeRise*dt);
     const released=this.heldJump&&!input.jump;
     this.heldJump=Boolean(input.jump);
     if(this.phase==="air"){
@@ -258,7 +263,7 @@ export class SkiV4Physics{
     const carved=impaired?0:Math.sign(sinEdge)*Math.min(requestedCarve,maxCarve);
     const travelForward=speed>.08?{x:this.velocity.x/speed,z:this.velocity.z/speed}:frame(this.yaw).f;
     const perpendicular={x:travelForward.z,z:-travelForward.x};
-    const targetAttack=impaired?0:steer*(.045+brake*(t.maxSkiAttack-.045));
+    const targetAttack=impaired?0:steer*(.045+this.brakeEngagement*(t.maxSkiAttack-.045));
     this.attackAngle+=clamp(targetAttack-this.attackAngle,-t.attackRise*dt,t.attackRise*dt);
     // Ski yaw follows momentum but can be twisted relative to it by the boot;
     // this produces real shearing forces rather than teleporting velocity.
@@ -273,7 +278,7 @@ export class SkiV4Physics{
     const shearLimit=t.skidMu*normalAcceleration*contactRatio;
     const shear=clamp(-lateralSlip*t.skidVelocityScale,-shearLimit,shearLimit);
     const contactSpeed=speed>.08?speed:0;
-    const wedge=t.wedgeAngle*brake;
+    const wedge=t.wedgeAngle*this.brakeEngagement;
     // A wedge puts the two skis at opposing angles; their transverse shear
     // largely cancels, while the longitudinal work is strictly dissipative.
     const wedgeResistance=normalAcceleration*t.snowplowMu*contactRatio*

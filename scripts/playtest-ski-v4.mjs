@@ -45,9 +45,10 @@ try{
   assert.equal(entry.skiEngine,"v4");
   assert.equal(entry.bigAirPhase,"idle","Ordinary Skiing never arms special Ski Jump");
   assert.match(entry.skiV4ContactPatches??"",/^\d+,\d+$/);
-  const [spawnX,spawnZ]=(entry.player??"").split(",").map(Number);
+  // Command-time spawn is captured before WebGL/frame-sampling overhead lets the rider descend.
+  const [spawnX,spawnZ]=(entry.skiV4Spawn??"").split(",").map(Number);
   assert.ok(Math.abs(spawnX-7)<2.7 && spawnZ>-60.8 && spawnZ<-53,
-    "Ski V4 must start inside Granite Ridge, not on an off-pipe shoulder: "+entry.player);
+    "Ski V4 must command an in-channel spawn before descent: "+entry.skiV4Spawn);
   // Record input history from actual browser locomotion, not injected state.
   await page.keyboard.down("w");
   await page.waitForTimeout(500);

@@ -42,3 +42,11 @@ This replaces *grounded skiing physics*, not the island's ecosystems, mountain h
 - The adapter currently reuses the rigid V3 ski pose renderer; a large offset between its pose and physical V4 boot contact is an **open visualization blocker**. The contact telemetry exposes it rather than hiding it. A ski beam/contact material and real leg-boot binding constraints remain work.
 - Existing terrain bank radii and the full rendered-mesh halfpipe controller need measured V4 trial results. Do not alter protected mountain/hydrology to hide excessive curvatures.
 - A dedicated browser check must prove the opt-in V4 route and normal Skiing menu, not an invisible test harness. Running V4 on a Vercel preview must be expressly identified as an experiment.
+
+## 2026-11-15: first exact-browser failures and conservative input/contact corrections
+
+- V4-preview first inherited legacy ski spawn behind the pipe at z=-62.65 and ran downhill into Joshua. The explicit V4 selection now uses (7,-58.5), where the active channel has geometric influence, without changing legacy/V3 spawn.
+- The browser first checked edge **after** releasing D; that sampled relaxed contact rather than proving player steering. It now waits for live held-D edge and carve telemetry, while refusing synthetic position/momentum changes.
+- A second browser pass proved the skier reached inside the halfpipe but was already at z=-45.86 when a slow software-render snapshot arrived. A new read-only `skiV4Spawn` diagnostic captures the actual command-time location, rather than failing based on the time screenshots take.
+- An analytical grade sweep exposed weak S braking on steep slopes: with grade 0.5, speed after 2s was ~6.69 with S versus ~11.33 without. Increasing *shear/ploughing resistance* with a finite 0.5s press-in and 0.25s release ramp locally stopped the same controlled grade near zero, without a maximum-speed clamp. These are provisional game-force coefficients, not snow measurements.
+- Genuine user braking and physical halfpipe traversals remain unqualified until exact-browser traces and same-head CI pass. The full 24-config halfpipe audit currently reports zero qualified runs, including unsupported contact patches and multi-unit toe/tail gaps on steep lips.
