@@ -5411,6 +5411,9 @@ export function createWorld(
         }
         canvas.dataset.skiEngine=skiV4Enabled?"v4":skiV3Enabled?"v3":"legacy";
         skiV4Notice.style.display=skiV4Enabled&&state.entered&&mode==="ski"?"block":"none";
+        skiV4Notice.textContent=ride instanceof SkiV4Simulation&&ride.v4.awaitingStart
+          ?"SNOW-FORCE V4 · W / ↑ TO GLIDE · EXPERIMENTAL"
+          :"SNOW-FORCE V4 · EXPERIMENTAL";
         if(ride instanceof SkiV4Simulation){
           const p=ride.v4.telemetry;
           canvas.dataset.skiV4EdgeRadians=p.edgeRadians.toFixed(4);
@@ -5420,6 +5423,7 @@ export function createWorld(
           canvas.dataset.skiV4SnowResistance=p.snowResistance.toFixed(4);
           canvas.dataset.skiV4SnowPower=p.powerToSnow.toFixed(4);
           canvas.dataset.skiV4BrakeEngagement=ride.v4.brakeEngagement.toFixed(3);
+          canvas.dataset.skiV4AwaitingStart=String(ride.v4.awaitingStart);
           canvas.dataset.skiV4LeftLoaded=String(ride.v4.contact[0].loaded);
           canvas.dataset.skiV4RightLoaded=String(ride.v4.contact[1].loaded);
           canvas.dataset.skiV4SoleMismatch=ride.visualContactMismatch.map(x=>x.toFixed(4)).join(",");
