@@ -29,8 +29,32 @@ export const ARCADE_MURAL_ART_ASSETS:Partial<
   revision:1,
   presentation:"sports-crest-composite",
  },
- // Anime, comedy and sci-fi source masters remain in the repository for a
- // later optional theme, but are deliberately absent from this room build.
+ // Locally shipped original SVG murals. No external runtime hotlinks, no
+ // official show screenshots, and no duplicated copyrighted characters.
+ anime: {
+  src:"/world/arcade-cavern/anime/raid-ascend.svg",
+  authorship:"original",
+  attribution:"Original RAID ASCEND fantasy/isekai mural artwork shipped with Sid’s iLand",
+  opacity:.96,
+  revision:1,
+  presentation:"original-texture",
+ },
+ "sport-anime": {
+  src:"/world/arcade-cavern/sport-anime/striker-setpoint.svg",
+  authorship:"original",
+  attribution:"Original STRIKER SET POINT sports-anime graffiti artwork shipped with Sid’s iLand",
+  opacity:.96,
+  revision:1,
+  presentation:"original-texture",
+ },
+ comedy: {
+  src:"/world/arcade-cavern/comedy/out-of-this-world.svg",
+  authorship:"original",
+  attribution:"Original OUT OF THIS WORLD sci-fi comedy graffiti artwork shipped with Sid’s iLand",
+  opacity:.96,
+  revision:1,
+  presentation:"original-texture",
+ },
  shasta: {
   // Verified personal visual-archive image: Shasta sitting on the trail.
   src:"/visual-archive/web/photo-037.webp",
