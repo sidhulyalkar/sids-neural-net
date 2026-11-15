@@ -613,10 +613,14 @@ export function createWorld(
   // slopes; no exploration bounds, caves or ecology rules are expanded.
   for(const side of [-1,1]){
     const edgeZ=side>0?WORLD_BOUNDS.maxZ:WORLD_BOUNDS.minZ;
-    const depth=20;
-    const apron=geo(new THREE.PlaneGeometry(102,depth,64,18));
+    // The southern sea floor extends all the way to the -166 swim boundary,
+    // across the island width. The northern shore retains its old budget.
+    const depth=side<0?70:20;
+    const apron=geo(new THREE.PlaneGeometry(
+      side<0?terrainWidth:102,depth,side<0?128:64,side<0?70:18));
     apron.rotateX(-Math.PI/2);
-    apron.translate(12,0,edgeZ+side*depth/2);
+    apron.translate(side<0?(WORLD_BOUNDS.minX+WORLD_BOUNDS.maxX)/2:12,
+      0,edgeZ+side*depth/2);
     const vertices=apron.attributes.position;
     for(let i=0;i<vertices.count;i++){
       const x=vertices.getX(i),z=vertices.getZ(i);
@@ -631,6 +635,7 @@ export function createWorld(
     const cap=mesh(apron,mat("#7b8272",{roughness:.98}),
       [0,0,0],[1,1,1]);
     cap.castShadow=false;
+    if(side<0)cap.name="southern-swimmable-seabed";
   }
 
   // Fine-grained shore skin masks the ~1m polygonal edge of the island grid.

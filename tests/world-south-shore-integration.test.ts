@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
+import {readFileSync} from "node:fs";
 import {
  WORLD_BOUNDS, SOUTH_CHANNEL_MIN_Z,SOUTH_CHANNEL_SHORE_Z,SEA_SURFACE,
  waterZone,constrainMove,constrainSwimMove,regionLanding,REGIONS,
@@ -119,4 +120,16 @@ test("Southern ray school and neighboring reef art are bounded and disposable",(
  habitats.update(1,{x:17,z:-127},true);
  rays.dispose();fish.dispose();habitats.dispose();
  assert.equal(parent.children.length,0,"remove and dispose generated art on exit");
+});
+
+
+test("South seabed actually spans the full 70-unit swim domain",()=>{
+ const source=readFileSync("components/world/worldRenderer.ts","utf8");
+ assert.match(source,/const depth=side<0\?70:20/,
+  "southern ocean floor must reach the -166 swim boundary");
+ assert.match(source,/side<0\?terrainWidth:102/,
+  "southern seabed must cover the island width");
+ assert.match(source,/if\(side<0\)cap.name="southern-swimmable-seabed"/);
+ const vertexCount=(128+1)*(70+1);
+ assert.ok(vertexCount<10000,"keep underwater mesh within a known vertex budget");
 });
