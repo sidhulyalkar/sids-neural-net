@@ -37,7 +37,7 @@ export const REGIONS: {
   { id: "desert", name: "Joshua basin", meaning: "Granite and desert trails", point: { x: 22, z: -33 }, href: "/photography" },
   { id: "rainforest", name: "Rainforest", meaning: "Canopy to coast", point: { x: 44, z: 33 }, href: "/photography" },
   { id: "north-shore", name: "North shore", meaning: "Skimboarding · Shore break", point: { x: 0, z: northShoreZ(0) - 8 }, href: "/photography" },
-  { id: "south-shore", name: "South shore · Eagle Ray Passage", meaning: "Snorkel the southern arch · 96 eagle rays", point: {x:11,z:-108}, href: "/photography" },
+  { id: "south-shore", name: "South shore · Eagle Ray Passage", meaning: "Snorkel the southern arch · 96 eagle rays", point: {x:7,z:-108}, href: "/photography" },
 ];
 
 export const WORLD_BOUNDS = { minX: -92, maxX: 94, minZ: -96, maxZ: 104 } as const;
@@ -530,7 +530,7 @@ export function regionLanding(region: RegionId): Point {
   if (region === "lagoon")
     return { x: eastCoastlineX(z) - 1.35, z };
   if (region === "north-shore") return { x: 1.5, z: northShoreZ(1.5) - 7.75 };
-  if (region === "south-shore") return {x:11,z:-110}; // visible arch to the right, clear swim corridor
+  if (region === "south-shore") return {x:7,z:-110}; // open corridor west of the real basalt arch
   // The rainforest anchor has a reserved, vegetation-free arrival circle.
   if (region === "rainforest") return { ...target.point };
   if (region === "cavern")

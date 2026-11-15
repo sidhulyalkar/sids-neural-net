@@ -77,6 +77,7 @@ import {createRayPassage} from "./worldRayPassage";
 import {createSouthChannelLife} from "./worldSouthChannelLife";
 import {createSouthCoastalEcology} from "./worldSouthCoastalEcology";
 import {southCoastEntry,SOUTH_ENTRY_SURFACE_Y} from "@/lib/world/southCoastAccess";
+import {constrainSouthRockMove,southRockClearance} from "@/lib/world/southChannelCollision";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
@@ -4689,7 +4690,10 @@ export function createWorld(
         // Rock geometry is collidable only below its submerged crown.
         // This fixes snorkelers clipping straight through the new reef,
         // without trapping surface swimmers above the same rock pillars.
-        const wetPoint=reefCanyonConstrainSwim(player,swimAttempt.point,playerY);
+        const canyonPoint=reefCanyonConstrainSwim(player,swimAttempt.point,playerY);
+        const wetPoint=waterZone(player)==="south-channel"||
+          waterZone(canyonPoint)==="south-channel"
+          ?constrainSouthRockMove(player,canyonPoint,.75):canyonPoint;
         const nextTravel={
           ...swimAttempt,point:wetPoint,
           speed:Math.hypot(wetPoint.x-player.x,wetPoint.z-player.z)<.001
@@ -5669,6 +5673,8 @@ export function createWorld(
           : waterZone(player)==="north-shore" ? "north-shore":"coast"
         : nearestRegion(player);
       canvas.dataset.currentRegion=r;
+      canvas.dataset.southRockClearance=waterZone(player)==="south-channel"
+        ?southRockClearance(player).toFixed(3):"";
       const caveProgress = THREE.MathUtils.clamp(
         (player.z - arcade.z) / ARCADE_CAVE.tunnelDepth,
         0,
@@ -7043,6 +7049,14 @@ export function createWorld(
       camera.position.x=clearCamera.x;
       camera.position.z=clearCamera.z;
     }
+    if(aquatic!=="land"&&waterZone(player)==="south-channel"){
+      // Render-time camera clearance is as important as the swim collision:
+      // a legal player can still be photographed through a basalt column.
+      const safe=constrainSouthRockMove(player,
+        {x:camera.position.x,z:camera.position.z},1.0);
+      camera.position.x=safe.x;camera.position.z=safe.z;
+      canvas.dataset.southCameraRockClearance=southRockClearance(safe).toFixed(3);
+    }else canvas.dataset.southCameraRockClearance="";
     // Last-resort cutaway also covers an obstructed interpolated pose or
     // a lie surrounded by foliage where no unobstructed boom exists.
     const cutawayCount=lastDiscCameraSolve?
@@ -7060,6 +7074,15 @@ export function createWorld(
       camera.updateProjectionMatrix();
     }
     canvas.dataset.hiddenGalleryFov=camera.fov.toFixed(1);
+    if(aquatic==="dive"&&waterZone(player)==="south-channel"){
+      // Exact-frame camera proof, not a target/desired pose; useful for
+      // verifying the diver remains visible and avoiding first-person clipping.
+      canvas.dataset.southCameraActualDistance=Math.hypot(
+        camera.position.x-player.x,camera.position.z-player.z).toFixed(3);
+      canvas.dataset.southCameraPos=[camera.position.x,camera.position.y,camera.position.z].map(v=>v.toFixed(2)).join(",");
+      canvas.dataset.southPlayerY=playerY.toFixed(2);
+      canvas.dataset.southCameraFocus=[look.x,look.y,look.z].map(v=>v.toFixed(2)).join(",");
+    }else canvas.dataset.southCameraActualDistance="";
     camera.lookAt(look);
     if(skiCameraActive){
       camera.updateMatrixWorld();skiProbe.copy(skiFocus).project(camera);

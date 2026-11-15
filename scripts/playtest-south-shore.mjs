@@ -42,6 +42,7 @@ try{
     fish:el.dataset.southReefFish,draws:el.dataset.southCoastalDrawCalls,
    }));
    assert.equal(trace.arrival.zone,"south-channel");
+   assert.ok(Number(await canvas.getAttribute("data-south-rock-clearance"))>=.74);
    assert.equal(trace.arrival.region,"south-shore",
     "South Shore must not be mislabeled Wild coast");
    assert.equal(trace.arrival.south,"true");

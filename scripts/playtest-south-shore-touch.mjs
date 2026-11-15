@@ -34,6 +34,7 @@ try{
   assert.ok(mb&&lb&&mb.x+mb.width<lb.x,"move/look must not overlap");
   await page.screenshot({path:path.join(out,"01-south-shore-two-thumb-ui.png")});
   const start=(await canvas.getAttribute("data-player")).split(",").map(Number);
+  assert.ok(start[0]<=8&&start[0]>=6,"menu begins in the clear western swim corridor");
   const water=page.getByRole("button",{name:"Dive",exact:true});
   assert.equal(await water.isVisible(),true);
   await water.tap();
@@ -60,6 +61,17 @@ try{
   assert.ok(Math.hypot(...moving.player.split(",").map(Number).map((v,i)=>v-start[i]))>.45,
    "mobile thumb movement must affect actual diver position");
   assert.equal(moving.region,"south-shore");
+  const actualCameraDistance=Number(await canvas.getAttribute("data-south-camera-actual-distance"));
+  const cameraPose=await canvas.getAttribute("data-south-camera-pos");
+  const focusPose=await canvas.getAttribute("data-south-camera-focus");
+  trace.push({actualCameraDistance,cameraPose,focusPose});
+  assert.ok(Number.isFinite(actualCameraDistance)&&actualCameraDistance>=5.5,
+   "diver camera must retain a real third-person boom: "+actualCameraDistance);
+  const clearance=Number(await canvas.getAttribute("data-south-rock-clearance"));
+  const cameraClearance=Number(await canvas.getAttribute("data-south-camera-rock-clearance"));
+  assert.ok(clearance>=.74,"swimmer must not intersect a volcanic arch leg: "+clearance);
+  assert.ok(cameraClearance>=.98,"camera must not see through a volcanic arch leg: "+cameraClearance);
+  trace.push({clearance,cameraClearance});
   await page.screenshot({path:path.join(out,"02-south-shore-underwater-two-thumb.png")});
   await send("touchEnd",[mv]);
   await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.mobileMove==="0.00,0.00",null,{timeout:12000});
