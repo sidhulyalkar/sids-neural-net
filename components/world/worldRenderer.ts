@@ -73,6 +73,7 @@ import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
 import { createNorthShoreLife } from "./worldNorthShoreLife";
+import {southCoastEntry,SOUTH_ENTRY_SURFACE_Y} from "@/lib/world/southCoastAccess";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
@@ -128,6 +129,7 @@ import {
   SECRET,
   SPAWN,
   seaFloorHeight,
+  southernChannelFloorHeight,
   terrainHeight,
   waterZone,
   worldFloorHeight,
@@ -619,7 +621,8 @@ export function createWorld(
       const blend=u*u*(3-2*u);
       const shoreY=worldFloorHeight(x,edgeZ);
       const seabed=SEA_SURFACE-3.7+Math.sin(x*.12)*.2;
-      vertices.setY(i,shoreY*(1-blend)+seabed*blend);
+      vertices.setY(i,side<0?southernChannelFloorHeight(x,z):
+       shoreY*(1-blend)+seabed*blend);
     }
     apron.computeVertexNormals();
     const cap=mesh(apron,mat("#7b8272",{roughness:.98}),
@@ -4903,6 +4906,23 @@ export function createWorld(
       if(skimHeat.phase!=="off"&&skimHeat.phase!=="finished"&&elapsed-lastSkimUpdate>.18){
         callbacks.onSkim(skimHeat);lastSkimUpdate=elapsed;
       }
+      // Restore the south shoreline transition omitted from the curated iLand port.
+      // Land remains clamped to -96; only grounded outward intent can enter water.
+      if(aquatic==="land"&&caveLayer==="surface"&&!jetSki&&!jetChoosing&&
+         discGolf.phase==="off"&&skimHeat.phase==="off"&&
+         !skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&
+         bigAir.phase!=="flying"){
+        const entry=southCoastEntry(player,{x:dx,z:dz},true,
+         airHeight<.15&&Math.abs(verticalSpeed)<.25);
+        if(entry){
+          player=entry;
+          travel={...travel,point:entry,speed:Math.min(travel.speed,3.2)};
+          swimDepth=targetDepth=0;airHeight=verticalSpeed=0;
+          setAquaticMode("surface");
+          playerY=SOUTH_ENTRY_SURFACE_Y;destination=null;
+          canvas.dataset.southShoreEntry="true";
+        }
+      }
       // Record the first real physical touchdown after the predicted pop,
       // even when the board drops into water or leaves the reserved meadow.
       if(skateBowlFlightActive&&(aquatic!=="land"||
@@ -7703,12 +7723,14 @@ export function createWorld(
         climb = null;
         grind = null;
         const arrivalIsCanyon=r.id==="canyon"&&!flowStart&&!galleryStart;
-        setAquaticMode(arrivalIsCanyon?"dive":"land");
+        const arrivalSouthShore=r.id==="south-shore"&&!galleryStart;
+        setAquaticMode(arrivalIsCanyon?"dive":arrivalSouthShore?"surface":"land");
         if(arrivalIsCanyon){
           swimDepth=targetDepth=Math.min(3.2,maxDiveDepth(player));
         }
         caveLayer = "surface";
         playerY = arrivalIsCanyon?SEA_SURFACE-swimDepth:
+          arrivalSouthShore?SOUTH_ENTRY_SURFACE_Y:
           jetPierStart ? (jetSkiPierHeight(player) ?? groundHeight(player)) : groundHeight(player);
         rideRecovery=initialRideRecovery(player);
         rideFlightContinuity=false;lastFlightExitAt=-Infinity;
@@ -7783,6 +7805,7 @@ export function createWorld(
                 ? 1.15
                 : r.id === "lagoon"
                   ? -1.15
+                 : r.id === "south-shore" ? 0
                  : r.id === "north-shore" ? Math.PI
                   : r.id === "neural"
                     ? -0.6
