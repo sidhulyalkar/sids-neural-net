@@ -21,6 +21,9 @@ const snapshot=async stage=>{
     player:data.player,speed:data.speed,phase:data.skiRidePhase,
     awaiting:data.skiV4AwaitingStart,spawn:data.skiV4Spawn,
     edge:data.skiV4EdgeRadians,carve:data.skiV4CarveAcceleration,
+    actualSlip:data.skiV4ActualSlipRadians,carveQuality:data.skiV4CarveQuality,
+    contactCoverage:data.skiV4ContactCoverage,turnRegime:data.skiV4TurnRegime,
+    actualTurnRate:data.skiV4ObservedTurnRate,turnRadius:data.skiV4ObservedTurnRadius,
     skid:data.skiV4SkidDeceleration,slip:data.skiV4AttackRadians,
     contact:data.skiV4ContactPatches,rigidMismatch:data.skiV4SoleMismatch,
     bigAir:data.bigAirPhase});
@@ -71,14 +74,28 @@ try{
     const d=document.querySelector("canvas")?.dataset;
     return d?.skiEngine==="v4"&&Number(d?.skiInputSteer)>.5 &&
       Math.abs(Number(d?.skiV4EdgeRadians))>.25 &&
-      Math.abs(Number(d?.skiV4CarveAcceleration))>.05;
+      Math.abs(Number(d?.skiV4CarveAcceleration))>.05 &&
+      Math.abs(Number(d?.skiV4ActualSlipRadians))<.12 &&
+      Number(d?.skiV4ContactCoverage)>.45 &&
+      d?.skiV4TurnRegime==="carve";
   },null,{timeout:20000});
   const carved=await canvas.evaluate(el=>({...el.dataset}));
   frames.push({stage:"03-v4-edge",time:Date.now(),player:carved.player,
     speed:carved.speed,edge:carved.skiV4EdgeRadians,
-    carve:carved.skiV4CarveAcceleration,steer:carved.skiInputSteer});
+    carve:carved.skiV4CarveAcceleration,steer:carved.skiInputSteer,
+    actualSlip:carved.skiV4ActualSlipRadians,carveQuality:carved.skiV4CarveQuality,
+    contactCoverage:carved.skiV4ContactCoverage,regime:carved.skiV4TurnRegime,
+    actualTurnRate:carved.skiV4ObservedTurnRate,turnRadius:carved.skiV4ObservedTurnRadius});
   assert.ok(Number(carved.skiInputSteer)>.5 &&
     Math.abs(Number(carved.skiV4EdgeRadians))>.25);
+  assert.equal(carved.skiV4TurnRegime,"carve",
+    "Requested edge force alone is not proof of actual ski carving");
+  assert.ok(Math.abs(Number(carved.skiV4ActualSlipRadians))<.12,
+    "True carving must have low velocity-relative ski slip");
+  assert.ok(Number(carved.skiV4ContactCoverage)>.45,
+    "Edge force without load-bearing contact cannot qualify as carving");
+  assert.ok(Math.abs(Number(carved.skiV4ObservedTurnRate))>.01,
+    "Carved turn must change actual velocity heading");
   await page.keyboard.up("d");
   const brakeEntrySpeed=Number(carved.speed);
   await page.keyboard.down("s");
@@ -96,6 +113,8 @@ try{
     brakeEngagement:braked.skiV4BrakeEngagement});
   await page.screenshot({path:path.join(out,"04-v4-brake.png")});
   await page.keyboard.up("s");
+  assert.equal(braking.skiV4TurnRegime,"skid",
+    "Deliberate snowplow must be identified as skidding, not carving");
   assert.ok(Number(braking.skiV4SkidDeceleration)>.1,
     "Held S must apply a real positive snowplow resistance");
   assert.ok(Number(braked.speed)<brakeEntrySpeed||Number(braked.speed)<.4,
