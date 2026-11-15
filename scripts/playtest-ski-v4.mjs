@@ -49,6 +49,15 @@ try{
   assert.equal(entry.skiEngine,"v4");
   assert.equal(entry.bigAirPhase,"idle","Ordinary Skiing never arms special Ski Jump");
   assert.match(entry.skiV4ContactPatches??"",/^\d+,\d+$/);
+  // The player must enter snow with a genuine underlying layered pack.
+  // A white-only terrain tint must not satisfy this gate.
+  const powder=Number(entry.skiV4PowderDepth);
+  const packed=Number(entry.skiV4PackedDepth);
+  const depth=Number(entry.skiV4SnowDepth);
+  assert.ok(powder>0&&packed>.05&&depth>.05,
+    "Snowpack depth must be sampled from the rendered mountain, not invented by the HUD");
+  assert.ok(Math.abs(depth-(powder+packed))<.004,
+    "The displayed total snow depth must equal packed base plus powder");
   // Command-time spawn is captured before WebGL/frame-sampling overhead lets the rider descend.
   const [spawnX,spawnZ]=(entry.skiV4Spawn??"").split(",").map(Number);
   assert.ok(Math.abs(spawnX-7)<2.7 && spawnZ>-60.8 && spawnZ<-53,
@@ -62,31 +71,32 @@ try{
   // Software WebGL screenshots are intentionally deferred until after both
   // controls; otherwise several seconds of live simulation elapse off-snow.
   await page.keyboard.down("w");
-  await page.waitForFunction(()=>{
+  const glideHandle=await page.waitForFunction(()=>{
     const d=document.querySelector("canvas")?.dataset;
     return d?.skiV4AwaitingStart==="false" && Number(d.speed)>1.5 &&
-      Number(d.skiV4SnowCoverage)>.55;
+      Number(d.skiV4SnowCoverage)>.55 ? {...d}:false;
   },null,{timeout:20000});
-  const glide=await canvas.evaluate(el=>({...el.dataset}));
+  const glide=await glideHandle.jsonValue();
   frames.push({stage:"02-v4-snow-glide",player:glide.player,speed:glide.speed,
     surface:glide.skiV4SurfaceMode,snow:glide.skiV4SnowCoverage});
   await page.keyboard.up("w");
   const brakeEntrySpeed=Number(glide.speed);
   await page.keyboard.down("s");
-  await page.waitForFunction(()=>{
+  const brakeHandle=await page.waitForFunction(()=>{
     const d=document.querySelector("canvas")?.dataset;
     return Number(d?.skiV4SnowCoverage)>.5 &&
       Number(d?.skiV4BrakeEngagement)>.8 &&
       Number(d?.skiV4SkidDeceleration)>1 &&
-      d?.skiV4TurnRegime==="skid";
+      d?.skiV4TurnRegime==="skid" ? {...d}:false;
   },null,{timeout:20000});
-  const braking=await canvas.evaluate(el=>({...el.dataset}));
+  const braking=await brakeHandle.jsonValue();
   await page.waitForTimeout(800);
   const braked=await canvas.evaluate(el=>({...el.dataset}));
   frames.push({stage:"03-v4-snow-brake",player:braked.player,
     speed:braked.speed,skid:braking.skiV4SkidDeceleration,
     snow:braking.skiV4SnowCoverage,engagement:braking.skiV4BrakeEngagement,
-    surface:braking.skiV4SurfaceMode});
+    surface:braking.skiV4SurfaceMode,powder:braking.skiV4PowderDepth,
+    packed:braking.skiV4PackedDepth,depth:braking.skiV4SnowDepth});
   await page.keyboard.up("s");
   assert.ok(Number(braking.skiV4SnowCoverage)>.5,
     "The snowplow proof must actually occur ON SNOW, never on Joshua dirt");
@@ -104,7 +114,9 @@ try{
   },null,{timeout:25000});
   await page.keyboard.up("w");
   await page.keyboard.down("d");
-  await page.waitForFunction(()=>{
+  // Capture this exact animation tick. Re-reading after the matched event
+  // can produce a later SKID frame even when the actual CARVE gate passed.
+  const carvedHandle=await page.waitForFunction(()=>{
     const d=document.querySelector("canvas")?.dataset;
     return d?.skiEngine==="v4" && Number(d?.skiInputSteer)>.5 &&
       Number(d?.skiV4SnowCoverage)>.45 &&
@@ -112,12 +124,13 @@ try{
       Math.abs(Number(d?.skiV4CarveAcceleration))>.05 &&
       Math.abs(Number(d?.skiV4ActualSlipRadians))<.12 &&
       Number(d?.skiV4ContactCoverage)>.45 &&
-      d?.skiV4TurnRegime==="carve";
+      d?.skiV4TurnRegime==="carve" ? {...d}:false;
   },null,{timeout:25000});
-  const carved=await canvas.evaluate(el=>({...el.dataset}));
+  const carved=await carvedHandle.jsonValue();
   frames.push({stage:"04-v4-carve",player:carved.player,
     speed:carved.speed,surface:carved.skiV4SurfaceMode,
-    snow:carved.skiV4SnowCoverage,edge:carved.skiV4EdgeRadians,
+    snow:carved.skiV4SnowCoverage,depth:carved.skiV4SnowDepth,
+    snowType:carved.skiV4SnowType,edge:carved.skiV4EdgeRadians,
     carve:carved.skiV4CarveAcceleration,steer:carved.skiInputSteer,
     slip:carved.skiV4ActualSlipRadians,contact:carved.skiV4ContactCoverage,
     regime:carved.skiV4TurnRegime,turnRate:carved.skiV4ObservedTurnRate,
