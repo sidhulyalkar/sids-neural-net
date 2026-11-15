@@ -1962,6 +1962,10 @@ export function createWorld(
   skiTrickNotice.style.cssText="display:none;position:absolute;top:19%;left:50%;transform:translateX(-50%);z-index:8;pointer-events:none;max-width:86%;padding:9px 16px;border-radius:13px;background:#143443df;border:1px solid #e8f5f3a8;color:#fff;text-align:center;font:750 17px/1.3 system-ui,sans-serif;text-shadow:0 1px 2px #0b2535";
   host.appendChild(skiTrickNotice);
   let rideSnow: ReturnType<typeof renderedSnowHeight> | null = null;
+  // Camera clearance must match the triangle surface supporting V3 skis.
+  // Preserve the original terrain camera contract for legacy/fallback mode.
+  const skiCameraSurface=(p:{x:number;z:number})=>
+    skiV3Enabled && rideSnow ? rideSnow(p.x,p.z):worldFloorHeight(p.x,p.z);
   let runoutComplete=false;
   const skiCollision=(from:THREE.Vector3,to:THREE.Vector3)=>{
     const solids=ride?.phase==="air"?obstacles.filter(o=>o.topY===undefined||to.y<=o.topY+.45):groundedObstacles;
@@ -5899,7 +5903,7 @@ export function createWorld(
           skiFocus.y+.2,skiFocus.z+travel.heading.z*lookAhead);
         targetCamera.set(player.x+Math.sin(skiCameraYaw)*followDistance,
           explorer.position.y+elevation,player.z+Math.cos(skiCameraYaw)*followDistance);
-        constrainSkiCamera(targetLook,targetCamera,p=>worldFloorHeight(p.x,p.z));
+        constrainSkiCamera(targetLook,targetCamera,skiCameraSurface);
       } else {
         skiCameraActive=false;
         targetCamera.set(
@@ -6001,7 +6005,9 @@ export function createWorld(
           if (boom < 1) targetCamera.lerpVectors(targetLook, targetCamera, boom);
           targetCamera.y = Math.max(
             targetCamera.y,
-            worldFloorHeight(targetCamera.x, targetCamera.z) + (skiCameraActive?.35:3.5),
+            (skiCameraActive?skiCameraSurface(targetCamera):
+              worldFloorHeight(targetCamera.x,targetCamera.z))+
+              (skiCameraActive?.35:3.5),
           );
         }
       } else if (aquatic === "surface") {
@@ -6908,7 +6914,7 @@ export function createWorld(
     if(skiCameraActive){
       // Clear the actual ski contact, not only a lagging look target.
       skiFootFocus.copy(explorer.position);skiFootFocus.y+=.12;
-      constrainSkiCamera(skiFootFocus,camera.position,p=>worldFloorHeight(p.x,p.z));
+      constrainSkiCamera(skiFootFocus,camera.position,skiCameraSurface);
       look.lerp(targetLook,1-Math.exp(-dt*12));
     }
     if(galleryPhase!==lastGalleryCameraPhase){
