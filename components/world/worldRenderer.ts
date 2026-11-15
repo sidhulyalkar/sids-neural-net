@@ -7844,7 +7844,7 @@ export function createWorld(
         player=jetPierStart?{x:JET_SKI_PIER.rampEndX+1.3,z:JET_SKI_PIER.centerZ}:
           reverseStart?{x:reversePose.point.x-reversePose.heading.x*7,z:reversePose.point.z-reversePose.heading.z*7}:
           tubeStart?{x:GROVE_TUNNEL.center.x+GROVE_TUNNEL.halfLength+3,z:GROVE_TUNNEL.center.z}:loopStart?{x:SKATE_LOOP.center.x+SKATE_LOOP.leadLength,z:SKATE_LOOP.center.z}:flowStart?{...CANYON_FLOW.start}:
-          (next.command.activity && activityLanding(next.command.activity)) ||
+          (next.command.activity && activityLanding(next.command.activity,skiV4Enabled)) ||
           regionLanding(r.id);
         clearInput();
         travel = { point: player, speed: 0, heading:

@@ -45,24 +45,38 @@ try{
   assert.equal(entry.skiEngine,"v4");
   assert.equal(entry.bigAirPhase,"idle","Ordinary Skiing never arms special Ski Jump");
   assert.match(entry.skiV4ContactPatches??"",/^\d+,\d+$/);
+  const [spawnX,spawnZ]=(entry.player??"").split(",").map(Number);
+  assert.ok(Math.abs(spawnX-7)<2.7 && spawnZ>-60.8 && spawnZ<-53,
+    "Ski V4 must start inside Granite Ridge, not on an off-pipe shoulder: "+entry.player);
   // Record input history from actual browser locomotion, not injected state.
   await page.keyboard.down("w");
-  await page.waitForTimeout(1500);
-  await page.keyboard.up("w");
+  await page.waitForTimeout(500);
   const glide=await snapshot("02-v4-glide");
+  await page.keyboard.up("w");
+  // Capture while the player is holding D. The edge relaxes quickly after release.
   await page.keyboard.down("d");
-  await page.waitForTimeout(1750);
-  await page.keyboard.up("d");
+  await page.waitForFunction(()=>{
+    const d=document.querySelector("canvas")?.dataset;
+    return d?.skiEngine==="v4" && Number(d?.skiInputSteer)>.5 &&
+      Math.abs(Number(d?.skiV4EdgeRadians))>.25 &&
+      Math.abs(Number(d?.skiV4CarveAcceleration))>.05;
+  },null,{timeout:20000});
   const carved=await snapshot("03-v4-edge");
-  assert.ok(Number.isFinite(Number(carved.skiV4EdgeRadians)));
+  assert.ok(Number(carved.skiInputSteer)>.5);
   assert.ok(Math.abs(Number(carved.skiV4EdgeRadians))>.25,
-    "Steering must create real edge engagement in the new simulator");
+    "Held steering must produce real ski-edge engagement");
+  await page.keyboard.up("d");
   const brakeEntrySpeed=Number(carved.speed);
   await page.keyboard.down("s");
-  await page.waitForTimeout(2200);
-  await page.keyboard.up("s");
+  await page.waitForFunction(()=>{
+    const d=document.querySelector("canvas")?.dataset;
+    return Number(d?.skiV4SkidDeceleration)>.1 && Number(d?.skiV4SnowPower)>0;
+  },null,{timeout:20000});
+  await page.waitForTimeout(1500);
   const braked=await snapshot("04-v4-brake");
-  assert.ok(Number.isFinite(Number(braked.skiV4SkidDeceleration)));
+  await page.keyboard.up("s");
+  assert.ok(Number(braked.skiV4SkidDeceleration)>.1,
+    "Held S must apply a real positive snowplow resistance");
   assert.ok(Number(braked.speed)<brakeEntrySpeed || Number(braked.speed)<.4,
     "S braking must reduce actual speed rather than just turning the visual skier");
   assert.equal(braked.bigAirPhase,"idle");
