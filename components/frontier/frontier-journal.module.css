@@ -769,7 +769,7 @@
 }
 .reader .realmSignal { box-shadow: 0 0 0 5px var(--context-wash); }
 .reader .article {
-  width: min(calc(100% - 2 * var(--journal-inset)), 1270px);
+  width: min(calc(100% - var(--journal-inset) - var(--journal-inset)), 1270px);
   padding-top: clamp(27px, 4vw, 55px);
   padding-bottom: clamp(78px, 10vw, 125px);
 }
@@ -982,9 +982,9 @@
   .reader .masthead { padding-block: 13px; }
   .reader .identityCaption { font-size: 11px; }
   .reader .topActions { gap: 8px; }
-  .reader .contentsToggle, .reader .advanced { min-height: 38px; }
-  .reader .iconButton { min-width: 40px; min-height: 40px; }
-  .reader .search { min-height: 38px; }
+  .reader .contentsToggle, .reader .advanced { min-height: 44px; }
+  .reader .iconButton { min-width: 44px; min-height: 44px; }
+  .reader .search { min-height: 44px; }
   .reader .sectionNavigationInner { gap: 22px; }
   .reader .sectionTab { min-height: 44px; font-size: 12px; }
   .reader .article { padding-top: 20px; }
