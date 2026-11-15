@@ -1,5 +1,6 @@
 import type { BufferGeometry } from "three";
 import { WORLD_BOUNDS } from "../model";
+import {BARE_SNOWPACK,makeSnowpack,type Snowpack} from "./snowpack";
 
 // Index the actual refined terrain once. Within each cell the planes use
 // barycentric coordinates, so even triangles crossing a cell boundary agree
@@ -11,6 +12,7 @@ export function renderedSnowHeight(mesh: BufferGeometry, fallback: (x:number,z:n
   const planes: number[][] = [];
   const vertices = mesh.getAttribute("position");
   const snowCoverage=mesh.getAttribute("snowCoverage");
+  const snowLayers=mesh.getAttribute("snowLayers");
   const index = mesh.getIndex();
   if (!index) throw new Error("Indexed island terrain required");
   for (let i = 0; i < index.count; i += 3) {
@@ -44,7 +46,10 @@ export function renderedSnowHeight(mesh: BufferGeometry, fallback: (x:number,z:n
       if(Number.isFinite(height)){last=id; return height;}
     }
     return fallback(x,z);
-  }) as ((x:number,z:number)=>number)&{snowCoverage:(x:number,z:number)=>number};
+  }) as ((x:number,z:number)=>number)&{
+    snowCoverage:(x:number,z:number)=>number;
+    snowpack:(x:number,z:number)=>Snowpack;
+  };
   // Snow coverage is interpolated from exactly the same indexed triangle
   // used for WebGL terrain and the height sampler. No snow from mere altitude
   // or an equipped Skiing menu. Unknown terrain conservatively means no snow.
@@ -67,6 +72,23 @@ export function renderedSnowHeight(mesh: BufferGeometry, fallback: (x:number,z:n
       if(Number.isFinite(v)){last=id;return v;}
     }
     return 0;
+  };
+  result.snowpack=(x:number,z:number)=>{
+    if(!snowLayers)return {...BARE_SNOWPACK};
+    // The separate scalar coverage query reuses the exact cached triangle;
+    // the snow-layer components are barycentric on that same triangle.
+    const coverage=result.snowCoverage(x,z);
+    if(coverage<1e-6||last<0)return {...BARE_SNOWPACK};
+    const p=planes[last],dx=x-p[0],dz=z-p[1];
+    const u=dx*p[3]+dz*p[4],v=dx*p[5]+dz*p[6];
+    if(u< -1e-8||v< -1e-8||u+v>1+1e-8)
+      return {...BARE_SNOWPACK};
+    const sample=(axis:0|1|2|3)=>{
+      const getter=axis===0?"getX":axis===1?"getY":axis===2?"getZ":"getW";
+      return (1-u-v)*snowLayers[getter](p[9])+
+        u*snowLayers[getter](p[10])+v*snowLayers[getter](p[11]);
+    };
+    return makeSnowpack(coverage,sample(0),sample(1),sample(2),sample(3));
   };
   return result;
 }

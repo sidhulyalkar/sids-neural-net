@@ -1,6 +1,7 @@
 import * as THREE from "three/src/Three.Core.js";
 import {worldFloorHeight} from "@/lib/world/model";
 import {MOUNTAIN_HALFPIPE as pipe, mountainHalfpipeInfluence} from "@/lib/world/mountainHalfpipe";
+import {authorSnowpack} from "@/lib/world/ski/snowpack";
 
 /** Refine the island mesh itself so there is only one visible ski surface. */
 export function refineMountainSnow(terrain: THREE.BufferGeometry) {
@@ -15,6 +16,7 @@ export function refineMountainSnow(terrain: THREE.BufferGeometry) {
   const indices: number[] = [];
   const edges = new Map<string, number>();
   const snow = new THREE.Color("#e8f1f4");
+  const snowLayers:number[]=[];
   let triangles = 0;
   function middle(a: number, b: number) {
     const key = a < b ? a + "/" + b : b + "/" + a;
@@ -50,17 +52,33 @@ export function refineMountainSnow(terrain: THREE.BufferGeometry) {
   }
   for(let i=0;i<positions.length;i+=3) {
     const x=positions[i], z=positions[i+2], influence=mountainHalfpipeInfluence({x,z});
-    if (!influence) continue;
-    const wind=1+.012*Math.sin(z*.47+x*.2);
-    for (const [k,value] of [snow.r,snow.g,snow.b].entries())
-      colors[i+k]=THREE.MathUtils.lerp(colors[i+k],value*wind,influence*.96);
-    snowCoverage[i/3]=THREE.MathUtils.lerp(snowCoverage[i/3],1,influence*.96);
+    if(influence>0){
+      const wind=1+.012*Math.sin(z*.47+x*.2);
+      for(const [k,value] of [snow.r,snow.g,snow.b].entries())
+        colors[i+k]=THREE.MathUtils.lerp(colors[i+k],value*wind,influence*.96);
+      snowCoverage[i/3]=THREE.MathUtils.lerp(snowCoverage[i/3],1,influence*.96);
+    }
+    // Snowpack is stored *under* the visible top surface; no extra
+    // overlapping mesh, unqualified height change or cave obstruction.
+    const pack=authorSnowpack(x,z,positions[i+1],snowCoverage[i/3],influence);
+    snowLayers.push(pack.powderDepth,pack.packedDepth,pack.crust,pack.ice);
+    if(pack.coverage>.08){
+      const loose=Math.min(1,pack.powderDepth/.45);
+      const hard=pack.crust*.17+pack.ice*.36;
+      // Shallow scoured surfaces read cooler/darker; deep powder pockets
+      // read softer and brighter. Pigment and contact strata share vertices.
+      const strength=Math.min(.32,pack.coverage*(.08+.21*loose+.11*pack.ice));
+      colors[i]=THREE.MathUtils.lerp(colors[i],.90-.21*hard,strength);
+      colors[i+1]=THREE.MathUtils.lerp(colors[i+1],.95-.12*hard,strength);
+      colors[i+2]=THREE.MathUtils.lerp(colors[i+2],.985-.045*hard,strength);
+    }
   }
   terrain.deleteAttribute("normal");
   terrain.deleteAttribute("uv"); // Ground uses vertex pigment only.
   terrain.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
   terrain.setAttribute("color",new THREE.Float32BufferAttribute(colors,3));
   terrain.setAttribute("snowCoverage",new THREE.Float32BufferAttribute(snowCoverage,1));
+  terrain.setAttribute("snowLayers",new THREE.Float32BufferAttribute(snowLayers,4));
   terrain.setIndex(indices);
   terrain.computeVertexNormals();
   return triangles;
