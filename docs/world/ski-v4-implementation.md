@@ -102,3 +102,15 @@ Verified engineering references:
 
 No V4 changes may merge or ship to production until on-mountain human playtesting
 and same-head GitHub regression evidence qualify all critical gates.
+
+## Terrain-aware snow physics and conventional ground traversal
+
+**Surface authority:** The world now writes a scalar `snowCoverage` attribute for every authored terrain vertex from the same biome paint, trail/dirt/cave overlays, and halfpipe-specific whitening applied to visible ground colors. `refineMountainSnow` interpolates and paints the attribute whenever it refines triangles. `renderedSnowHeight` supplies a sibling `snowCoverage(x,z)` sampler with barycentric interpolation from the exact indexed WebGL triangles. Unknown/unindexed areas are non-snow, not snowy by default.
+
+**Snow contacts:** V4 independently samples material under each binding and adjacent loaded running length. Loaded geometry on bare rock remains physical support for the avatar, but it contributes *zero* snow edge load. Carve, lateral snow shear, snowplow, and snow-work require nonzero painted snow. Both ski fraction and aggregate snow coverage are instrumented for QA.
+
+**Bare ground:** Without painted snow, the same V4 motion state smoothly uses direct yaw plus W/S directional ground acceleration/deceleration. A/D directs heading; ski-edge force and snow-work are disabled. The skier rig transitions to a regular running stance, snow trails are only emitted over material-confirmed snow, and V4 snowfall no longer follows the avatar through Joshua. The equipped Ski activity and menu remain intact; this does not turn the rider into a skateboarder or revive legacy ski friction.
+
+**Mixed snow/dirt border:** Snow force is scaled by weighted snow across both skis. Conventional ground control complements snow coverage; this avoids a hidden movement teleport or forced velocity reset when crossing the boundary. The material contract is explicit and deterministic, but this is an *experimental gameplay transition*, not a calibrated real-world ski-to-shoe conversion.
+
+**Safety and limitations:** Only V4 opt-in is affected. Legacy and V3 retain their previous flags and behaviors. The unresolved unsupported halfpipe lip and five crossings are still release blockers. Actual corner-to-edge force distribution, independent pressure/load dynamics, naturally triggered takeoff, boot-ground animation, screenshots, and touch/hardware tests remain to be qualified. Do not infer a production pass from green focused unit tests.

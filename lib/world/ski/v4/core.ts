@@ -251,7 +251,8 @@ export class SkiV4Physics{
     // Only the explicit run-ready stance is held on an initially steep slope.
     // After first input, freely integrate real snow forces and gravity.
     if(this.awaitingStart&&this.phase==="riding"){
-      if(Math.abs(steer)>.15||input.tuck||input.jump)this.awaitingStart=false;
+      if(Math.abs(steer)>.15||Math.abs(input.pitch)>.15||input.tuck||input.jump)
+        this.awaitingStart=false;
       else{
         this.updateContacts(0);this.updateSurfaceTelemetry();
         this.velocity.x=0;this.velocity.y=0;this.velocity.z=0;

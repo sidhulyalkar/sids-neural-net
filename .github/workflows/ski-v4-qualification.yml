@@ -4,6 +4,11 @@ on:
   pull_request:
     paths:
       - 'lib/world/ski/v4/**'
+      - 'lib/world/ski/renderedSnow.ts'
+      - 'components/world/worldMountainHalfpipe.ts'
+      - 'components/world/skiSnowTracks.ts'
+      - 'tests/world-ski-v4-material-transition.test.ts'
+      - 'tests/world-ski-rendered-coverage.test.ts'
       - 'components/world/worldRenderer.ts'
       - 'components/world/skiSnowTracks.ts'
       - 'components/world/skiVisualSole.ts'
