@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - 'feat/frontier-agentssl-pilot-*'
   pull_request:
   workflow_dispatch:
 
