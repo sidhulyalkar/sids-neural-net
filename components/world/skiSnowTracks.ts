@@ -59,7 +59,7 @@ export class SnowTracks {
     // in the physical contact solver. Never search arbitrary floating tips
     // or legacy sole deficits for a plausible-looking footprint.
     const loaded=physical.sections.filter(section=>section.load>0);
-    if(!physical.loaded||!loaded.length){this.active[i]=false;continue;}
+    if(!physical.loaded||physical.snowFraction<.5||physical.snowLoad<.1||!loaded.length){this.active[i]=false;continue;}
     const section=loaded.reduce((a,b)=>a.gap<=b.gap?a:b);
     for(let w=-1;w<=1;w++){
      this.probe.set(w*SKI_HALF_WIDTH,SKI_SOLE_Y+section.flex,section.along)
@@ -80,7 +80,13 @@ export class SnowTracks {
      if(gap<best){best=gap;this.point.copy(this.probe);}
     }
    }
-   if(Math.abs(best)>.045){this.active[i]=false;continue;}
+   // The centre and both track edges must remain on snow, not just one
+   // opportunistically selected point at a visually white terrain border.
+   if(Math.abs(best)>.045 ||
+      (v4&&((this.height as ((x:number,z:number)=>number)&{snowCoverage?:(x:number,z:number)=>number})
+        .snowCoverage?.(this.point.x,this.point.z)??0)<.45)){
+     this.active[i]=false;continue;
+   }
    const prev=this.previous[i],dx=this.point.x-prev.x,dz=this.point.z-prev.z;
    const length=Math.hypot(dx,dz);
    if(this.active[i]&&length<.12)continue;

@@ -4744,7 +4744,7 @@ export function createWorld(
         }
         if (!ride) {
           ride = skiV4Enabled
-            ? new SkiV4Simulation(rideSnow,player.x,player.z,skiCollision)
+            ? new SkiV4Simulation(rideSnow,player.x,player.z,skiCollision,rideSnow.snowCoverage)
             : new SkiSimulation(rideSnow, player.x, player.z, "independent",false,skiCollision);
           skiHalfpipe=new SkiHalfpipeQualification();
           skiTricks=new SkiTrickQualification();
@@ -5102,7 +5102,8 @@ export function createWorld(
       board.rotation.set(mode==="skate"?trickPose.pitch:0,mode==="skate"?trickPose.yaw:0,mode==="skate"?trickPose.roll:0);
       board.position.y=mode==="skate"&&skateTrick.phase==="air"?Math.sin(Math.PI*trickPose.progress)*.19:0;
       bike.visible = !skimEquipped && !swimming && mode === "bike";
-      skis.visible = !skimEquipped && !swimming && mode === "ski";
+      skis.visible = !skimEquipped && !swimming && mode === "ski" &&
+        !(ride instanceof SkiV4Simulation&&ride.v4.telemetry.surfaceMode==="ground");
       chalk.visible = !skimEquipped && !swimming && mode === "boulder";
       skimEquipment.visible=skimEquipped;
       skimProps.forEach((prop,i)=>{
@@ -5136,17 +5137,19 @@ export function createWorld(
       canvas.dataset.skimBoardContact=(skimContact?.centerY??0).toFixed(3);
       canvas.dataset.skimWashDepth=(skimContact?.wash??0).toFixed(3);
       snorkel.visible = swimming;
+      const skiV4OnGround=ride instanceof SkiV4Simulation &&
+        ride.v4.telemetry.surfaceMode==="ground";
       const running = galleryPhase==="inside" ||
-        (!swimming && !surfing && (mode === "run" || mode === "boulder"));
+        (!swimming && !surfing && (mode === "run" || mode === "boulder" || skiV4OnGround));
       const discGolfAiming=discGolf.phase!=="off" &&
         discGolf.phase!=="flying"&&!discGolf.presentationPending;
       const discGolfHeading=discGolfAiming?
         discGolfFacingHeading(player,discGolfNextTarget(discGolf),
           DISC_GOLF_HOLES[discGolf.holeIndex].target,travel.heading):null;
       if(discGolfHeading)travel={...travel,speed:0,heading:discGolfHeading};
-      const skiGrounded=skiPresentation&&mode==="ski"&&aquatic==="land"&&caveLayer==="surface"&&
+      const skiGrounded=skiPresentation&&!skiV4OnGround&&mode==="ski"&&aquatic==="land"&&caveLayer==="surface"&&
         galleryPhase==="outside"&&airHeight<=.001&&!grind&&!climb&&bigAir.phase==="idle";
-      const skiAirPose=skiPresentation&&mode==="ski"&&aquatic==="land"&&airHeight>.001&&
+      const skiAirPose=skiPresentation&&!skiV4OnGround&&mode==="ski"&&aquatic==="land"&&airHeight>.001&&
         bigAir.phase==="idle"&&skiPoseReady;
       skiKnees.forEach(k=>{k.visible=skiGrounded||skiAirPose});
       const headingYaw = discGolfHeading
@@ -5427,7 +5430,9 @@ export function createWorld(
         canvas.dataset.skiEngine=skiV4Enabled?"v4":skiV3Enabled?"v3":"legacy";
         skiV4Notice.style.display=skiV4Enabled&&state.entered&&mode==="ski"?"block":"none";
         skiV4Notice.textContent=ride instanceof SkiV4Simulation
-          ?ride.v4.awaitingStart
+          ?ride.v4.telemetry.surfaceMode==="ground"
+            ?"SNOW-FORCE V4 · BARE GROUND · W/A/S/D WALK · EXPERIMENTAL"
+          :ride.v4.awaitingStart
             ?"SNOW-FORCE V4 · W / ↑ TO GLIDE · EXPERIMENTAL"
             :ride.v4.telemetry.turnRegime==="unsupported"
               ?"SNOW-FORCE V4 · UNSUPPORTED SKI CONTACT · EXPERIMENTAL"
@@ -5445,6 +5450,10 @@ export function createWorld(
           canvas.dataset.skiV4ObservedTurnRate=p.observedTurnRate.toFixed(4);
           canvas.dataset.skiV4ObservedTurnRadius=p.observedTurnRadius===null?"":p.observedTurnRadius.toFixed(3);
           canvas.dataset.skiV4TurnRegime=p.turnRegime;
+          canvas.dataset.skiV4SurfaceMode=p.surfaceMode;
+          canvas.dataset.skiV4SnowCoverage=p.snowCoverage.toFixed(3);
+          canvas.dataset.skiV4LeftSnow=ride.v4.contact[0].snowFraction.toFixed(3);
+          canvas.dataset.skiV4RightSnow=ride.v4.contact[1].snowFraction.toFixed(3);
           canvas.dataset.skiV4SkidDeceleration=p.skidDeceleration.toFixed(4);
           canvas.dataset.skiV4SnowResistance=p.snowResistance.toFixed(4);
           canvas.dataset.skiV4SnowPower=p.powerToSnow.toFixed(4);
@@ -7238,8 +7247,12 @@ export function createWorld(
         underwater ? (currentWaterZone === "lagoon" ? 70 : 58) : 270;
     }
 
-    // Ski-mode snowfall follows the player anywhere in the world.
-    snowfall.visible = state.activity === "ski" && aquatic !== "dive";
+    // Snow particles follow the *material*, not merely the selected sport.
+    // Legacy and V3 visual behavior is unchanged by this experimental gate.
+    snowfall.visible = state.activity === "ski" && aquatic !== "dive" &&
+      (!skiV4Enabled || (ride instanceof SkiV4Simulation ?
+        ride.v4.telemetry.snowCoverage>.35 :
+        (rideSnow?.snowCoverage(player.x,player.z)??0)>.35));
     canvas.dataset.snowing = String(snowfall.visible);
     canvas.dataset.reef = String(reefRoot.visible || tropicalReefRoot.visible);
     canvas.dataset.reefZone = currentWaterZone ?? "";

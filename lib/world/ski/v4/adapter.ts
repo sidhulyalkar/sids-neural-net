@@ -23,12 +23,15 @@ export class SkiV4Simulation extends SkiSimulation{
   private readonly physicalR=new Vector3();
   private readonly physicalU=new Vector3();
   constructor(height:(x:number,z:number)=>number,x:number,z:number,
-    constrain?:(from:Vector3,to:Vector3)=>{x:number;z:number}){
+    constrain?:(from:Vector3,to:Vector3)=>{x:number;z:number},
+    snowCoverage?:(x:number,z:number)=>number){
     super(height,x,z,"independent",false,constrain);
     this.contactSurface=height;
     this.v4=new SkiV4Physics(height,x,z,constrain?
       (from,to)=>constrain(this.from.set(from.x,height(from.x,from.z),from.z),
-        this.to.set(to.x,height(to.x,to.z),to.z)):undefined);
+        this.to.set(to.x,height(to.x,to.z),to.z)):undefined,
+      // Never permit an unlabelled render surface to masquerade as snow.
+      snowCoverage??(()=>0));
     this.sync();
   }
   override setHeading(x:number,z:number){
