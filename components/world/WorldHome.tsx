@@ -110,6 +110,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const [failed, setFailed] = useState(false);
   const [activity, setActivity] = useState<Activity>("run");
   const [sportsOpen, setSportsOpen] = useState(false);
+  const [mobileHubOpen, setMobileHubOpen] = useState(false);
   // A photograph opened from a Cairn should let the visitor return to that
   // story without teleporting or reopening the World navigation menu.
   const [cairnPhotoReturn,setCairnPhotoReturn]=useState<RegionId|null>(null);
@@ -410,6 +411,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       trial:trial.phase,skim:skim.phase}).canChangeMovement)return;
     setSessionExitSerial(n=>n+1);
     setActivity(next);
+    setMobileHubOpen(false);
     // A selected mode can be activated again without a React state change.
     // Restore movement focus on every activation, including that case.
     requestAnimationFrame(() => worldRoot.current?.querySelector("canvas")?.focus({ preventScroll: true }));
@@ -421,6 +423,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
     // Game sessions retain movement ownership until a safe free-roam state.
     if (!ready || quiet || aquatic !== "land" || !session.canChangeMovement) return;
     setSportsOpen(false);
+    setMobileHubOpen(false);
     if (sport === "disc") {
       const next = nextUnplayedDiscGolfHole(discGolfRound);
       startDiscHole(next ?? 0);
@@ -537,6 +540,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
     <div
       ref={worldRoot}
       className={styles.world}
+      data-mobile-hub-open={mobileHubOpen ? "true" : "false"}
       data-world-session={session.phase}
       data-world-game={session.active??"none"}
       data-world-state={failed ? "fallback" : entered ? "exploring" : "welcome"}
@@ -642,7 +646,18 @@ export function WorldHome({ content }: { content: WorldContent }) {
           )}
           {aquatic === "land" && (
              <nav className={styles.activityDock} aria-label="World movement and sports"
+               data-mobile-open={mobileHubOpen ? "true" : "false"}
                style={{display:worldGameActive||skim.phase!=="off"?"none":undefined}}>
+               <div className={styles.mobileHubHeader}>
+                 <span className={styles.mobileHubTitle}>{ACTIVITIES.find(item=>item.id===activity)?.label ?? "Explore"}</span>
+                 <button type="button" className={styles.mobileHubToggle}
+                   aria-controls="world-hub-contents" aria-expanded={mobileHubOpen}
+                   aria-label={mobileHubOpen ? "Collapse island controls" : "Expand island controls"}
+                   onClick={()=>setMobileHubOpen(open=>!open)}>
+                   <ChevronDown size={20} className={mobileHubOpen ? styles.sportsChevronOpen : styles.sportsChevron} aria-hidden="true"/>
+                 </button>
+               </div>
+               <div id="world-hub-contents" className={styles.hubContents}>
                <div className={styles.activityButtons} role="group" aria-label="Movement activity">
                  {ACTIVITIES.map(item => (
                    <button key={item.id} aria-label={item.name} aria-pressed={activity === item.id}
@@ -687,7 +702,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
                    <Trees aria-hidden="true"/><span>Skatepark</span>
                  </button>
                </div>
+               </div>
              </nav>
+           )}
+           {aquatic === "land" && skim.phase === "off" && !worldGameActive && (
+             <button type="button" className={styles.mobileActionButton}
+               disabled={!ready || quiet} aria-label={activityConfig(activity).action}
+               onClick={()=>setActionSerial(n=>n+1)}>{activityConfig(activity).action}</button>
            )}
            {skim.phase==="off" && skimNearby!==null && aquatic==="land" &&
             discGolf.phase==="off" && bigAir.phase!=="armed" && bigAir.phase!=="flying" &&
@@ -829,8 +850,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             )}
           </p>
           <div className={styles.touchHelp} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
-            {galleryPhase==="inside" ? "Use joysticks to walk and look · Tap photograph to open" :
-              aquatic === "land" ? "Tap ground to move · Drag to look" : "Tap water to swim · Drag to look"}
+            Left stick to move · Right stick to look · Tap nearby discoveries
           </div>
         </>
       )}

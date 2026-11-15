@@ -94,6 +94,7 @@ import {idleShastaSnowPlay,queueShastaSnowPlay,stepShastaSnowPlay,shastaSnowPose
 import {idleDiscGolfFetch,startDiscGolfFetch,stepDiscGolfFetch,discGolfFetchCameraPhase,discGolfHandoffTarget} from "@/lib/world/discGolfFetch";
 import * as THREE from "three/src/Three.Core.js";
 import worldStyles from "./world.module.css";
+import {createMobileJoysticks} from "./worldMobileJoysticks";
 import type { WebGLRenderer } from "three/src/renderers/WebGLRenderer.js";
 import {
   ARCADE_CAVE,
@@ -211,6 +212,9 @@ export function createWorld(
     "Explore Sid’s world. Use arrows or WASD to move, Shift to sprint, Space for your land activity, V to dive or surface, Q and E for dive depth, drag to look, Enter to discover, and M for the menu.",
   );
   host.appendChild(canvas);
+  // Mount controls on the world root, above its z-indexed WebGL scene.
+  const mobileJoysticks=createMobileJoysticks(host.parentElement ?? host);
+  canvas.dataset.mobileJoysticks=String(mobileJoysticks.enabled);
   const rideHud=document.createElement("div");
   rideHud.className=worldStyles.rideBoostHud;
   rideHud.setAttribute("aria-label","Land sports target boost");
@@ -3698,7 +3702,7 @@ export function createWorld(
     if(boardHit&&boardHit.distance<60){
       const index=boardHit.object.userData.skimBoardIndex as number;
       if(nearbySkimBoard(player)===index)doSkimAction("pickup",index);
-      else destination=boardPoint(index);
+      else if(!mobileJoysticks.enabled||e.pointerType==="mouse")destination=boardPoint(index);
       return;
     }
     if(galleryPhase==="inside"){
@@ -3717,21 +3721,23 @@ export function createWorld(
       if(discoveryId?.startsWith("gallery-paper:")){
         if(caveLayer==="paper"&&paperCaveInside(player))
           callbacks.onInteract(discoveryId);
-        else destination={x:-20,z:-34};
+        else if(!mobileJoysticks.enabled||e.pointerType==="mouse")destination={x:-20,z:-34};
         return;
       }
       if (discoveryId?.startsWith("game:")) {
         if (caveLayer === "arcade" && arcadeInside(player) && distance(player, arcadeWall) < 7.4) callbacks.onInteract(discoveryId);
-        else destination = { x: arcadeWall.x, z: arcadeWall.z - 4.2 };
+        else if(!mobileJoysticks.enabled||e.pointerType==="mouse")destination = { x: arcadeWall.x, z: arcadeWall.z - 4.2 };
         return;
       }
       const point = markerData.find((m) => m.id === discoveryId);
       if (point) {
         if (distance(player, point.point) < 7) callbacks.onInteract(point.id);
-        else destination = { ...point.point };
+        else if(!mobileJoysticks.enabled||e.pointerType==="mouse")destination = { ...point.point };
         return;
       }
     }
+    // Touch taps activate nearby objects but never teleport or begin autopilot walking.
+    if(mobileJoysticks.enabled && e.pointerType!=="mouse")return;
     const hit = ray.intersectObjects([ground, ...climbRocks])[0];
     if (hit)
       destination = {
@@ -4078,9 +4084,18 @@ export function createWorld(
     }
     skateWindupAt=-Infinity;skatePadPrimed=false;skatePadPushHeld=false;skateCarveLean=0;
     keys.clear();
+    mobileJoysticks.clear();
     travel.speed = 0;
     drag = null;
     destination = null;
+  }
+  function onCanvasBlur(){
+    // HUD buttons can receive focus while a separate finger holds the stick.
+    if(mobileJoysticks.enabled && state.entered && !state.paused && !document.hidden){
+      keys.clear();drag=null;destination=null;
+      return;
+    }
+    clearInput();
   }
   function clearHeldJetControls(){
     clearInput();
@@ -4106,7 +4121,7 @@ export function createWorld(
   canvas.addEventListener("pointercancel", cancelPointer);
   canvas.addEventListener("wheel", onWheel, { passive: false });
   window.addEventListener("keydown", onKey);
-  canvas.addEventListener("blur", clearInput);
+  canvas.addEventListener("blur", onCanvasBlur);
   window.addEventListener("keyup", keyUp);
   window.addEventListener("blur", clearHeldJetControls);
   document.addEventListener("visibilitychange", visibility);
@@ -4130,17 +4145,26 @@ export function createWorld(
       dt = worldFrameDelta(rawDelta);
     last = now;
     elapsed += dt;
+    mobileJoysticks.setVisible(state.entered&&!state.paused&&!jetSki&&!jetChoosing&&
+      discGolf.phase==="off");
+    if(mobileJoysticks.enabled){
+      yaw-=mobileJoysticks.look.x*dt*1.8;
+      pitch=THREE.MathUtils.clamp(pitch-mobileJoysticks.look.y*dt*.9,.22,.95);
+    }
     surfClock+=Math.max(0,Math.min(rawDelta,.5));
     let dx = 0,
       dz = 0;
     let showingDiscGolfIntro=false;
     if (state.entered) {
-      const forward =
-        Number(keys.has("w") || keys.has("arrowup")) -
-        Number(keys.has("s") || keys.has("arrowdown"));
-      const right =
-        Number(keys.has("d") || keys.has("arrowright")) -
-        Number(keys.has("a") || keys.has("arrowleft"));
+      const stick=mobileJoysticks.movement;
+      const usingStick=stick.x!==0||stick.y!==0;
+      const forward=usingStick?stick.y:
+        Number(keys.has("w")||keys.has("arrowup"))-
+        Number(keys.has("s")||keys.has("arrowdown"));
+      const right=usingStick?stick.x:
+        Number(keys.has("d")||keys.has("arrowright"))-
+        Number(keys.has("a")||keys.has("arrowleft"));
+      if(usingStick)destination=null;
       dx = -Math.sin(yaw) * forward + Math.cos(yaw) * right;
       dz = -Math.cos(yaw) * forward - Math.sin(yaw) * right;
       if(state.activity==="skate"&&!jetSki&&discGolf.phase==="off"){
@@ -4166,6 +4190,8 @@ export function createWorld(
           }else skatePadPushHeld=false;
         }else skatePadPushHeld=false;
       }
+      canvas.dataset.mobileMove=mobileJoysticks.movement.x.toFixed(2)+","+mobileJoysticks.movement.y.toFixed(2);
+      canvas.dataset.mobileLook=mobileJoysticks.look.x.toFixed(2)+","+mobileJoysticks.look.y.toFixed(2);
       if (destination) {
         dx = destination.x - player.x;
         dz = destination.z - player.z;
@@ -7850,6 +7876,7 @@ export function createWorld(
         }
       }
       if (state.paused) {
+        mobileJoysticks.setVisible(false);
         clearInput();
         resetRideBoost();
         cancelAnimationFrame(raf);
@@ -7862,6 +7889,7 @@ export function createWorld(
       mysticElectricity.dispose();
       mysticForest.dispose();
       skateGrove.dispose();
+      mobileJoysticks.dispose();
 
       shoreLife.dispose();
       skimWake.dispose();
@@ -7898,7 +7926,7 @@ export function createWorld(
       canvas.removeEventListener("pointercancel", cancelPointer);
       canvas.removeEventListener("wheel", onWheel);
       window.removeEventListener("keydown", onKey);
-      canvas.removeEventListener("blur", clearInput);
+      canvas.removeEventListener("blur", onCanvasBlur);
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("blur", clearHeldJetControls);
       document.removeEventListener("visibilitychange", visibility);

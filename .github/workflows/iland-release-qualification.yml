@@ -92,6 +92,8 @@ jobs:
           exit 1
       - name: Real desktop + mobile HUD and sport control entry
         run: node scripts/playtest-sport-hub.mjs
+      - name: Real simultaneous mobile movement and camera controls
+        run: node scripts/playtest-world-mobile-dual-stick.mjs
       - name: Cairn discovery, links and mobile reading
         run: node scripts/playtest-cairn-stories.mjs
       - name: Snow halfpipe entry and unarmed free-ski invariants
