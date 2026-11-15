@@ -59,7 +59,10 @@ export class SnowTracks {
     // in the physical contact solver. Never search arbitrary floating tips
     // or legacy sole deficits for a plausible-looking footprint.
     const loaded=physical.sections.filter(section=>section.load>0);
-    if(!physical.loaded||physical.snowFraction<.5||physical.snowLoad<.1||!loaded.length){this.active[i]=false;continue;}
+    if(!physical.loaded||physical.edgeContactStations===0||
+       physical.snowFraction<.5||physical.snowLoad<.1||!loaded.length){
+      this.active[i]=false;continue;
+    }
     const section=loaded.reduce((a,b)=>a.gap<=b.gap?a:b);
     for(let w=-1;w<=1;w++){
      this.probe.set(w*SKI_HALF_WIDTH,SKI_SOLE_Y+section.flex,section.along)
