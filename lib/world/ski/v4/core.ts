@@ -5,9 +5,11 @@
 export type Vec2={x:number;z:number};
 export type Vec3={x:number;y:number;z:number};
 export type Surface=(x:number,z:number)=>number;
+export type SnowCoverage=(x:number,z:number)=>number;
+export type V4SurfaceMode="snow"|"mixed"|"ground"|"air";
 export type SkiV4Phase="riding"|"charging"|"air"|"stumble"|"crash"|"recovery";
 export type SkiV4Landing="none"|"clean"|"rough"|"crash";
-export type SkiV4TurnRegime="glide"|"carve"|"transition"|"skid"|"unsupported"|"air";
+export type SkiV4TurnRegime="glide"|"carve"|"transition"|"skid"|"unsupported"|"air"|"ground";
 export type SkiV4Input={steer:number;brake:number;tuck:boolean;jump:boolean;pitch:number;roll:number;grab:boolean};
 export const NEUTRAL_V4_INPUT:Readonly<SkiV4Input>={steer:0,brake:0,tuck:false,jump:false,pitch:0,roll:0,grab:false};
 export const SKI_V4_TUNING=Object.freeze({
@@ -16,7 +18,8 @@ export const SKI_V4_TUNING=Object.freeze({
   skidVelocityScale:1.25,baseSnowResistance:0.28,airDrag:0.055,
   wedgeAngle:0.70,snowplowMu:2.35,brakeRise:2,brakeRelease:4,rollInertia:0.14,
   bootStance:0.23,skiHalfLength:1.275,skiHalfWidth:0.095,
-  maxSoleFlex:0.16,contactTolerance:0.05,chargeMax:0.68,
+  maxSoleFlex:0.16,contactTolerance:0.05,groundSpeed:3.4,
+  groundResponse:5.8,groundYawRate:2.8,chargeMax:0.68,
   minPop:3.3,maxPop:5.5,airSpinRate:7.2,airFlipRate:4.6,
 });
 const clamp=(n:number,low:number,high:number)=>Math.min(high,Math.max(low,n));
@@ -24,6 +27,8 @@ const radians=(a:number,b:number)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const mag=(v:Vec2)=>Math.hypot(v.x,v.z);
 export type SkiV4Contact={
   side:-1|1;boot:Vec3;normal:Vec3;load:number;loaded:boolean;
+  /** Geometry can support a boot on rock; only snowLoad supplies ski-edge force. */
+  snowFraction:number;snowLoad:number;
   edgeAngle:number;contactFraction:number;contactStations:number;
   supportStart:number;supportEnd:number;minGap:number;meanGap:number;maxGap:number;
   maxBend:number; pitch:number;crossSlope:number;
@@ -37,6 +42,7 @@ export type SkiV4Telemetry={
   /** True measured velocity-versus-ski angle, not an input request. */
   actualSlipRadians:number;carveQuality:number;contactCoverage:number;
   observedTurnRate:number;observedTurnRadius:number|null;turnRegime:SkiV4TurnRegime;
+  surfaceMode:V4SurfaceMode;snowCoverage:number;
 };
 export type SnowSample={height:number;dx:number;dz:number;normal:Vec3};
 
@@ -118,7 +124,7 @@ export function solveSkiContact(height:Surface,point:Vec2,yaw:number,
   }
   const loaded=patches>0;
   return {side,boot:{x,y:snow.height+lift,z},normal:snow.normal,load:loaded?load:0,
-    loaded,edgeAngle,contactFraction:patches/5,contactStations:patches,
+    loaded,snowFraction:1,snowLoad:loaded?load:0,edgeAngle,contactFraction:patches/5,contactStations:patches,
     supportStart:loaded?supportStart:0,supportEnd:loaded?supportEnd:0,
     minGap:min,meanGap:sum/17,maxGap:max,maxBend,pitch:bestPitch,crossSlope,sections};
 }
@@ -137,18 +143,23 @@ export class SkiV4Physics{
   tick=0;remainder=0;droppedSeconds=0;
   edge=0;pressure=0;grip=0;
   brakeEngagement=0;
+  surfaceSnowCoverage=1;
   /** Player-controlled ski activity starts in a planted stance until first command. */
   awaitingStart=true;
   readonly telemetry:SkiV4Telemetry={tick:0,speed:0,edgeRadians:0,attackRadians:0,
     carveAcceleration:0,skidDeceleration:0,gravityAcceleration:{x:0,z:0},
     leftLoad:.5,rightLoad:.5,snowResistance:0,powerToSnow:0,heading:0,phase:"riding",
     actualSlipRadians:0,carveQuality:0,contactCoverage:1,
-    observedTurnRate:0,observedTurnRadius:null,turnRegime:"glide"};
+    observedTurnRate:0,observedTurnRadius:null,turnRegime:"glide",
+    surfaceMode:"snow",snowCoverage:1};
   private heldJump=false;
   private phaseAge=0;
   private readonly initSurface:SnowSample;
   constructor(private readonly surface:Surface,x:number,z:number,
-    private readonly constrain?:(from:Vec2,to:Vec2)=>Vec2){
+    private readonly constrain?:(from:Vec2,to:Vec2)=>Vec2,
+    // Synthetic test slopes default to snow. The island always supplies the
+    // real, triangle-interpolated snow attribute; unknown rendered snow is zero.
+    private readonly groundSnowCoverage:SnowCoverage=()=>1){
     this.initSurface=sampleSnow(surface,x,z);
     this.position={x,y:this.initSurface.height,z};
     this.contact=[solveSkiContact(surface,{x,z},0,0,-1,.5),solveSkiContact(surface,{x,z},0,0,1,.5)];
@@ -192,10 +203,31 @@ export class SkiV4Physics{
     const point={x:this.position.x,z:this.position.z};
     this.contact[0]=solveSkiContact(this.surface,point,this.yaw,this.edgeAngle,-1,loadLeft);
     this.contact[1]=solveSkiContact(this.surface,point,this.yaw,this.edgeAngle,1,1-loadLeft);
+    // The *material* beneath each ski, including its loaded binding patch,
+    // determines whether the edge may cut snow. Merely touching any height
+    // field is not evidence of ski traction.
+    const heading=frame(this.yaw).f;
+    for(const contact of this.contact){
+      let coverage=0;
+      for(const s of [-.3,0,.3]){
+        const v=this.groundSnowCoverage(contact.boot.x+heading.x*s,
+          contact.boot.z+heading.z*s);
+        coverage+=Number.isFinite(v)?clamp(v,0,1)/3:0;
+      }
+      contact.snowFraction=coverage;
+      contact.snowLoad=contact.loaded?contact.load*coverage:0;
+    }
+    this.surfaceSnowCoverage=clamp(
+      (this.contact[0].snowFraction+this.contact[1].snowFraction)*.5,0,1);
     const norm=this.contact[0].load+this.contact[1].load;
     this.pressure=norm;
-    const covered=this.contact.reduce((sum,c)=>sum+c.load*c.contactFraction,0);
+    const covered=this.contact.reduce((sum,c)=>sum+c.snowLoad*c.contactFraction,0);
     this.grip=covered*SKI_V4_TUNING.carveMu*Math.abs(Math.sin(this.edgeAngle));
+  }
+  private updateSurfaceTelemetry(){
+    const coverage=this.surfaceSnowCoverage;
+    this.telemetry.snowCoverage=coverage;
+    this.telemetry.surfaceMode=coverage<.08?"ground":coverage>.92?"snow":"mixed";
   }
   private supportHeight(snowHeight:number){
     const supports=this.contact.filter(s=>s.loaded);
@@ -211,7 +243,8 @@ export class SkiV4Physics{
     const brake=clamp(Number.isFinite(input.brake)?input.brake:0,0,1);
     // Weight transfer into a braking wedge takes time, and releasing the edge
     // is quicker. A high drag coefficient represents snow ploughing, not air drag.
-    this.brakeEngagement+=clamp(brake-this.brakeEngagement,
+    const snowBrake=brake*this.surfaceSnowCoverage;
+    this.brakeEngagement+=clamp(snowBrake-this.brakeEngagement,
       -t.brakeRelease*dt,t.brakeRise*dt);
     const released=this.heldJump&&!input.jump;
     this.heldJump=Boolean(input.jump);
@@ -220,7 +253,7 @@ export class SkiV4Physics{
     if(this.awaitingStart&&this.phase==="riding"){
       if(Math.abs(steer)>.15||input.tuck||input.jump)this.awaitingStart=false;
       else{
-        this.updateContacts(0);
+        this.updateContacts(0);this.updateSurfaceTelemetry();
         this.velocity.x=0;this.velocity.y=0;this.velocity.z=0;
         this.position.y=this.supportHeight(this.surface(this.position.x,this.position.z));
         this.telemetry.tick=this.tick;this.telemetry.speed=0;
@@ -268,6 +301,7 @@ export class SkiV4Physics{
       this.telemetry.carveQuality=0;this.telemetry.contactCoverage=0;
       this.telemetry.actualSlipRadians=0;this.telemetry.observedTurnRate=0;
       this.telemetry.observedTurnRadius=null;this.telemetry.turnRegime="air";
+      this.telemetry.surfaceMode="air";this.telemetry.snowCoverage=0;
       this.telemetry.phase=this.phase;return;
     }
     const recovering=this.phase==="crash"||this.phase==="stumble"||this.phase==="recovery";
@@ -275,12 +309,18 @@ export class SkiV4Physics{
       this.phase=this.phase==="crash"?"recovery":"riding";this.phaseAge=0;
     }
     const impaired=this.phase==="crash"||this.phase==="stumble"||this.phase==="recovery";
-    const targetEdge=impaired?0:steer*t.maxEdge;
+    // Determine snow under BOTH bindings before requesting an edge. Leaving
+    // snow gently retires the edge; physical snow forces are gated immediately.
+    this.updateContacts(mag(this.velocity));
+    this.updateSurfaceTelemetry();
+    const snowBlend=this.surfaceSnowCoverage;
+    const groundBlend=1-snowBlend;
+    const targetEdge=impaired?0:steer*t.maxEdge*snowBlend;
     this.edgeAngle+=clamp(targetEdge-this.edgeAngle,-t.edgeRise*dt,t.edgeRise*dt);
     this.edge=this.edgeAngle/t.maxEdge;
     const speed=mag(this.velocity);
     const snow=sampleSnow(this.surface,this.position.x,this.position.z);
-    this.updateContacts(speed);
+    this.updateContacts(speed);this.updateSurfaceTelemetry();
     // Reconcile contact under each boot. Do not use the highest tip/lip as a
     // fictitious support point for the entire skier.
     this.position.y=this.supportHeight(snow.height);
@@ -290,7 +330,7 @@ export class SkiV4Physics{
     // Carve centripetal acceleration acts perpendicular to actual velocity:
     // it changes the path, never injects forward kinetic energy.
     const sinEdge=Math.sin(this.edgeAngle);
-    const contactRatio=clamp(this.contact.reduce((n,c)=>n+c.load*c.contactFraction,0),0,1);
+    const contactRatio=clamp(this.contact.reduce((n,c)=>n+c.snowLoad*c.contactFraction,0),0,1);
     const requestedCarve=(speed*speed/t.sidecutRadius)*Math.abs(sinEdge);
     const maxCarve=normalAcceleration*t.carveMu*contactRatio;
     const carvedRequested=impaired?0:Math.sign(sinEdge)*Math.min(requestedCarve,maxCarve);
@@ -300,16 +340,18 @@ export class SkiV4Physics{
     // Near-parallel skis carve at cruising speed. Boot pivot assists only
     // when moving slowly, otherwise even a held edge becomes a skidded turn.
     const pivotAttack=.025+.24*clamp((2.5-speed)/2.5,0,1);
-    const targetAttack=impaired?0:steer*
+    const targetAttack=impaired?0:steer*snowBlend*
       (pivotAttack+this.brakeEngagement*(t.maxSkiAttack-pivotAttack));
     this.attackAngle+=clamp(targetAttack-this.attackAngle,-t.attackRise*dt,t.attackRise*dt);
     // Ski yaw follows momentum but can be twisted relative to it by the boot;
     // this produces real shearing forces rather than teleporting velocity.
     const oldYaw=this.yaw;
-    if(speed>.14){
+    if(speed>.14&&snowBlend>.01){
       const targetYaw=Math.atan2(this.velocity.x,this.velocity.z)+this.attackAngle;
-      this.yaw+=clamp(radians(targetYaw,this.yaw),-2.8*dt,2.8*dt);
+      this.yaw+=clamp(radians(targetYaw,this.yaw),-2.8*dt,2.8*dt)*snowBlend;
     }
+    // On grass/rock this is ordinary avatar turning, not ski edging.
+    this.yaw+=steer*t.groundYawRate*dt*groundBlend;
     this.yawRate=radians(this.yaw,oldYaw)/dt;
     const skiRight=frame(this.yaw).r;
     const lateralSlip=this.velocity.x*skiRight.x+this.velocity.z*skiRight.z;
@@ -338,8 +380,17 @@ export class SkiV4Physics{
     const cosTurn=Math.cos(carveStep),sinTurn=Math.sin(carveStep);
     const rotatedX=before.x*cosTurn+before.z*sinTurn;
     const rotatedZ=before.z*cosTurn-before.x*sinTurn;
-    const forceX=gx+shear*skiRight.x-resistance*travelForward.x;
-    const forceZ=gz+shear*skiRight.z-resistance*travelForward.z;
+    // Bare ground uses deliberate W/S forward/back locomotion, with smooth
+    // acceleration and deceleration, NOT an invisible ski-edge turn. Ground
+    // grip is complementary to painted snow coverage through the transition.
+    const groundDesired=clamp(input.pitch,-1,1)*t.groundSpeed;
+    const groundHeading=frame(this.yaw).f;
+    const groundX=groundHeading.x*groundDesired;
+    const groundZ=groundHeading.z*groundDesired;
+    const groundAx=(groundX-before.x)*t.groundResponse*groundBlend;
+    const groundAz=(groundZ-before.z)*t.groundResponse*groundBlend;
+    const forceX=gx*snowBlend+shear*skiRight.x-resistance*travelForward.x+groundAx;
+    const forceZ=gz*snowBlend+shear*skiRight.z-resistance*travelForward.z+groundAz;
     this.velocity.x=rotatedX+forceX*dt;
     this.velocity.z=rotatedZ+forceZ*dt;
     // Opposing snow forces cannot carry velocity through zero and reverse it.
@@ -354,7 +405,7 @@ export class SkiV4Physics{
     const supportBeforeMove=this.position.y;
     // Rendering and forces consume the same CURRENT boot patches. Never report
     // yesterday's ski contact after the skier has moved into another bank.
-    this.updateContacts(mag(this.velocity));
+    this.updateContacts(mag(this.velocity));this.updateSurfaceTelemetry();
     this.position.y=this.supportHeight(afterSnow.height);
     this.velocity.y=(this.position.y-supportBeforeMove)/dt;
     if(!impaired&&input.jump){
@@ -392,7 +443,8 @@ export class SkiV4Physics{
     this.telemetry.contactCoverage=contactRatio;
     this.telemetry.observedTurnRate=observedTurnRate;
     this.telemetry.observedTurnRadius=observedTurnRadius;
-    this.telemetry.turnRegime=contactRatio<.01?"unsupported":
+    this.telemetry.turnRegime=this.telemetry.surfaceMode==="ground"?"ground":
+      contactRatio<.01?"unsupported":
       this.brakeEngagement>.25||Math.abs(actualSlipRadians)>.2?"skid":
       Math.abs(this.edgeAngle)>.13&&Math.abs(carved)>.1&&
       Math.abs(actualSlipRadians)<.10&&contactRatio>.45?"carve":
