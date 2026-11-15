@@ -1,0 +1,60 @@
+name: Arcade Cavern Artwork Review
+on:
+  pull_request:
+    paths:
+      - "components/world/**"
+      - "lib/world/arcade*"
+      - "public/world/arcade-cavern/**"
+      - "scripts/playtest-arcade-interior.mjs"
+      - "tests/world-arcade-cavern-art.test.ts"
+      - ".github/workflows/arcade-cavern-artwork-review.yml"
+  workflow_dispatch:
+
+jobs:
+  cavern-mural-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      NEXT_PUBLIC_SKI_V3: "0"
+      WORLD_BASE_URL: http://127.0.0.1:3000/world
+      WORLD_AUDIT_DIR: artifacts/world/arcade-entertainment
+      PLAYWRIGHT_MODULE_ROOT: /tmp/cavern-art-playwright/node_modules/playwright
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install website dependencies
+        run: npm ci
+      - name: Validate exact art manifests, local files and wall geometry
+        run: node --import tsx --test tests/world-arcade-cavern-art.test.ts
+      - name: Install supported Chromium
+        run: |
+          npm install --prefix /tmp/cavern-art-playwright --no-package-lock playwright@1.56.1
+          /tmp/cavern-art-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start the exact-head /world route
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/arcade-cavern-browser.log 2>&1 &
+          for i in $(seq 1 100); do
+            if curl -fsS "$WORLD_BASE_URL" >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 100 /tmp/arcade-cavern-browser.log
+          exit 1
+      - name: Walk cavern, verify mural decode and capture screenshots
+        run: node scripts/playtest-arcade-interior.mjs
+      - name: Save exact-head record even if browser fails
+        if: always()
+        run: |
+          mkdir -p "$WORLD_AUDIT_DIR"
+          git rev-parse HEAD > "$WORLD_AUDIT_DIR/tested-sha.txt"
+          cp /tmp/arcade-cavern-browser.log "$WORLD_AUDIT_DIR/server.log" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arcade-cavern-artwork-${{ github.sha }}
+          path: artifacts/world/arcade-entertainment/
+          if-no-files-found: warn
