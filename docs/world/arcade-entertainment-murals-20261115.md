@@ -13,6 +13,11 @@ geometry changes**.
 - **TV sci-fi comedy: OUT OF THIS WORLD**. Right upper wall, between
   the entry landscape and the game niches,
   `z=-75.48..-71.75, v=.56..95`. Uses the original local SVG.
+- **Live-action sitcoms: AFTER HOURS**. Original neon graffiti of a campus
+  study table, dive bar, fantasy draft and trailer-park gathering; this adds
+  motifs for Community, It’s Always Sunny, The League, Workaholics,
+  Trailer Park Boys, and Blue Mountain State. Right upper rear section,
+  `z=-71.60..-68.10, v=.56..95`. No actor likenesses or show screenshots.
 - **Sports fandom**. Existing Chelsea / Patriots / Warriors crest tribute
   stays in the lower right zone.
 - **Rear-wall centerpiece**. A responsive 4.8:1 composite of three original,

@@ -12,16 +12,16 @@ import {SHASTA_PHOTOS,NATURE_PHOTOS,CAVERN_GAME_ART,CAVERN_GAME_PANEL_ART,CAVERN
 
 test("Curated arcade includes anime and comedy while preserving the three real game covers",()=>{
  assert.deepEqual(validateArcadeArtManifest(ARCADE_CAVERN_MURALS),[]);
- assert.equal(ARCADE_CAVERN_MURALS.length,9);
+ assert.equal(ARCADE_CAVERN_MURALS.length,10);
  const ids=ARCADE_CAVERN_MURALS.map(m=>m.id);
  assert.deepEqual(ids,[
   "wild-places-scenic-wall","my-games-gallery","wild-places-rear",
   "home-stand","raid-ascend","striker-setpoint","out-of-this-world",
-  "fandom-feature-panorama","shasta-rear-portrait",
+  "after-hours-comedy","fandom-feature-panorama","shasta-rear-portrait",
  ]);
  assert.deepEqual(ARCADE_CAVERN_MURALS.filter(m=>
-  ["anime","comedy","sport-anime"].includes(m.theme)).map(m=>m.theme),
-  ["anime","sport-anime","comedy"]);
+  ["anime","comedy","sport-anime","sitcom"].includes(m.theme)).map(m=>m.theme),
+  ["anime","sport-anime","comedy","sitcom"]);
  const left=ARCADE_CAVERN_MURALS.filter(m=>m.surface==="left");
  assert.deepEqual(left.map(m=>m.id),["raid-ascend","striker-setpoint"]);
  const games=ARCADE_CAVERN_MURALS.find(m=>m.theme==="game-gallery")!;
@@ -153,7 +153,7 @@ test("Authored cavern artwork is local, attributed, unique and usable without ne
   "/world/arcade-cavern/sports/warriors-crest.png",
  ]);
  assert.equal(ARCADE_MURAL_ART_ASSETS.sports!.authorship,"third-party-trademark");
- for(const theme of ["anime","sport-anime","comedy"] as const){
+ for(const theme of ["anime","sport-anime","comedy","sitcom"] as const){
   const item=ARCADE_MURAL_ART_ASSETS[theme]!;
   assert.equal(item.authorship,"original");
   assert.match(item.src,/^\/world\/arcade-cavern\/[-a-z/]+\.svg$/);
@@ -220,6 +220,7 @@ test("Every entertainment art placement has acceptable wall aspect and a local o
   anime:"/world/arcade-cavern/anime/raid-ascend.svg",
   "sport-anime":"/world/arcade-cavern/sport-anime/striker-setpoint.svg",
   comedy:"/world/arcade-cavern/comedy/out-of-this-world.svg",
+  sitcom:"/world/arcade-cavern/comedy/after-hours.svg",
  };
  for(const [theme,src] of Object.entries(expected)){
   const mural=ARCADE_CAVERN_MURALS.find(m=>m.theme===theme);

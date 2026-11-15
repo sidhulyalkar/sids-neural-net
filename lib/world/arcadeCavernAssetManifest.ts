@@ -29,6 +29,14 @@ export const ARCADE_MURAL_ART_ASSETS:Partial<
   revision:1,
   presentation:"sports-crest-composite",
  },
+ sitcom: {
+  src:"/world/arcade-cavern/comedy/after-hours.svg",
+  authorship:"original",
+  attribution:"Original After Hours illustration for Sid’s entertainment cavern, depicting ensemble sitcom motifs without actor likenesses",
+  opacity:.97,
+  revision:1,
+  presentation:"original-texture",
+ },
  "fandom-panorama": {
   src:"/world/arcade-cavern/hero/fandom-triptych.svg",
   authorship:"original",

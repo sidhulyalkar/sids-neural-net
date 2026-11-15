@@ -28,7 +28,7 @@ try{
    calls:Number(el.dataset.arcadeGraffitiDrawCalls),
    triangles:Number(el.dataset.arcadeGraffitiTriangles),
   }));
-  assert.equal(evidence.metrics.count,9,"all nine entertainment, nature, sports and game wall murals must mount");
+  assert.equal(evidence.metrics.count,10,"all ten entertainment, nature, sports and game wall murals must mount");
   assert.ok(evidence.metrics.calls<=22,"art must use a bounded draw batch");
   assert.ok(evidence.metrics.triangles<=45000,"stay inside geometry budget");
   assert.equal(await canvas.getAttribute("data-arcade-architecture"),
@@ -36,7 +36,7 @@ try{
   // A source-authored local title texture must really load into WebGL.
   // The procedural fallback is not accepted as evidence of that asset.
   await page.waitForFunction(()=>Number(
-   document.querySelector("canvas")?.dataset.arcadeAuthoredMuralsReady)>=9,
+   document.querySelector("canvas")?.dataset.arcadeAuthoredMuralsReady)>=10,
    null,{timeout:40000});
   // Verify decoded album counts through runtime diagnostics below, not
   // a hard-coded old photo ID. Swapping albums should not require QA edits.
@@ -62,6 +62,7 @@ try{
    "/world/arcade-cavern/anime/raid-ascend.svg",
    "/world/arcade-cavern/sport-anime/striker-setpoint.svg",
    "/world/arcade-cavern/comedy/out-of-this-world.svg",
+   "/world/arcade-cavern/comedy/after-hours.svg",
    "/world/arcade-cavern/hero/fandom-triptych.svg",
   ];
   for(const source of entertainmentArt){

@@ -592,12 +592,12 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
   const material=wall.material as THREE.MeshStandardMaterial;
   material.map=painted;
   material.opacity=opacity;
-  if(source&&["neural","anime","comedy"].includes(theme)){
+  if(source&&["neural","anime","comedy","sport-anime","sitcom","fandom-panorama"].includes(theme)){
    const mask=authoredNeonMask(source,three);
    textures.push(mask);
    material.emissive=new three.Color("#ffffff");
    material.emissiveMap=mask;
-   material.emissiveIntensity=.85;
+   material.emissiveIntensity=theme==="fandom-panorama"?.48:.77;
   }else{
    // Tiny ink bounce makes broad ivory lettering and the genuine club
    // crests remain readable from the player's normal camera in dim basalt.
