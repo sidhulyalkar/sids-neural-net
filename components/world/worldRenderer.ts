@@ -5411,14 +5411,25 @@ export function createWorld(
         }
         canvas.dataset.skiEngine=skiV4Enabled?"v4":skiV3Enabled?"v3":"legacy";
         skiV4Notice.style.display=skiV4Enabled&&state.entered&&mode==="ski"?"block":"none";
-        skiV4Notice.textContent=ride instanceof SkiV4Simulation&&ride.v4.awaitingStart
-          ?"SNOW-FORCE V4 · W / ↑ TO GLIDE · EXPERIMENTAL"
+        skiV4Notice.textContent=ride instanceof SkiV4Simulation
+          ?ride.v4.awaitingStart
+            ?"SNOW-FORCE V4 · W / ↑ TO GLIDE · EXPERIMENTAL"
+            :ride.v4.telemetry.turnRegime==="unsupported"
+              ?"SNOW-FORCE V4 · UNSUPPORTED SKI CONTACT · EXPERIMENTAL"
+              :"SNOW-FORCE V4 · "+ride.v4.telemetry.turnRegime.toUpperCase()+
+                " · EDGE "+Math.round(Math.abs(ride.v4.edgeAngle)*180/Math.PI)+"° · EXPERIMENTAL"
           :"SNOW-FORCE V4 · EXPERIMENTAL";
         if(ride instanceof SkiV4Simulation){
           const p=ride.v4.telemetry;
           canvas.dataset.skiV4EdgeRadians=p.edgeRadians.toFixed(4);
           canvas.dataset.skiV4AttackRadians=p.attackRadians.toFixed(4);
           canvas.dataset.skiV4CarveAcceleration=p.carveAcceleration.toFixed(4);
+          canvas.dataset.skiV4ActualSlipRadians=p.actualSlipRadians.toFixed(4);
+          canvas.dataset.skiV4CarveQuality=p.carveQuality.toFixed(3);
+          canvas.dataset.skiV4ContactCoverage=p.contactCoverage.toFixed(3);
+          canvas.dataset.skiV4ObservedTurnRate=p.observedTurnRate.toFixed(4);
+          canvas.dataset.skiV4ObservedTurnRadius=p.observedTurnRadius===null?"":p.observedTurnRadius.toFixed(3);
+          canvas.dataset.skiV4TurnRegime=p.turnRegime;
           canvas.dataset.skiV4SkidDeceleration=p.skidDeceleration.toFixed(4);
           canvas.dataset.skiV4SnowResistance=p.snowResistance.toFixed(4);
           canvas.dataset.skiV4SnowPower=p.powerToSnow.toFixed(4);
