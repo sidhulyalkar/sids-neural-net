@@ -29,6 +29,14 @@ export const ARCADE_MURAL_ART_ASSETS:Partial<
   revision:1,
   presentation:"sports-crest-composite",
  },
+ "fandom-panorama": {
+  src:"/world/arcade-cavern/hero/fandom-triptych.svg",
+  authorship:"original",
+  attribution:"Original locally authored entertainment graffiti compositions, combined into a panoramic cavern feature",
+  opacity:.97,
+  revision:1,
+  presentation:"original-texture",
+ },
  // Locally shipped original SVG murals. No external runtime hotlinks, no
  // official show screenshots, and no duplicated copyrighted characters.
  anime: {

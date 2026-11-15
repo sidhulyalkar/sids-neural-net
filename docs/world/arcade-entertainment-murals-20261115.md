@@ -15,8 +15,12 @@ geometry changes**.
   `z=-75.48..-71.75, v=.56..95`. Uses the original local SVG.
 - **Sports fandom**. Existing Chelsea / Patriots / Warriors crest tribute
   stays in the lower right zone.
+- **Rear-wall centerpiece**. A responsive 4.8:1 composite of three original,
+  locally authored sports-anime, fantasy and comedy SVGs replaces the former
+  three-photo rear banner. Its declared raster size is 2048 x 427 to cap
+  GPU texture memory while retaining a vector source master.
 - **Personal highlights**. Real Shasta photo remains on the rear wall,
-  alongside travel imagery.
+  alongside travel imagery in the retained scenic side gallery.
 - **All currently playable Game Network titles**. Stretchicorn, uniRico,
   and Unicorn Stampede preserve their original art and selection targets.
 
@@ -69,3 +73,15 @@ accidentally resolve `/world/world/...` URLs.
 The independent `Arcade Cavern Artwork Review` GitHub workflow captures
 screenshots and a JSON trace at its own exact head, even if skiing tests fail.
 This is **not** a replacement for physical-GPU timing or a manual art review.
+
+
+### Visual review from first browser evidence
+
+The first exact-head screenshot pass showed that the upper rear wall carried
+three travel photos. Because the three game targets command the player's
+natural forward view, the entertainment murals were easy to miss on the
+sidewalls. The new panoramic original-art triptych uses that rear title band
+without covering the existing center game hitbox, and the mountain/travel
+photo galleries remain on the side walls. Re-run screenshot evidence after
+this change and inspect legibility at gameplay distance, not merely asset
+loading.

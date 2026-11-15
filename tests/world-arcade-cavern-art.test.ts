@@ -17,7 +17,7 @@ test("Curated arcade includes anime and comedy while preserving the three real g
  assert.deepEqual(ids,[
   "wild-places-scenic-wall","my-games-gallery","wild-places-rear",
   "home-stand","raid-ascend","striker-setpoint","out-of-this-world",
-  "panorama-photo-gallery","shasta-rear-portrait",
+  "fandom-feature-panorama","shasta-rear-portrait",
  ]);
  assert.deepEqual(ARCADE_CAVERN_MURALS.filter(m=>
   ["anime","comedy","sport-anime"].includes(m.theme)).map(m=>m.theme),
@@ -47,14 +47,14 @@ test("Curated arcade includes anime and comedy while preserving the three real g
   assert.match(poster.src,/^\/world\/arcade-cavern\/games\/[-a-z0-9]+\.(?:svg|png)$/);
  assert.ok(ARCADE_CAVERN_MURALS.every(m=>!validateCavernMural(m)));
 });
-test("Rear photo panorama fits its real-world aspect and game panels stay clear",()=>{
- const banner=ARCADE_CAVERN_MURALS.find(m=>m.id==="panorama-photo-gallery")!;
+test("Rear entertainment panorama fits its 4.8:1 source and clears game panels",()=>{
+ const banner=ARCADE_CAVERN_MURALS.find(m=>m.id==="fandom-feature-panorama")!;
  assert.equal(banner.surface,"back");
  assert.ok(banner.u0!==undefined&&banner.u1!==undefined);
  const width=(banner.u1!-banner.u0!)*12.45;
  const height=(banner.v1-banner.v0)*5.45;
- assert.ok(Math.abs(width/height-2400/480)<.16,
-  "panorama image aspect must not stretch across the rock");
+ assert.ok(Math.abs(width/height-4800/1000)<.16,
+  "entertainment art aspect must not stretch across the rock");
  assert.ok(width<8&&height>1.25,
   "panoramic photo mural must fit within the protected rear panel");
  for(const id of ["shasta-rear-portrait","wild-places-rear"]){
@@ -235,4 +235,21 @@ test("Every entertainment art placement has acceptable wall aspect and a local o
   assert.ok(ratio>1.1&&ratio<2.2,
    "avoid squeezing/stretching mural "+theme+": "+ratio.toFixed(2));
  }
+});
+
+
+test("Rear headline mural is an optimized locally sourced vector panorama",()=>{
+ const theme="fandom-panorama";
+ const art=ARCADE_MURAL_ART_ASSETS[theme]!;
+ assert.equal(art.authorship,"original");
+ assert.equal(art.presentation,"original-texture");
+ assert.equal(art.src,"/world/arcade-cavern/hero/fandom-triptych.svg");
+ assert.ok(existsSync("public"+art.src));
+ const svg=readFileSync("public"+art.src,"utf8");
+ assert.match(svg,/viewBox="0 0 4800 1000"/);
+ assert.match(svg,/width="2048" height="427"/);
+ assert.equal((svg.match(/<svg\b/g)||[]).length,4,
+  "one combined mural plus the three original panels");
+ assert.doesNotMatch(svg,/<image\b[^>]*href="https?:/,
+  "all hero imagery must be embedded and first-party");
 });

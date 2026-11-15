@@ -62,6 +62,7 @@ try{
    "/world/arcade-cavern/anime/raid-ascend.svg",
    "/world/arcade-cavern/sport-anime/striker-setpoint.svg",
    "/world/arcade-cavern/comedy/out-of-this-world.svg",
+   "/world/arcade-cavern/hero/fandom-triptych.svg",
   ];
   for(const source of entertainmentArt){
    const response=await page.request.get(origin+source);
@@ -80,7 +81,6 @@ try{
   await page.waitForFunction(()=>{
    const d=document.querySelector("canvas")?.dataset;
    return Number(d?.arcadeNaturePhotos)>=1&&
-    Number(d?.arcadeFeaturePhotos)>=1&&
     Number(d?.arcadeGamePosters)===3&&
     Number(d?.arcadeGamePlaquesReady)===3;
   },null,{timeout:40000});
@@ -130,7 +130,7 @@ try{
   }));
   assert.equal(evidence.interior.layer,"arcade");
   assert.equal(evidence.interior.graffiti,"asset-first-v3");
-  await page.screenshot({path:path.join(out,"03-photo-gallery-main-chamber.png")});
+  await page.screenshot({path:path.join(out,"03-entertainment-feature-main-chamber.png")});
   // Rotate the gameplay camera to inspect both original side compositions.
   await page.mouse.move(700,430);await page.mouse.down();
   await page.mouse.move(935,430,{steps:1});await page.mouse.up();
