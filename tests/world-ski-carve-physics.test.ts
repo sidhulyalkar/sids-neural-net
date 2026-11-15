@@ -37,6 +37,24 @@ test("increased edge force never creates speed on level snow",()=>{
 });
 test("invalid experimental force and turn parameters fail closed",()=>{
  for(const bad of [{contactForceScale:Infinity},{contactForceScale:-1},
-  {contactForceScale:4},{maxTurn:NaN},{drag:-.05}])
+  {contactForceScale:4},{maxTurn:NaN},{drag:-.05},
+  {surfaceTransport:-.1},{surfaceTransport:1.1},{surfaceTransport:Infinity}])
   assert.throws(()=>new SkiSimulation(()=>0,0,0,false,false,undefined,bad));
+});
+
+test("curved-snow normal transport is finite and cannot exceed gravity impulse",()=>{
+ for(const fraction of [0,.5,1]){
+  const height=(x:number,z:number)=>1.6*Math.sin(x/4)+.04*z;
+  const sim=new SkiSimulation(height,0,0,"independent",false,
+    undefined,{surfaceTransport:fraction});
+  sim.velocity.set(5,0,4);
+  for(let tick=0;tick<700;tick++){
+   const before=sim.velocity.length();
+   sim.advance(tuning.dt,()=>({...neutral,steer:Math.sin(tick/70)}));
+   assert.ok(sim.velocity.length()<=before+tuning.gravity*tuning.dt+1e-6,
+     "contact curvature cannot add kinetic impulse beyond gravity");
+   assert.ok(sim.velocity.toArray().every(Number.isFinite));
+   assert.ok(sim.position.toArray().every(Number.isFinite));
+  }
+ }
 });
