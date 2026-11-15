@@ -15,26 +15,33 @@ const results=[],errors=[];
 async function boot(page){
  page.on("pageerror",e=>errors.push("page: "+e.message));
  page.on("console",m=>{if(m.type()==="error")errors.push("console: "+m.text().slice(0,300));});
- await page.goto(base);
- for(let attempt=0;attempt<5;attempt++){
-  await page.getByRole("button",{name:"Explore world",exact:true}).click();
-  try{
-   await page.waitForFunction(()=>document.querySelector("[data-world-state]")?.getAttribute("data-world-state")==="exploring",null,{timeout:5000});
-   break;
-  }catch(error){if(attempt===4)throw error;}
- }
+ await page.goto(base,{waitUntil:"domcontentloaded"});
  try{
-  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
-   null,{timeout:45000});
+  // Clicking repeatedly can target a button removed by the first successful
+  // entry and misdiagnose asynchronous WebGL initialization as failed input.
+  const root=page.locator("[data-world-state]");
+  await root.waitFor({state:"attached",timeout:45000});
+  if(await root.getAttribute("data-world-state")!=="exploring"){
+   await page.getByRole("button",{name:"Explore world",exact:true}).click({timeout:45000});
+  }
+  await page.waitForFunction(()=>{
+   const state=document.querySelector("[data-world-state]")?.getAttribute("data-world-state");
+   if(state==="fallback")throw Error("World entered renderer fallback during boot");
+   return state==="exploring"&&Number(document.querySelector("canvas")?.dataset.drawCalls)>0;
+  },null,{timeout:80000});
  }catch(error){
   const diag=await page.evaluate(()=>({
-    scene:document.querySelector("[data-world-state]")?.getAttribute("data-world-state"),
-    canvasCount:document.querySelectorAll("canvas").length,
-    canvasData:{...document.querySelector("canvas")?.dataset},
-    userAgent:navigator.userAgent,
-  }));
-  fs.writeFileSync(path.join(out,"world-boot-failure.json"),JSON.stringify({diag,errors},null,2));
-  await page.screenshot({path:path.join(out,"world-boot-failure.png")});
+   scene:document.querySelector("[data-world-state]")?.getAttribute("data-world-state"),
+   visibleText:document.body.innerText.slice(0,900),
+   canvasCount:document.querySelectorAll("canvas").length,
+   canvasData:{...document.querySelector("canvas")?.dataset},
+   buttons:[...document.querySelectorAll("button")].slice(0,25).map(b=>({
+    text:b.textContent?.trim().slice(0,50),aria:b.getAttribute("aria-label"),disabled:b.disabled
+   })),
+   userAgent:navigator.userAgent,
+  })).catch(e=>({diagnosticError:String(e)}));
+  fs.writeFileSync(path.join(out,"world-boot-failure.json"),JSON.stringify({diag,errors,error:String(error)},null,2));
+  await page.screenshot({path:path.join(out,"world-boot-failure.png")}).catch(()=>{});
   console.error("WORLD BROWSER BOOT DIAGNOSTICS",JSON.stringify(diag));
   throw error;
  }

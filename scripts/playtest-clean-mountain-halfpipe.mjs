@@ -55,12 +55,19 @@ const enterSki=async(page)=>{
    return !!button&&!button.disabled&&Number(d?.drawCalls)>0;
   },null,{timeout:110000,polling:"raf"});
  const ski=page.getByRole("navigation",{name:"World movement and sports"}).getByRole("button",{name:"Skiing",exact:true});
- if(await page.evaluate(()=>navigator.maxTouchPoints>0))await ski.tap();
- else await ski.click();
+ if(await page.evaluate(()=>window.matchMedia("(pointer: coarse)").matches)){
+  await page.getByRole("button",{name:"Expand island controls"}).tap();
+  await ski.tap();
+ }else await ski.click();
+ // Activity state can commit before an asynchronous mountain fast-travel.
+ // Prove the actual spawn and renderer state before holding downhill input.
  await wait(page,()=>{
   const d=document.querySelector("canvas")?.dataset;
+  const p=d?.player?.split(",").map(Number);
   return d?.activity==="ski"&&d?.bigAirPhase==="idle"&&
-   d?.mountainHalfpipe==="single-snow-face-v1"&&Number(d.drawCalls)>0;
+   d?.mountainHalfpipe==="single-snow-face-v1"&&Number(d.drawCalls)>0&&
+   p?.length===2&&p.every(Number.isFinite)&&
+   Math.abs(p[0]-7)<.8 && p[1]>-64.5 && p[1]<-60.5;
  });
  await page.locator("canvas").first().focus();
  }catch(error){
@@ -129,7 +136,8 @@ try{
  await desktop.keyboard.down("w");
  try{
   const proof=await run;
-  assert.equal(proof.inPipe,true);
+  evidence.desktop=proof;
+  assert.equal(proof.inPipe,true,"Observed skier never entered the authored pipe: "+JSON.stringify(proof));
   assert.ok(proof.finish.z-proof.start[1]>9);
   assert.ok(proof.highestSpeed>4);
   assert.equal(proof.finish.bigAir,"idle");

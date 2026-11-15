@@ -5343,7 +5343,7 @@ export function createWorld(
         discGolf.phase==="off"&&!jetSki&&!jetChoosing&&
         bigAir.phase!=="flying";
       skateHud.style.display=skateVisible?"block":"none";
-      skateTouch.style.display=skateVisible&&jetTouchEnabled?"flex":"none";
+      skateTouch.style.display=skateVisible&&jetTouchEnabled&&!mobileJoysticks.enabled?"flex":"none";
       const resultAge=performance.now()-skateResultAt;
       const resultVisible=skateVisible&&resultAge>=0&&resultAge<1850;
       skateResult.style.display=resultVisible?"block":"none";
