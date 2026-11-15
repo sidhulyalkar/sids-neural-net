@@ -116,6 +116,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const presentation = item ? journalPresentation(item, canShowImage) : undefined;
   const chapters = item ? journalChapters(item, {
     hasSourceVideo: Boolean(mediaPlan), hasSourceFigure: Boolean(canShowImage),
+    format: presentation?.format,
   }) : [];
   const related = item ? journalRelatedItems(item, items, 3) : [];
 

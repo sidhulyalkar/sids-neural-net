@@ -51,3 +51,28 @@ test('every guide step targets exactly one actual source-grounded article surfac
   assert.match(guide, /prefers-reduced-motion/);
   assert.doesNotMatch(guide, /Math\.random|<canvas|new WebGL/);
 });
+
+test('chapter order follows the evidence-first visual composition of each authentic source format', () => {
+  const measured = { ...source, metrics: [{ label: 'Measured accuracy', value: '91.2%' }] };
+  const measuredSteps = journalChapters(measured, {
+    hasSourceVideo: false, hasSourceFigure: true, format: 'measured',
+  }).map((chapter) => chapter.id);
+  assert.deepEqual(measuredSteps, [
+    'frontier-evidence', 'frontier-story-summary', 'frontier-story-figure', 'frontier-story-source',
+  ]);
+  const figureSteps = journalChapters(source, {
+    hasSourceVideo: false, hasSourceFigure: true, format: 'visual',
+  }).map((chapter) => chapter.id);
+  assert.deepEqual(figureSteps, [
+    'frontier-story-figure', 'frontier-story-summary', 'frontier-story-source',
+  ]);
+  const videoSteps = journalChapters(source, {
+    hasSourceVideo: true, hasSourceFigure: false, format: 'watch',
+  }).map((chapter) => chapter.id);
+  assert.deepEqual(videoSteps, [
+    'frontier-story-media', 'frontier-story-summary', 'frontier-story-source',
+  ]);
+  assert.deepEqual(journalChapters(source, {
+    hasSourceVideo: false, hasSourceFigure: false, format: 'brief',
+  }).map((chapter) => chapter.id), ['frontier-story-summary', 'frontier-story-source']);
+});

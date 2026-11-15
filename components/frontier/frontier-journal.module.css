@@ -1030,3 +1030,74 @@
   .reader .kicker, .reader .sectionLabel { color: var(--ink); }
   .reader .sectionTab { color: var(--ink); }
 }
+/* Editorial issue index: the lead reads like a cover feature while the rest
+ * remains a navigable, source-labeled table of contents. */
+.reader .contentsHeading {
+  padding-bottom: clamp(20px, 3vw, 36px);
+  border-bottom: 1px solid var(--journal-hairline);
+  margin-bottom: 0;
+}
+.reader .contentsHeading h2 {
+  font-size: clamp(30px, 3vw, 42px);
+  letter-spacing: -.033em;
+  line-height: 1.16;
+}
+.reader .contentsHeading button { min-height: 44px; }
+.reader .contentsGrid { column-gap: clamp(24px, 4vw, 58px); }
+.reader .contentsEntry {
+  border-top-color: var(--line);
+  transition: background-color 160ms ease;
+}
+.reader .contentsEntry:hover { background: var(--journal-hover); }
+.reader .contentsEntry:focus-visible { outline-offset: -3px; }
+.reader .contentsEntry:first-child {
+  grid-column: 1 / -1;
+  grid-template-columns: 48px minmax(0, 1fr) 24px;
+  gap: clamp(13px, 2vw, 28px);
+  padding: clamp(24px, 3vw, 39px) clamp(14px, 2vw, 30px);
+  margin: 0 0 18px;
+  border-top: 0;
+  border-bottom: 1px solid var(--ink);
+  background: linear-gradient(100deg, var(--context-wash), transparent 80%);
+}
+.reader .contentsEntry:first-child:hover { background: var(--journal-hover); }
+.reader .contentsEntry:first-child .contentsOrdinal {
+  font-size: 13px;
+  letter-spacing: -.05em;
+}
+.reader .contentsEntry:first-child .contentsEntryBody {
+  gap: clamp(10px, 1.5vw, 16px);
+}
+.reader .contentsEntry:first-child .contentsEntryBody .overline {
+  font-size: 10px;
+  letter-spacing: .105em;
+}
+.reader .contentsEntry:first-child .contentsEntryBody strong {
+  max-width: 29ch;
+  font: 400 clamp(23px, 2.7vw, 36px)/1.2 var(--serif);
+  letter-spacing: -.028em;
+  text-wrap: balance;
+}
+.reader .contentsEntry:first-child > svg {
+  margin-top: 5px;
+  width: 19px;
+  height: 19px;
+}
+@media (max-width: 780px) {
+  .reader .contentsGrid { grid-template-columns: minmax(0, 1fr); }
+  .reader .contentsEntry:first-child { margin-bottom: 8px; }
+}
+@media (max-width: 560px) {
+  .reader .contentsEntry:first-child {
+    padding: 24px 12px;
+    grid-template-columns: 24px minmax(0, 1fr) 16px;
+    gap: 10px;
+  }
+  .reader .contentsEntry:first-child .contentsEntryBody strong {
+    font-size: clamp(23px, 6.4vw, 29px);
+    max-width: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reader .contentsEntry { transition: none; }
+}

@@ -119,3 +119,17 @@ test('default reader uses source-evidence composition, never a duplicate text po
   assert.match(evidence, /Reported, not inferred/);
   assert.doesNotMatch(evidence, /Math\.random|<canvas/);
 });
+
+test('source-format imprints use truthful editorial names without promising inspected video or field reporting', () => {
+  const from = (sourceKind: FrontierItem['sourceKind'], lane: FrontierItem['lane'] = 'ml_data') =>
+    journalPresentation({ ...fixture, sourceKind, lane }, false).kindLabel;
+  assert.equal(from('rss'), 'Publisher report');
+  assert.equal(from('nasa'), 'Field notes');
+  assert.equal(from('reddit'), 'Community discussion');
+  assert.equal(from('steam'), 'Game & culture');
+  assert.equal(from('rss', 'music'), 'Music & sound');
+  const footage: FrontierItem = { ...fixture, sourceKind: 'youtube',
+    media: { type: 'youtube', url: 'https://www.youtube.com/watch?v=12345678901' } };
+  assert.equal(journalPresentation(footage, false).kindLabel, 'Watchable source');
+  assert.equal(journalPresentation(footage, false).heading, 'About the original footage');
+});
