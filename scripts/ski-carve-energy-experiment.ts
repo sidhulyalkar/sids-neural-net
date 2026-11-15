@@ -39,6 +39,23 @@ for(const startZ of [-58,-56]){
   }
  }
 }
+// Separate geometry-following experiment: rotate tangent velocity between
+// adjacent snow contact normals instead of throwing away momentum each step.
+// Transport is bounded [0,1], and never injects powered acceleration.
+for(const startZ of [-58,-56]){
+ for(const initialVx of [4.5,6]){
+  for(const surfaceTransport of [.5,1]){
+   for(const maxTurn of [2.6,3.4]){
+    for(const contactForceScale of [1,1.25,1.5]){
+     for(const engagedGrip of [6,9]){
+      variants.push({id:"normal-transport",startZ,initialVx,
+       settings:{surfaceTransport,maxTurn,contactForceScale,engagedGrip}});
+     }
+    }
+   }
+  }
+ }
+}
 function run(v:Variant){
  const sim=new SkiSimulation(height,pipe.centerX,v.startZ,"independent",
    false,undefined,v.settings);
@@ -103,13 +120,13 @@ writeFileSync(join(out,"summary.json"),JSON.stringify({
  exactGeometry:"refined rendered triangular island surface",
  baseline:SKI_CARVE_BASELINE,dt:tuning.dt,
  comparison:"same input controller, initial conditions and geometry; vary only bounded solver coefficients",
- note:"DIAGNOSTIC ONLY: no autoplay, automatic pop or shipping tuning without real browser qualification",
+ note:"DIAGNOSTIC ONLY: conservative energy transport and friction A/B; no autoplay, automatic pop or shipping tuning without real browser qualification",
  qualifiedCount:summary.filter(r=>r.qualified).length,
  baselineResults:summary.filter(r=>r.id==="baseline"),
  results:summary
 },null,2)+"\n");
 console.table(ranked.slice(0,16).map(r=>({
-  turn:r.settings.maxTurn,force:r.settings.contactForceScale,
+  turn:r.settings.maxTurn,transport:r.settings.surfaceTransport,force:r.settings.contactForceScale,
   grip:r.settings.engagedGrip,z:r.startZ,vx:r.initialVx,
   traversals:r.crossings,visits:r.visits,exit:r.exit,
   ticks:r.ticks,air:r.airTicks,minSpeed:r.minSpeed.toFixed(2),
