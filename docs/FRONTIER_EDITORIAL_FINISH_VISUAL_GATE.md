@@ -11,7 +11,7 @@ The first paint stays as the fast source-grounded cold snapshot. Keep all previo
 
 ## Visual hierarchy
 
-1. **Issue identity:** compact FR⟂ONTIER masthead, six responsive subject shelves, a small edition/realm line. A section changes the atmosphere, not the provenance.
+1. **Issue identity:** compact FRONTIER masthead, six responsive subject shelves, a small edition/realm line. A section changes the atmosphere, not the provenance.
 2. **Story proposition:** one headline, `28–42px` depending on viewport, with a restrained source/discipline kicker and author byline where available.
 3. **Reading path:** numbered authentic sections, no forced narrative steps and no scroll-jacking.
 4. **Evidence lead:** an actual original figure, official score, reported measurement, technical artifact or real video poster receives visual emphasis only when available. Text-only sources remain intentionally typographic.
