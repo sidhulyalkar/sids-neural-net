@@ -68,3 +68,37 @@ The browser qualification now captures starting pose and input telemetry **befor
 5. **Preserved systems:** all galleries, arcade roof, hydrology, reefs, biking, skateboarding, Jet-Ski, skiing Big Air's explicit menu authorization, mobile controls, FRONTIER and homepage retain their original contracts. The V4 branch remains draft.
 
 Verified on preceding head e2d6fb22: the V4 browser accepted physical input and braking but had already reached the coastline, and the full island release gate failed. This document does not imply exact-head acceptance of the latest physics changes.
+
+## 2026-11-15: mechanics audit, phase V4-2 (not released)
+
+**The old 'carveAcceleration' number was an applied lateral command, not clean-carve proof.**
+The model's velocity-relative ski heading could differ by 10–16 degrees during
+normal steering because the boot pivot was too strong across all speeds.
+Research distinguishes edge angle (tilt against snow) from *attack angle*
+(ski-to-velocity heading difference). A substantial attack angle is associated
+with skidding; real carving requires a loaded, low-slip engaged edge.
+
+Verified engineering references:
+- [Alpine Ski Motion Characteristics in Slalom](https://pmc.ncbi.nlm.nih.gov/articles/PMC7739813/), edge angle versus angle of attack and measured carving paths.
+- [Calculation of contact pressure between ski and snow during a carved turn](https://pubmed.ncbi.nlm.nih.gov/19558385/), ski bending, shear, and load distribution.
+- [Technique-dependent relation between ski curvature, roll and force](https://pmc.ncbi.nlm.nih.gov/articles/PMC10141132/), combined load, edge angle and local bending geometry.
+
+### Revised V4-2 physics and evidence
+
+1. Limit boot pivot at normal riding speeds; permit an explicit progressive low-speed pivot for recovering turns. Reduce edge carve contribution as measured side-slip grows; let cutting/shear friction dominate large attack angles. Do not infer "carve" from A/D commands alone.
+2. Scale lateral grip by **actual loaded contact coverage** along the two binding-centered ski patches. A single touching edge station cannot claim full traction. Unsupported ski bindings receive zero carved lateral force.
+3. Integrate the centripetal carved force as a heading rotation that preserves horizontal speed exactly for that portion of the force. Projected gravity, snow shear, aerodynamic drag and skidded braking remain explicit separate terms. No maximum-speed cap.
+4. Record player-observable regime (`carve`, `skid`, `transition`, `glide`, `unsupported`, `air`), *actual* slip angle, edge radians, carve quality, contact coverage, measured heading rate and measured radius. Intentional S braking must classify as skidding, not carving.
+5. Apply V4 snow tracks at sections that **actually carry contact load**, with corresponding physical beam deflection. Do not draw a footprint merely because an unsupported rigid tip is close to terrain. Interpolate bounded V4 subsegments under low frame rate to avoid disconnected grooves; refuse tracks across teleports.
+6. Full deterministic tests cover true low-slip right turns, positive outside-ski loading, large-angle skid rejection, zero edge traction when unsupported, speed-monotonic flat carved turns and bounded edge reversal. Real Chromium must validate those same diagnostics from held user input.
+
+### Crucial remaining defects and blocked release gates
+
+- **Ski yaw is still an assisted rate-limited alignment**, not a full inertia/torque solution from independent skis. It must be independently validated for high-speed transitions, fakie and tight halfpipe walls.
+- **Grounded support loss is not a ballistic takeoff.** Contact can become zero while the phase remains `riding`. V4 now reports `unsupported` and refuses to call it carving, but natural unassisted lip takeoffs and safe touchdown need a separate solver change.
+- Beam flex is bounded geometry adaptation, not calibrated torsional stiffness or real compaction/cutting constitutive snow physics. The published measurements are references for a *game approximation*, not proof of model equivalence.
+- The authored halfpipe is still too steep/tight in many orientations: diagnostic 58/90 infeasible configurations and 0/24 qualified five-crossing runs. **Do not claim playable halfpipe or production skiing** on the strength of controlled-slope unit tests.
+- Mobile/touch and frame timing on native hardware, visible edge track shape, actual 3D penetration, ankle/boot/knee poses, double-ski stance and active turn-to-turn navigation remain to be qualified. Menu-only Ski Jump must remain unchanged.
+
+No V4 changes may merge or ship to production until on-mountain human playtesting
+and same-head GitHub regression evidence qualify all critical gates.
