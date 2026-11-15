@@ -3251,6 +3251,7 @@ export function createWorld(
   // Bike region fast travel must never lerp the lens through a mountain.
   let snapBikeCamera=false,snapShoreCamera=false;
   const bikeCameraFocus=new THREE.Vector3(),bikeScreenProbe=new THREE.Vector3();
+  const skimScreenProbe=new THREE.Vector3(),skimFocus=new THREE.Vector3();
   let yaw = 0.25,
     pitch = 0.32,
     zoom = 19;
@@ -5745,7 +5746,7 @@ export function createWorld(
           ? Math.min(zoom, 13.5)
           : aquatic === "surface"
             ? Math.min(zoom, 14)
-            : surfing ? Math.min(zoom,skimHeat.air>.08 ? 14.5 : 17)
+            : surfing ? Math.min(zoom,skimHeat.air>.08 ? 11.5 : 17)
             : mode === "bike" || mode === "skate"
               ? Math.min(zoom, mode==="skate"?(insideMeadowConnector(player)?9:21):16)
               : mode === "boulder"
@@ -6846,6 +6847,7 @@ export function createWorld(
       // Fast enough to keep the flying disc on screen, with smooth
       // cinematic blends instead of jumping between subjects.
       const cinematicRate=skateLoopRide||skateTunnelRide||skateRailGapRide?7.8:
+        skimHeat.phase==="riding"&&skimHeat.air>.08?11.5:
         discGolf.phase!=="off"&&discFetch.phase==="flight"?8:
         discGolf.phase!=="off"&&discFetch.phase!=="idle"?5.2:3.6;
       camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
@@ -6979,6 +6981,20 @@ export function createWorld(
       canvas.dataset.bikeCameraSightlineClear="n/a";
       canvas.dataset.bikeCameraClearanceLift="0";
       canvas.dataset.bikeCameraBoomRatio="1";
+    }
+    if(skimHeat.phase==="riding"&&aquatic==="land"){
+      // The original surf lip-air screenshot rendered the athlete tiny.
+      // Measure the actual cinematic shot after rendering controls resolve.
+      skimFocus.set(player.x,playerY+1.3+Math.max(0,skimHeat.air)*.22,player.z);
+      camera.updateMatrixWorld();
+      skimScreenProbe.copy(skimFocus).project(camera);
+      canvas.dataset.skimPlayerScreen=[
+        skimScreenProbe.x,skimScreenProbe.y,skimScreenProbe.z
+      ].map(v=>v.toFixed(3)).join(",");
+      canvas.dataset.skimCameraDistance=camera.position.distanceTo(skimFocus).toFixed(2);
+    }else{
+      canvas.dataset.skimPlayerScreen="";
+      canvas.dataset.skimCameraDistance="";
     }
     if(skiCameraActive){
       camera.updateMatrixWorld();skiProbe.copy(skiFocus).project(camera);

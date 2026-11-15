@@ -185,7 +185,8 @@ try {
     null,{timeout:10000});
   const lipTrace=await canvas().evaluate(async c=>{
     return await new Promise(resolve=>{
-      const trace={lip:false,trick:false,landed:false,apex:0,maxFootError:0,png:"",bodyYaw:0};
+      const trace={lip:false,trick:false,landed:false,apex:0,maxFootError:0,
+        png:"",bodyYaw:0,cameraDistance:null,playerScreen:""};
       let queued=false,done=false;
       const press=key=>c.dispatchEvent(new KeyboardEvent("keydown",{key,bubbles:true,cancelable:true}));
       const finish=()=>{if(done)return;done=true;observer.disconnect();clearTimeout(timer);resolve(trace);};
@@ -196,7 +197,11 @@ try {
         if(d.skimLaunchKind==="lip-air"&&air>.3&&!queued){queued=true;trace.lip=true;press("f");}
         if(d.skimPendingTrick==="three-sixty"&&air>.45){
           trace.trick=true;trace.bodyYaw=Number(d.skimBodyYaw);
-          if(!trace.png)trace.png=c.toDataURL("image/png");
+          if(!trace.png){
+            trace.cameraDistance=Number(d.skimCameraDistance||NaN);
+            trace.playerScreen=d.skimPlayerScreen??"";
+            trace.png=c.toDataURL("image/png");
+          }
         }
         trace.landed ||= (d.skimLastTrick??"").includes("360 landed");
         if(trace.landed)finish();
@@ -217,6 +222,11 @@ try {
   assert.ok(lipTrace.apex>1.5,"lip air must visibly exceed a small flat hop");
   assert.ok(lipTrace.maxFootError<.035,"actual transformed feet stay on the board plane");
   assert.ok(Math.abs(lipTrace.bodyYaw-Math.PI/2)<.001,"sideways skim stance");
+  assert.ok(Number.isFinite(lipTrace.cameraDistance)&&lipTrace.cameraDistance<19,
+    "lip-air camera must remain close enough for readable action: "+
+    JSON.stringify({distance:lipTrace.cameraDistance,screen:lipTrace.playerScreen}));
+  assert.equal(lipTrace.playerScreen.split(",").length,3,
+    "frame-synchronized airborne screenshot must include projected rider");
   checks.push("Natural lip launch, actual airborne canvas capture, 360 landing and measured foot contact");
 
   await page.setViewportSize({width:390,height:844});
