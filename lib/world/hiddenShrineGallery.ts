@@ -241,6 +241,9 @@ export function galleryImageContainScale(width:number,height:number,
  if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0||
    !Number.isFinite(frameRatio)||frameRatio<=0)return {width:1,height:1};
  const imageRatio=width/height;
+ // Floating-point aperture construction can differ by one ULP even when
+ // the committed source and physical frame have exactly the same aspect.
+ if(Math.abs(imageRatio-frameRatio)<1e-9)return {width:1,height:1};
  return imageRatio>frameRatio
    ?{width:1,height:frameRatio/imageRatio}
    :{width:imageRatio/frameRatio,height:1};
