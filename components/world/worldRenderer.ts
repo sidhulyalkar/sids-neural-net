@@ -5638,9 +5638,10 @@ export function createWorld(
       ).toFixed(3);
       // The west-shelf canyon is a genuine underwater destination; don't
       // flatten its location to the generic Wild Coast HUD just because
-      // the visitor is diving. Preserve the north-shore classification.
+      // the visitor is diving. Preserve the separate north and south shores.
       const r: RegionId = isWater(player)
         ? reefCanyonNear(player) ? "canyon"
+          : waterZone(player)==="south-channel" ? "south-shore"
           : waterZone(player)==="north-shore" ? "north-shore":"coast"
         : nearestRegion(player);
       canvas.dataset.currentRegion=r;
@@ -6087,7 +6088,7 @@ export function createWorld(
           floor + 1.05,
           SEA_SURFACE - 0.28,
         );
-        if(reefCanyonNear(player)){
+        if(reefCanyonNear(player)||waterZone(player)==="south-channel"){
           // A camera skimming the surface puts a hard waterline through the
           // middle of the coral corridor. Lower the lens into the scene while
           // keeping it above the real seabed and below the foam plane.
@@ -6948,6 +6949,17 @@ export function createWorld(
       camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
       look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
     }
+    // South snorkel lens must not interpolate above the water plane after
+    // diving, nor slip below the sampled seabed. Other regions are untouched.
+    if(aquatic==="dive"&&waterZone(player)==="south-channel"&&
+       maxDiveDepth(player)>1.2&&galleryPhase==="outside"){
+      const camFloor=seaFloorHeight(camera.position.x,camera.position.z);
+      if(camFloor+1.05<=SEA_SURFACE-.65){
+        camera.position.y=THREE.MathUtils.clamp(
+          camera.position.y,camFloor+1.05,SEA_SURFACE-.65);
+        look.y=Math.min(look.y,SEA_SURFACE-.55);
+      }
+    }
     if(skiCameraActive){
       // Clear the actual ski contact, not only a lagging look target.
       skiFootFocus.copy(explorer.position);skiFootFocus.y+=.12;
@@ -7081,8 +7093,11 @@ export function createWorld(
     southPassageRoot.visible=aquatic!=="land"&&currentWaterZone==="south-channel"
       && galleryPhase==="outside";
     bubbles.visible = aquatic !== "land" && galleryPhase==="outside";
-    shasta.visible = !underwater;
-    dogContact.visible = !underwater;
+    // Shasta has no offshore swim animation. Keep him off the water plane
+    // in South Shore; other land/coastal presence behavior is unchanged.
+    const dogCanAttend=!underwater&&currentWaterZone!=="south-channel";
+    shasta.visible=dogCanAttend;
+    dogContact.visible=dogCanAttend;
     waterMaterial.opacity = underwater ? 0.48 : aquatic === "surface" ? 0.58 : 0.76;
     const underwaterColor =
       currentWaterZone === "south-channel" ? "#145c7a" :

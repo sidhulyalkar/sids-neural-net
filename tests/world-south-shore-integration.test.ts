@@ -13,6 +13,7 @@ import {southCoastDryShore,southCoastEntry,southCoastLanding,
  SOUTH_ENTRY_SURFACE_Y} from "../lib/world/southCoastAccess";
 import {RAY_PASSAGE,rayPassageDepth} from "../lib/world/rayPassage";
 import {EAGLE_FEVER_COUNT,EAGLE_FEVER_MOBILE_COUNT} from "../lib/world/rayFever";
+import {JET_SKI_ROCKS} from "../lib/world/jetSkiCourse";
 import {SOUTH_HABITATS,southHabitatPoint} from "../lib/world/southCoastHabitats";
 import {createRayPassage} from "../components/world/worldRayPassage";
 import {createSouthChannelLife} from "../components/world/worldSouthChannelLife";
@@ -26,7 +27,13 @@ test("South Shore menu arrives in actual water, with land boundaries unchanged",
  assert.equal(SOUTH_CHANNEL_SHORE_Z,WORLD_BOUNDS.minZ);
  assert.equal(SOUTH_CHANNEL_MIN_Z,-166);
  const arrival=regionLanding("south-shore");
- assert.deepEqual(arrival,{x:17,z:-110});
+ assert.deepEqual(arrival,{x:11,z:-110});
+ assert.ok(Math.hypot(arrival.x-17,arrival.z+118)>5,
+  "South Shore menu must not face the lava-window north pillar");
+ const nearest=JET_SKI_ROCKS.filter(r=>r.archId==="lava-window")
+  .map(r=>Math.hypot(arrival.x-r.point.x,arrival.z-r.point.z)-r.radius);
+ assert.ok(Math.min(...nearest)>4,
+  "South Shore should approach the volcanic arch with visible clearance");
  assert.equal(waterZone(arrival),"south-channel");
  assert.ok(maxDiveDepth(arrival)>.8,"menu must reach diveable water");
  const land=constrainMove({x:17,z:-95},{x:17,z:-130},[]);

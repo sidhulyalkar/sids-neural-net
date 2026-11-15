@@ -36,11 +36,14 @@ try{
    },null,{timeout:25000});
    trace.arrival=await canvas.evaluate(el=>({
     pos:el.dataset.player,aquatic:el.dataset.aquatic,
-    zone:el.dataset.reefZone,south:el.dataset.southPassage,
+    zone:el.dataset.reefZone,region:el.dataset.currentRegion,
+    south:el.dataset.southPassage,
     rayCount:el.dataset.eagleFever,visibleRays:el.dataset.eagleFeverVisible,
     fish:el.dataset.southReefFish,draws:el.dataset.southCoastalDrawCalls,
    }));
    assert.equal(trace.arrival.zone,"south-channel");
+   assert.equal(trace.arrival.region,"south-shore",
+    "South Shore must not be mislabeled Wild coast");
    assert.equal(trace.arrival.south,"true");
    assert.equal(Number(trace.arrival.rayCount),96);
    assert.ok(Number(trace.arrival.fish)>=72);
