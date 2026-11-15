@@ -84,8 +84,8 @@ export function measureGeneratedMuralAspect(mural:CavernMural){
  const heights=[.15,.5,.85].map(t=>along(mural.v0,mural.v1,"v",
   mural.z0+(mural.z1-mural.z0)*t));
  if([...widths,...heights].some(v=>v===null||v===0))return null;
- const width=widths.reduce((a,b)=>a+(b??0),0)/widths.length;
- const height=heights.reduce((a,b)=>a+(b??0),0)/heights.length;
+ const width=widths.reduce<number>((a,b)=>a+(b??0),0)/widths.length;
+ const height=heights.reduce<number>((a,b)=>a+(b??0),0)/heights.length;
  return {width,height,aspect:width/height};
 }
 
