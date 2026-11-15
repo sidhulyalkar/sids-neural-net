@@ -38,7 +38,8 @@ test("increased edge force never creates speed on level snow",()=>{
 test("invalid experimental force and turn parameters fail closed",()=>{
  for(const bad of [{contactForceScale:Infinity},{contactForceScale:-1},
   {contactForceScale:4},{maxTurn:NaN},{drag:-.05},
-  {surfaceTransport:-.1},{surfaceTransport:1.1},{surfaceTransport:Infinity}])
+  {surfaceTransport:-.1},{surfaceTransport:1.1},{surfaceTransport:Infinity},
+  {carveRedirect:-.1},{carveRedirect:1.01},{carveRedirect:NaN}])
   assert.throws(()=>new SkiSimulation(()=>0,0,0,false,false,undefined,bad));
 });
 
@@ -57,4 +58,28 @@ test("curved-snow normal transport is finite and cannot exceed gravity impulse",
    assert.ok(sim.position.toArray().every(Number.isFinite));
   }
  }
+});
+
+test("bounded edge redirection conserves speed but retains more momentum than braking",()=>{
+ const baseline=new SkiSimulation(()=>0,0,0,"independent");
+ const redirect=new SkiSimulation(()=>0,0,0,"independent",false,
+   undefined,{carveRedirect:1});
+ baseline.velocity.set(6,0,3);
+ redirect.velocity.copy(baseline.velocity);
+ let originalSpeed=baseline.velocity.length();
+ let sawLessDissipation=false;
+ for(let tick=0;tick<600;tick++){
+  const input={...neutral,steer:tick%160<80?1:-1};
+  baseline.advance(tuning.dt,()=>input);
+  const beforeRedirect=redirect.velocity.length();
+  redirect.advance(tuning.dt,()=>input);
+  const now=redirect.velocity.length();
+  assert.ok(now<=beforeRedirect+1e-8,
+    "redirection may preserve lateral energy but cannot add it");
+  assert.ok(now<=originalSpeed+1e-8,"no perpetual boost on flat snow");
+  assert.ok(redirect.position.toArray().every(Number.isFinite));
+  if(now>baseline.velocity.length()+.0001)sawLessDissipation=true;
+ }
+ assert.ok(sawLessDissipation,
+   "redirected edge impulse should retain forward momentum relative to baseline");
 });
