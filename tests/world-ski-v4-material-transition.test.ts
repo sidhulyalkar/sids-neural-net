@@ -48,7 +48,9 @@ test("crossing snow to bare ground retains momentum but retires ski edge",()=>{
   let transitioned=false;
   for(let i=0;i<180;i++){
     sim.advance(SKI_V4_TUNING.dt,()=>({...NEUTRAL_V4_INPUT,pitch:0,steer:0}));
-    if(sim.telemetry.surfaceMode==="ground"){transitioned=true;break;}
+    // advance() mutates telemetry; assert.equal() narrowing must not freeze its type.
+    const currentMode:string=sim.telemetry.surfaceMode;
+    if(currentMode==="ground"){transitioned=true;break;}
   }
   assert.ok(transitioned,"must leave snow without a forced teleport");
   assert.ok(Math.hypot(sim.position.x-previous.x,sim.position.z-previous.z)<8);
