@@ -1,4 +1,5 @@
 import { SEA_SURFACE, maxDiveDepth, seaFloorHeight, type Point } from "./model";
+import { visualArchive } from "@/src/data/visualArchive";
 
 /**
  * The gallery is a second, fully submerged navigation volume BELOW the natural
@@ -40,9 +41,12 @@ export const GALLERY_FLOOR_GEOMETRY={
 export type GalleryPhase = "outside" | "descending" | "inside" | "ascending";
 export type GallerySide = "north" | "east" | "south" | "west";
 export type GalleryDoor = { from: number; to: number };
-export type GalleryPhotoSlot = {
-  id: string; roomIndex: number; side: GallerySide;
-  x: number; y: number; z: number; yaw: number; width: number;
+export type GalleryWallKind="full"|"door-side"|"paired";
+export type GalleryPhotoSlot={
+  id:string;mountId:string;roomIndex:number;side:GallerySide;
+  wallKind:GalleryWallKind;wallSpan:number;
+  x:number;y:number;z:number;yaw:number;
+  width:number;height:number;aspectRatio:number;
 };
 
 // One meandering, inspectable route. There are no unconnected rooms, and the
@@ -129,52 +133,117 @@ export function galleryDoorSide(roomIndex: number, side: GallerySide): boolean {
   });
 }
 
-/** One straight-on picture per wall. The entrance room's unobstructed
- * south wall hosts two matching prints; no freestanding 49th plinth.
+/**
+ * Match original archive orientation to the gallery's *actual wall spans*.
+ * Door returns and the paired entrance are narrow; uninterrupted walls
+ * host the horizontal photographs. The deterministic route order avoids
+ * reshuffling with every frame. All 49 archive identities are preserved.
  */
-export function galleryPhotoSlots():readonly GalleryPhotoSlot[]{
-  const sides:GallerySide[]=["north","east","south","west"];
-  const h=SHRINE_GALLERY.halfRoom-.12;
-  const slots:GalleryPhotoSlot[]=[];
-  for(const [roomIndex,room] of GALLERY_ROOMS.entries()){
-    for(const [sideIndex,side] of sides.entries()){
-      const door=galleryDoorSide(roomIndex,side);
-      const offset=roomIndex===0&&side==="south"
-        ? GALLERY_VIEWING.doubleHangOffset
-        : door?(sideIndex%2?1:-1)*GALLERY_VIEWING.doorSideOffset:0;
-      const lateral=side==="north"||side==="south";
-      slots.push({
-        id:`photo-${String(roomIndex*4+sideIndex+1).padStart(3,"0")}`,
-        roomIndex,side,
-        x:lateral?room.x+offset:room.x+(side==="east"?h:-h),
-        z:lateral?room.z+(side==="south"?h:-h):room.z+offset,
-        y:SHRINE_GALLERY.floorY+GALLERY_VIEWING.imageCenterAboveFloor,
-        yaw:side==="north"?0:side==="south"?Math.PI:
-          side==="east"?-Math.PI/2:Math.PI/2,
-        width:GALLERY_VIEWING.imageWidth,
-      });
-    }
+type GalleryMount={
+ mountId:string;roomIndex:number;side:GallerySide;wallKind:GalleryWallKind;
+ wallSpan:number;maxImageWidth:number;x:number;y:number;z:number;yaw:number;
+};
+const FRAME_CORNER_MARGIN=.12;
+const FULL_WALL_APERTURE=3.2;
+function galleryMounts():GalleryMount[]{
+ const sides:GallerySide[]=["north","east","south","west"];
+ const h=SHRINE_GALLERY.halfRoom-.12;
+ const mounts:GalleryMount[]=[];
+ for(const [roomIndex,room] of GALLERY_ROOMS.entries()){
+  for(const [sideIndex,side] of sides.entries()){
+   const door=galleryDoorSide(roomIndex,side);
+   const paired=roomIndex===0&&side==="south";
+   const offset=paired?GALLERY_VIEWING.doubleHangOffset:
+     door?(sideIndex%2?1:-1)*GALLERY_VIEWING.doorSideOffset:0;
+   const wallKind:GalleryWallKind=paired?"paired":door?"door-side":"full";
+   const abs=Math.abs(offset),lateral=side==="north"||side==="south";
+   const halfSpan=wallKind==="door-side"?
+     Math.min(h-abs,abs-SHRINE_GALLERY.doorHalfWidth):
+     wallKind==="paired"?Math.min(h-abs,abs-.35):h;
+   const maxImageWidth=wallKind==="full"?FULL_WALL_APERTURE:
+     2*(halfSpan-FRAME_CORNER_MARGIN)-
+       2*GALLERY_VIEWING.frameOutsideArtwork;
+   mounts.push({
+    mountId:"room-"+roomIndex+"-"+side+(paired?"-right":""),
+    roomIndex,side,wallKind,wallSpan:2*halfSpan,maxImageWidth,
+    x:lateral?room.x+offset:room.x+(side==="east"?h:-h),
+    z:lateral?room.z+(side==="south"?h:-h):room.z+offset,
+    y:SHRINE_GALLERY.floorY+GALLERY_VIEWING.imageCenterAboveFloor,
+    yaw:side==="north"?0:side==="south"?Math.PI:
+      side==="east"?-Math.PI/2:Math.PI/2,
+   });
   }
-  // Two symmetrical pieces on room zero's solid south wall, with
-  // independently accessible viewing zones for both.
-  const south=slots.find(s=>s.id==="photo-003")!;
-  slots.push({...south,id:"photo-049",
-    x:GALLERY_ROOMS[0].x-GALLERY_VIEWING.doubleHangOffset});
-  return slots;
+ }
+ const paired=mounts.find(m=>m.mountId==="room-0-south-right");
+ if(!paired)throw Error("The entrance gallery wall is missing");
+ mounts.push({...paired,mountId:"room-0-south-left",
+   x:GALLERY_ROOMS[0].x-GALLERY_VIEWING.doubleHangOffset});
+ return mounts;
 }
-
-/** Contain original artwork proportions within the identical gilded frames.
- * Fractions are relative to the print opening; black matte backing fills
- * the remaining edge, rather than stretching landscapes/portraits.
- */
-export function galleryImageContainScale(width:number,height:number){
-  if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)
-    return {width:1,height:1};
-  const imageRatio=width/height;
-  const frameRatio=GALLERY_VIEWING.imageWidth/GALLERY_VIEWING.imageHeight;
-  return imageRatio>frameRatio
-    ? {width:1,height:frameRatio/imageRatio}
-    : {width:imageRatio/frameRatio,height:1};
+function galleryMountRank(m:GalleryMount){
+ return GALLERY_ROUTE.indexOf(m.roomIndex)*4+
+   (["north","east","south","west"] as const).indexOf(m.side);
+}
+export function galleryPhotoSlots():readonly GalleryPhotoSlot[]{
+ const mounts=galleryMounts();
+ if(visualArchive.length!==mounts.length)
+   throw Error("Gallery photo/mount mismatch: "+visualArchive.length+"/"+mounts.length);
+ const ratio=(p:typeof visualArchive[number])=>
+   p.width>0&&p.height>0&&Number.isFinite(p.width)&&
+   Number.isFinite(p.height)?p.width/p.height:.75;
+ const landscapes=visualArchive.filter(p=>ratio(p)>1.06);
+ const portraits=visualArchive.filter(p=>ratio(p)<=1.06);
+ const broad=mounts.filter(m=>m.wallKind==="full").sort((a,b)=>
+   galleryMountRank(a)-galleryMountRank(b));
+ const narrow=mounts.filter(m=>m.wallKind!=="full").sort((a,b)=>
+   galleryMountRank(a)-galleryMountRank(b));
+ if(landscapes.length>broad.length||portraits.length<narrow.length)
+   throw Error("Not enough broad walls for landscape photos");
+ const photoAt=new Map<string,typeof visualArchive[number]>();
+ landscapes.forEach((p,i)=>photoAt.set(broad[i].mountId,p));
+ portraits.forEach((p,i)=>{
+   const mount=i<narrow.length?narrow[i]:broad[landscapes.length+i-narrow.length];
+   photoAt.set(mount.mountId,p);
+ });
+ return mounts.map(m=>{
+  const photo=photoAt.get(m.mountId);
+  if(!photo)throw Error("Unassigned gallery mount "+m.mountId);
+  const aspectRatio=ratio(photo);
+  const height=Math.min(GALLERY_VIEWING.imageHeight,
+    m.maxImageWidth/aspectRatio);
+  return {
+   id:photo.id,mountId:m.mountId,roomIndex:m.roomIndex,side:m.side,
+   wallKind:m.wallKind,wallSpan:m.wallSpan,
+   x:m.x,y:m.y,z:m.z,yaw:m.y,
+   width:height*aspectRatio,height,aspectRatio,
+  };
+ });
+}
+/** The OUTER gilded frame must clear corners, doorways and room ceiling. */
+export function galleryFrameFitsWall(slot:GalleryPhotoSlot):boolean{
+ const room=GALLERY_ROOMS[slot.roomIndex];
+ if(!room)return false;
+ const offset=Math.abs(slot.side==="north"||slot.side==="south"?
+   slot.x-room.x:slot.z-room.z);
+ const outer=slot.width/2+GALLERY_VIEWING.frameOutsideArtwork;
+ const h=SHRINE_GALLERY.halfRoom-.12;
+ if(offset+outer>h-.06)return false;
+ if(slot.wallKind==="door-side"&&
+   offset-outer<=SHRINE_GALLERY.doorHalfWidth+.08)return false;
+ if(slot.wallKind==="paired"&&offset-outer<=.35)return false;
+ return slot.y+slot.height/2+.55<SHRINE_GALLERY.roofY-.1&&
+   slot.y-slot.height/2-.45>SHRINE_GALLERY.floorY+.1;
+}
+/** Normally 1×1: the frame was already fitted to the photo metadata.
+ * A substituted asset with unexpected dimensions keeps a thin matte. */
+export function galleryImageContainScale(width:number,height:number,
+ frameRatio=GALLERY_VIEWING.imageWidth/GALLERY_VIEWING.imageHeight){
+ if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0||
+   !Number.isFinite(frameRatio)||frameRatio<=0)return {width:1,height:1};
+ const imageRatio=width/height;
+ return imageRatio>frameRatio
+   ?{width:1,height:frameRatio/imageRatio}
+   :{width:imageRatio/frameRatio,height:1};
 }
 
 /** Foot position for a perpendicular, repeatable photograph viewing angle. */
@@ -190,7 +259,7 @@ export function galleryPhotoViewpoint(slot:GalleryPhotoSlot):Point{
  */
 export function galleryPhotoClearance(slot:GalleryPhotoSlot):boolean{
   const room=GALLERY_ROOMS[slot.roomIndex];
-  if(!room)return false;
+  if(!room||!galleryFrameFitsWall(slot))return false;
   const point=galleryPhotoViewpoint(slot);
   const inner=SHRINE_GALLERY.halfRoom-.46;
   const radius=GALLERY_VIEWING.clearRadius;
