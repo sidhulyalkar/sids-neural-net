@@ -5236,7 +5236,7 @@ export function createWorld(
           ? { length: 1.05, width: 0.55 }
           : mode === "skate"
             ? { length: 1.1, width: 0.42 }
-            : mode === "ski"
+            : mode === "ski" && !skiV4OnGround
               ? { length: 1.35, width: 0.46 }
               : { length: 0.25, width: 0.2 };
         const contact = terrainContact(player, travel.heading, footprint.length, footprint.width, rigSupport);
@@ -5245,7 +5245,8 @@ export function createWorld(
           ? wheelTerrainPose(player,travel.heading,rigSupport,
             {radius:.1111,axleY:-.02,halfWheelbase:.63,halfTrack:.33,
              roll:contact.roll+skateCarveLean}):null;
-        const gearMode = mode === "bike" || mode === "skate" || mode === "ski";
+        const gearMode = mode === "bike" || mode === "skate" ||
+          (mode === "ski" && !skiV4OnGround);
         const supportLift =
           gearMode && airHeight <= 0.001 && !climb && !grind && !skateLoopRide && !skateTunnelRide
             ? Math.max(0, contact.support - rigSupport(player))
