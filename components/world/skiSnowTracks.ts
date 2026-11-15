@@ -97,9 +97,17 @@ export class SnowTracks {
    // physically loaded tracks along the actual displacement, not by skipping
    // every >0.6-unit frame. A large discontinuity still breaks the trail.
    if(this.active[i]&&length<(physical?2.5:.6)){
-    const strength=Math.min(1,sim.load[i]*(.35+Math.abs(sim.edge))*(.4+sim.velocity.length()/8));
+    const powder=physical?.snowpack.powderDepth??0;
+    const penetration=physical?.estimatedSink??0;
+    const strength=Math.min(1,sim.load[i]*
+      (.35+Math.abs(sim.edge))*(.4+sim.velocity.length()/8)+
+      Math.min(.25,penetration*2));
     const skidding=physical&&v4?.telemetry.turnRegime==="skid";
-    const width=(physical&&!skidding ? .018 : .026)+.036*strength;
+    // Shallow compacted pistes leave fine incisions, while deeper powder
+    // spreads a visibly broader, softer compressed ribbon. This is surface
+    // shading, NOT actual mesh excavation or a hidden change to collision.
+    const width=(physical&&!skidding ? .018 : .026)+.036*strength+
+      (physical?Math.min(.035,powder*.10):0);
     const steps=physical?Math.max(1,Math.ceil(length/.15)):1;
     for(let step=1;step<=steps;step++){
      const fromX=prev.x+dx*(step-1)/steps,fromZ=prev.z+dz*(step-1)/steps;

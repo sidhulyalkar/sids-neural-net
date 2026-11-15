@@ -4744,7 +4744,7 @@ export function createWorld(
         }
         if (!ride) {
           ride = skiV4Enabled
-            ? new SkiV4Simulation(rideSnow,player.x,player.z,skiCollision,rideSnow.snowCoverage)
+            ? new SkiV4Simulation(rideSnow,player.x,player.z,skiCollision,rideSnow.snowCoverage,rideSnow.snowpack)
             : new SkiSimulation(rideSnow, player.x, player.z, "independent",false,skiCollision);
           skiHalfpipe=new SkiHalfpipeQualification();
           skiTricks=new SkiTrickQualification();
@@ -5438,6 +5438,8 @@ export function createWorld(
             :ride.v4.telemetry.turnRegime==="unsupported"
               ?"SNOW-FORCE V4 · UNSUPPORTED SKI CONTACT · EXPERIMENTAL"
               :"SNOW-FORCE V4 · "+ride.v4.telemetry.turnRegime.toUpperCase()+
+                " · "+ride.v4.telemetry.snowType.toUpperCase()+
+                " "+Math.round(ride.v4.telemetry.snowDepth*100)+"cm"+
                 " · EDGE "+Math.round(Math.abs(ride.v4.edgeAngle)*180/Math.PI)+"° · EXPERIMENTAL"
           :"SNOW-FORCE V4 · EXPERIMENTAL";
         if(ride instanceof SkiV4Simulation){
@@ -5453,6 +5455,13 @@ export function createWorld(
           canvas.dataset.skiV4TurnRegime=p.turnRegime;
           canvas.dataset.skiV4SurfaceMode=p.surfaceMode;
           canvas.dataset.skiV4SnowCoverage=p.snowCoverage.toFixed(3);
+          canvas.dataset.skiV4SnowType=p.snowType;
+          canvas.dataset.skiV4SnowDepth=p.snowDepth.toFixed(3);
+          canvas.dataset.skiV4PowderDepth=p.powderDepth.toFixed(3);
+          canvas.dataset.skiV4PackedDepth=p.packedDepth.toFixed(3);
+          canvas.dataset.skiV4SnowCrust=p.snowCrust.toFixed(3);
+          canvas.dataset.skiV4SnowIce=p.snowIce.toFixed(3);
+          canvas.dataset.skiV4EstimatedSnowSink=p.estimatedSink.toFixed(3);
           canvas.dataset.skiV4LeftSnow=ride.v4.contact[0].snowFraction.toFixed(3);
           canvas.dataset.skiV4RightSnow=ride.v4.contact[1].snowFraction.toFixed(3);
           canvas.dataset.skiV4SkidDeceleration=p.skidDeceleration.toFixed(4);
