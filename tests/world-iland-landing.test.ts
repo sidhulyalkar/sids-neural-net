@@ -42,3 +42,13 @@ test("both island exit links return to the existing portfolio homepage",()=>{
  const entries=home.split('href="/"').length-1;
  assert.ok(entries>=2,"island welcome and menu both return to root");
 });
+
+test("iLand's immersive route excludes external navigation, sensing and second cursor",()=>{
+ for(const file of ["../components/layout/Header.tsx",
+  "../components/layout/Footer.tsx",
+  "../components/effects/SiteNeuronCursor.tsx",
+  "../components/sensing/InteractionCapabilityProvider.tsx"]){
+  const source=readFileSync(new URL(file,import.meta.url),"utf8");
+  assert.ok(source.includes("pathname === '/world'"),file);
+ }
+});
