@@ -56,6 +56,23 @@ for(const startZ of [-58,-56]){
   }
  }
 }
+// A bounded edge-force REDIRECTION experiment. This preserves kinetic
+// energy already held by the rider, rather than supplying propulsion.
+// All geography and the real rendered island snow remain unchanged.
+for(const startZ of [-58,-56]){
+ for(const initialVx of [4.5,6]){
+  for(const carveRedirect of [.35,.7,1]){
+   for(const maxTurn of [2.6,3.4]){
+    for(const engagedGrip of [6,9]){
+     for(const contactForceScale of [1,1.5]){
+      variants.push({id:"energy-redirect",startZ,initialVx,
+       settings:{carveRedirect,maxTurn,engagedGrip,contactForceScale}});
+     }
+    }
+   }
+  }
+ }
+}
 function run(v:Variant){
  const sim=new SkiSimulation(height,pipe.centerX,v.startZ,"independent",
    false,undefined,v.settings);
@@ -120,13 +137,13 @@ writeFileSync(join(out,"summary.json"),JSON.stringify({
  exactGeometry:"refined rendered triangular island surface",
  baseline:SKI_CARVE_BASELINE,dt:tuning.dt,
  comparison:"same input controller, initial conditions and geometry; vary only bounded solver coefficients",
- note:"DIAGNOSTIC ONLY: conservative energy transport and friction A/B; no autoplay, automatic pop or shipping tuning without real browser qualification",
+ note:"DIAGNOSTIC ONLY: bounded edge redirection conserves kinetic energy but is not production tuning; require observed bank traversal, speed, no flight and human browser proof",
  qualifiedCount:summary.filter(r=>r.qualified).length,
  baselineResults:summary.filter(r=>r.id==="baseline"),
  results:summary
 },null,2)+"\n");
 console.table(ranked.slice(0,16).map(r=>({
-  turn:r.settings.maxTurn,transport:r.settings.surfaceTransport,force:r.settings.contactForceScale,
+  turn:r.settings.maxTurn,transport:r.settings.surfaceTransport,redirect:r.settings.carveRedirect,force:r.settings.contactForceScale,
   grip:r.settings.engagedGrip,z:r.startZ,vx:r.initialVx,
   traversals:r.crossings,visits:r.visits,exit:r.exit,
   ticks:r.ticks,air:r.airTicks,minSpeed:r.minSpeed.toFixed(2),
