@@ -7074,6 +7074,15 @@ export function createWorld(
       camera.updateProjectionMatrix();
     }
     canvas.dataset.hiddenGalleryFov=camera.fov.toFixed(1);
+    if(aquatic==="dive"&&waterZone(player)==="south-channel"){
+      // Exact-frame camera proof, not a target/desired pose; useful for
+      // verifying the diver remains visible and avoiding first-person clipping.
+      canvas.dataset.southCameraActualDistance=Math.hypot(
+        camera.position.x-player.x,camera.position.z-player.z).toFixed(3);
+      canvas.dataset.southCameraPos=[camera.position.x,camera.position.y,camera.position.z].map(v=>v.toFixed(2)).join(",");
+      canvas.dataset.southPlayerY=playerY.toFixed(2);
+      canvas.dataset.southCameraFocus=[look.x,look.y,look.z].map(v=>v.toFixed(2)).join(",");
+    }else canvas.dataset.southCameraActualDistance="";
     camera.lookAt(look);
     if(skiCameraActive){
       camera.updateMatrixWorld();skiProbe.copy(skiFocus).project(camera);

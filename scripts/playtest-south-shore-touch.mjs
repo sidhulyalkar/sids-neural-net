@@ -61,6 +61,12 @@ try{
   assert.ok(Math.hypot(...moving.player.split(",").map(Number).map((v,i)=>v-start[i]))>.45,
    "mobile thumb movement must affect actual diver position");
   assert.equal(moving.region,"south-shore");
+  const actualCameraDistance=Number(await canvas.getAttribute("data-south-camera-actual-distance"));
+  const cameraPose=await canvas.getAttribute("data-south-camera-pos");
+  const focusPose=await canvas.getAttribute("data-south-camera-focus");
+  trace.push({actualCameraDistance,cameraPose,focusPose});
+  assert.ok(Number.isFinite(actualCameraDistance)&&actualCameraDistance>=5.5,
+   "diver camera must retain a real third-person boom: "+actualCameraDistance);
   const clearance=Number(await canvas.getAttribute("data-south-rock-clearance"));
   const cameraClearance=Number(await canvas.getAttribute("data-south-camera-rock-clearance"));
   assert.ok(clearance>=.74,"swimmer must not intersect a volcanic arch leg: "+clearance);
