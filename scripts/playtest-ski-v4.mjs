@@ -106,11 +106,34 @@ try{
   assert.ok(Number(braked.speed)<brakeEntrySpeed||Number(braked.speed)<.4,
     "Snow braking must lower actual speed without a maximum-speed clamp");
 
-  // Regain speed naturally; a new held D must produce a true low-slip carve.
+  // A genuine player braking run uses up most of the short halfpipe.
+  // Carving must be qualified in a NEW player-driven ski session, never by
+  // teleporting an already-moving skier or injecting velocity into the solver.
+  await page.goto(url.toString(),{waitUntil:"domcontentloaded",timeout:120000});
+  const reenter=page.getByRole("button",{name:"Explore world",exact:true});
+  if(await reenter.count()){
+    await reenter.waitFor({state:"visible",timeout:120000});
+    await reenter.click({timeout:120000});
+  }
+  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>20,
+    null,{timeout:120000});
+  await page.getByRole("navigation",{name:"World movement and sports"})
+    .getByRole("button",{name:"Skiing",exact:true}).click({timeout:30000});
+  await page.waitForFunction(()=>{
+    const d=document.querySelector("canvas")?.dataset;
+    return d?.skiEngine==="v4"&&d.activity==="ski" &&
+      d.skiV4AwaitingStart==="true"&&Number(d.skiTick)>12;
+  },null,{timeout:120000});
+  const fresh=await canvas.evaluate(el=>({...el.dataset}));
+  frames.push({stage:"04-v4-fresh-start",player:fresh.player,
+    speed:fresh.speed,depth:fresh.skiV4SnowDepth,
+    snow:fresh.skiV4SnowCoverage,ready:fresh.skiV4AwaitingStart});
+  assert.ok(Number(fresh.speed)<.05&&Number(fresh.skiV4SnowCoverage)>.45,
+    "Second ski run must begin truly stationary on Granite Ridge snow");
   await page.keyboard.down("w");
   await page.waitForFunction(()=>{
     const d=document.querySelector("canvas")?.dataset;
-    return Number(d?.speed)>2 && Number(d?.skiV4SnowCoverage)>.55;
+    return Number(d?.speed)>2&&Number(d?.skiV4SnowCoverage)>.55;
   },null,{timeout:25000});
   await page.keyboard.up("w");
   await page.keyboard.down("d");
