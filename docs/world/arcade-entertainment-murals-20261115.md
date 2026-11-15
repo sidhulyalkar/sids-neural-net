@@ -90,3 +90,25 @@ without covering the existing center game hitbox, and the mountain/travel
 photo galleries remain on the side walls. Re-run screenshot evidence after
 this change and inspect legibility at gameplay distance, not merely asset
 loading.
+
+## Generated-image texture pipeline (optional, additive)
+
+The AI-generated image collection is prepared separately as
+`sids_arcade_generated_webgl_textures.zip`, with three transparent-edge
+WebP textures and three half-resolution mobile variants. The original
+standalone artwork preserves three *different* physical aspect ratios:
+sports ~3:1, anime ~8.76:1, comedy ~6.69:1. New conforming wall strips
+match these ratios within 14% and are separated from the three game hitboxes.
+The original locally authored murals remain underneath as a graceful fallback.
+
+Run `npm run arcade:install-murals -- /absolute/path/to/sids_arcade_generated_webgl_textures.zip`
+at the **draft PR branch checkout**. The install command verifies the full
+SHA-256 manifest, image dimensions and size budgets before copying images
+into `public/world/arcade-cavern/generated`. Only after all six assets
+have been installed does it flip the repo's generated-texture readiness flag.
+The flag defaults to false so a source-only check never creates broken links.
+
+After installation, create another **draft** commit and re-run CI and the
+cavern browser test with generated textures enabled. Check desktop *and mobile*
+screenshots, UV legibility, frame time and GPU memory. No release or merge
+before the island's independent Ski V3 blocking gate is resolved.

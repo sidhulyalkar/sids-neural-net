@@ -7,6 +7,7 @@ type ArcadeThree=Pick<typeof import("three/src/Three.Core.js"),
  "SRGBColorSpace"|"RepeatWrapping"|"LinearMipmapLinearFilter">;
 import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "@/lib/world/arcadeCavernArtManifest";
 import {ARCADE_MURAL_ART_ASSETS,validateArcadeMuralAssets} from "@/lib/world/arcadeCavernAssetManifest";
+import {ARCADE_GENERATED_MURAL_OVERLAYS,GENERATED_MURAL_TEXTURES_BUNDLED,validateGeneratedMuralOverlays} from "@/lib/world/arcadeGeneratedMuralConfig";
 import {paintConceptStory,distressPigment} from "./worldArcadeConceptArt";
 import {createArcadeStoneLining} from "./worldArcadeStoneLining";
 import {createShastaPhotoStencil} from "./worldArcadeShastaStencil";
@@ -573,6 +574,7 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
  const issues=[
   ...validateArcadeArtManifest(ARCADE_CAVERN_MURALS),
   ...validateArcadeMuralAssets(),
+  ...validateGeneratedMuralOverlays(),
  ];
  if(issues.length)throw Error("Cave mural manifest: "+issues.join("; "));
  const root=new three.Group();root.name="sid-underground-fandom-fresco";
@@ -679,6 +681,50 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
     root.userData.muralArtLoadFailure=artwork.src;
    });
    textures.push(source);
+  }
+ }
+ // Optional real AI-generated WebP artwork. Never allocate these meshes
+ // unless the six files have been installed as part of the source tree.
+ // Each strip retains its intrinsic aspect ratio and avoids clickable bays.
+ if(GENERATED_MURAL_TEXTURES_BUNDLED){
+  const mobile=window.matchMedia("(max-width: 767px)").matches;
+  root.userData.generatedMuralsReady=0;
+  for(const item of ARCADE_GENERATED_MURAL_OVERLAYS){
+   const {mural}=item,{paint,glow}=emptyPaint(three);
+   textures.push(paint,glow);
+   const layer=surfaceMesh(mural.surface,mural.z0,mural.z1,
+    mural.v0,mural.v1,paint,"generated-"+mural.id,three,34,12,glow);
+   layer.renderOrder=5;layer.raycast=()=>{};
+   const material=layer.material as THREE.MeshStandardMaterial;
+   material.opacity=.96;
+   meshes.push(layer);root.add(layer);
+   const url=mobile?item.mobile:item.desktop;
+   const loaded=loader.load(url,texture=>{
+    if(!alive)return;
+    texture.colorSpace=three.SRGBColorSpace;
+    texture.anisotropy=4;
+    texture.generateMipmaps=true;
+    texture.minFilter=three.LinearMipmapLinearFilter;
+    const image=texture.image as HTMLImageElement;
+    const selectiveGlow=authoredNeonMask(image,three);
+    textures.push(selectiveGlow);
+    material.map=texture;
+    material.emissiveMap=selectiveGlow;
+    material.emissive=new three.Color("#ffffff");
+    material.emissiveIntensity=.21;
+    material.needsUpdate=true;
+    root.userData.generatedMuralsReady=
+     Number(root.userData.generatedMuralsReady||0)+1;
+    onAssetReady?.(authoredReady,{kind:"generated-fandom",photoCount:
+     Number(root.userData.generatedMuralsReady)});
+   },undefined,()=>{
+    if(!alive)return;
+    const previous=String(root.userData.generatedMuralLoadFailure||"");
+    root.userData.generatedMuralLoadFailure=previous+
+     (previous?"; ":"")+url;
+    // Keep the underlying original mural visible on missing files.
+   });
+   textures.push(loaded);
   }
  }
  // Game artwork is also presented IN each existing game target, not only

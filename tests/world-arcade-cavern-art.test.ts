@@ -7,6 +7,8 @@ import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "../lib/world/arcad
 import {ARCADE_REAR_CAP_Z,caveArtRing,sampleCavernArt,validateCavernMural} from "../lib/world/arcadeCavernSurface";
 import {ARCADE_MURAL_ART_ASSETS,validateArcadeMuralAssets}
  from "../lib/world/arcadeCavernAssetManifest";
+import {ARCADE_GENERATED_MURAL_OVERLAYS,GENERATED_MURAL_TEXTURES_BUNDLED,validateGeneratedMuralOverlays}
+ from "../lib/world/arcadeGeneratedMuralConfig";
 import {SHASTA_PHOTOS,NATURE_PHOTOS,CAVERN_GAME_ART,CAVERN_GAME_PANEL_ART,CAVERN_PHOTO_ALBUMS,validateCavernPhotoAlbums,archivePhotoPath}
  from "../lib/world/arcadeCavernGalleryContent";
 
@@ -253,4 +255,29 @@ test("Rear headline mural is an optimized locally sourced vector panorama",()=>{
   "one combined mural plus the three original panels");
  assert.doesNotMatch(svg,/<image\b[^>]*href="https?:/,
   "all hero imagery must be embedded and first-party");
+});
+
+test("Optional generated murals are distortion-bounded, local and non-interactive",()=>{
+ assert.deepEqual(validateGeneratedMuralOverlays(),[]);
+ assert.equal(ARCADE_GENERATED_MURAL_OVERLAYS.length,3);
+ const ids=ARCADE_GENERATED_MURAL_OVERLAYS.map(x=>x.mural.id);
+ assert.deepEqual(ids,["generated-sports-fandom",
+  "generated-anime-favorites","generated-tv-comedy"]);
+ for(const art of ARCADE_GENERATED_MURAL_OVERLAYS){
+  assert.equal(art.provenance,"owner-supplied-ai");
+  assert.ok(art.mural.z1<=-68.68,
+   "art overlays cannot enter the three playable side niches");
+  if(GENERATED_MURAL_TEXTURES_BUNDLED){
+   for(const url of [art.desktop,art.mobile]){
+    assert.ok(existsSync("public"+url),
+     "enabled generated mural missing local asset: "+url);
+   }
+  }
+ }
+ assert.deepEqual(validateGeneratedMuralOverlays([
+  ARCADE_GENERATED_MURAL_OVERLAYS[0],
+  ARCADE_GENERATED_MURAL_OVERLAYS[0],
+ ]),["duplicate id generated-sports-fandom",
+  "generated-sports-fandom: repeated asset path",
+  "generated-sports-fandom: repeated asset path"]);
 });

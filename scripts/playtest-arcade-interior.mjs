@@ -74,6 +74,10 @@ try{
    assert.ok(contents.length>1500,"incomplete SVG art asset: "+source);
   }
   evidence.entertainmentArt=entertainmentArt;
+  // The optional packaged AI artworks are gated on an explicit source
+  // readiness flag, so ordinary builds must not request missing WebPs.
+  const generated=Number(await canvas.getAttribute("data-arcade-generated-murals-ready")||0);
+  evidence.generatedTextureDecodes=generated;
   for(const id of ["002","033","037","039","042","043","044","045","047"]){
    const image="/visual-archive/thumbs/photo-"+id+"-thumb.webp";
    assert.equal((await page.request.get(origin+image)).status(),200,
