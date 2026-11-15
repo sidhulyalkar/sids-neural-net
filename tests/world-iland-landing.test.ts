@@ -38,7 +38,7 @@ test("the production homepage remains the independent fractal experience",()=>{
 });
 
 test("both island exit links return to the existing portfolio homepage",()=>{
- assert.doesNotMatch(home,/href="\\/atlas"/);
- const entries=home.match(/href="\\/"/g)??[];
- assert.ok(entries.length>=2,"island welcome and menu both return to root");
+ assert.ok(!home.includes('href="/atlas"'));
+ const entries=home.split('href="/"').length-1;
+ assert.ok(entries>=2,"island welcome and menu both return to root");
 });
