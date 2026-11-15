@@ -95,7 +95,7 @@ async function attempt(degrees){
     track("Space up",{atTick:Number(release.skiTick)});
     await until(()=>{
       const d=document.querySelector('canvas[role="application"]')?.dataset;
-      return d?.skiRidePhase==="air" || d?.skiLanding!=="none";
+      return !!d&&(d.skiRidePhase==="air"||d.skiLanding!=="none");
     });
     const lift=await state();
     assert.equal(lift.skiRidePhase,"air","must observe actual airborne input");
