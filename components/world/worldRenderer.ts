@@ -68,6 +68,8 @@ import { createWorldPaperGallery } from "./worldPaperGallery";
 import { SHRINE_GALLERY, GALLERY_VIEWING, galleryConstrainMove, galleryStepWalk, galleryNearShaft, galleryWalkable, shrineReachable, galleryPhotoSlots, galleryPhotoViewpoint, galleryPhotoClearance, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
+import {resolveBikeTerrainSightline} from "@/lib/world/terrainCameraSightline";
+import {northShoreLogBlocksView,resolveNorthShoreCamera} from "@/lib/world/northShoreCamera";
 import { createSkimWake } from "./worldSkimWake";
 import { createNorthShoreLife } from "./worldNorthShoreLife";
 import { ringSurface, ribbon } from "./worldGeometry";
@@ -3246,6 +3248,10 @@ export function createWorld(
   const frameSampler = new FrameSampler();
   const quality = new QualityController();
   let skiCameraYaw=0, skiCameraActive=false, skiLookUntil=0, snapSkiCamera=false;
+  // Bike region fast travel must never lerp the lens through a mountain.
+  let snapBikeCamera=false,snapShoreCamera=false;
+  const bikeCameraFocus=new THREE.Vector3(),bikeScreenProbe=new THREE.Vector3();
+  const skimScreenProbe=new THREE.Vector3(),skimFocus=new THREE.Vector3();
   let yaw = 0.25,
     pitch = 0.32,
     zoom = 19;
@@ -5740,7 +5746,7 @@ export function createWorld(
           ? Math.min(zoom, 13.5)
           : aquatic === "surface"
             ? Math.min(zoom, 14)
-            : surfing ? Math.min(zoom,skimHeat.air>.08 ? 14.5 : 17)
+            : surfing ? Math.min(zoom,skimHeat.air>.08 ? 11.5 : 17)
             : mode === "bike" || mode === "skate"
               ? Math.min(zoom, mode==="skate"?(insideMeadowConnector(player)?9:21):16)
               : mode === "boulder"
@@ -6811,21 +6817,48 @@ export function createWorld(
       }
       snowPuffs.instanceMatrix.needsUpdate=true;
     }
-    if(showingDiscGolfIntro || snapDiscCamera || snapSkiCamera){
+    // Skimboarding beach and ordinary coastal exploration must look around
+    // the physical log, never straight through its huge bark exterior.
+    const shoreCameraActive=aquatic==="land"&&
+      state.activity!=="ski"&&!skateTunnelRide&&!skateLoopRide&&
+      skimHeat.phase!=="riding"&&
+      galleryPhase==="outside"&&discGolf.phase==="off"&&
+      bigAir.phase==="idle"&&!jetSki&&
+      Math.abs(player.x)<23&&player.z>northShoreZ(player.x)-10&&
+      player.z<northShoreZ(player.x)+11;
+    if(shoreCameraActive){
+      const pose=resolveNorthShoreCamera(targetCamera,targetLook,
+        (x,z)=>worldFloorHeight(x,z));
+      if(pose.adjusted)
+        targetCamera.set(pose.point.x,pose.point.y,pose.point.z);
+      canvas.dataset.northShoreCameraAdjusted=String(pose.adjusted);
+      canvas.dataset.northShoreCandidateClear=String(pose.clear);
+    }else{
+      canvas.dataset.northShoreCameraAdjusted="n/a";
+      canvas.dataset.northShoreCandidateClear="n/a";
+    }
+    if(showingDiscGolfIntro || snapDiscCamera || snapSkiCamera || snapBikeCamera || snapShoreCamera){
       // A direct time-derived pose starts on the basket instead of slowly
       // drifting there from a camera that previously followed the player.
       camera.position.copy(targetCamera);
       look.copy(targetLook);
-      snapDiscCamera=false;snapSkiCamera=false;
+      snapDiscCamera=false;snapSkiCamera=false;snapBikeCamera=false;snapShoreCamera=false;
     }else{
       // Fast enough to keep the flying disc on screen, with smooth
       // cinematic blends instead of jumping between subjects.
       const cinematicRate=skateLoopRide||skateTunnelRide||skateRailGapRide?7.8:
+        skimHeat.phase==="riding"&&skimHeat.air>.08?11.5:
         discGolf.phase!=="off"&&discFetch.phase==="flight"?8:
         discGolf.phase!=="off"&&discFetch.phase!=="idle"?5.2:3.6;
       camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
       look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
     }
+    if(shoreCameraActive&&northShoreLogBlocksView(camera.position,look)){
+      camera.position.copy(targetCamera);
+      look.copy(targetLook);
+    }
+    canvas.dataset.northShoreRenderedCameraClear=shoreCameraActive?
+      String(!northShoreLogBlocksView(camera.position,look)):"n/a";
     if(skiCameraActive){
       // Clear the actual ski contact, not only a lagging look target.
       skiFootFocus.copy(explorer.position);skiFootFocus.y+=.12;
@@ -6902,7 +6935,67 @@ export function createWorld(
       camera.updateProjectionMatrix();
     }
     canvas.dataset.hiddenGalleryFov=camera.fov.toFixed(1);
-    camera.lookAt(look);
+    // Bike-only camera safety. The existing lens-height clamp misses
+    // mountains BETWEEN camera and player: it can show only snow despite
+    // perfect wheel contact. This does not touch skier or skate dynamics.
+    if(state.activity==="bike"&&aquatic==="land"&&caveLayer==="surface"&&
+       galleryPhase==="outside"&&discGolf.phase==="off"&&
+       bigAir.phase==="idle"&&!jetSki){
+      // A clear ray aimed 2.8 units ABOVE the biker can still put the actual
+      // rider outside the image, especially after switching from the sequoia.
+      // Solve against the rider's body and qualify its *projected* silhouette.
+      bikeCameraFocus.set(player.x,playerY+1.25,player.z);
+      const shot=resolveBikeTerrainSightline(camera.position,bikeCameraFocus,
+        (x,z)=>worldFloorHeight(x,z));
+      if(shot.adjusted&&shot.clear)
+        camera.position.set(shot.point.x,shot.point.y,shot.point.z);
+      // This changes only presentation and does not fight the player's yaw.
+      look.lerp(bikeCameraFocus,1-Math.exp(-dt*9));
+      camera.lookAt(look);camera.updateMatrixWorld();
+      bikeScreenProbe.copy(bikeCameraFocus).project(camera);
+      const insideFrame=()=>Number.isFinite(bikeScreenProbe.x)&&
+        Number.isFinite(bikeScreenProbe.y)&&bikeScreenProbe.z>=-1&&
+        bikeScreenProbe.z<=1&&Math.abs(bikeScreenProbe.x)<.68&&
+        Math.abs(bikeScreenProbe.y)<.62;
+      if(!insideFrame()){
+        // Avoid a 3-second cinematic blend pointing at the last region
+        // while the actual rider disappears below the camera viewport.
+        look.copy(bikeCameraFocus);camera.lookAt(look);camera.updateMatrixWorld();
+        bikeScreenProbe.copy(bikeCameraFocus).project(camera);
+      }
+      canvas.dataset.bikePlayerFramed=String(insideFrame());
+      canvas.dataset.bikePlayerScreen=[
+        bikeScreenProbe.x,bikeScreenProbe.y,bikeScreenProbe.z
+      ].map(v=>v.toFixed(3)).join(",");
+      canvas.dataset.bikeCameraSightlineClear=String(shot.clear);
+      canvas.dataset.bikeCameraClearanceLift=shot.lift.toFixed(2);
+      canvas.dataset.bikeCameraBoomRatio=shot.boomRatio.toFixed(3);
+      canvas.dataset.bikeCameraPosition=[
+        camera.position.x,camera.position.y,camera.position.z
+      ].map(v=>v.toFixed(2)).join(",");
+    }else{
+      camera.lookAt(look);
+      canvas.dataset.bikePlayerFramed="n/a";
+      canvas.dataset.bikePlayerScreen="";
+      canvas.dataset.bikeCameraPosition="";
+      canvas.dataset.bikeCameraSightlineClear="n/a";
+      canvas.dataset.bikeCameraClearanceLift="0";
+      canvas.dataset.bikeCameraBoomRatio="1";
+    }
+    if(skimHeat.phase==="riding"&&aquatic==="land"){
+      // The original surf lip-air screenshot rendered the athlete tiny.
+      // Measure the actual cinematic shot after rendering controls resolve.
+      skimFocus.set(player.x,playerY+1.3+Math.max(0,skimHeat.air)*.22,player.z);
+      camera.updateMatrixWorld();
+      skimScreenProbe.copy(skimFocus).project(camera);
+      canvas.dataset.skimPlayerScreen=[
+        skimScreenProbe.x,skimScreenProbe.y,skimScreenProbe.z
+      ].map(v=>v.toFixed(3)).join(",");
+      canvas.dataset.skimCameraDistance=camera.position.distanceTo(skimFocus).toFixed(2);
+    }else{
+      canvas.dataset.skimPlayerScreen="";
+      canvas.dataset.skimCameraDistance="";
+    }
     if(skiCameraActive){
       camera.updateMatrixWorld();skiProbe.copy(skiFocus).project(camera);
       if(Math.abs(skiProbe.x)>.65||Math.abs(skiProbe.y)>.65){
@@ -7568,6 +7661,10 @@ export function createWorld(
       if (next.entered && (!wasEntered || (wasPaused && !next.paused)))
         canvas.focus({ preventScroll: true });
       if (next.command && next.command.serial !== lastSerial) {
+        // Snap only biking transfers; Astra owns all ski camera handoffs.
+        snapBikeCamera=next.activity==="bike"||next.command.activity==="bike";
+        snapShoreCamera=next.command.region==="north-shore"&&
+          next.activity!=="ski"&&next.command.activity!=="ski";
         if(skimHeat.phase!=="off"){
           skimHeat=idleSkimHeat();callbacks.onSkim(skimHeat);
         }
@@ -7703,10 +7800,13 @@ export function createWorld(
                 ? 1.15
                 : r.id === "lagoon"
                   ? -1.15
-                 : r.id === "north-shore" ? Math.PI
+                 : r.id === "north-shore" ? 2.0
                   : r.id === "neural"
                     ? -0.6
                     : 0.25;
+        }
+        if(r.id==="north-shore"&&next.command.activity!=="ski"){
+          pitch=.37;zoom=Math.min(zoom,16);
         }
         if (r.id === "cavern") {
           yaw = Math.PI;

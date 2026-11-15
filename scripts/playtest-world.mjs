@@ -224,7 +224,7 @@ try {
       assert.equal(hrefs.length, 3);
       for (const href of hrefs) assert.equal((await page.request.get(`${base}${href}`)).status(), 200, href);
     }
-    if (name.startsWith('04')) for (const memory of ['Mountain lake', 'Wet beach', 'Coastal flowers', 'Shasta · beach']) {
+    if (name.startsWith('04')) for (const memory of ['Wet beach', 'Coastal flowers', 'Shasta · trail', 'Shasta · beach']) {
       await page.getByRole('button', { name: new RegExp(memory) }).click();
       await page.getByRole('heading', { name: memory, exact: true }).waitFor();
       await page.waitForFunction(() => { const img = document.querySelector('dialog img'); return img?.complete && img.naturalWidth > 0; });

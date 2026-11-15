@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {existsSync} from "node:fs";
-import {REGIONS} from "../lib/world/model";
-import {CAIRN_STORIES,cairnStoryFor} from "../lib/world/cairnStories";
+import {REGIONS,MEMORY_POINTS} from "../lib/world/model";
+import {CAIRN_STORIES,cairnStoryFor,REGION_CAIRN_PHOTOS} from "../lib/world/cairnStories";
+import {getWorldContent} from "../lib/world/content";
 
 test("every existing island region has a distinct, evidence-linked field story",()=>{
   assert.deepEqual(Object.keys(CAIRN_STORIES).sort(),REGIONS.map(r=>r.id).sort());
@@ -32,4 +33,22 @@ test("Cairn stories retain distinct scientific, recreational and ecological dest
   assert.ok(CAIRN_STORIES.rainforest.links.some(l=>l.href.includes("photo-016")));
   assert.ok(CAIRN_STORIES.cavern.links.some(l=>l.href==="/arcade"));
   assert.ok(CAIRN_STORIES.waterfall.links.some(l=>l.href==="/publications"));
+});
+
+test("Cairn photo collections use real archive images and keep the coast lightweight",()=>{
+  const photos=getWorldContent().photos;
+  const ids=new Set(photos.map(p=>p.id));
+  assert.equal(photos.length,MEMORY_POINTS.length,
+    "The world intentionally curates a subset of the full 49-photo archive");
+  assert.ok(photos.length>6);
+  for(const [region,collection] of Object.entries(REGION_CAIRN_PHOTOS)){
+    assert.ok(REGIONS.some(r=>r.id===region),"unknown region "+region);
+    assert.ok(collection!.length>0);
+    assert.equal(new Set(collection).size,collection!.length);
+    for(const id of collection!)assert.ok(ids.has(id),region+" references absent photo "+id);
+  }
+  assert.deepEqual(REGION_CAIRN_PHOTOS.coast,
+    ["shore","wildflowers","shasta-trail","shasta-beach"]);
+  assert.ok(REGION_CAIRN_PHOTOS.coast.length<photos.length,
+    "Coast should show a geographically curated glimpse, not every world memory");
 });

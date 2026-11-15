@@ -236,9 +236,16 @@ test("redwood bark art has no coincident surfaces or filled faces through the op
    let mx=0,mz=0;
    for(let corner=0;corner<3;corner++){
     const i=faces.getX(t+corner),x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);
-    const ground=skateParkSurface({x,z});
-    assert.ok(ground!==null&&y-ground>.059,
-     "decorative bark must never intersect the visible +.035 riding mesh");
+    // Check the rendered triangle via a real Three.js raycast, rather
+    // than comparing to the analytic support sampled at this position.
+    if(t%51===0){
+      const ray=new THREE.Raycaster(new THREE.Vector3(x,150,z),new THREE.Vector3(0,-1,0),0,300);
+      const hit=ray.intersectObject(deck,false)[0];
+      assert.ok(hit,"bark must sit over actual rendered cedar triangles");
+      const gap=y-hit.point.y;
+      assert.ok(gap>.025&&gap<.075,
+       "bark must be separated from the exact GPU mesh without floating: "+gap+" at "+x+","+z);
+    }
     mx+=x/3;mz+=z/3;
    }
    const a=Math.atan2(mz-REDWOOD_BOWL.center.z,mx-REDWOOD_BOWL.center.x);
@@ -270,5 +277,34 @@ test("sampled redwood bank triangles track physical wheel support between vertic
   }
   assert.ok(worst<.18,
    "physical wheel and rendered bank must not bridge the triangulated mesh; max error "+worst+" at "+location);
+ }finally{grove.dispose();}
+});
+
+test("non-coplanar bark offset remains stable across sharp bank transitions",()=>{
+ const scene=new THREE.Scene(),grove=createWorldSkateGrove(scene,groundHeight);
+ try{
+  const bark=grove.root.getObjectByName("stump-bowl-outer-bark-apron");
+  const deck=grove.root.getObjectByName("skate-grove-ride-surface");
+  assert.ok(bark instanceof THREE.Mesh&&deck instanceof THREE.Mesh);
+  if(!(bark instanceof THREE.Mesh)||!(deck instanceof THREE.Mesh))return;
+  const pos=bark.geometry.getAttribute("position");
+  const index=bark.geometry.getIndex();
+  assert.ok(index);
+  // Across the western steepest bank, sample *between* the deck grid
+  // vertices so interpolated GPU geometry cannot hide beneath smooth math.
+  let checked=0;
+  for(let face=0;face<index!.count;face+=45){
+   const i=index!.getX(face),x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);
+   if(x>REDWOOD_BOWL.center.x)continue;
+   const ray=new THREE.Raycaster(new THREE.Vector3(x,150,z),
+    new THREE.Vector3(0,-1,0),0,300);
+   const hit=ray.intersectObject(deck,false)[0];
+   assert.ok(hit);
+   const gap=y-hit.point.y;
+   assert.ok(gap>=.028&&gap<=.071,
+    "decorative bark must not intersect the actual skate deck or float high: "+gap);
+   checked++;
+  }
+  assert.ok(checked>25,"test must cover a substantial curved western bark region");
  }finally{grove.dispose();}
 });
