@@ -360,7 +360,7 @@ export class SkiV4Physics{
     const actualSlipRadians=Math.atan2(lateralSlip,Math.max(.1,Math.abs(skiLongitudinal)));
     // Carved lateral force is credible only with an edge aligned to travel.
     // A large velocity-relative attack angle transitions to snow cutting/skid.
-    const carveQuality=clamp((.28-Math.abs(actualSlipRadians))/.22,0,1);
+    const carveQuality=clamp((.28-Math.abs(actualSlipRadians))/.22,0,1)*snowBlend;
     const carved=carvedRequested*carveQuality;
     const shearLimit=t.skidMu*normalAcceleration*contactRatio;
     const shear=clamp(-lateralSlip*t.skidVelocityScale,-shearLimit,shearLimit);
