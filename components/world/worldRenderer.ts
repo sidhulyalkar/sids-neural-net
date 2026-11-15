@@ -4215,6 +4215,8 @@ export function createWorld(
       }
       canvas.dataset.mobileMove=mobileJoysticks.movement.x.toFixed(2)+","+mobileJoysticks.movement.y.toFixed(2);
       canvas.dataset.mobileLook=mobileJoysticks.look.x.toFixed(2)+","+mobileJoysticks.look.y.toFixed(2);
+      canvas.dataset.rideHeldKeys=[...keys].filter(key=>
+        key==="w"||key==="a"||key==="s"||key==="d").sort().join("");
       if (destination) {
         dx = destination.x - player.x;
         dz = destination.z - player.z;
@@ -4225,6 +4227,10 @@ export function createWorld(
           dz = 0;
         }
       }
+      // Instrument the *actual* movement vector passed into locomotion.
+      // The two-thumb Playwright gate must prove nonzero movement, not just
+      // that the HUD joystick graphic changed. Never substitute synthetic input.
+      canvas.dataset.rideInputVector=dx.toFixed(3)+","+dz.toFixed(3);
       const previousPoint = { ...player };
       const previousY = playerY;
       const useSkiRide = onSkiFace() && (ride !== null || airHeight <= .001);
