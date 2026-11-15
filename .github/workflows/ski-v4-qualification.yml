@@ -8,6 +8,9 @@ on:
       - 'tests/world-ski-v4.test.ts'
       - 'scripts/playtest-ski-v4.mjs'
       - 'scripts/ski-v4-halfpipe-audit.ts'
+      - 'scripts/ski-v4-geometry-audit.ts'
+      - 'lib/world/ski/v4/geometryBudget.ts'
+      - 'tests/world-ski-v4-geometry.test.ts'
       - 'docs/world/ski-v4-implementation.md'
       - '.github/workflows/ski-v4-qualification.yml'
   workflow_dispatch:
@@ -59,6 +62,8 @@ jobs:
         # Diagnostic only: failing traversal counts remain release blockers.
         # Do not fake a pass by moving a skier or relaxing bank thresholds.
         run: node --import tsx scripts/ski-v4-halfpipe-audit.ts
+      - name: Record analytic cross-section contact and ski-flex feasibility
+        run: node --import tsx scripts/ski-v4-geometry-audit.ts
       - name: Production bundle within existing limits
         shell: bash
         run: |
