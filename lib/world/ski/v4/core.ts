@@ -7,6 +7,7 @@ export type Vec3={x:number;y:number;z:number};
 export type Surface=(x:number,z:number)=>number;
 export type SkiV4Phase="riding"|"charging"|"air"|"stumble"|"crash"|"recovery";
 export type SkiV4Landing="none"|"clean"|"rough"|"crash";
+export type SkiV4TurnRegime="glide"|"carve"|"transition"|"skid"|"unsupported"|"air";
 export type SkiV4Input={steer:number;brake:number;tuck:boolean;jump:boolean;pitch:number;roll:number;grab:boolean};
 export const NEUTRAL_V4_INPUT:Readonly<SkiV4Input>={steer:0,brake:0,tuck:false,jump:false,pitch:0,roll:0,grab:false};
 export const SKI_V4_TUNING=Object.freeze({
@@ -33,6 +34,9 @@ export type SkiV4Telemetry={
   tick:number;speed:number;edgeRadians:number;attackRadians:number;carveAcceleration:number;
   skidDeceleration:number;gravityAcceleration:Vec2;leftLoad:number;rightLoad:number;
   snowResistance:number;powerToSnow:number;heading:number;phase:SkiV4Phase;
+  /** True measured velocity-versus-ski angle, not an input request. */
+  actualSlipRadians:number;carveQuality:number;contactCoverage:number;
+  observedTurnRate:number;observedTurnRadius:number|null;turnRegime:SkiV4TurnRegime;
 };
 export type SnowSample={height:number;dx:number;dz:number;normal:Vec3};
 
@@ -137,7 +141,9 @@ export class SkiV4Physics{
   awaitingStart=true;
   readonly telemetry:SkiV4Telemetry={tick:0,speed:0,edgeRadians:0,attackRadians:0,
     carveAcceleration:0,skidDeceleration:0,gravityAcceleration:{x:0,z:0},
-    leftLoad:.5,rightLoad:.5,snowResistance:0,powerToSnow:0,heading:0,phase:"riding"};
+    leftLoad:.5,rightLoad:.5,snowResistance:0,powerToSnow:0,heading:0,phase:"riding",
+    actualSlipRadians:0,carveQuality:0,contactCoverage:1,
+    observedTurnRate:0,observedTurnRadius:null,turnRegime:"glide"};
   private heldJump=false;
   private phaseAge=0;
   private readonly initSurface:SnowSample;
@@ -217,6 +223,11 @@ export class SkiV4Physics{
         this.velocity.x=0;this.velocity.y=0;this.velocity.z=0;
         this.position.y=this.supportHeight(this.surface(this.position.x,this.position.z));
         this.telemetry.tick=this.tick;this.telemetry.speed=0;
+        this.telemetry.carveAcceleration=0;this.telemetry.skidDeceleration=0;
+        this.telemetry.observedTurnRate=0;this.telemetry.observedTurnRadius=null;
+        this.telemetry.actualSlipRadians=0;this.telemetry.carveQuality=0;
+        this.telemetry.contactCoverage=this.pressure;
+        this.telemetry.turnRegime=this.pressure>0?"glide":"unsupported";
         this.telemetry.phase=this.phase;
         return;
       }
@@ -251,6 +262,10 @@ export class SkiV4Physics{
         this.velocity.y=sample.dx*this.velocity.x+sample.dz*this.velocity.z;
       }
       this.telemetry.tick=this.tick;this.telemetry.speed=mag(this.velocity);
+      this.telemetry.carveAcceleration=0;this.telemetry.skidDeceleration=0;
+      this.telemetry.carveQuality=0;this.telemetry.contactCoverage=0;
+      this.telemetry.actualSlipRadians=0;this.telemetry.observedTurnRate=0;
+      this.telemetry.observedTurnRadius=null;this.telemetry.turnRegime="air";
       this.telemetry.phase=this.phase;return;
     }
     const recovering=this.phase==="crash"||this.phase==="stumble"||this.phase==="recovery";
@@ -273,15 +288,16 @@ export class SkiV4Physics{
     // Carve centripetal acceleration acts perpendicular to actual velocity:
     // it changes the path, never injects forward kinetic energy.
     const sinEdge=Math.sin(this.edgeAngle);
-    const contactRatio=clamp(this.pressure,0,1);
+    const contactRatio=clamp(this.contact.reduce((n,c)=>n+c.load*c.contactFraction,0),0,1);
     const requestedCarve=(speed*speed/t.sidecutRadius)*Math.abs(sinEdge);
     const maxCarve=normalAcceleration*t.carveMu*contactRatio;
-    const carved=impaired?0:Math.sign(sinEdge)*Math.min(requestedCarve,maxCarve);
+    const carvedRequested=impaired?0:Math.sign(sinEdge)*Math.min(requestedCarve,maxCarve);
     const travelForward=speed>.08?{x:this.velocity.x/speed,z:this.velocity.z/speed}:frame(this.yaw).f;
-    const perpendicular={x:travelForward.z,z:-travelForward.x};
     // Progressive boot attack at lower speeds, with real lateral shearing
     // rather than assigning velocity or setting a hard maximum speed.
-    const pivotAttack=.045+.36*clamp((7-speed)/7,0,1);
+    // Near-parallel skis carve at cruising speed. Boot pivot assists only
+    // when moving slowly, otherwise even a held edge becomes a skidded turn.
+    const pivotAttack=.025+.24*clamp((2.5-speed)/2.5,0,1);
     const targetAttack=impaired?0:steer*
       (pivotAttack+this.brakeEngagement*(t.maxSkiAttack-pivotAttack));
     this.attackAngle+=clamp(targetAttack-this.attackAngle,-t.attackRise*dt,t.attackRise*dt);
@@ -295,6 +311,13 @@ export class SkiV4Physics{
     this.yawRate=radians(this.yaw,oldYaw)/dt;
     const skiRight=frame(this.yaw).r;
     const lateralSlip=this.velocity.x*skiRight.x+this.velocity.z*skiRight.z;
+    const skiForward=frame(this.yaw).f;
+    const skiLongitudinal=this.velocity.x*skiForward.x+this.velocity.z*skiForward.z;
+    const actualSlipRadians=Math.atan2(lateralSlip,Math.max(.1,Math.abs(skiLongitudinal)));
+    // Carved lateral force is credible only with an edge aligned to travel.
+    // A large velocity-relative attack angle transitions to snow cutting/skid.
+    const carveQuality=clamp((.28-Math.abs(actualSlipRadians))/.22,0,1);
+    const carved=carvedRequested*carveQuality;
     const shearLimit=t.skidMu*normalAcceleration*contactRatio;
     const shear=clamp(-lateralSlip*t.skidVelocityScale,-shearLimit,shearLimit);
     const contactSpeed=speed>.08?speed:0;
@@ -306,11 +329,17 @@ export class SkiV4Physics{
     const snowResistance=contactSpeed>0?t.baseSnowResistance+wedgeResistance:0;
     const aerodynamic=t.airDrag*speed*speed*(input.tuck?.52:1);
     const resistance=impaired?2.3+snowResistance:snowResistance+aerodynamic;
-    const forceX=gx+carved*perpendicular.x+shear*skiRight.x-resistance*travelForward.x;
-    const forceZ=gz+carved*perpendicular.z+shear*skiRight.z-resistance*travelForward.z;
     const before={x:this.velocity.x,z:this.velocity.z};
-    this.velocity.x+=forceX*dt;
-    this.velocity.z+=forceZ*dt;
+    // Exact centripetal rotation: the carved portion redirects momentum
+    // without injecting forward kinetic energy through Euler integration.
+    const carveStep=speed>.08?carved*dt/speed:0;
+    const cosTurn=Math.cos(carveStep),sinTurn=Math.sin(carveStep);
+    const rotatedX=before.x*cosTurn+before.z*sinTurn;
+    const rotatedZ=before.z*cosTurn-before.x*sinTurn;
+    const forceX=gx+shear*skiRight.x-resistance*travelForward.x;
+    const forceZ=gz+shear*skiRight.z-resistance*travelForward.z;
+    this.velocity.x=rotatedX+forceX*dt;
+    this.velocity.z=rotatedZ+forceZ*dt;
     // Opposing snow forces cannot carry velocity through zero and reverse it.
     const slopeFree={x:before.x+gx*dt,z:before.z+gz*dt};
     if(before.x*before.x+before.z*before.z>.00001&&
@@ -346,6 +375,22 @@ export class SkiV4Physics{
     this.telemetry.leftLoad=this.contact[0].load;this.telemetry.rightLoad=this.contact[1].load;
     this.telemetry.snowResistance=resistance;
     this.telemetry.powerToSnow=Math.max(0,-shear*lateralSlip)+resistance*speed;
+    const newSpeed=mag(this.velocity);
+    const deltaHeading=Math.atan2(before.z*this.velocity.x-before.x*this.velocity.z,
+      before.x*this.velocity.x+before.z*this.velocity.z);
+    const observedTurnRate=speed>.3&&newSpeed>.3?deltaHeading/dt:0;
+    const observedTurnRadius=Math.abs(observedTurnRate)>.001?
+      newSpeed/Math.abs(observedTurnRate):null;
+    this.telemetry.actualSlipRadians=actualSlipRadians;
+    this.telemetry.carveQuality=carveQuality;
+    this.telemetry.contactCoverage=contactRatio;
+    this.telemetry.observedTurnRate=observedTurnRate;
+    this.telemetry.observedTurnRadius=observedTurnRadius;
+    this.telemetry.turnRegime=contactRatio<.01?"unsupported":
+      this.brakeEngagement>.25||Math.abs(actualSlipRadians)>.2?"skid":
+      Math.abs(this.edgeAngle)>.13&&Math.abs(carved)>.1&&
+      Math.abs(actualSlipRadians)<.10&&contactRatio>.45?"carve":
+      Math.abs(this.edgeAngle)>.08?"transition":"glide";
     this.telemetry.heading=this.yaw;this.telemetry.phase=this.phase;
   }
 }
