@@ -1,0 +1,96 @@
+name: FRONTIER AgentSSL Publisher Pilot
+
+on:
+  push:
+    branches:
+      - 'feat/frontier-agentssl-pilot-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontier-agentssl-paper-pilot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact branch commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Test publisher source probe without network
+        run: python3 -m unittest discover -s tests -p 'test_frontier_agentssl_source_probe.py' -v
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Acquire the exact publisher HTML once and audit candidates
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/frontier-review"
+          python3 scripts/frontier/probe_agentssl_publisher.py \
+            --fetch --out "$RUNNER_TEMP/frontier-review/source"
+          python3 - "$RUNNER_TEMP/frontier-review/source/report.json" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert report["source"] == "https://arxiv.org/html/2611.17323v1"
+          assert report["deploymentApproved"] is False
+          assert report["license"]["figureDisplayApproved"] is False
+          print("Observed paper HTML bytes:", report["sourceHtmlBytes"])
+          print("Publisher sections:", report["diagnostics"]["sectionHeadings"])
+          print("Original figure candidates:", report["candidateFigureCount"])
+          print("Paper license link observed:", report["license"]["paperPageLicenseLinkObserved"])
+          PY
+
+      - name: Build source-only private story and verify claim-free fallback
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/frontier-review/source/report.json"
+          observed="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["retrievedAt"])' "$report")"
+          npx tsx scripts/frontier/build-arxiv-story.ts \
+            --paper-id 2611.17323v1 \
+            --item-id ingest-arxiv-l2kgb2 \
+            --html "$RUNNER_TEMP/frontier-review/source/source.html" \
+            --observed-at "$observed" --built-at "$observed" \
+            --out "$RUNNER_TEMP/frontier-review/bundle"
+          python3 - "$RUNNER_TEMP/frontier-review/bundle/manifest.json" <<'PY'
+          import json, sys
+          manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert manifest["source"]["id"] == "arxiv:2611.17323v1"
+          assert manifest["state"] == "basic"
+          assert not manifest["scenes"], "No unapproved interactive figure should be shown"
+          assert all(r["type"] == "quotation" and r.get("role") == "section-heading"
+                     for r in manifest["evidence"])
+          print("PASS: real original publisher sections produced a source-only story")
+          PY
+
+      - name: Upload review-only manifest and provenance (no publisher HTML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontier-agentssl-source-review-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/frontier-review/source/report.json
+            ${{ runner.temp }}/frontier-review/source/candidates.json
+            ${{ runner.temp }}/frontier-review/source/figure_review_queue.json
+            ${{ runner.temp }}/frontier-review/bundle/manifest.json
+            ${{ runner.temp }}/frontier-review/bundle/provenance.json
+            ${{ runner.temp }}/frontier-review/bundle/assets.json
+          retention-days: 7
+          if-no-files-found: warn

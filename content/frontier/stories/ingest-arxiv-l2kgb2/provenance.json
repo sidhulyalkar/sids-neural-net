@@ -1,0 +1,17 @@
+{
+  "sourceId": "arxiv:2611.17323v1",
+  "sourceRevision": "v1",
+  "sourceHtmlSha256": "e46bc4a222a5638431984772412f7dd96b60acd99977376e0b2890e27a6bffee",
+  "sourceHtmlBytes": 2229911,
+  "sourceRetrievedAt": "2026-11-14T23:54:12.667Z",
+  "observedSourceSections": 40,
+  "selectedNavigationSections": 23,
+  "observedFigureElements": 16,
+  "eligibleFigureCandidates": 4,
+  "approvedDisplayAssets": 0,
+  "figureRightsStatus": "pending-individual-review",
+  "paperLicenseSource": "https://arxiv.org/abs/2611.17323v1",
+  "paperLicenseObservedInHtml": false,
+  "content": "curated publisher headings from audited live HTML; no source paragraphs or images",
+  "deploymentApproved": false
+}

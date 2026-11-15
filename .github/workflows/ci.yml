@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - 'feat/frontier-agentssl-pilot-*'
   pull_request:
   workflow_dispatch:
 
@@ -16,7 +17,8 @@ concurrency:
 
 jobs:
   production-gate:
-    runs-on: ubuntu-latest
+    # Playwright/Chromium pinned here: the current version does not support Ubuntu 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
       FRONTIER_INTERACTION_AUDIT: enabled

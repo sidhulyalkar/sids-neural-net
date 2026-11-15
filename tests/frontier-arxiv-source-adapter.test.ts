@@ -82,7 +82,7 @@ test('the parser fails closed on unsafe paper IDs, excess bytes and invalid enco
     const result = extract(id, '<section id="S1"><h2>Test</h2></section>');
     assert.equal(result.status, 2, 'Rejected unsafe ID ' + id);
   }
-  const oversized = extract(PAPER_ID, '<html>' + 'a'.repeat(1_400_002) + '</html>');
+  const oversized = extract(PAPER_ID, '<html>' + 'a'.repeat(12 * 1024 * 1024 + 2) + '</html>');
   assert.equal(oversized.status, 2);
   assert.match(oversized.stderr, /exceeds bounded extraction limit/);
 });

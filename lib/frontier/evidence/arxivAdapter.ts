@@ -36,13 +36,13 @@ export const ArxivHtmlCandidateSchema = z.strictObject({
   paperId: z.string().regex(paperIdPattern),
   htmlUrl: sourceUrl,
   rightsStatus: z.literal('unverified'),
-  sections: z.array(candidateSection).max(40),
+  sections: z.array(candidateSection).max(80),
   figures: z.array(candidateFigure).max(12),
   diagnostics: z.strictObject({
     figureElementsSeen: z.number().int().nonnegative(),
     candidatesWithImageAndCaption: z.number().int().nonnegative().max(12),
     rejectedImageReferences: z.number().int().nonnegative(),
-    sectionHeadings: z.number().int().nonnegative().max(40),
+    sectionHeadings: z.number().int().nonnegative().max(80),
   }),
 }).superRefine((parsed, ctx) => {
   const htmlUrl = 'https://arxiv.org/html/' + parsed.paperId;

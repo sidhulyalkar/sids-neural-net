@@ -1,0 +1,318 @@
+{
+  "schemaVersion": 1,
+  "itemId": "ingest-arxiv-l2kgb2",
+  "source": {
+    "id": "arxiv:2611.17323v1",
+    "publisher": "arXiv",
+    "url": "https://arxiv.org/abs/2611.17323v1",
+    "kind": "paper",
+    "revision": "v1",
+    "observedAt": "2026-11-14T23:54:12.667Z"
+  },
+  "extractorVersion": "arxiv-html-structure-v1+reviewed-navigation-subset",
+  "compilerVersion": "frontier-evidence-scenes-v1",
+  "builtAt": "2026-11-14T23:54:12.667Z",
+  "state": "basic",
+  "evidence": [
+    {
+      "type": "quotation",
+      "id": "section-001",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S1",
+        "revision": "v1",
+        "section": "S1"
+      },
+      "role": "section-heading",
+      "text": "1 Introduction"
+    },
+    {
+      "type": "quotation",
+      "id": "section-002",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S2",
+        "revision": "v1",
+        "section": "S2"
+      },
+      "role": "section-heading",
+      "text": "2 Related Work"
+    },
+    {
+      "type": "quotation",
+      "id": "section-003",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S3",
+        "revision": "v1",
+        "section": "S3"
+      },
+      "role": "section-heading",
+      "text": "3 Problem Setup"
+    },
+    {
+      "type": "quotation",
+      "id": "section-004",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S3.SS1",
+        "revision": "v1",
+        "section": "S3.SS1"
+      },
+      "role": "section-heading",
+      "text": "3.1 SSL Problem Formulation"
+    },
+    {
+      "type": "quotation",
+      "id": "section-005",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S3.SS2",
+        "revision": "v1",
+        "section": "S3.SS2"
+      },
+      "role": "section-heading",
+      "text": "3.2 AgentSSL Problem Formulation"
+    },
+    {
+      "type": "quotation",
+      "id": "section-006",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S3.SS3",
+        "revision": "v1",
+        "section": "S3.SS3"
+      },
+      "role": "section-heading",
+      "text": "3.3 Agent Design Space"
+    },
+    {
+      "type": "quotation",
+      "id": "section-007",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S4",
+        "revision": "v1",
+        "section": "S4"
+      },
+      "role": "section-heading",
+      "text": "4 Experiment Design"
+    },
+    {
+      "type": "quotation",
+      "id": "section-008",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S5",
+        "revision": "v1",
+        "section": "S5"
+      },
+      "role": "section-heading",
+      "text": "5 Results"
+    },
+    {
+      "type": "quotation",
+      "id": "section-009",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S6",
+        "revision": "v1",
+        "section": "S6"
+      },
+      "role": "section-heading",
+      "text": "6 Analysis"
+    },
+    {
+      "type": "quotation",
+      "id": "section-010",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S6.SS1",
+        "revision": "v1",
+        "section": "S6.SS1"
+      },
+      "role": "section-heading",
+      "text": "6.1 Can Agents Leverage Unlabeled Data?"
+    },
+    {
+      "type": "quotation",
+      "id": "section-011",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S6.SS2",
+        "revision": "v1",
+        "section": "S6.SS2"
+      },
+      "role": "section-heading",
+      "text": "6.2 How Do Agents Use Unlabeled Data?"
+    },
+    {
+      "type": "quotation",
+      "id": "section-012",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S6.SS3",
+        "revision": "v1",
+        "section": "S6.SS3"
+      },
+      "role": "section-heading",
+      "text": "6.3 Do Agents Adapt SSL to Different Domains Effectively?"
+    },
+    {
+      "type": "quotation",
+      "id": "section-013",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S7",
+        "revision": "v1",
+        "section": "S7"
+      },
+      "role": "section-heading",
+      "text": "7 Ablation"
+    },
+    {
+      "type": "quotation",
+      "id": "section-014",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S8",
+        "revision": "v1",
+        "section": "S8"
+      },
+      "role": "section-heading",
+      "text": "8 Applying AgentSSL to Ecology Detection Tasks"
+    },
+    {
+      "type": "quotation",
+      "id": "section-015",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S9",
+        "revision": "v1",
+        "section": "S9"
+      },
+      "role": "section-heading",
+      "text": "9 Discussion and Conclusion"
+    },
+    {
+      "type": "quotation",
+      "id": "section-016",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#S9.SS0.SSS0.Px1",
+        "revision": "v1",
+        "section": "S9.SS0.SSS0.Px1"
+      },
+      "role": "section-heading",
+      "text": "Limitations and future work."
+    },
+    {
+      "type": "quotation",
+      "id": "section-017",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#A1",
+        "revision": "v1",
+        "section": "A1"
+      },
+      "role": "section-heading",
+      "text": "Appendix A Agent Details"
+    },
+    {
+      "type": "quotation",
+      "id": "section-018",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#A2",
+        "revision": "v1",
+        "section": "A2"
+      },
+      "role": "section-heading",
+      "text": "Appendix B Baseline Details"
+    },
+    {
+      "type": "quotation",
+      "id": "section-019",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#A3",
+        "revision": "v1",
+        "section": "A3"
+      },
+      "role": "section-heading",
+      "text": "Appendix C ProgramSelectBench: Details and Results"
+    },
+    {
+      "type": "quotation",
+      "id": "section-020",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#A3.SS3",
+        "revision": "v1",
+        "section": "A3.SS3"
+      },
+      "role": "section-heading",
+      "text": "C.3 Selection Results"
+    },
+    {
+      "type": "quotation",
+      "id": "section-021",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#A4",
+        "revision": "v1",
+        "section": "A4"
+      },
+      "role": "section-heading",
+      "text": "Appendix D LLM-as-Judge Details and Results"
+    },
+    {
+      "type": "quotation",
+      "id": "section-022",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#A5",
+        "revision": "v1",
+        "section": "A5"
+      },
+      "role": "section-heading",
+      "text": "Appendix E Diversity Metric Details"
+    },
+    {
+      "type": "quotation",
+      "id": "section-023",
+      "status": "publisher-reported",
+      "locator": {
+        "sourceId": "arxiv:2611.17323v1",
+        "sourceUrl": "https://arxiv.org/html/2611.17323v1#A6",
+        "revision": "v1",
+        "section": "A6"
+      },
+      "role": "section-heading",
+      "text": "Appendix F Ecology Experiment Details"
+    }
+  ],
+  "scenes": []
+}

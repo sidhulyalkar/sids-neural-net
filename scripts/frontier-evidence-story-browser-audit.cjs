@@ -188,6 +188,68 @@ async function auditedPrivateBundle(browser, fixture) {
   }
 }
 
+async function genuineSourceOnlyPilot(browser) {
+  const origin = new URL(TARGET).origin;
+  const results = [];
+  for (const [width, height] of [[1440, 1000], [390, 844], [320, 760]]) {
+    const page = await browser.newPage({
+      viewport: { width, height }, reducedMotion: 'reduce', deviceScaleFactor: 1,
+    });
+    const unexpectedAssets = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/api/frontier/story-assets/')
+        || request.url().includes('/html/2611.17323v1/2611.17323v1/')) {
+        unexpectedAssets.push(request.url());
+      }
+    });
+    try {
+      const response = await page.goto(origin + '/frontier/story/ingest-arxiv-l2kgb2',
+        { waitUntil: 'domcontentloaded' });
+      assert.equal(response?.status(), 200, 'Audited real source-only manuscript must be served');
+      await page.locator('[data-frontier-story="verified"][data-story-state="basic"]').waitFor();
+      await page.getByRole('heading', { name: /AgentSSL/ }).first().waitFor();
+      assert.equal(await page.locator('[data-frontier-story] img').count(), 0,
+        'Real paper must not load unreviewed publisher image bytes');
+      assert.equal(await page.getByText(/0 approved display figures/).count(), 1);
+      const chapters = page.getByRole('group', { name: 'Research chapters' });
+      await chapters.getByRole('button', { name: /Methods/ }).click();
+      const methods = page.getByRole('link', { name: '4 Experiment Design' });
+      await methods.waitFor();
+      assert.equal(await methods.getAttribute('href'),
+        'https://arxiv.org/html/2611.17323v1#S4');
+
+      await chapters.getByRole('button', { name: /Evidence/ }).click();
+      const resultsLink = page.getByRole('link', { name: '5 Results', exact: true });
+      await resultsLink.waitFor();
+      assert.equal(await resultsLink.getAttribute('href'),
+        'https://arxiv.org/html/2611.17323v1#S5');
+
+      await chapters.getByRole('button', { name: /Limitations/ }).click();
+      const limitations = page.getByRole('link', { name: 'Limitations and future work.' });
+      await limitations.waitFor();
+      assert.equal(await limitations.getAttribute('href'),
+        'https://arxiv.org/html/2611.17323v1#S9.SS0.SSS0.Px1');
+      await page.getByRole('heading', { name: 'No figure linked to this chapter' }).waitFor();
+      assert.equal(unexpectedAssets.length, 0, 'Source-only paper must never preload figure assets');
+      const geometry = await page.evaluate(() => ({
+        viewport: window.innerWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+      }));
+      assert(geometry.scrollWidth <= geometry.viewport + 2,
+        'Real paper source outline overflows ' + width + 'px: ' + JSON.stringify(geometry));
+      await page.evaluate(() => {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      });
+      await page.screenshot({ path: OUT + '/agentssl-source-' + width + '.png', fullPage: true });
+      results.push({ width, genuineSource: true, publisherAnchors: true, unapprovedAssets: 0, noOverflow: true });
+    } finally {
+      await page.close();
+    }
+  }
+  return { genuineSourceOnlyPilot: results };
+}
+
 async function privateStoryBoundaries(browser) {
   const page = await browser.newPage();
   const origin = new URL(TARGET).origin;
@@ -222,6 +284,7 @@ async function main() {
       results.push(await view(browser, width, height));
     }
     results.push(await missingAsset(browser));
+    results.push(await genuineSourceOnlyPilot(browser));
     results.push(await privateStoryBoundaries(browser));
     console.log(JSON.stringify({ status: 'passed', results }));
   } finally {
