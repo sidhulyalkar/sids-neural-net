@@ -2,6 +2,9 @@
  * are game-tuning parameters, not experimentally measured snow properties.
  * The renderer is NOT allowed to determine motion or invent ski contact.
  */
+import {BARE_SNOWPACK,GROOMED_SNOWPACK,makeSnowpack,snowResponse,snowSurfaceLabel,
+  uniformSnowpack,type Snowpack,type SnowpackSampler} from "../snowpack";
+
 export type Vec2={x:number;z:number};
 export type Vec3={x:number;y:number;z:number};
 export type Surface=(x:number,z:number)=>number;
@@ -29,6 +32,7 @@ export type SkiV4Contact={
   side:-1|1;boot:Vec3;normal:Vec3;load:number;loaded:boolean;
   /** Geometry can support a boot on rock; only snowLoad supplies ski-edge force. */
   snowFraction:number;snowLoad:number;
+  snowpack:Snowpack;estimatedSink:number;
   edgeAngle:number;contactFraction:number;contactStations:number;
   /** Contact on the actual cutting edge, not just the nearest ski-base corner. */
   edgeContactFraction:number;edgeContactStations:number;
@@ -45,6 +49,9 @@ export type SkiV4Telemetry={
   actualSlipRadians:number;carveQuality:number;contactCoverage:number;
   observedTurnRate:number;observedTurnRadius:number|null;turnRegime:SkiV4TurnRegime;
   surfaceMode:V4SurfaceMode;snowCoverage:number;
+  snowDepth:number;powderDepth:number;packedDepth:number;
+  snowCrust:number;snowIce:number;estimatedSink:number;
+  snowType:"bare"|"thin"|"ice"|"packed"|"powder";
 };
 export type SnowSample={height:number;dx:number;dz:number;normal:Vec3};
 
@@ -132,7 +139,8 @@ export function solveSkiContact(height:Surface,point:Vec2,yaw:number,
   }
   const loaded=patches>0;
   return {side,boot:{x,y:snow.height+lift,z},normal:snow.normal,load:loaded?load:0,
-    loaded,snowFraction:1,snowLoad:loaded?load:0,edgeAngle,
+    loaded,snowFraction:1,snowLoad:loaded?load:0,
+    snowpack:{...GROOMED_SNOWPACK},estimatedSink:0,edgeAngle,
     contactFraction:patches/5,contactStations:patches,
     edgeContactFraction:edgePatches/5,edgeContactStations:edgePatches,
     supportStart:loaded?supportStart:0,supportEnd:loaded?supportEnd:0,
@@ -154,6 +162,7 @@ export class SkiV4Physics{
   edge=0;pressure=0;grip=0;
   brakeEngagement=0;
   surfaceSnowCoverage=1;
+  surfaceSnowpack:Snowpack={...GROOMED_SNOWPACK};
   /** Player-controlled ski activity starts in a planted stance until first command. */
   awaitingStart=true;
   readonly telemetry:SkiV4Telemetry={tick:0,speed:0,edgeRadians:0,attackRadians:0,
@@ -161,7 +170,10 @@ export class SkiV4Physics{
     leftLoad:.5,rightLoad:.5,snowResistance:0,powerToSnow:0,heading:0,phase:"riding",
     actualSlipRadians:0,carveQuality:0,contactCoverage:1,
     observedTurnRate:0,observedTurnRadius:null,turnRegime:"glide",
-    surfaceMode:"snow",snowCoverage:1};
+    surfaceMode:"snow",snowCoverage:1,
+    snowDepth:GROOMED_SNOWPACK.totalDepth,powderDepth:GROOMED_SNOWPACK.powderDepth,
+    packedDepth:GROOMED_SNOWPACK.packedDepth,snowCrust:GROOMED_SNOWPACK.crust,
+    snowIce:GROOMED_SNOWPACK.ice,estimatedSink:0,snowType:"packed"};
   private heldJump=false;
   private phaseAge=0;
   private readonly initSurface:SnowSample;
@@ -169,7 +181,8 @@ export class SkiV4Physics{
     private readonly constrain?:(from:Vec2,to:Vec2)=>Vec2,
     // Synthetic test slopes default to snow. The island always supplies the
     // real, triangle-interpolated snow attribute; unknown rendered snow is zero.
-    private readonly groundSnowCoverage:SnowCoverage=()=>1){
+    private readonly groundSnowCoverage:SnowCoverage=()=>1,
+    private readonly sampleSnowpack?:SnowpackSampler){
     this.initSurface=sampleSnow(surface,x,z);
     this.position={x,y:this.initSurface.height,z};
     this.contact=[solveSkiContact(surface,{x,z},0,0,-1,.5),solveSkiContact(surface,{x,z},0,0,1,.5)];
@@ -223,18 +236,40 @@ export class SkiV4Physics{
       const localEdge=Math.abs(contact.edgeAngle)<.1?0:
         contact.crossSlope+Math.tan(contact.edgeAngle)>=0?
           -SKI_V4_TUNING.skiHalfWidth:SKI_V4_TUNING.skiHalfWidth;
-      let coverage=0;
+      let coverage=0,powder=0,packed=0,crust=0,ice=0;
       for(const s of [-.3,0,.3]){
         const x=contact.boot.x+basis.f.x*s+basis.r.x*localEdge;
         const z=contact.boot.z+basis.f.z*s+basis.r.z*localEdge;
         const v=this.groundSnowCoverage(x,z);
-        coverage+=Number.isFinite(v)?clamp(v,0,1)/3:0;
+        const fraction=Number.isFinite(v)?clamp(v,0,1):0;
+        coverage+=fraction/3;
+        const sampled=this.sampleSnowpack?.(x,z)??uniformSnowpack(fraction);
+        // Never allow the pack's layers to create snow outside the authored
+        // snow-cover channel, even if the supplied sampler is stale/bogus.
+        if(fraction>0){
+          powder+=sampled.powderDepth/3;
+          packed+=sampled.packedDepth/3;
+          crust+=sampled.crust*fraction/3;
+          ice+=sampled.ice*fraction/3;
+        }
       }
       contact.snowFraction=coverage;
       contact.snowLoad=contact.loaded?contact.load*coverage:0;
+      contact.snowpack=makeSnowpack(coverage,powder,packed,
+        coverage>0?crust/coverage:0,coverage>0?ice/coverage:0);
+      contact.estimatedSink=snowResponse(contact.snowpack,contact.load).estimatedSink;
     }
     this.surfaceSnowCoverage=clamp(
       (this.contact[0].snowFraction+this.contact[1].snowFraction)*.5,0,1);
+    const snowyLoad=this.contact.reduce((n,c)=>n+c.snowLoad,0);
+    if(snowyLoad>1e-8){
+      const average=(property:"powderDepth"|"packedDepth"|"crust"|"ice")=>
+        this.contact.reduce((sum,contact)=>sum+
+          contact.snowLoad*contact.snowpack[property],0)/snowyLoad;
+      this.surfaceSnowpack=makeSnowpack(this.surfaceSnowCoverage,
+        average("powderDepth"),average("packedDepth"),
+        average("crust"),average("ice"));
+    }else this.surfaceSnowpack={...BARE_SNOWPACK};
     const norm=this.contact[0].load+this.contact[1].load;
     this.pressure=norm;
     const covered=this.contact.reduce((sum,c)=>sum+c.snowLoad*c.edgeContactFraction,0);
@@ -244,6 +279,15 @@ export class SkiV4Physics{
     const coverage=this.surfaceSnowCoverage;
     this.telemetry.snowCoverage=coverage;
     this.telemetry.surfaceMode=coverage<.08?"ground":coverage>.92?"snow":"mixed";
+    const pack=this.surfaceSnowpack;
+    this.telemetry.snowDepth=pack.totalDepth;
+    this.telemetry.powderDepth=pack.powderDepth;
+    this.telemetry.packedDepth=pack.packedDepth;
+    this.telemetry.snowCrust=pack.crust;
+    this.telemetry.snowIce=pack.ice;
+    this.telemetry.estimatedSink=this.contact.reduce((n,c)=>
+      n+c.snowLoad*c.estimatedSink,0);
+    this.telemetry.snowType=snowSurfaceLabel(pack);
   }
   private supportHeight(snowHeight:number){
     const supports=this.contact.filter(s=>s.loaded);
@@ -319,6 +363,10 @@ export class SkiV4Physics{
       this.telemetry.actualSlipRadians=0;this.telemetry.observedTurnRate=0;
       this.telemetry.observedTurnRadius=null;this.telemetry.turnRegime="air";
       this.telemetry.surfaceMode="air";this.telemetry.snowCoverage=0;
+      this.telemetry.snowDepth=0;this.telemetry.powderDepth=0;
+      this.telemetry.packedDepth=0;this.telemetry.snowCrust=0;
+      this.telemetry.snowIce=0;this.telemetry.estimatedSink=0;
+      this.telemetry.snowType="bare";
       this.telemetry.phase=this.phase;return;
     }
     const recovering=this.phase==="crash"||this.phase==="stumble"||this.phase==="recovery";
@@ -349,7 +397,8 @@ export class SkiV4Physics{
     const sinEdge=Math.sin(this.edgeAngle);
     const contactRatio=clamp(this.contact.reduce((n,c)=>n+c.snowLoad*c.edgeContactFraction,0),0,1);
     const requestedCarve=(speed*speed/t.sidecutRadius)*Math.abs(sinEdge);
-    const maxCarve=normalAcceleration*t.carveMu*contactRatio;
+    const snowLaw=snowResponse(this.surfaceSnowpack);
+    const maxCarve=normalAcceleration*t.carveMu*contactRatio*snowLaw.edgeFactor;
     const carvedRequested=impaired?0:Math.sign(sinEdge)*Math.min(requestedCarve,maxCarve);
     const travelForward=speed>.08?{x:this.velocity.x/speed,z:this.velocity.z/speed}:frame(this.yaw).f;
     // Progressive boot attack at lower speeds, with real lateral shearing
@@ -379,15 +428,15 @@ export class SkiV4Physics{
     // A large velocity-relative attack angle transitions to snow cutting/skid.
     const carveQuality=clamp((.28-Math.abs(actualSlipRadians))/.22,0,1)*snowBlend;
     const carved=carvedRequested*carveQuality;
-    const shearLimit=t.skidMu*normalAcceleration*contactRatio;
+    const shearLimit=t.skidMu*normalAcceleration*contactRatio*snowLaw.shearFactor;
     const shear=clamp(-lateralSlip*t.skidVelocityScale,-shearLimit,shearLimit);
     const contactSpeed=speed>.08?speed:0;
     const wedge=t.wedgeAngle*this.brakeEngagement;
     // A wedge puts the two skis at opposing angles; their transverse shear
     // largely cancels, while the longitudinal work is strictly dissipative.
     const wedgeResistance=normalAcceleration*t.snowplowMu*contactRatio*
-      Math.sin(wedge)**2*(1+0.3*Math.abs(steer));
-    const snowResistance=contactSpeed>0?t.baseSnowResistance*contactRatio+wedgeResistance:0;
+      snowLaw.brakeFactor*Math.sin(wedge)**2*(1+0.3*Math.abs(steer));
+    const snowResistance=contactSpeed>0?t.baseSnowResistance*contactRatio*snowLaw.dragFactor+wedgeResistance:0;
     const aerodynamic=t.airDrag*speed*speed*(input.tuck?.52:1);
     const resistance=impaired?2.3+snowResistance:snowResistance+aerodynamic;
     const before={x:this.velocity.x,z:this.velocity.z};
