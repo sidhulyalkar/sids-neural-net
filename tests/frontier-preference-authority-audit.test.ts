@@ -12,7 +12,7 @@ function item(id: string, overrides: Partial<FrontierItem> = {}): FrontierItem {
   return {
     id,
     title: `${id} title`,
-    summary: `${id} summary`,
+    summary: `The ${id} repository documents validated ingest pipelines, benchmark methods, experimental failure cases and concrete implementation details for independent reproduction.`, 
     url: `https://github.com/frontier-authority/${id}`,
     source: 'github.com',
     sourceLabel: 'GitHub',

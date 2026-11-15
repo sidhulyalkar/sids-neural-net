@@ -17,10 +17,13 @@ async function readPreviousLedger(path: string): Promise<unknown> {
 async function main() {
   // Full adapter deadlines only in scheduled discovery. Page rendering and
   // cached-fresh searches remain separate from this deep ingestion path.
-  const feed = await getIntegratedFrontierFeed({
+  const result = await getIntegratedFrontierFeed({
     includeSnapshot: false,
     adapterDeadlineMs: false,
+    captureEditorialReview: true,
   });
+  // Never write rejected candidates into the public delivery archive.
+  const { editorialRejections = [], ...feed } = result;
   assertQualifiedFrontierArchive(feed);
 
   const directory = join(process.cwd(), 'content', 'frontier');
@@ -32,12 +35,22 @@ async function main() {
 
   // Prepare both files before replacing either. The existing PR qualification
   // checks the resulting snapshot and the workflow commits them together.
+  const auditDir = join(process.cwd(), 'artifacts', 'frontier-editorial-review');
+  const rejectedPath = join(auditDir, 'rejected-candidates.json');
+  await mkdir(auditDir, { recursive: true });
   const tempSnapshot = snapshotPath + '.pending';
   const tempLedger = ledgerPath + '.pending';
+  const tempRejected = rejectedPath + '.pending';
   await Promise.all([
     writeFile(tempSnapshot, JSON.stringify(feed, null, 2) + '\n', 'utf8'),
     writeFile(tempLedger, JSON.stringify(ledger, null, 2) + '\n', 'utf8'),
+    writeFile(tempRejected, JSON.stringify({
+      generatedAt: feed.generatedAt,
+      items: editorialRejections,
+      note: 'Offline editorial false-negative review only; never served by FRONTIER API.',
+    }, null, 2) + '\n', 'utf8'),
   ]);
+  await rename(tempRejected, rejectedPath);
   await rename(tempLedger, ledgerPath);
   await rename(tempSnapshot, snapshotPath);
 
@@ -46,6 +59,7 @@ async function main() {
     'FRONTIER qualified archive: ' +
     JSON.stringify({
       candidates: feed.items.length,
+      editorialRejectedForReview: editorialRejections.length,
       onlineSources: online,
       totalSourceGroups: feed.sources.length,
       editorialNew: ledger.latest.editorialNew,
