@@ -73,6 +73,10 @@ import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
 import { createNorthShoreLife } from "./worldNorthShoreLife";
+import {createRayPassage} from "./worldRayPassage";
+import {createSouthChannelLife} from "./worldSouthChannelLife";
+import {createSouthCoastalEcology} from "./worldSouthCoastalEcology";
+import {southCoastEntry,SOUTH_ENTRY_SURFACE_Y} from "@/lib/world/southCoastAccess";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
@@ -128,6 +132,7 @@ import {
   SECRET,
   SPAWN,
   seaFloorHeight,
+  southernChannelFloorHeight,
   terrainHeight,
   waterZone,
   worldFloorHeight,
@@ -608,10 +613,14 @@ export function createWorld(
   // slopes; no exploration bounds, caves or ecology rules are expanded.
   for(const side of [-1,1]){
     const edgeZ=side>0?WORLD_BOUNDS.maxZ:WORLD_BOUNDS.minZ;
-    const depth=20;
-    const apron=geo(new THREE.PlaneGeometry(102,depth,64,18));
+    // The southern sea floor extends all the way to the -166 swim boundary,
+    // across the island width. The northern shore retains its old budget.
+    const depth=side<0?70:20;
+    const apron=geo(new THREE.PlaneGeometry(
+      side<0?terrainWidth:102,depth,side<0?128:64,side<0?70:18));
     apron.rotateX(-Math.PI/2);
-    apron.translate(12,0,edgeZ+side*depth/2);
+    apron.translate(side<0?(WORLD_BOUNDS.minX+WORLD_BOUNDS.maxX)/2:12,
+      0,edgeZ+side*depth/2);
     const vertices=apron.attributes.position;
     for(let i=0;i<vertices.count;i++){
       const x=vertices.getX(i),z=vertices.getZ(i);
@@ -619,12 +628,14 @@ export function createWorld(
       const blend=u*u*(3-2*u);
       const shoreY=worldFloorHeight(x,edgeZ);
       const seabed=SEA_SURFACE-3.7+Math.sin(x*.12)*.2;
-      vertices.setY(i,shoreY*(1-blend)+seabed*blend);
+      vertices.setY(i,side<0?southernChannelFloorHeight(x,z):
+       shoreY*(1-blend)+seabed*blend);
     }
     apron.computeVertexNormals();
     const cap=mesh(apron,mat("#7b8272",{roughness:.98}),
       [0,0,0],[1,1,1]);
     cap.castShadow=false;
+    if(side<0)cap.name="southern-swimmable-seabed";
   }
 
   // Fine-grained shore skin masks the ~1m polygonal edge of the island grid.
@@ -2923,6 +2934,20 @@ export function createWorld(
 
   const reefGarden = createReefGarden(tropicalReefRoot);
   const marineSchools = createMarineSchools(reefRoot,tropicalReefRoot);
+  // The southern volcanic arch is not part of the original kelp/lagoon reefs.
+  // Visibility is explicitly limited to swimming inside the south channel.
+  const southPassageRoot=new THREE.Group();
+  southPassageRoot.visible=false;
+  southPassageRoot.name="eagle-ray-passage-southern-offshore";
+  scene.add(southPassageRoot);
+  const rayPassage=createRayPassage(southPassageRoot);
+  const southChannelLife=createSouthChannelLife(southPassageRoot);
+  const southEcology=createSouthCoastalEcology(southPassageRoot);
+  canvas.dataset.rayPassage=String(rayPassage.count);
+  canvas.dataset.eagleFever=String(rayPassage.feverCount);
+  canvas.dataset.eagleFeverVisible=String(rayPassage.visibleFeverCount);
+  canvas.dataset.southReefFish=String(southChannelLife.counts.fish);
+  canvas.dataset.southCoastalDrawCalls=String(southEcology.draws);
   const goldenTridents = createWorldTridents(reefRoot,tropicalReefRoot);
   const shrineCorals=createShrineCoralWayfinding(reefRoot);
   const mossCanyonReef=createMossCanyonReef(reefRoot);
@@ -4903,6 +4928,23 @@ export function createWorld(
       if(skimHeat.phase!=="off"&&skimHeat.phase!=="finished"&&elapsed-lastSkimUpdate>.18){
         callbacks.onSkim(skimHeat);lastSkimUpdate=elapsed;
       }
+      // Restore the south shoreline transition omitted from the curated iLand port.
+      // Land remains clamped to -96; only grounded outward intent can enter water.
+      if(aquatic==="land"&&caveLayer==="surface"&&!jetSki&&!jetChoosing&&
+         discGolf.phase==="off"&&skimHeat.phase==="off"&&
+         !skateLoopRide&&!skateTunnelRide&&!skateRailGapRide&&
+         bigAir.phase!=="flying"){
+        const entry=southCoastEntry(player,{x:dx,z:dz},true,
+         airHeight<.15&&Math.abs(verticalSpeed)<.25);
+        if(entry){
+          player=entry;
+          travel={...travel,point:entry,speed:Math.min(travel.speed,3.2)};
+          swimDepth=targetDepth=0;airHeight=verticalSpeed=0;
+          setAquaticMode("surface");
+          playerY=SOUTH_ENTRY_SURFACE_Y;destination=null;
+          canvas.dataset.southShoreEntry="true";
+        }
+      }
       // Record the first real physical touchdown after the predicted pop,
       // even when the board drops into water or leaves the reserved meadow.
       if(skateBowlFlightActive&&(aquatic!=="land"||
@@ -5596,9 +5638,10 @@ export function createWorld(
       ).toFixed(3);
       // The west-shelf canyon is a genuine underwater destination; don't
       // flatten its location to the generic Wild Coast HUD just because
-      // the visitor is diving. Preserve the north-shore classification.
+      // the visitor is diving. Preserve the separate north and south shores.
       const r: RegionId = isWater(player)
         ? reefCanyonNear(player) ? "canyon"
+          : waterZone(player)==="south-channel" ? "south-shore"
           : waterZone(player)==="north-shore" ? "north-shore":"coast"
         : nearestRegion(player);
       canvas.dataset.currentRegion=r;
@@ -6045,7 +6088,7 @@ export function createWorld(
           floor + 1.05,
           SEA_SURFACE - 0.28,
         );
-        if(reefCanyonNear(player)){
+        if(reefCanyonNear(player)||waterZone(player)==="south-channel"){
           // A camera skimming the surface puts a hard waterline through the
           // middle of the coral corridor. Lower the lens into the scene while
           // keeping it above the real seabed and below the foam plane.
@@ -6906,6 +6949,17 @@ export function createWorld(
       camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
       look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
     }
+    // South snorkel lens must not interpolate above the water plane after
+    // diving, nor slip below the sampled seabed. Other regions are untouched.
+    if(aquatic==="dive"&&waterZone(player)==="south-channel"&&
+       maxDiveDepth(player)>1.2&&galleryPhase==="outside"){
+      const camFloor=seaFloorHeight(camera.position.x,camera.position.z);
+      if(camFloor+1.05<=SEA_SURFACE-.65){
+        camera.position.y=THREE.MathUtils.clamp(
+          camera.position.y,camFloor+1.05,SEA_SURFACE-.65);
+        look.y=Math.min(look.y,SEA_SURFACE-.55);
+      }
+    }
     if(skiCameraActive){
       // Clear the actual ski contact, not only a lagging look target.
       skiFootFocus.copy(explorer.position);skiFootFocus.y+=.12;
@@ -7036,13 +7090,20 @@ export function createWorld(
       && galleryPhase==="outside";
     tropicalReefRoot.visible = aquatic !== "land" && currentWaterZone === "lagoon"
       && galleryPhase==="outside";
+    southPassageRoot.visible=aquatic!=="land"&&currentWaterZone==="south-channel"
+      && galleryPhase==="outside";
     bubbles.visible = aquatic !== "land" && galleryPhase==="outside";
-    shasta.visible = !underwater;
-    dogContact.visible = !underwater;
+    // Shasta has no offshore swim animation. Keep him off the water plane
+    // in South Shore; other land/coastal presence behavior is unchanged.
+    const dogCanAttend=!underwater&&currentWaterZone!=="south-channel";
+    shasta.visible=dogCanAttend;
+    dogContact.visible=dogCanAttend;
     waterMaterial.opacity = underwater ? 0.48 : aquatic === "surface" ? 0.58 : 0.76;
     const underwaterColor =
+      currentWaterZone === "south-channel" ? "#145c7a" :
       currentWaterZone === "lagoon" ? "#167f91" : "#0b6170";
     const underwaterFog =
+      currentWaterZone === "south-channel" ? "#266989" :
       currentWaterZone === "lagoon" ? "#2f8f91" : "#196b72";
     if (scene.background instanceof THREE.Color)
       scene.background.set(galleryPhase!=="outside" ? "#272c29" :
@@ -7058,7 +7119,9 @@ export function createWorld(
     // Ski-mode snowfall follows the player anywhere in the world.
     snowfall.visible = state.activity === "ski" && aquatic !== "dive";
     canvas.dataset.snowing = String(snowfall.visible);
-    canvas.dataset.reef = String(reefRoot.visible || tropicalReefRoot.visible);
+    canvas.dataset.reef = String(reefRoot.visible || tropicalReefRoot.visible || southPassageRoot.visible);
+    canvas.dataset.southPassage=String(southPassageRoot.visible);
+    canvas.dataset.southPassageSwimmable=String(currentWaterZone==="south-channel"&&aquatic!=="land");
     canvas.dataset.reefZone = currentWaterZone ?? "";
     if (snowfall.visible) {
       snowfall.position.set(player.x, playerY - 4, player.z);
@@ -7321,6 +7384,9 @@ export function createWorld(
     reefGarden.update(elapsed);
     const reducedFlightMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     marineSchools.update(elapsed,reducedFlightMotion);
+    rayPassage.update(elapsed,reducedFlightMotion,{x:player.x,y:playerY,z:player.z});
+    southChannelLife.update(elapsed,reducedFlightMotion);
+    southEcology.update(elapsed,{x:player.x,z:player.z},reducedFlightMotion);
     discGolfObjects.update(discGolf);
     // Bound prediction to ~2 Hz while a disc is being aimed. The preview
     // runs the same solver as the throw, but intentionally assumes a
@@ -7703,12 +7769,14 @@ export function createWorld(
         climb = null;
         grind = null;
         const arrivalIsCanyon=r.id==="canyon"&&!flowStart&&!galleryStart;
-        setAquaticMode(arrivalIsCanyon?"dive":"land");
+        const arrivalSouthShore=r.id==="south-shore"&&!galleryStart;
+        setAquaticMode(arrivalIsCanyon?"dive":arrivalSouthShore?"surface":"land");
         if(arrivalIsCanyon){
           swimDepth=targetDepth=Math.min(3.2,maxDiveDepth(player));
         }
         caveLayer = "surface";
         playerY = arrivalIsCanyon?SEA_SURFACE-swimDepth:
+          arrivalSouthShore?SOUTH_ENTRY_SURFACE_Y:
           jetPierStart ? (jetSkiPierHeight(player) ?? groundHeight(player)) : groundHeight(player);
         rideRecovery=initialRideRecovery(player);
         rideFlightContinuity=false;lastFlightExitAt=-Infinity;
@@ -7783,6 +7851,7 @@ export function createWorld(
                 ? 1.15
                 : r.id === "lagoon"
                   ? -1.15
+                 : r.id === "south-shore" ? 0
                  : r.id === "north-shore" ? Math.PI
                   : r.id === "neural"
                     ? -0.6
@@ -7865,6 +7934,9 @@ export function createWorld(
       habitats.dispose();
       reefGarden.dispose();
       marineSchools.dispose();
+      rayPassage.dispose();
+      southChannelLife.dispose();
+      southEcology.dispose();
       goldenTridents.dispose();
       shrineCorals.dispose();
       mossCanyonReef.dispose();

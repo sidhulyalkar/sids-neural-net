@@ -46,7 +46,7 @@ export const ARCADE_GENERATED_MURAL_OVERLAYS:readonly GeneratedMuralOverlay[]=[
  },
  {
   mural:{id:"generated-tv-comedy",theme:"comedy",surface:"right",
-   z0:-75.52,z1:-68.68,v0:.57,v1:.75,
+   z0:-75.52,z1:-68.72,v0:.57,v1:.75,
    title:"Comedy favorites panoramic frieze",
    tags:["SOUTH PARK","BOJACK HORSEMAN","RICK AND MORTY","ARCHER",
     "THE BOONDOCKS","COMMUNITY","TRAILER PARK BOYS"]},

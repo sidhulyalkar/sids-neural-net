@@ -8,6 +8,7 @@ import {jetSkiPierHeight} from "./jetSkiPier";
 import {MOUNTAIN_HALFPIPE,withinMountainHalfpipe,suppressedFaceKicker,mountainHalfpipeApproachClearance,mountainSummitBoost} from "./mountainHalfpipe";
 import {
   constrainMove,
+  constrainSwimMove,
   distance,
   isWater,
   terrainHeight,
@@ -536,19 +537,11 @@ export function stepSwim(
     speed * dt,
     destination ? distance(current.point, destination) : Infinity,
   );
-  const point = constrainMove(
+  const point = constrainSwimMove(
     current.point,
-    {
-      x: current.point.x + heading.x * step,
-      z: current.point.z + heading.z * step,
-    },
-    [],
+    {x:current.point.x+heading.x*step,z:current.point.z+heading.z*step},
   );
-  return {
-    point,
-    heading,
-    speed: distance(point, current.point) < step * 0.05 ? 0 : speed,
-  };
+  return {point,heading,speed:distance(point,current.point)<step*.05?0:speed};
 }
 
 export function terrainContact(

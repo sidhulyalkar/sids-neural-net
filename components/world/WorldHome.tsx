@@ -83,6 +83,7 @@ const INTRO: Record<RegionId, { title: string; text: string }> = {
   coast: { title: "Wild coast.", text: "Cold water · trails · photographs." },
   lagoon: { title: "Lagoon reef.", text: "Bora Bora · Tahiti · Mo’orea." },
   "north-shore": { title: "North shore.", text: "Skim the shorebreak." },
+  "south-shore": { title: "Eagle Ray Passage.", text: "Snorkel the southern arch and discover the reef." },
 };
 
 // Reuse archive records, keeping regional discoveries relevant to their surroundings.
