@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - release/frontier-live-sensor-qc
+      - 'feat/frontier-agentssl-pilot-*'
   pull_request:
   workflow_dispatch:
 
