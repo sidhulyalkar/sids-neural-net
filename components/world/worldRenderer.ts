@@ -73,6 +73,9 @@ import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
 import { createNorthShoreLife } from "./worldNorthShoreLife";
+import {createRayPassage} from "./worldRayPassage";
+import {createSouthChannelLife} from "./worldSouthChannelLife";
+import {createSouthCoastalEcology} from "./worldSouthCoastalEcology";
 import {southCoastEntry,SOUTH_ENTRY_SURFACE_Y} from "@/lib/world/southCoastAccess";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
@@ -2926,6 +2929,20 @@ export function createWorld(
 
   const reefGarden = createReefGarden(tropicalReefRoot);
   const marineSchools = createMarineSchools(reefRoot,tropicalReefRoot);
+  // The southern volcanic arch is not part of the original kelp/lagoon reefs.
+  // Visibility is explicitly limited to swimming inside the south channel.
+  const southPassageRoot=new THREE.Group();
+  southPassageRoot.visible=false;
+  southPassageRoot.name="eagle-ray-passage-southern-offshore";
+  scene.add(southPassageRoot);
+  const rayPassage=createRayPassage(southPassageRoot);
+  const southChannelLife=createSouthChannelLife(southPassageRoot);
+  const southEcology=createSouthCoastalEcology(southPassageRoot);
+  canvas.dataset.rayPassage=String(rayPassage.count);
+  canvas.dataset.eagleFever=String(rayPassage.feverCount);
+  canvas.dataset.eagleFeverVisible=String(rayPassage.visibleFeverCount);
+  canvas.dataset.southReefFish=String(southChannelLife.counts.fish);
+  canvas.dataset.southCoastalDrawCalls=String(southEcology.draws);
   const goldenTridents = createWorldTridents(reefRoot,tropicalReefRoot);
   const shrineCorals=createShrineCoralWayfinding(reefRoot);
   const mossCanyonReef=createMossCanyonReef(reefRoot);
@@ -7056,13 +7073,17 @@ export function createWorld(
       && galleryPhase==="outside";
     tropicalReefRoot.visible = aquatic !== "land" && currentWaterZone === "lagoon"
       && galleryPhase==="outside";
+    southPassageRoot.visible=aquatic!=="land"&&currentWaterZone==="south-channel"
+      && galleryPhase==="outside";
     bubbles.visible = aquatic !== "land" && galleryPhase==="outside";
     shasta.visible = !underwater;
     dogContact.visible = !underwater;
     waterMaterial.opacity = underwater ? 0.48 : aquatic === "surface" ? 0.58 : 0.76;
     const underwaterColor =
+      currentWaterZone === "south-channel" ? "#145c7a" :
       currentWaterZone === "lagoon" ? "#167f91" : "#0b6170";
     const underwaterFog =
+      currentWaterZone === "south-channel" ? "#266989" :
       currentWaterZone === "lagoon" ? "#2f8f91" : "#196b72";
     if (scene.background instanceof THREE.Color)
       scene.background.set(galleryPhase!=="outside" ? "#272c29" :
@@ -7078,7 +7099,9 @@ export function createWorld(
     // Ski-mode snowfall follows the player anywhere in the world.
     snowfall.visible = state.activity === "ski" && aquatic !== "dive";
     canvas.dataset.snowing = String(snowfall.visible);
-    canvas.dataset.reef = String(reefRoot.visible || tropicalReefRoot.visible);
+    canvas.dataset.reef = String(reefRoot.visible || tropicalReefRoot.visible || southPassageRoot.visible);
+    canvas.dataset.southPassage=String(southPassageRoot.visible);
+    canvas.dataset.southPassageSwimmable=String(currentWaterZone==="south-channel"&&aquatic!=="land");
     canvas.dataset.reefZone = currentWaterZone ?? "";
     if (snowfall.visible) {
       snowfall.position.set(player.x, playerY - 4, player.z);
@@ -7341,6 +7364,9 @@ export function createWorld(
     reefGarden.update(elapsed);
     const reducedFlightMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     marineSchools.update(elapsed,reducedFlightMotion);
+    rayPassage.update(elapsed,reducedFlightMotion,{x:player.x,y:playerY,z:player.z});
+    southChannelLife.update(elapsed,reducedFlightMotion);
+    southEcology.update(elapsed,{x:player.x,z:player.z},reducedFlightMotion);
     discGolfObjects.update(discGolf);
     // Bound prediction to ~2 Hz while a disc is being aimed. The preview
     // runs the same solver as the throw, but intentionally assumes a
@@ -7888,6 +7914,9 @@ export function createWorld(
       habitats.dispose();
       reefGarden.dispose();
       marineSchools.dispose();
+      rayPassage.dispose();
+      southChannelLife.dispose();
+      southEcology.dispose();
       goldenTridents.dispose();
       shrineCorals.dispose();
       mossCanyonReef.dispose();
