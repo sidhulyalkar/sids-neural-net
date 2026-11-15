@@ -109,3 +109,67 @@ test("V4 only jumps on Space hold and release; touchdown returns to free skiing"
   drive(sim,2,{});
   assert.equal(sim.landing,"clean");assert.equal(sim.phase,"riding");
 });
+
+test("a real low-slip V4 carve preserves loaded edge contact and measures path curvature",()=>{
+  const sim=drive(ski(),1.5,{steer:.75});
+  const t=sim.telemetry;
+  assert.equal(t.turnRegime,"carve");
+  assert.ok(Math.abs(t.actualSlipRadians)<.10,
+    "Carving should not label a 10+ degree side-slip as clean");
+  assert.ok(t.contactCoverage>.65);
+  assert.ok(t.carveQuality>.75);
+  assert.ok(t.observedTurnRate>.05&&t.observedTurnRadius!==null);
+  assert.ok(sim.position.x>1.5);
+  assert.ok(sim.contact[0].load>sim.contact[1].load,
+    "A right-hand carve should load the outside (left) ski more");
+});
+test("high velocity-relative attack skids instead of inventing carved force",()=>{
+  const sim=ski();sim.setHeading(1,0);
+  drive(sim,.05,{steer:.9});
+  assert.ok(Math.abs(sim.telemetry.actualSlipRadians)>.5);
+  assert.ok(sim.telemetry.carveQuality===0);
+  assert.ok(sim.telemetry.carveAcceleration===0);
+  assert.equal(sim.telemetry.turnRegime,"skid");
+});
+test("unsupported ski bindings cannot produce edge traction or claim a carve",()=>{
+  const sim=new SkiV4Physics((x,z)=>5*Math.abs(x)-.12*z,0,0);
+  sim.setHeading(1,0);sim.setHorizontalVelocity(5,0);
+  drive(sim,dt,{steer:1});
+  assert.equal(sim.contact[0].loaded,false);
+  assert.equal(sim.contact[1].loaded,false);
+  assert.equal(sim.telemetry.contactCoverage,0);
+  assert.equal(sim.telemetry.carveAcceleration,0);
+  assert.equal(sim.telemetry.turnRegime,"unsupported");
+  // An unsupported grounded state is a separate remaining design defect.
+  assert.equal(sim.phase,"riding");
+});
+test("edge-only turns never create kinetic energy on level snow",()=>{
+  const sim=ski();
+  let previous=speed(sim);
+  for(let i=0;i<500;i++){
+    drive(sim,dt,{steer:.85,brake:0});
+    const current=speed(sim);
+    assert.ok(current<=previous+1e-8,"Centripetal force must redirect, not accelerate");
+    previous=current;
+  }
+});
+test("edge-to-edge reversals are slew-limited and progress through neutral",()=>{
+  const sim=ski();drive(sim,.5,{steer:.9});
+  assert.ok(sim.edgeAngle>.65);
+  const history:number[]=[];
+  for(let i=0;i<70;i++){
+    drive(sim,dt,{steer:-.9});
+    history.push(sim.edgeAngle);
+  }
+  assert.ok(history[0]>0);
+  assert.ok(history.some(x=>Math.abs(x)<.05));
+  assert.ok(history.at(-1)!<-.65);
+  for(let i=1;i<history.length;i++)
+    assert.ok(Math.abs(history[i]-history[i-1])<=SKI_V4_TUNING.edgeRise*dt+1e-7);
+});
+test("a deliberate snowplow is classified as skid rather than clean carving",()=>{
+  const sim=drive(ski(),.8,{steer:.6,brake:1});
+  assert.equal(sim.telemetry.turnRegime,"skid");
+  assert.ok(sim.telemetry.skidDeceleration>0);
+  assert.ok(sim.brakeEngagement>.95);
+});
