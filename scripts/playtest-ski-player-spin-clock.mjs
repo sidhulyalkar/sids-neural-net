@@ -62,7 +62,7 @@ async function attempt(degrees){
   await page.goto(base,{timeout:120000});
   await page.getByRole("button",{name:"Explore world",exact:true}).click({timeout:120000});
   await page.getByRole("button",{name:"Skiing",exact:true}).click({timeout:60000});
-  await page.waitForFunction(()=>document.querySelector('canvas[role="application"]')?.dataset.skiRidePhase==="riding",{timeout:60000});
+  await page.waitForFunction(()=>document.querySelector('canvas[role="application"]')?.dataset.skiRidePhase==="riding",null,{timeout:60000});
   await page.clock.pauseAt(new Date(Date.now()+100));
   const start=await record();
   assert.equal(start.bigAirPhase,"idle");

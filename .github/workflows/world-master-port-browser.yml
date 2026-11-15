@@ -7,6 +7,7 @@ on:
       - "lib/world/**"
       - "scripts/playtest-ski-v3.mjs"
       - "scripts/playtest-ski-player-spin.mjs"
+      - "scripts/playtest-ski-player-spin-clock.mjs"
       - "scripts/playtest-clean-mountain-halfpipe.mjs"
       - ".github/workflows/world-master-port-browser.yml"
   workflow_dispatch:
@@ -53,7 +54,18 @@ jobs:
         run: |
           if [ "$NEXT_PUBLIC_SKI_V3" = "1" ]; then
             node scripts/playtest-ski-v3.mjs
+            # Two independent proof modes: controlled 60Hz physics cadence
+            # and real wall-clock software WebGL. Both retain evidence even
+            # if the other fails; neither asserts GPU hardware performance.
+            set +e
+            node scripts/playtest-ski-player-spin-clock.mjs
+            clock_code=$?
             node scripts/playtest-ski-player-spin.mjs
+            realtime_code=$?
+            set -e
+            echo "SKI_TRICK_CLOCK_EXIT=$clock_code"
+            echo "SKI_TRICK_REALTIME_EXIT=$realtime_code"
+            test "$clock_code" -eq 0 && test "$realtime_code" -eq 0
           else
             node scripts/playtest-clean-mountain-halfpipe.mjs
           fi
@@ -70,4 +82,5 @@ jobs:
           path: |
             artifacts/world-master-browser/
             artifacts/world-player-spin/
+            artifacts/ski-player-spin-clock/
           if-no-files-found: warn
