@@ -11,7 +11,7 @@ test("Sid's iLand has one minimal, accessible homepage heading and one name-only
   assert.match(home,/<h1 id="world-title">Welcome to <em>Sid’s iLand<\/em><\/h1>/);
   assert.match(home,/>\s*Sid Hulyalkar\s*<\/Link>/);
   assert.doesNotMatch(home,/CALIFORNIA, IN MIND|Brains, machines,|usually outside|Neuroscience & engineering/);
-  assert.match(metadata,/title: "Sid’s iLand \| Interactive World"/);
+  assert.match(metadata,/title:\s*"Sid’s iLand \| Interactive World"/);
   assert.match(home,/Explore world/,"exploration launch remains discoverable");
   assert.match(home,/View site/,"portfolio entry is preserved");
   assert.match(styles,/\.welcome h1 em \{[\s\S]*?display: block;/);
