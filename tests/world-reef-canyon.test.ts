@@ -98,7 +98,8 @@ test("canyon uses existing kelp gate, protected swim collision and underwater ar
     "reef follow camera must stay below the water plane");
   assert.match(scene,/floor\+1\.05,SEA_SURFACE-\.65/,
     "reef camera retains real seabed and surface bounds");
-  assert.match(scene,/arrivalIsCanyon\?"dive":"land"/);
+  assert.match(scene,/arrivalIsCanyon\?"dive":arrivalSouthShore\?"surface":"land"/,
+    "Moss Canyon remains underwater while the southern coast starts swimming");
   assert.match(scene,/reefCanyonNear\(player\) \? "canyon"/);
   assert.match(scene,/canvas\.dataset\.currentRegion=r/);
   assert.match(scene,/reefRoot\.visible = aquatic !== "land" && currentWaterZone === "kelp"/);

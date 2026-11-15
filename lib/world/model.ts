@@ -530,7 +530,7 @@ export function regionLanding(region: RegionId): Point {
   if (region === "lagoon")
     return { x: eastCoastlineX(z) - 1.35, z };
   if (region === "north-shore") return { x: 1.5, z: northShoreZ(1.5) - 7.75 };
-  if (region === "south-shore") return {x:17,z:-101}; // direct surface swim, not a land cliff
+  if (region === "south-shore") return {x:17,z:-110}; // true diveable water near the ray-passage discovery
   // The rainforest anchor has a reserved, vegetation-free arrival circle.
   if (region === "rainforest") return { ...target.point };
   if (region === "cavern")

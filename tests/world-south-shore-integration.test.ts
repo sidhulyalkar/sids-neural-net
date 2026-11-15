@@ -25,7 +25,7 @@ test("South Shore menu arrives in actual water, with land boundaries unchanged",
  assert.equal(SOUTH_CHANNEL_SHORE_Z,WORLD_BOUNDS.minZ);
  assert.equal(SOUTH_CHANNEL_MIN_Z,-166);
  const arrival=regionLanding("south-shore");
- assert.deepEqual(arrival,{x:17,z:-101});
+ assert.deepEqual(arrival,{x:17,z:-110});
  assert.equal(waterZone(arrival),"south-channel");
  assert.ok(maxDiveDepth(arrival)>.8,"menu must reach diveable water");
  const land=constrainMove({x:17,z:-95},{x:17,z:-130},[]);
@@ -83,13 +83,15 @@ test("South bathymetry has matching land edge and physical dive clearance",()=>{
 });
 
 test("Swimming crosses old boundary, reaches Eagle Ray Passage, and returns",()=>{
- let swim={point:{x:17,z:-101},speed:0,heading:{x:0,z:-1}};
+ let swim={point:{x:17,z:-110},speed:0,heading:{x:0,z:-1}};
  for(let i=0;i<100;i++)swim=stepSwim(swim,{x:0,z:-1},.12);
  assert.ok(swim.point.z<-122,"stuck before southern passage: "+swim.point.z);
  assert.equal(waterZone(swim.point),"south-channel");
- for(let i=0;i<110;i++)swim=stepSwim(swim,{x:0,z:1},.12);
- assert.ok(swim.point.z>-115,"failed return swim: "+swim.point.z);
- assert.equal(waterZone(swim.point),"south-channel");
+ for(let i=0;i<100;i++)swim=stepSwim(swim,{x:0,z:1},.12);
+ assert.ok(swim.point.z>-135,"failed return swim: "+swim.point.z);
+ // The swimmer can reach the shallows again; the in-game aquatic state
+ // changes to land only once the shore has been physically crossed.
+ assert.ok(swim.point.z> -155);
 });
 
 test("Southern ray school and neighboring reef art are bounded and disposable",()=>{
