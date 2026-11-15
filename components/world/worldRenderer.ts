@@ -20,6 +20,7 @@ import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkat
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
 import {refineMountainSnow} from "./worldMountainHalfpipe";
+import {applySnowpackMaterial} from "./worldSnowpackSurface";
 import {halfpipePop,mountainHalfpipeApproachClearance,suppressedFaceKicker,withinMountainHalfpipe,halfpipeManualPopEligible} from "@/lib/world/mountainHalfpipe";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
 import {createMysticElectricity} from "./worldMysticElectricity";
@@ -620,7 +621,7 @@ export function createWorld(
   const snowTriangles = refineMountainSnow(terrain);
   const ground = mesh(
     terrain,
-    mat("#ffffff", { vertexColors: true, flatShading: false, roughness: 0.92 }),
+    applySnowpackMaterial(mat("#ffffff", { vertexColors: true, flatShading: false, roughness: 0.92 })),
     [0, 0, 0],
     [1, 1, 1],
   );
