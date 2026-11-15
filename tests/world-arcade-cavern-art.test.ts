@@ -213,3 +213,26 @@ test("Entertainment wall sections cannot overlap each other or the interactive g
  assert.ok(gameMurals[0].tags.includes("UNIRICO"));
  assert.ok(gameMurals[0].tags.includes("UNICORN STAMPEDE"));
 });
+
+
+test("Every entertainment art placement has acceptable wall aspect and a local original image",()=>{
+ const expected={
+  anime:"/world/arcade-cavern/anime/raid-ascend.svg",
+  "sport-anime":"/world/arcade-cavern/sport-anime/striker-setpoint.svg",
+  comedy:"/world/arcade-cavern/comedy/out-of-this-world.svg",
+ };
+ for(const [theme,src] of Object.entries(expected)){
+  const mural=ARCADE_CAVERN_MURALS.find(m=>m.theme===theme);
+  assert.ok(mural, "missing "+theme+" descriptor");
+  assert.ok(mural!.surface==="left"||mural!.surface==="right",
+   "entertainment must stay on the two side walls");
+  assert.equal(ARCADE_MURAL_ART_ASSETS[theme as keyof typeof ARCADE_MURAL_ART_ASSETS]?.src,src);
+  const depth=mural!.z1-mural!.z0;
+  // The two-slope wall has about 5 m of arc-length for its complete
+  // height. Limit distortion against each 1600x1000 source SVG.
+  const wallHeight=(mural!.v1-mural!.v0)*5.3;
+  const ratio=depth/wallHeight;
+  assert.ok(ratio>1.1&&ratio<2.2,
+   "avoid squeezing/stretching mural "+theme+": "+ratio.toFixed(2));
+ }
+});

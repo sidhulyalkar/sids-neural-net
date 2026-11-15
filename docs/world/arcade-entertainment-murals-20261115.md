@@ -55,3 +55,17 @@ Game-cover galleries and all three clickable arcade panels are unchanged.
 
 No merge or deployment from this branch without review of the island's
 existing production qualification blockers.
+
+
+## Focused screenshot gate
+
+`scripts/playtest-arcade-interior.mjs` checks the nine mural meshes, all
+three locally hosted SVG assets, the three separate playable game covers,
+Shasta's retained rear portrait, bounded art draw calls, and live desktop
+screenshots after a real keyboard approach into the room. It uses the origin
+of `WORLD_BASE_URL` for asset requests, so a `/world` route prefix does not
+accidentally resolve `/world/world/...` URLs.
+
+The independent `Arcade Cavern Artwork Review` GitHub workflow captures
+screenshots and a JSON trace at its own exact head, even if skiing tests fail.
+This is **not** a replacement for physical-GPU timing or a manual art review.
