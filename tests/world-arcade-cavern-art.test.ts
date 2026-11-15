@@ -281,8 +281,8 @@ test("Optional generated murals are distortion-bounded, local and non-interactiv
  assert.deepEqual(validateGeneratedMuralOverlays([
   ARCADE_GENERATED_MURAL_OVERLAYS[0],
   ARCADE_GENERATED_MURAL_OVERLAYS[0],
- ]),["duplicate id generated-sports-fandom",
-  "generated-sports-fandom: duplicate replacement sports",
+ ]),["generated-sports-fandom: duplicate replacement sports",
+  "duplicate id generated-sports-fandom",
   "generated-sports-fandom: repeated asset path",
   "generated-sports-fandom: repeated asset path"]);
 });
