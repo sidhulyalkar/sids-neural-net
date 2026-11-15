@@ -113,7 +113,11 @@ try{
    if(p[1]>-44){
     return resolve({start,finish:sample,inPipe,highestSpeed,trace:data});
    }
-   if(performance.now()-began>75000)
+   // Software-rendered Chromium may advance fewer simulation ticks per
+   // wall second under the explicit per-frame catch-up cap. Keep the
+   // *physical* downhill threshold and unarmed Big Air assertion intact;
+   // give this slow GPU-independent runner time to reach it.
+   if(performance.now()-began>130000)
      return reject(Error("Downhill halfpipe traversal failed: "+JSON.stringify(data)));
    requestAnimationFrame(tick);
   };
