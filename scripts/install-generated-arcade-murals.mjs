@@ -15,6 +15,25 @@ const repoRoot=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const input=process.argv.find((v,i)=>i>=2&&!v.startsWith("--"));
 const dryRun=process.argv.includes("--dry-run");
 const replace=process.argv.includes("--replace");
+/** The manifest is descriptive, not proof of what the binary decoder will see.
+ * WebP's VP8X header stores real width/height (minus one) and alpha flag.
+ * This pipeline requires VP8X because every source has feathered alpha.
+ */
+function inspectWebp(bytes,name){
+ if(bytes.length<30||bytes.toString("ascii",0,4)!=="RIFF"||
+    bytes.toString("ascii",8,12)!=="WEBP"||
+    bytes.readUInt32LE(4)+8!==bytes.length)
+  throw Error("Corrupt WebP container: "+name);
+ if(bytes.toString("ascii",12,16)!=="VP8X"||
+    bytes.readUInt32LE(16)!==10)
+  throw Error("Expected extended alpha WebP: "+name);
+ const dimension=offset=>1+bytes[offset]+bytes[offset+1]*256+
+   bytes[offset+2]*65536;
+ const width=dimension(24),height=dimension(27);
+ if(!(bytes[20]&16))throw Error("Generated wall art has no alpha channel: "+name);
+ return {width,height};
+}
+
 if(!input){
  console.error("Usage: npm run arcade:install-murals -- /path/to/sids_arcade_generated_webgl_textures.zip [--dry-run] [--replace]");
  process.exitCode=2;
@@ -62,6 +81,11 @@ if(!input){
    if(bytes.toString("ascii",0,4)!=="RIFF"||
        bytes.toString("ascii",8,12)!=="WEBP")
     throw Error("Not an actual WebP: "+canonical);
+   const actual=inspectWebp(bytes,canonical);
+   if(actual.width!==item.width||actual.height!==item.height)
+    throw Error("Binary pixel dimensions disagree with manifest: "+canonical);
+   const expectedVariant=filename.endsWith("-mobile.webp")?"mobile":"desktop";
+   if(item.variant!==expectedVariant)throw Error("Variant mismatch: "+canonical);
    const digest=createHash("sha256").update(bytes).digest("hex");
    if(digest!==item.sha256||bytes.length!==item.bytes)
     throw Error("Checksum/size mismatch for "+canonical);
