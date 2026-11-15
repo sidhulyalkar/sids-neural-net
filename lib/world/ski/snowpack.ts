@@ -91,13 +91,18 @@ export function snowResponse(s:Snowpack,skiLoad=1):SnowResponse{
   if(s.coverage<=0||s.totalDepth<=0)return {
     edgeFactor:0,shearFactor:0,brakeFactor:0,dragFactor:0,estimatedSink:0};
   const raw=rawResponse(s);
+  // A sharp edge cannot carve indefinitely in a dusting: it cuts through
+  // the snow and bottoms on substrate. Strength recovers as sufficient
+  // depth develops to accept a loaded cutting edge.
+  const cutDepth=clamp((s.totalDepth-.006)/.115,.03,1);
+  const shallowShear=.15+.85*cutDepth;
   const sink=Math.min(s.powderDepth,
     Math.max(0,s.powderDepth*(.08+.25*clamp(skiLoad,0,1.5))*
       (1-.4*s.crust)));
   return {
-    edgeFactor:raw.edge/baseline.edge,
-    shearFactor:raw.shear/baseline.shear,
-    brakeFactor:raw.brake/baseline.brake,
+    edgeFactor:raw.edge/baseline.edge*cutDepth,
+    shearFactor:raw.shear/baseline.shear*shallowShear,
+    brakeFactor:raw.brake/baseline.brake*shallowShear,
     dragFactor:raw.drag/baseline.drag,
     estimatedSink:sink,
   };

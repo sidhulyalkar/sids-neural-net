@@ -87,3 +87,15 @@ test("material under left/right edges keeps independent depth",()=>{
   assert.ok(sim.contact[0].estimatedSink>sim.contact[1].estimatedSink);
   assert.ok(sim.contact.every(c=>c.snowpack.totalDepth>0));
 });
+
+test("thin snow bottoms out on hard substrate instead of behaving like deep skiable snow",()=>{
+  const dusting=makeSnowpack(1,.008,.015,.4,.1);
+  const solid=makeSnowpack(1,.08,.55,.4,.1);
+  const thin=snowResponse(dusting),deep=snowResponse(solid);
+  assert.ok(thin.edgeFactor<deep.edgeFactor*.35,
+    "an edge cutting through thin snow must lose traction");
+  assert.ok(thin.shearFactor<deep.shearFactor);
+  assert.ok(thin.brakeFactor<deep.brakeFactor);
+  assert.equal(snowSurfaceLabel(dusting),"thin");
+  assert.ok(thin.estimatedSink<=dusting.powderDepth);
+});
