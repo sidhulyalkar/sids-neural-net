@@ -1,0 +1,110 @@
+name: iLand Master-Based Release Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'app/world/**'
+      - 'app/dev/ski-lab/**'
+      - 'components/world/**'
+      - 'lib/world/**'
+      - 'tests/world-*.test.ts'
+      - 'scripts/playtest-*.mjs'
+      - 'src/data/photoPlaces.ts'
+      - 'src/data/visualArchive.ts'
+      - '.github/workflows/iland-release-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iland-master-qualification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-matrix:
+    name: Ski V3 ${{ matrix.ski_v3 }} · exact SHA
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        ski_v3: ['0', '1']
+    env:
+      NEXT_PUBLIC_SKI_V3: ${{ matrix.ski_v3 }}
+      NEXT_PUBLIC_SITE_URL: https://example.invalid
+      NEXT_PUBLIC_WORLD_LOOM_XR: disabled
+      WORLD_BASE_URL: http://127.0.0.1:3000/world
+      WORLD_AUDIT_DIR: artifacts/iland/flag-${{ matrix.ski_v3 }}
+      PLAYWRIGHT_MODULE_ROOT: /tmp/island-playwright/node_modules/playwright
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Record exact candidate and preserve master landing
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Candidate SHA: $(git rev-parse HEAD)"
+          test -f app/world/page.tsx
+          test -f components/world/WorldHome.tsx
+          test -f lib/world/ski/simulation.ts
+          grep -q 'AdaptiveFractalHome' app/page.tsx
+      - name: Install locked dependencies
+        run: npm ci
+      - name: TypeScript and zero-warning ESLint
+        run: |
+          npm run typecheck
+          npm run lint
+      - name: All deterministic unit tests including world and existing site
+        run: npm test
+      - name: Procedural nature and world scene invariants
+        run: |
+          npm run check:nature-corpus
+          npm run check:world3d
+      - name: Build and enforce existing bundle budgets
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx next experimental-analyze --output
+          mkdir -p artifacts/bundle-analyzer
+          cp -R .next/diagnostics/analyze/. artifacts/bundle-analyzer/
+          npm run build
+          npm run check:bundle
+      - name: Install isolated browser and Chromium on supported Ubuntu
+        shell: bash
+        run: |
+          mkdir -p /tmp/island-playwright
+          npm install --prefix /tmp/island-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/island-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Serve exact production build and smoke current site + island
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run start -- -p 3000 > /tmp/iland-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ > /dev/null && curl -fsS http://127.0.0.1:3000/world > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 100 /tmp/iland-next.log
+          exit 1
+      - name: Real desktop + mobile HUD and sport control entry
+        run: node scripts/playtest-sport-hub.mjs
+      - name: Cairn discovery, links and mobile reading
+        run: node scripts/playtest-cairn-stories.mjs
+      - name: Snow halfpipe entry and unarmed free-ski invariants
+        run: node scripts/playtest-clean-mountain-halfpipe.mjs
+      - name: Jet-ski dock, steering and race course
+        run: node scripts/playtest-jet-ski.mjs
+      - name: Upload diagnostic evidence even when a gate fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iland-release-${{ matrix.ski_v3 }}-${{ github.sha }}
+          path: |
+            artifacts/iland
+            artifacts/bundle-budget
+            /tmp/iland-next.log
+          if-no-files-found: warn
