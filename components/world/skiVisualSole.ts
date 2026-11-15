@@ -54,9 +54,12 @@ export class SkiVisualSole {
     // extension of the tail across a lip that no longer supports the skier.
     for(let j=0;j<=SECTIONS;j++){
       const along=(j/SECTIONS*2-1)*SKI_HALF_LENGTH;
-      const gap=Math.min(this.gap(pose,-SKI_HALF_WIDTH,along,0,height),
-        this.gap(pose,SKI_HALF_WIDTH,along,0,height));
-      rigidMax=Math.max(rigidMax,gap);
+      const rigidLeft=this.gap(pose,-SKI_HALF_WIDTH,along,0,height);
+      const rigidRight=this.gap(pose,SKI_HALF_WIDTH,along,0,height);
+      // Flex safety uses the lower edge; rigid bridging must include BOTH
+      // ski edges at the same stations and rendered-triangle locations.
+      const gap=Math.min(rigidLeft,rigidRight);
+      rigidMax=Math.max(rigidMax,rigidLeft,rigidRight);
       const outside=Math.max(0,pose.supportStart-along,along-pose.supportEnd);
       const supportWeight=Math.max(0,1-outside/.55);
       const bindingWeight=Math.min(1,Math.abs(along)/.25);

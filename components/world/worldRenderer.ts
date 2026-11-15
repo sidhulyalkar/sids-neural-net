@@ -5254,6 +5254,7 @@ export function createWorld(
         if(bikeContact)canvas.dataset.bikeContactError=bikeContact.error.toFixed(4);
         let minSkiClearance=Infinity,maxSkiClearance=-Infinity;
         let minSkiVisual=Infinity,maxSkiVisual=-Infinity,maxSkiBend=0;
+        let maxRigidSameGrid=-Infinity;
         if(skiGrounded){
           const contacts=ride?.soles ?? skiContacts;
           if(!ride)for(let i=0;i<2;i++)fitSkiContact(player,travel.heading,i===0?-1:1,rigSupport,contacts[i]);
@@ -5273,6 +5274,7 @@ export function createWorld(
               const flex=skiSoleVisuals[i].update(pose,rideSnow,ride.load[i],true);
               minSkiVisual=Math.min(minSkiVisual,flex.min);
               maxSkiVisual=Math.max(maxSkiVisual,flex.max);
+              maxRigidSameGrid=Math.max(maxRigidSameGrid,flex.rigidMax);
               maxSkiBend=Math.max(maxSkiBend,flex.maxBend);
             }
             const plank=skiPlanks[i];
@@ -5362,6 +5364,7 @@ export function createWorld(
         // Cosmetic flex is reported separately; rigid solver support remains unchanged.
         canvas.dataset.skiVisualSoleMin=Number.isFinite(minSkiVisual)?minSkiVisual.toFixed(4):"";
         canvas.dataset.skiVisualSoleMax=Number.isFinite(maxSkiVisual)?maxSkiVisual.toFixed(4):"";
+        canvas.dataset.skiRigidSameGridMax=Number.isFinite(maxRigidSameGrid)?maxRigidSameGrid.toFixed(4):"";
         canvas.dataset.skiVisualBend=maxSkiBend.toFixed(4);
 
       }

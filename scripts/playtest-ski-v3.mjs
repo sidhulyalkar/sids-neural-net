@@ -44,6 +44,9 @@ await page.addInitScript(()=>{
 async function save(name){
   await page.waitForFunction(n=>!!window.skiEvidence.frames[n],name,{timeout:180000});
   const {data,png}=await page.evaluate(n=>window.skiEvidence.frames[n],name);
+  // Never discard a frame or its contact measurements on assertion failure.
+  fs.writeFileSync(path.join(dir,name+".png"),Buffer.from(png.split(",")[1],"base64"));
+  fs.writeFileSync(path.join(dir,name+".json"),JSON.stringify(data,null,2));
   assert.equal(data.bigAirPhase,"idle");
   assert.ok(data.skiRidePhase);
   if(name==="air")assert.equal(data.skiRidePhase,"air");
@@ -56,11 +59,13 @@ async function save(name){
   if(data.skiContactActive==="true" && data.skiVisualSoleMin!==""){
     assert.ok(Number(data.skiVisualSoleMin)>-.025,"visual sole penetrates snow");
     assert.ok(Number(data.skiVisualBend)<=.181,"visual flex exceeds documented bound");
-    assert.ok(Number(data.skiVisualSoleMax)<=Number(data.skiSoleMax)+.12,
-      "visual skin must not increase rigid ski bridging");
+    const rigidSameGrid=Number(data.skiRigidSameGridMax);
+    assert.ok(data.skiRigidSameGridMax!==""&&Number.isFinite(rigidSameGrid),
+      "paired 33-section rigid reference must be recorded");
+    assert.ok(Number(data.skiVisualSoleMax)<=rigidSameGrid+.12,
+      "skin gap "+data.skiVisualSoleMax+" exceeds paired rigid "+rigidSameGrid);
   }
-  fs.writeFileSync(path.join(dir,name+".png"),Buffer.from(png.split(",")[1],"base64"));
-  fs.writeFileSync(path.join(dir,name+".json"),JSON.stringify(data,null,2));
+
 }
 try{
   await page.goto(process.env.WORLD_BASE_URL ?? "http://localhost:3000",{timeout:120000});

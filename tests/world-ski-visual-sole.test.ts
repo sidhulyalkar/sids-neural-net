@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {createSkiContact,fitSkiContact} from "../components/world/worldSkiContact";
+import {createSkiContact,fitSkiContact,SKI_HALF_WIDTH,SKI_HALF_LENGTH,SKI_SOLE_Y} from "../components/world/worldSkiContact";
 import {SkiVisualSole,SKI_VISUAL_BEND_LIMIT}
   from "../components/world/skiVisualSole";
 import {Vector3} from "three/src/Three.Core.js";
@@ -38,6 +38,23 @@ for(const [index,height] of surfaces.entries()){
     ribbon.dispose();
   });
 }
+test("rigid same-grid reference includes BOTH ski edges on steep cross-slope",()=>{
+  const height=(x:number,z:number)=>.8*x+.12*Math.sin(2*z);
+  const pose=fitSkiContact({x:0,z:0},{x:0,z:1},1,
+    p=>height(p.x,p.z),createSkiContact(),true);
+  const ribbon=new SkiVisualSole();
+  const result=ribbon.update(pose,height,.9,true);
+  const p=new Vector3();
+  let rigid=-Infinity;
+  for(let j=0;j<=32;j++)for(const side of [-1,1]){
+    p.set(side*SKI_HALF_WIDTH,SKI_SOLE_Y,(j/16-1)*SKI_HALF_LENGTH)
+      .applyQuaternion(pose.rotation).add(pose.position);
+    rigid=Math.max(rigid,p.y-height(p.x,p.z));
+  }
+  assert.ok(Math.abs(result.rigidMax-rigid)<1e-6);
+  assert.ok(result.max<=result.rigidMax+.11);
+  ribbon.dispose();
+});
 test("visual bend is disabled without load and never changes solver pose",()=>{
   const h=(_x:number,z:number)=>-.2*z*z;
   const pose=fitSkiContact({x:0,z:0},{x:0,z:1},1,
