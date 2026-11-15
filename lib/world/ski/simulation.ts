@@ -10,6 +10,10 @@ export type SkiInput = { steer:number; pitch:number; roll:number; tuck:boolean; 
 export const neutral:SkiInput = {steer:0,pitch:0,roll:0,tuck:false,brake:false,jump:false,grab:false};
 type Surface = (x:number,z:number)=>number;
 type Phase = "riding"|"charging"|"air"|"stumble"|"crash"|"recovery";
+export type SkiLandingEvidence={
+  tick:number;impact:number;upright:number;alignment:number;
+  angularRate:number;oneSki:boolean;normalY:number;
+};
 const up=new Vector3(0,1,0);
 const clamp=(v:number)=>Math.max(-1,Math.min(1,v));
 
@@ -23,6 +27,7 @@ export class SkiSimulation {
   readonly contact=[false,false];
   phase:Phase="riding";
   landing:"none"|"clean"|"rough"|"crash"="none";
+  landingEvidence:SkiLandingEvidence|null=null;
   tick=0;
   remainder=0;
   droppedSeconds=0;
@@ -194,6 +199,12 @@ export class SkiSimulation {
         const align=Math.abs(this.forward.dot(this.axis.normalize()));
         const upright=this.axis.copy(up).applyQuaternion(this.rotation).dot(this.normal);
         const oneSki=this.contact[0]!==this.contact[1];
+        // Preserve exact physical cause of touchdown classification.
+        // Observation only: no changes to collision, trick thresholds or control.
+        this.landingEvidence={
+          tick:this.tick,impact:this.impact,upright,alignment:align,
+          angularRate:rate,oneSki,normalY:this.normal.y
+        };
         this.landing=upright<.45||align<.45||this.impact>13||rate>6?"crash":
           upright<.8||align<.8||this.impact>8||rate>3||oneSki?"rough":"clean";
         this.phase=this.landing==="crash"?"crash":this.landing==="rough"?"stumble":"riding";
@@ -236,6 +247,7 @@ export class SkiSimulation {
     if(released&&this.phase==="charging"){
       this.velocity.addScaledVector(this.normal,2+tuning.pop*this.charge/tuning.maxCharge);
       this.phase="air";this.age=0;this.charge=0;this.airSpinRadians=0;
+      this.landingEvidence=null;
     }
     this.move();
     const support=this.sample();
@@ -246,6 +258,7 @@ export class SkiSimulation {
         separation>tuning.gravity*dt*dt+.008;
       if(!impaired&&departing&&(separation>.04||lostSupport)){
         this.phase="air";this.charge=0;this.age=0;this.airSpinRadians=0;
+        this.landingEvidence=null;
         this.contact.fill(false);this.load.fill(0);
       }else this.settle(support);
     }

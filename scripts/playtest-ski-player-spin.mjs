@@ -132,6 +132,11 @@ async function attempt(degrees){
       score:last.skiTrickName,qualified:last.skiTrickQualified,
       scoreSerial:last.skiTrickSerial,
       inputSteeringTicks:last.skiTrickInputTicks,
+      landingMetrics:{
+        impact:last.skiLandingImpact,upright:last.skiLandingUpright,
+        alignment:last.skiLandingAlignment,angularRate:last.skiLandingAngularRate,
+        oneSki:last.skiLandingOneSki
+      },
       errors:pageErrors});
     await page.close().catch(()=>{});
   }

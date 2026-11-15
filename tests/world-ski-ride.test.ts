@@ -45,6 +45,12 @@ test("charged input trace lands a half and full rotation at four render cadences
       };
       for(let frame=0;frame<fps*2;frame++)sim.advance(1/fps,step);
       assert.equal(sim.landing,"clean");
+      assert.ok(sim.landingEvidence,"touchdown must preserve the measured cause");
+      assert.ok(sim.landingEvidence.upright>=.8);
+      assert.ok(sim.landingEvidence.alignment>=.8);
+      assert.ok(sim.landingEvidence.impact<=8);
+      assert.ok(sim.landingEvidence.angularRate<=3);
+      assert.ok(!sim.landingEvidence.oneSki);
       assert.ok(Math.abs(sweptAngle-(duration===47?Math.PI:2*Math.PI))<.2);
       const forward=new Vector3(0,0,1).applyQuaternion(sim.rotation);
       assert.ok((duration===47?-1:1)*forward.z>.9);

@@ -5344,6 +5344,11 @@ export function createWorld(
           canvas.dataset.skiTrickInputTicks=String(skiTricks.latest?.inputSteeringTicks??0);
           canvas.dataset.skiTrickTakeoffTick=String(skiTricks.latest?.takeoffTick??-1);
           canvas.dataset.skiTrickTouchdownTick=String(skiTricks.latest?.touchdownTick??-1);
+          canvas.dataset.skiLandingImpact=ride.landingEvidence?.impact.toFixed(4)??"";
+          canvas.dataset.skiLandingUpright=ride.landingEvidence?.upright.toFixed(4)??"";
+          canvas.dataset.skiLandingAlignment=ride.landingEvidence?.alignment.toFixed(4)??"";
+          canvas.dataset.skiLandingAngularRate=ride.landingEvidence?.angularRate.toFixed(4)??"";
+          canvas.dataset.skiLandingOneSki=String(ride.landingEvidence?.oneSki??false);
           canvas.dataset.skiInputSteer=String(skiInput.steer);
           canvas.dataset.skiInputJump=String(skiInput.jump);
           canvas.dataset.skiInputRoll=String(skiInput.roll);
