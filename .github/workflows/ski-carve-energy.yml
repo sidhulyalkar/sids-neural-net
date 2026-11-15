@@ -4,6 +4,7 @@ on:
     paths:
       - ".github/workflows/ski-carve-energy.yml"
       - "scripts/ski-carve-energy-experiment.ts"
+      - "scripts/ski-control-envelope.ts"
       - "tests/world-ski-carve-physics.test.ts"
       - "lib/world/ski/simulation.ts"
   workflow_dispatch:
@@ -29,6 +30,16 @@ jobs:
         run: |
           node --import tsx scripts/ski-carve-energy-experiment.ts
           git rev-parse HEAD > artifacts/ski-carve-energy/tested-sha.txt
+      - name: Compare normal player-available heading, edge timing and tuck
+        run: |
+          node --import tsx scripts/ski-control-envelope.ts
+          git rev-parse HEAD > artifacts/ski-control-envelope/tested-sha.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ski-control-envelope-${{ github.sha }}
+          path: artifacts/ski-control-envelope/
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         if: always()
         with:
