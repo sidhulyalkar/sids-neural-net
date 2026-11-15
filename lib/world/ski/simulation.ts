@@ -10,11 +10,12 @@ export const tuning = Object.freeze({
 export type SkiCarveSettings={
  maxTurn:number;edgeResponse:number;flatGrip:number;
  engagedGrip:number;contactForceScale:number;drag:number;
+ surfaceTransport:number;
 };
 export const SKI_CARVE_BASELINE:Readonly<SkiCarveSettings>=Object.freeze({
  maxTurn:tuning.maxTurn,edgeResponse:tuning.edgeResponse,
  flatGrip:tuning.flatGrip,engagedGrip:tuning.engagedGrip,
- contactForceScale:1,drag:tuning.drag
+ contactForceScale:1,drag:tuning.drag,surfaceTransport:0
 });
 export type SkiInput = { steer:number; pitch:number; roll:number; tuck:boolean; brake:boolean; jump:boolean; grab:boolean };
 export const neutral:SkiInput = {steer:0,pitch:0,roll:0,tuck:false,brake:false,jump:false,grab:false};
@@ -52,6 +53,7 @@ export class SkiSimulation {
   private readonly forward=new Vector3();
   private readonly side=new Vector3();
   private readonly axis=new Vector3();
+  private readonly previousGroundNormal=new Vector3();
   private readonly basis=new Matrix4();
   private readonly delta=new Quaternion();
   readonly soles=[createSkiContact(),createSkiContact()];
@@ -68,7 +70,8 @@ export class SkiSimulation {
     this.dynamics=Object.freeze({...SKI_CARVE_BASELINE,...overrides});
     for(const [name,value] of Object.entries(this.dynamics))
       if(!Number.isFinite(value)||value<0||
-        (name==="contactForceScale"&&value>3))
+        (name==="contactForceScale"&&value>3)||
+        (name==="surfaceTransport"&&value>1))
         throw Error("Invalid experimental ski dynamics: "+name);
     this.position.set(x,height(x,z),z);
     if(footprint)this.position.y=this.sample();
@@ -254,6 +257,11 @@ export class SkiSimulation {
       this.velocity.addScaledVector(this.normal,2+tuning.pop*this.charge/tuning.maxCharge);
       this.phase="air";this.age=0;this.charge=0;this.airSpinRadians=0;
     }
+    // The old surface tangent is needed only for optional diagnostic
+    // parallel transport. It keeps movement speed when snow curvature
+    // changes, while the baseline retains its original projection.
+    if(this.dynamics.surfaceTransport>0)
+      this.previousGroundNormal.copy(this.normal);
     this.move();
     const support=this.sample();
     if(this.phase!=="air"){
@@ -264,7 +272,19 @@ export class SkiSimulation {
       if(!impaired&&departing&&(separation>.04||lostSupport)){
         this.phase="air";this.charge=0;this.age=0;this.airSpinRadians=0;
         this.contact.fill(false);this.load.fill(0);
-      }else this.settle(support);
+      }else{
+        if(this.dynamics.surfaceTransport>0){
+          // Parallel-transport tangent velocity around the smallest rotation
+          // between contact normals. The convex blend with plain projection
+          // cannot add kinetic speed. Only an experimental instance opts in;
+          // no extra thrust, acceleration, jump or surface deformation.
+          const projected=this.axis.copy(this.velocity).projectOnPlane(this.normal);
+          const rotated=this.forward.copy(this.velocity).applyQuaternion(
+            this.delta.setFromUnitVectors(this.previousGroundNormal,this.normal));
+          this.velocity.copy(projected).lerp(rotated,this.dynamics.surfaceTransport);
+        }
+        this.settle(support);
+      }
     }
   }
 }
