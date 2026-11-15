@@ -32,7 +32,7 @@ try{
    await page.waitForFunction(()=>{
     const d=document.querySelector("canvas")?.dataset;
     const z=Number(d?.player?.split(",")[1]);
-    return d?.aquatic==="surface"&&z< -96&&z> -107;
+    return d?.aquatic==="surface"&&z< -107&&z> -114;
    },null,{timeout:25000});
    trace.arrival=await canvas.evaluate(el=>({
     pos:el.dataset.player,aquatic:el.dataset.aquatic,
@@ -59,7 +59,7 @@ try{
    try{
     await page.waitForFunction(()=>{
      const z=Number(document.querySelector("canvas")?.dataset.player?.split(",")[1]);
-     return z< -105;
+     return z< -115;
     },null,{timeout:90000});
    }finally{await page.keyboard.up("w");}
    trace.swam=await canvas.getAttribute("data-player");
