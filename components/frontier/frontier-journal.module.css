@@ -1101,3 +1101,62 @@
 @media (prefers-reduced-motion: reduce) {
   .reader .contentsEntry { transition: none; }
 }
+/* Narrow screens: use an explicit two-row editorial masthead.
+ * Flex shrink previously collapsed search to zero width at 390px. */
+@media (max-width: 560px) {
+  .reader .masthead {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) 44px max-content;
+    grid-template-rows: auto auto;
+    gap: 8px 9px;
+    align-items: center;
+  }
+  .reader .identity {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-width: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 7px 13px;
+  }
+  .reader .topActions { display: contents; }
+  .reader .contentsToggle {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    white-space: nowrap;
+  }
+  .reader .search {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    width: 100%;
+    height: 44px;
+    display: flex;
+    gap: 7px;
+    overflow: visible;
+  }
+  .reader .search > svg { flex: 0 0 16px; }
+  .reader .search input {
+    display: block;
+    flex: 1 1 0;
+    min-width: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .reader .iconButton {
+    grid-column: 3;
+    grid-row: 2;
+  }
+  .reader .advanced {
+    grid-column: 4;
+    grid-row: 2;
+    min-width: 0;
+  }
+  .reader .latestChip, .reader .checkingLatest {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: start;
+  }
+}

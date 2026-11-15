@@ -133,6 +133,12 @@ async function audit(width, height) {
         nextHeight: next.getBoundingClientRect().height,
         railPosition: getComputedStyle(rail).position,
         paper: getComputedStyle(document.querySelector('[data-frontier-journal="true"]')).getPropertyValue('--paper').trim(),
+        searchWidth: document.querySelector('input[aria-label="Search live topics"]')?.getBoundingClientRect().width ?? 0,
+        searchVisible: (() => {
+          const input = document.querySelector('input[aria-label="Search live topics"]');
+          return input ? getComputedStyle(input).visibility === 'visible'
+            && getComputedStyle(input).display !== 'none' : false;
+        })(),
       };
     });
     assert(visual, 'The journal must expose an actual typeset article and source rail');
@@ -142,6 +148,8 @@ async function audit(width, height) {
       'A long research headline must have sufficient line-height: ' + JSON.stringify(visual));
     assert(visual.summaryLineRatio >= 1.5,
       'The evidence summary must read like an editorial paragraph: ' + JSON.stringify(visual));
+    assert(visual.searchVisible && visual.searchWidth >= 75,
+      'Live topic search must remain visibly usable at 320px and 390px: ' + JSON.stringify(visual));
     assert(visual.tabHeight >= 44 && visual.chapterHeight >= 44 && visual.nextHeight >= 44,
       'Touch/keyboard chapter and edition navigation must keep usable hit areas: ' + JSON.stringify(visual));
     assert(/^#[0-9a-f]{6}$/i.test(visual.paper), 'A journal realm must have a real paper palette');
