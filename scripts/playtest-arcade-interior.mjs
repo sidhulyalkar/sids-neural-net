@@ -78,6 +78,15 @@ try{
   // readiness flag, so ordinary builds must not request missing WebPs.
   const generated=Number(await canvas.getAttribute("data-arcade-generated-murals-ready")||0);
   evidence.generatedTextureDecodes=generated;
+  const optionalConfig=fs.readFileSync("lib/world/arcadeGeneratedMuralConfig.ts","utf8");
+  if(/GENERATED_MURAL_TEXTURES_BUNDLED = true as boolean/.test(optionalConfig)){
+   await page.waitForFunction(()=>
+    Number(document.querySelector("canvas")?.dataset.arcadeGeneratedMuralsReady)===3,
+    null,{timeout:40000});
+   evidence.generatedTextureDecodes=3;
+  }else{
+   assert.equal(generated,0,"disabled artwork must not load unbundled images");
+  }
   for(const id of ["002","033","037","039","042","043","044","045","047"]){
    const image="/visual-archive/thumbs/photo-"+id+"-thumb.webp";
    assert.equal((await page.request.get(origin+image)).status(),200,
