@@ -7,7 +7,7 @@ import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "../lib/world/arcad
 import {ARCADE_REAR_CAP_Z,caveArtRing,sampleCavernArt,validateCavernMural} from "../lib/world/arcadeCavernSurface";
 import {ARCADE_MURAL_ART_ASSETS,validateArcadeMuralAssets}
  from "../lib/world/arcadeCavernAssetManifest";
-import {ARCADE_GENERATED_MURAL_OVERLAYS,GENERATED_MURAL_TEXTURES_BUNDLED,validateGeneratedMuralOverlays}
+import {ARCADE_GENERATED_MURAL_OVERLAYS,GENERATED_MURAL_TEXTURES_BUNDLED,validateGeneratedMuralOverlays,measureGeneratedMuralAspect}
  from "../lib/world/arcadeGeneratedMuralConfig";
 import {SHASTA_PHOTOS,NATURE_PHOTOS,CAVERN_GAME_ART,CAVERN_GAME_PANEL_ART,CAVERN_PHOTO_ALBUMS,validateCavernPhotoAlbums,archivePhotoPath}
  from "../lib/world/arcadeCavernGalleryContent";
@@ -265,6 +265,10 @@ test("Optional generated murals are distortion-bounded, local and non-interactiv
   "generated-anime-favorites","generated-tv-comedy"]);
  for(const art of ARCADE_GENERATED_MURAL_OVERLAYS){
   assert.equal(art.provenance,"owner-supplied-ai");
+  const geometry=measureGeneratedMuralAspect(art.mural);
+  assert.ok(geometry,"actual surface geometry must be measurable");
+  assert.ok(Math.abs(geometry!.aspect/art.expectedAspect-1)<=.20,
+   "real mural aspect for "+art.mural.id+" is "+geometry!.aspect.toFixed(2));
   assert.ok(art.mural.z1<=-68.68,
    "art overlays cannot enter the three playable side niches");
   if(GENERATED_MURAL_TEXTURES_BUNDLED){
@@ -280,4 +284,16 @@ test("Optional generated murals are distortion-bounded, local and non-interactiv
  ]),["duplicate id generated-sports-fandom",
   "generated-sports-fandom: repeated asset path",
   "generated-sports-fandom: repeated asset path"]);
+});
+
+
+test("AI mural replacements are unique and avoid double-exposed fandom panels",()=>{
+ const replaced=ARCADE_GENERATED_MURAL_OVERLAYS.flatMap(x=>x.replacesThemes);
+ assert.deepEqual(replaced,["sports","anime","sport-anime","comedy","sitcom"]);
+ assert.equal(new Set(replaced).size,replaced.length);
+ assert.ok(ARCADE_GENERATED_MURAL_OVERLAYS[0].mural.v1<=.50);
+ assert.ok(ARCADE_GENERATED_MURAL_OVERLAYS[1].mural.v1<=.50,
+  "anime frieze must sit at eye level rather than on the roof");
+ assert.ok(ARCADE_GENERATED_MURAL_OVERLAYS[2].mural.v1<=.78,
+  "comedy frieze must not be cropped by overhead camera framing");
 });

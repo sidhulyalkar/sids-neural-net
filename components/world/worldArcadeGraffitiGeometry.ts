@@ -585,6 +585,8 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
  // One image decode/composite per theme even when a gallery wraps from the
  // side wall onto the rear rock. Reuse the same CanvasTexture on both meshes.
  const galleryCache=new Map<string,ReturnType<typeof composeArcadeGallery>>();
+ // Generated alternatives replace, never double-expose, the source murals.
+ const originalWalls=new Map<CavernArtTheme,THREE.Mesh[]>();
  const galleryKind=(theme:CavernArtTheme)=>
   theme==="shasta-gallery"||theme==="nature-gallery"||
   theme==="game-gallery"||theme==="feature-gallery";
@@ -627,6 +629,7 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
   // For the rear upper band the longitudinal z dimension is zero: texture
   // horizontal must use wall width, not the degenerate z-coordinate.
   meshes.push(wall);root.add(wall);
+  originalWalls.set(mural.theme,[...(originalWalls.get(mural.theme)??[]),wall]);
   if(galleryKind(mural.theme)){
    const kind=mural.theme as "shasta-gallery"|"nature-gallery"|
     "game-gallery"|"feature-gallery";
@@ -695,12 +698,13 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
    const layer=surfaceMesh(mural.surface,mural.z0,mural.z1,
     mural.v0,mural.v1,paint,"generated-"+mural.id,three,34,12,glow);
    layer.renderOrder=5;layer.raycast=()=>{};
+   layer.visible=false; // Do not draw unresolved or missing image placeholders.
    const material=layer.material as THREE.MeshStandardMaterial;
    material.opacity=.96;
    meshes.push(layer);root.add(layer);
    const url=mobile?item.mobile:item.desktop;
    const loaded=loader.load(url,texture=>{
-    if(!alive)return;
+    if(!alive){texture.dispose();return;}
     texture.colorSpace=three.SRGBColorSpace;
     texture.anisotropy=4;
     texture.generateMipmaps=true;
@@ -713,6 +717,10 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
     material.emissive=new three.Color("#ffffff");
     material.emissiveIntensity=.21;
     material.needsUpdate=true;
+    for(const theme of item.replacesThemes)
+     for(const original of originalWalls.get(theme)??[])
+      original.visible=false;
+    layer.visible=true;
     root.userData.generatedMuralsReady=
      Number(root.userData.generatedMuralsReady||0)+1;
     onAssetReady?.(authoredReady,{kind:"generated-fandom",photoCount:

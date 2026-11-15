@@ -112,3 +112,27 @@ After installation, create another **draft** commit and re-run CI and the
 cavern browser test with generated textures enabled. Check desktop *and mobile*
 screenshots, UV legibility, frame time and GPU memory. No release or merge
 before the island's independent Ski V3 blocking gate is resolved.
+
+
+## Audit / layout correction
+
+Previous WebP placement stacked bright images on top of the authored anime,
+sports, and comedy murals. The new layout is **mutually exclusive per theme**:
+an authored texture remains visible until its replacement decodes; only then
+the original themed wall mesh is hidden. On error, the source art stays up.
+Missing or late-loading images never create a black placeholder.
+
+Generated mural placements move off the roof and toward eye level:
+- Sports: right lower sidewall `v=.24-.46`, within the sports bay only
+- Anime: left lower sidewall `v=.26-.45`, a long uninterrupted frieze
+- Comedy: right middle-upper sidewall `v=.57-.75`, away from the sports bay
+
+The exact cave shell sampler now estimates physical width and height so the
+source aspect can be checked against the *actual facet geometry*. The former
+flat `5.3*(v1-v0)` approximation was invalid on the lower rock facet.
+
+**Known visual shortcomings pending separate design review:** the existing
+rear triptych's typography is partially clipped at normal gameplay camera
+pitch; sidewall art is seldom seen in screenshot camera sweeps; the player
+avatar and HUD obscure low center-frame art. Keep an unobstructed view of
+all three playable targets and avoid adding billboard meshes or collision.
