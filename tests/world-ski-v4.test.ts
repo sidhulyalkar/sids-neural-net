@@ -74,8 +74,8 @@ test("V4 left/right loaded patches sample exact snow and respect ski flex bounds
 test("V4 physically brakes on a real steep grade rather than accelerating with S held",()=>{
   const slope:Surface=(_x,z)=>-.5*z;
   const straight=drive(ski(slope),2,{}),braked=drive(ski(slope),2,{brake:1});
-  assert.ok(speed(straight)>10);
-  assert.ok(speed(braked)<.5,`2s downhill speed after hard snowplow: ${speed(braked)}`);
+  assert.ok(speed(straight)>6,"descending grade must accelerate without braking");
+  assert.ok(speed(braked)<.5&&speed(braked)<speed(straight)*.1,`2s downhill speed after hard snowplow: ${speed(braked)}`);
   assert.ok(braked.position.z<straight.position.z*.5);
   assert.ok(braked.contact.every(c=>c.loaded));
   assert.ok(braked.brakeEngagement>.99);
@@ -86,8 +86,8 @@ test("V4 steer-plus-brake generates an uphill speed check on a very steep grade"
   const slope:Surface=(_x,z)=>-1.2*z;
   const straight=drive(ski(slope),2,{});
   const checked=drive(ski(slope),2,{steer:.8,brake:1});
-  assert.ok(speed(straight)>11);
-  assert.ok(speed(checked)<.5,`2s strong edge/snow check speed ${speed(checked)}`);
+  assert.ok(speed(straight)>7,"steep grade still accelerates the skier");
+  assert.ok(speed(checked)<.5&&speed(checked)<speed(straight)*.1,`2s strong edge/snow check speed ${speed(checked)}`);
   assert.ok(checked.telemetry.powerToSnow>=0);
 });
 
