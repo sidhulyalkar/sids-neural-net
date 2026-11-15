@@ -51,7 +51,8 @@ export class SnowTracks {
     this.active[i]=false;continue;
    }
    const sole=sim.soles[i];
-   const physical=sim instanceof SkiV4Simulation?sim.v4.contact[i]:null;
+   const v4=sim instanceof SkiV4Simulation?sim.v4:null;
+   const physical=v4?.contact[i]??null;
    let best=Infinity;
    if(physical){
     // The only valid V4 footprint originates from a load-bearing station
@@ -88,8 +89,8 @@ export class SnowTracks {
    // every >0.6-unit frame. A large discontinuity still breaks the trail.
    if(this.active[i]&&length<(physical?2.5:.6)){
     const strength=Math.min(1,sim.load[i]*(.35+Math.abs(sim.edge))*(.4+sim.velocity.length()/8));
-    const skidding=physical&&sim.v4.telemetry.turnRegime==="skid";
-    const width=(physical&&!skidding?.018:.026)+.036*strength;
+    const skidding=physical&&v4?.telemetry.turnRegime==="skid";
+    const width=(physical&&!skidding ? .018 : .026)+.036*strength;
     const steps=physical?Math.max(1,Math.ceil(length/.15)):1;
     for(let step=1;step<=steps;step++){
      const fromX=prev.x+dx*(step-1)/steps,fromZ=prev.z+dz*(step-1)/steps;
