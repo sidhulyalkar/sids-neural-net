@@ -6,6 +6,7 @@ on:
       - "components/world/**"
       - "lib/world/**"
       - "scripts/playtest-ski-v3.mjs"
+      - "scripts/playtest-ski-player-spin.mjs"
       - "scripts/playtest-clean-mountain-halfpipe.mjs"
       - ".github/workflows/world-master-port-browser.yml"
   workflow_dispatch:
@@ -52,6 +53,7 @@ jobs:
         run: |
           if [ "$NEXT_PUBLIC_SKI_V3" = "1" ]; then
             node scripts/playtest-ski-v3.mjs
+            node scripts/playtest-ski-player-spin.mjs
           else
             node scripts/playtest-clean-mountain-halfpipe.mjs
           fi
@@ -65,5 +67,7 @@ jobs:
         if: always()
         with:
           name: world-master-browser-${{ matrix.ski_v3 }}-${{ github.sha }}
-          path: artifacts/world-master-browser/
+          path: |
+            artifacts/world-master-browser/
+            artifacts/world-player-spin/
           if-no-files-found: warn
