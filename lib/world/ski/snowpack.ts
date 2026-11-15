@@ -55,7 +55,7 @@ export function authorSnowpack(x:number,z:number,topHeight:number,
   const cover=clamp(coverage);
   if(cover<1e-6)return {...zero};
   const pipe=clamp(halfpipeWeight);
-  const north=smooth(-31,-9,-z); // More accumulated snow toward northern summit.
+  const north=smooth(22,68,-z); // Snow accumulates toward the upper/northern mountain.
   const elevation=smooth(7,25,topHeight);
   const wind=.5+.5*Math.sin(x*.36+z*.12)*Math.cos(z*.19-x*.08);
   const lee=.5+.5*Math.sin(x*.23-z*.27)*Math.sin(x*.15+z*.34);

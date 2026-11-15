@@ -5,6 +5,10 @@ on:
     paths:
       - 'lib/world/ski/v4/**'
       - 'lib/world/ski/renderedSnow.ts'
+      - 'lib/world/ski/snowpack.ts'
+      - 'components/world/worldSnowpackSurface.ts'
+      - 'tests/world-ski-snowpack.test.ts'
+      - 'tests/world-ski-snowpack-render.test.ts'
       - 'components/world/worldMountainHalfpipe.ts'
       - 'components/world/skiSnowTracks.ts'
       - 'tests/world-ski-v4-material-transition.test.ts'

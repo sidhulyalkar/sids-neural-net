@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {BufferGeometry,Float32BufferAttribute} from "three/src/Three.Core.js";
 import {renderedSnowHeight} from "../lib/world/ski/renderedSnow";
+import {refineMountainSnow} from "../components/world/worldMountainHalfpipe";
 function mesh(){
   const g=new BufferGeometry();
   g.setAttribute("position",new Float32BufferAttribute([
@@ -33,4 +34,31 @@ test("without explicit snowLayers, do not create fictitious powder",()=>{
   const sample=renderedSnowHeight(terrain,()=>8);
   assert.equal(sample.snowpack(.2,.2).totalDepth,0);
   assert.equal(sample.snowpack(1e4,1e4).coverage,0);
+});
+
+test("the actual refined mountain mesh carries consistent depth attributes",()=>{
+  // Geometry-only fixture: the authored halfpipe adds both visible snow and
+  // the depth strata while leaving the original top-surface coordinates intact.
+  const mountain=new BufferGeometry();
+  mountain.setAttribute("position",new Float32BufferAttribute([
+    6,10,-55, 8,10,-55, 7,10,-52,
+  ],3));
+  mountain.setAttribute("color",new Float32BufferAttribute([
+    .4,.45,.5, .4,.45,.5, .4,.45,.5
+  ],3));
+  mountain.setAttribute("snowCoverage",new Float32BufferAttribute([.2,.2,.2],1));
+  mountain.setIndex([0,1,2]);
+  refineMountainSnow(mountain);
+  const strata=mountain.getAttribute("snowLayers");
+  const mask=mountain.getAttribute("snowCoverage");
+  const pos=mountain.getAttribute("position");
+  assert.ok(strata.count===pos.count&&mask.count===pos.count);
+  const layered=renderedSnowHeight(mountain,()=>0);
+  const sample=layered.snowpack(7,-54);
+  assert.ok(sample.coverage>.35);
+  assert.ok(sample.totalDepth>.05);
+  assert.ok(sample.packedDepth>sample.powderDepth);
+  assert.ok(Number.isFinite(layered(7,-54)));
+  assert.ok(sample.totalDepth<4);
+  mountain.dispose();
 });
