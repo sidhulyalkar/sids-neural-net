@@ -550,6 +550,9 @@ export function createWorld(
   );
   const pos = terrain.attributes.position;
   const colors: number[] = [];
+  // Snow is an explicit authored contact channel, not inferred from terrain height.
+  // Vertex weights are interpolated exactly like the ground's visible pigment.
+  const snowCover: number[] = [];
   const groundColor = new THREE.Color();
   function lineDistance(x: number, z: number, a: Point, b: Point) {
     const dx = b.x - a.x,
@@ -573,21 +576,33 @@ export function createWorld(
       ),
     );
     const biome = biomeAt({x,z});
+    let snowWeight=wet?0:biome.weights.alpine;
     groundColor.setRGB(0,0,0);
     for (const [id,weight] of Object.entries(biome.weights)) groundColor.add(new THREE.Color(BIOME_COLORS[id as keyof typeof BIOME_COLORS]).multiplyScalar(weight));
-    if (!wet && (trail < 1.7 || distance({ x, z }, REGIONS[0].point) < 4)) groundColor.lerp(new THREE.Color("#b6a684"), .5);
-    if (beachBlend(x,z) > .02) groundColor.lerp(new THREE.Color("#e6c797"),beachBlend(x,z)*.94);
+    if (!wet && (trail < 1.7 || distance({ x, z }, REGIONS[0].point) < 4)) {
+      groundColor.lerp(new THREE.Color("#b6a684"), .5);
+      snowWeight*=.5;
+    }
+    const beachCoverage=beachBlend(x,z)*.94;
+    if (beachBlend(x,z) > .02) groundColor.lerp(new THREE.Color("#e6c797"),beachCoverage);
+    snowWeight*=1-beachCoverage;
     // Track pigment is bound to the modeled dirt tread, never a floating decal.
-    if (!wet) groundColor.lerp(new THREE.Color("#9c7951"), desertTrackTreadBlend({ x, z }) * 0.82);
+    const dirtCoverage=wet?0:desertTrackTreadBlend({ x, z }) * .82;
+    if (!wet) groundColor.lerp(new THREE.Color("#9c7951"), dirtCoverage);
+    snowWeight*=1-dirtCoverage;
     const caveApproachMask = arcadeAccessTerrainMask(x, z);
     if (caveApproachMask > 0) {
       const caveApproachColor = new THREE.Color("#626766");
-      groundColor.lerp(caveApproachColor, Math.min(0.62, caveApproachMask * 0.62));
+      const caveTint=Math.min(0.62, caveApproachMask * 0.62);
+      groundColor.lerp(caveApproachColor, caveTint);
+      snowWeight*=1-caveTint;
     }
     groundColor.multiplyScalar(0.94 + random() * 0.12);
     colors.push(groundColor.r, groundColor.g, groundColor.b);
+    snowCover.push(THREE.MathUtils.clamp(snowWeight,0,1));
   }
   terrain.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  terrain.setAttribute("snowCoverage",new THREE.Float32BufferAttribute(snowCover,1));
   // A real seabed aperture sits beneath the wooden shrine. Remove only the
   // intersecting indexed triangles; elsewhere the original sea floor is intact.
   const seabedIndices=terrain.getIndex();

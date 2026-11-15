@@ -7,6 +7,7 @@ export function refineMountainSnow(terrain: THREE.BufferGeometry) {
   const index = terrain.getIndex()!;
   const positions = Array.from(terrain.getAttribute("position").array);
   const colors = Array.from(terrain.getAttribute("color").array);
+  const snowCoverage=Array.from(terrain.getAttribute("snowCoverage").array);
   const indices: number[] = [];
   const edges = new Map<string, number>();
   const snow = new THREE.Color("#e8f1f4");
@@ -25,6 +26,7 @@ export function refineMountainSnow(terrain: THREE.BufferGeometry) {
     const y = THREE.MathUtils.lerp((positions[3*a+1]+positions[3*b+1])/2, worldFloorHeight(x,z), blend);
     positions.push(x,y,z);
     for (let k=0;k<3;k++) colors.push((colors[3*a+k]+colors[3*b+k])/2);
+    snowCoverage.push((snowCoverage[a]+snowCoverage[b])/2);
     edges.set(key, vertex);
     return vertex;
   }
@@ -48,11 +50,13 @@ export function refineMountainSnow(terrain: THREE.BufferGeometry) {
     const wind=1+.012*Math.sin(z*.47+x*.2);
     for (const [k,value] of [snow.r,snow.g,snow.b].entries())
       colors[i+k]=THREE.MathUtils.lerp(colors[i+k],value*wind,influence*.96);
+    snowCoverage[i/3]=THREE.MathUtils.lerp(snowCoverage[i/3],1,influence*.96);
   }
   terrain.deleteAttribute("normal");
   terrain.deleteAttribute("uv"); // Ground uses vertex pigment only.
   terrain.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
   terrain.setAttribute("color",new THREE.Float32BufferAttribute(colors,3));
+  terrain.setAttribute("snowCoverage",new THREE.Float32BufferAttribute(snowCoverage,1));
   terrain.setIndex(indices);
   terrain.computeVertexNormals();
   return triangles;
