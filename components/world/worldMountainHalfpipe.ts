@@ -7,7 +7,11 @@ export function refineMountainSnow(terrain: THREE.BufferGeometry) {
   const index = terrain.getIndex()!;
   const positions = Array.from(terrain.getAttribute("position").array);
   const colors = Array.from(terrain.getAttribute("color").array);
-  const snowCoverage=Array.from(terrain.getAttribute("snowCoverage").array);
+  // Geometry-only audit fixtures may supply vertices without world pigment.
+  // Default those to non-snow; only the explicitly painted halfpipe gets snow.
+  const authoredSnow=terrain.getAttribute("snowCoverage");
+  const snowCoverage=authoredSnow?Array.from(authoredSnow.array) as number[]:
+    Array<number>(positions.length/3).fill(0);
   const indices: number[] = [];
   const edges = new Map<string, number>();
   const snow = new THREE.Color("#e8f1f4");
