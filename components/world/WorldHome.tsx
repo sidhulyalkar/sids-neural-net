@@ -598,7 +598,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
         <section className={styles.welcome} aria-labelledby="world-title">
           <h1 id="world-title">Welcome to <em>Sid’s iLand</em></h1>
           <div className={styles.actions}>
-            <Link href="/atlas" prefetch={false} className={styles.primary}>
+            <Link href="/" prefetch={false} className={styles.primary}>
               View site <span aria-hidden="true">↗</span>
             </Link>
             {!failed && (
@@ -911,7 +911,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <div className={styles.menuFooter}>
                 <button onClick={() => setPanel("field-notes")}>Field notes</button>
                 <a href="https://github.com/sidhulyalkar">GitHub</a>
-                <Link href="/atlas" prefetch={false}>
+                <Link href="/" prefetch={false}>
                   View site · Fractal menu
                 </Link>
                 {enabled && (
