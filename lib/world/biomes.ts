@@ -2,6 +2,7 @@ import {
   terrainHeight,
   isWater,
   waterZone,
+  SOUTH_CHANNEL_SHORE_Z,
   coastlineX,
   eastCoastlineX,
   type Point,
@@ -58,12 +59,15 @@ export function biomeAt(p: Point) {
   if (isWater(p)) {
     for (const k of Object.keys(weights) as BiomeId[]) weights[k] = 0;
     const zone = waterZone(p)!;
-    const offshore = zone === "kelp" ? coastlineX(p.z) - p.x :
+    const offshore = zone === "south-channel" ? SOUTH_CHANNEL_SHORE_Z-p.z :
+      zone === "kelp" ? coastlineX(p.z) - p.x :
       zone === "lagoon" ? p.x - eastCoastlineX(p.z) :
       p.z - northShoreZ(p.x);
     const marine = smooth(0.35, 5.35, offshore);
     weights["cold-beach"] = 1 - marine;
-    weights[zone==="north-shore"?"lagoon":zone] = marine;
+    // South-channel shares the existing kelp material palette: no global
+    // biome enum expansion or new land biome needed.
+    weights[zone==="north-shore"?"lagoon":zone==="south-channel"?"kelp":zone] = marine;
   }
   const total = Object.values(weights).reduce((a, b) => a + b, 0);
   if (total > 0) {
