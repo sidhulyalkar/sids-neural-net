@@ -16,7 +16,7 @@ const capture=async(page,filename)=>{
 };
 const wait=async(page,fn,timeout=90000)=>
  page.waitForFunction(fn,null,{timeout,polling:"raf"});
-const observe=async page=>page.locator("canvas").first().evaluate(c=>{
+const observe=async page=>page.locator('canvas[role="application"]').first().evaluate(c=>{
  const d=c.dataset;
  return {x:Number(d.player?.split(",")[0]),z:Number(d.player?.split(",")[1]),
    phase:d.bigAirPhase,pipe:d.mountainHalfpipeInside,
@@ -49,7 +49,7 @@ const enterSki=async(page)=>{
  // available once world initialization succeeds; don't confuse a slow CPU
  // software renderer with a missing activity control.
   await page.waitForFunction(()=>{
-   const c=document.querySelector("canvas"),d=c?.dataset;
+   const c=document.querySelector('canvas[role="application"]'),d=c?.dataset;
    const button=[...document.querySelectorAll("button")]
      .find(b=>b.getAttribute("aria-label")==="Skiing");
    return !!button&&!button.disabled&&Number(d?.drawCalls)>0;
@@ -58,18 +58,18 @@ const enterSki=async(page)=>{
  if(await page.evaluate(()=>navigator.maxTouchPoints>0))await ski.tap();
  else await ski.click();
  await wait(page,()=>{
-  const d=document.querySelector("canvas")?.dataset;
+  const d=document.querySelector('canvas[role="application"]')?.dataset;
   return d?.activity==="ski"&&d?.bigAirPhase==="idle"&&
    d?.mountainHalfpipe==="single-snow-face-v1"&&Number(d.drawCalls)>0;
  });
- await page.locator("canvas").first().focus();
+ await page.locator('canvas[role="application"]').first().focus();
  }catch(error){
   const diag=await page.evaluate(()=>({
    visible:document.body.innerText.slice(0,750),
-   canvas:document.querySelector("canvas")?.dataset?{
-    status:document.querySelector("canvas")?.dataset.worldState,
-    drawCalls:document.querySelector("canvas")?.dataset.drawCalls,
-    activity:document.querySelector("canvas")?.dataset.activity,
+   canvas:document.querySelector('canvas[role="application"]')?.dataset?{
+    status:document.querySelector('canvas[role="application"]')?.dataset.worldState,
+    drawCalls:document.querySelector('canvas[role="application"]')?.dataset.drawCalls,
+    activity:document.querySelector('canvas[role="application"]')?.dataset.activity,
    }:null,
    buttons:[...document.querySelectorAll("button")].slice(0,30)
      .map(b=>({aria:b.getAttribute("aria-label"),text:b.innerText.slice(0,38),
@@ -96,7 +96,7 @@ try{
  await capture(desktop,"01-Granite-Ridge-clean-face.png");
 
  const run=desktop.evaluate(()=>new Promise((resolve,reject)=>{
-  const c=document.querySelector("canvas");if(!c){reject(Error("No world canvas"));return;}
+  const c=document.querySelector('canvas[role="application"]');if(!c){reject(Error("No world canvas"));return;}
   const began=performance.now(),data=[],start=c.dataset.player?.split(",").map(Number);
   let inPipe=false,highestSpeed=0;
   const tick=()=>{
@@ -131,14 +131,14 @@ try{
   // beyond the halfpipe before Space is delivered.
   await desktop.keyboard.press("Space");
   await wait(desktop,()=>{
-   const d=document.querySelector("canvas")?.dataset;
+   const d=document.querySelector('canvas[role="application"]')?.dataset;
    return d?.airborne==="true"&&d.bigAirPhase==="idle";
   },13000);
   assert.equal((await observe(desktop)).authorized,"false");
   await desktop.keyboard.up("w");
   await capture(desktop,"03-intentional-ski-hop-without-big-air.png");
   await wait(desktop,()=>{
-   const d=document.querySelector("canvas")?.dataset;
+   const d=document.querySelector('canvas[role="application"]')?.dataset;
    return d?.airborne==="false"&&d.bigAirPhase==="idle";
   },20000);
   evidence.desktop.landed=await observe(desktop);
@@ -149,7 +149,7 @@ try{
  await desktop.getByRole("button",{name:"Show sport shortcuts"}).click();
  await desktop.getByRole("button",{name:"Ski jump",exact:true}).click();
  await wait(desktop,()=>{
-  const d=document.querySelector("canvas")?.dataset;
+  const d=document.querySelector('canvas[role="application"]')?.dataset;
   return d?.bigAirPhase==="armed"&&d?.activity==="ski";
  });
  assert.equal((await observe(desktop)).authorized,"true");

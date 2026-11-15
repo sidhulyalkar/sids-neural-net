@@ -8,11 +8,11 @@ fs.mkdirSync(dir,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH,
   args:["--no-sandbox","--enable-unsafe-swiftshader","--use-angle=swiftshader"]});
 const page=await browser.newPage({viewport:{width:850,height:610},recordVideo:{dir}});
-const canvas=page.locator("canvas").first();
+const canvas=page.locator('canvas[role="application"]').first();
 const errors=[];
 page.on("pageerror",e=>errors.push(e.message));
 async function phase(value){
-  await page.waitForFunction(s=>document.querySelector("canvas")?.dataset.skiRidePhase===s,value,{timeout:90000});
+  await page.waitForFunction(s=>document.querySelector('canvas[role="application"]')?.dataset.skiRidePhase===s,value,{timeout:90000});
 }
 // Capture immediately after the world's render callback, while its WebGL
 // drawing buffer and telemetry still describe the same frame. This observer
@@ -24,7 +24,7 @@ await page.addInitScript(()=>{
   const raf=window.requestAnimationFrame.bind(window);
   window.requestAnimationFrame=callback=>raf(time=>{
     callback(time);
-    const c=document.querySelector("canvas[data-ski-ride-phase]");
+    const c=document.querySelector('canvas[role="application"][data-ski-ride-phase]');
     if(!c || !c.dataset.skiRidePhase)return;
     const d=c.dataset,tick=Number(d.skiTick);
     if(tick===lastTick)return;
@@ -75,7 +75,7 @@ try{
   await page.keyboard.up("a");
   await save("touchdown");
   await save("runout");
-  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.skiRidePhase==="",null,{timeout:180000});
+  await page.waitForFunction(()=>document.querySelector('canvas[role="application"]')?.dataset.skiRidePhase==="",null,{timeout:180000});
   const handoff=await canvas.evaluate(c=>({...c.dataset}));
   assert.equal(handoff.activity,"ski");
   assert.equal(handoff.airborne,"false");
