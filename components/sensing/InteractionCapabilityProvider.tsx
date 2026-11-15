@@ -28,7 +28,13 @@ export function InteractionCapabilityProvider() {
   const pathname = usePathname();
   const enabled = useSensingStore((state) => state.enabled);
 
-  if (pathname === '/frontier' || pathname?.startsWith('/sensing-lab') || isArcadeGamePath(pathname)) return null;
+  // Research readers already own the entire interaction surface and should
+  // never be obscured by an unrelated fixed camera consent control.
+  if (pathname === '/frontier'
+    || pathname === '/frontier/evidence-audit'
+    || pathname?.startsWith('/frontier/story/')
+    || pathname?.startsWith('/sensing-lab')
+    || isArcadeGamePath(pathname)) return null;
 
   return (
     <>
