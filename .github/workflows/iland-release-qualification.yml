@@ -39,15 +39,21 @@ jobs:
       PLAYWRIGHT_MODULE_ROOT: /tmp/island-playwright/node_modules/playwright
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Pull-request github.sha is a synthetic merge; qualify literal PR head.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
-      - name: Record exact candidate and preserve master landing
+      - name: Record literal candidate and preserve master landing
         shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          echo "Candidate SHA: $(git rev-parse HEAD)"
+          echo "Literal candidate SHA: $EXPECTED_HEAD_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
           test -f app/world/page.tsx
           test -f components/world/WorldHome.tsx
           test -f lib/world/ski/simulation.ts
@@ -155,7 +161,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: iland-release-${{ matrix.ski_v3 }}-${{ github.sha }}
+          name: iland-release-${{ matrix.ski_v3 }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             artifacts/iland
             artifacts/bundle-budget

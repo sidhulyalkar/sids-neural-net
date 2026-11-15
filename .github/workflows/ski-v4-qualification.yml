@@ -5,6 +5,9 @@ on:
     paths:
       - 'lib/world/ski/v4/**'
       - 'components/world/worldRenderer.ts'
+      - 'components/world/skiSnowTracks.ts'
+      - 'components/world/skiVisualSole.ts'
+      - 'tests/world-ski-v4-entry.test.ts'
       - 'tests/world-ski-v4.test.ts'
       - 'scripts/playtest-ski-v4.mjs'
       - 'scripts/ski-v4-halfpipe-audit.ts'
@@ -35,15 +38,21 @@ jobs:
       PLAYWRIGHT_MODULE_ROOT: /tmp/island-playwright/node_modules/playwright
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Pull-request github.sha is a synthetic merge; qualify literal PR head.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
-      - name: Record exact source and prevent accidental Ski Jump enablement
+      - name: Record literal source and prevent accidental Ski Jump enablement
         shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          git rev-parse HEAD
+          echo "Checking literal V4 candidate: $EXPECTED_HEAD_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
           test -f lib/world/ski/v4/core.ts
           test -f lib/world/ski/v4/adapter.ts
           test -f scripts/playtest-ski-v4.mjs
@@ -96,7 +105,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ski-v4-snow-force-${{ github.sha }}
+          name: ski-v4-snow-force-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             artifacts/ski-v4
             artifacts/bundle-budget
