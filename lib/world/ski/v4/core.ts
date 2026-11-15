@@ -10,9 +10,9 @@ export type SkiV4Landing="none"|"clean"|"rough"|"crash";
 export type SkiV4Input={steer:number;brake:number;tuck:boolean;jump:boolean;pitch:number;roll:number;grab:boolean};
 export const NEUTRAL_V4_INPUT:Readonly<SkiV4Input>={steer:0,brake:0,tuck:false,jump:false,pitch:0,roll:0,grab:false};
 export const SKI_V4_TUNING=Object.freeze({
-  revision:1,dt:1/120,gravity:9.81,sidecutRadius:7.5,maxEdge:0.82,edgeRise:4.4,
+  revision:1,dt:1/120,gravity:9.81,sidecutRadius:2.7,maxEdge:0.82,edgeRise:4.4,
   maxSkiAttack:0.53,attackRise:5.6,carveMu:0.86,skidMu:0.62,
-  skidVelocityScale:1.15,baseSnowResistance:0.18,airDrag:0.008,
+  skidVelocityScale:1.25,baseSnowResistance:0.28,airDrag:0.055,
   wedgeAngle:0.70,snowplowMu:2.35,brakeRise:2,brakeRelease:4,rollInertia:0.14,
   bootStance:0.23,skiHalfLength:1.275,skiHalfWidth:0.095,
   maxSoleFlex:0.16,contactTolerance:0.05,chargeMax:0.68,
@@ -133,6 +133,8 @@ export class SkiV4Physics{
   tick=0;remainder=0;droppedSeconds=0;
   edge=0;pressure=0;grip=0;
   brakeEngagement=0;
+  /** Player-controlled ski activity starts in a planted stance until first command. */
+  awaitingStart=true;
   readonly telemetry:SkiV4Telemetry={tick:0,speed:0,edgeRadians:0,attackRadians:0,
     carveAcceleration:0,skidDeceleration:0,gravityAcceleration:{x:0,z:0},
     leftLoad:.5,rightLoad:.5,snowResistance:0,powerToSnow:0,heading:0,phase:"riding"};
@@ -150,6 +152,7 @@ export class SkiV4Physics{
   setHeading(x:number,z:number){if(Math.hypot(x,z)>.001)this.yaw=Math.atan2(x,z);}
   setHorizontalVelocity(x:number,z:number){
     this.velocity.x=x;this.velocity.z=z;
+    if(Math.hypot(x,z)>.1)this.awaitingStart=false;
     const h=sampleSnow(this.surface,this.position.x,this.position.z);
     this.velocity.y=h.dx*x+h.dz*z;
   }
@@ -205,6 +208,19 @@ export class SkiV4Physics{
       -t.brakeRelease*dt,t.brakeRise*dt);
     const released=this.heldJump&&!input.jump;
     this.heldJump=Boolean(input.jump);
+    // Only the explicit run-ready stance is held on an initially steep slope.
+    // After first input, freely integrate real snow forces and gravity.
+    if(this.awaitingStart&&this.phase==="riding"){
+      if(Math.abs(steer)>.15||input.tuck||input.jump)this.awaitingStart=false;
+      else{
+        this.updateContacts(0);
+        this.velocity.x=0;this.velocity.y=0;this.velocity.z=0;
+        this.position.y=this.supportHeight(this.surface(this.position.x,this.position.z));
+        this.telemetry.tick=this.tick;this.telemetry.speed=0;
+        this.telemetry.phase=this.phase;
+        return;
+      }
+    }
     if(this.phase==="air"){
       // Aerial rotation remains input-driven and is dynamically independent
       // of ski-snow forces. Preserve takeoff horizontal momentum.
@@ -263,7 +279,11 @@ export class SkiV4Physics{
     const carved=impaired?0:Math.sign(sinEdge)*Math.min(requestedCarve,maxCarve);
     const travelForward=speed>.08?{x:this.velocity.x/speed,z:this.velocity.z/speed}:frame(this.yaw).f;
     const perpendicular={x:travelForward.z,z:-travelForward.x};
-    const targetAttack=impaired?0:steer*(.045+this.brakeEngagement*(t.maxSkiAttack-.045));
+    // Progressive boot attack at lower speeds, with real lateral shearing
+    // rather than assigning velocity or setting a hard maximum speed.
+    const pivotAttack=.045+.36*clamp((7-speed)/7,0,1);
+    const targetAttack=impaired?0:steer*
+      (pivotAttack+this.brakeEngagement*(t.maxSkiAttack-pivotAttack));
     this.attackAngle+=clamp(targetAttack-this.attackAngle,-t.attackRise*dt,t.attackRise*dt);
     // Ski yaw follows momentum but can be twisted relative to it by the boot;
     // this produces real shearing forces rather than teleporting velocity.

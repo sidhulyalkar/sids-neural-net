@@ -25,13 +25,25 @@ test("V4 flat glide loses speed, and deliberate snowplow can bring skier to rest
   assert.ok(speed(brake)<.15);
   assert.ok(brake.position.z<glide.position.z*.6);
 });
-test("V4 downhill edging turns momentum uphill and slows versus straight descent",()=>{
+test("V4 low-speed steering redirects true velocity uphill and reduces speed",()=>{
   const h:Surface=(_x,z)=>-.12*z;
+  const first=drive(ski(h),2,{steer:.75});
+  assert.ok(first.velocity.z<-.15,"snow-edge force must bend velocity uphill");
   const straight=drive(ski(h),6,{}),turn=drive(ski(h),6,{steer:.75});
-  assert.ok(speed(straight)>7.5);
-  assert.ok(speed(turn)<speed(straight)-1.2);
-  assert.ok(turn.position.x>12&&turn.velocity.z<0);
+  assert.ok(speed(straight)>3&&speed(straight)<6);
+  assert.ok(speed(turn)<speed(straight)-1);
+  assert.ok(turn.position.x>6);
   assert.ok(turn.telemetry.carveAcceleration>.1);
+});
+test("V4 starts planted at activity entry, then launches when W is pressed",()=>{
+  const sim=new SkiV4Physics((_x,z)=>-.5*z,0,0);
+  drive(sim,5,{});
+  assert.equal(sim.awaitingStart,true);
+  assert.equal(speed(sim),0);
+  assert.equal(sim.position.z,0);
+  drive(sim,1,{tuck:true});
+  assert.equal(sim.awaitingStart,false);
+  assert.ok(sim.position.z>1&&speed(sim)>2);
 });
 test("V4 equal and opposite edge inputs mirror paths without added propulsion",()=>{
   const left=drive(ski(),3,{steer:-.8}),right=drive(ski(),3,{steer:.8});
