@@ -1,5 +1,6 @@
 import {worldFrameDelta} from "@/lib/world/frameTiming";
 import { SkiSimulation, neutral as neutralSkiInput } from "@/lib/world/ski/simulation";
+import { SkiV4Simulation } from "@/lib/world/ski/v4/adapter";
 import { renderedSnowHeight } from "@/lib/world/ski/renderedSnow";
 import { SnowTracks } from "./skiSnowTracks";
 import {SkiVisualSole} from "./skiVisualSole";
@@ -1954,7 +1955,9 @@ export function createWorld(
   const skiPresentation=new URLSearchParams(window.location.search).get("ski-view")!=="legacy";
   const skiKnees=legs.map(()=>mesh(boxGeo,dark,[0,0,0],[.19,.36,.23],bodyRoot));
   skiKnees.forEach(k=>{k.visible=false});
-  const skiV3Enabled = skiPresentation && process.env.NEXT_PUBLIC_SKI_V3 === "1";
+  // V4 is explicitly opt-in and independent of the old compile-time V3 flag.
+  const skiV4Enabled = skiPresentation && new URLSearchParams(window.location.search).get("ski-engine")==="v4";
+  const skiV3Enabled = skiPresentation && !skiV4Enabled && process.env.NEXT_PUBLIC_SKI_V3 === "1";
   let ride: SkiSimulation | null = null;
   let skiHalfpipe=new SkiHalfpipeQualification();
   let skiTricks=new SkiTrickQualification();
@@ -1967,6 +1970,12 @@ export function createWorld(
   skiTrickNotice.setAttribute("aria-label","Landed skiing trick");
   skiTrickNotice.style.cssText="display:none;position:absolute;top:19%;left:50%;transform:translateX(-50%);z-index:8;pointer-events:none;max-width:86%;padding:9px 16px;border-radius:13px;background:#143443df;border:1px solid #e8f5f3a8;color:#fff;text-align:center;font:750 17px/1.3 system-ui,sans-serif;text-shadow:0 1px 2px #0b2535";
   host.appendChild(skiTrickNotice);
+  const skiV4Notice=document.createElement("div");
+  skiV4Notice.setAttribute("role","status");
+  skiV4Notice.setAttribute("aria-label","Experimental ski engine");
+  skiV4Notice.textContent="SNOW-FORCE V4 · EXPERIMENTAL";
+  skiV4Notice.style.cssText="display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:7;pointer-events:none;padding:6px 12px;border-radius:999px;background:#183c4bce;border:1px solid #a9d2d9ab;color:#f5fcff;font:700 10px/1.4 system-ui,sans-serif;letter-spacing:.1em;white-space:nowrap";
+  host.appendChild(skiV4Notice);
   let rideSnow: ReturnType<typeof renderedSnowHeight> | null = null;
   let runoutComplete=false;
   const skiCollision=(from:THREE.Vector3,to:THREE.Vector3)=>{
@@ -1982,10 +1991,10 @@ export function createWorld(
     return skiInput;
   };
   function onSkiFace() {
-    return skiV3Enabled && state.activity === "ski" && aquatic === "land" &&
+    return (skiV3Enabled || skiV4Enabled) && state.activity === "ski" && aquatic === "land" &&
       caveLayer === "surface" && galleryPhase === "outside" && bigAir.phase === "idle" &&
       !grind && !climb && !jetSki && !jetChoosing && discGolf.phase === "off" &&
-      skimHeat.phase === "off" && (mountainHalfpipeApproachClearance(player) || (!!ride && !runoutComplete));
+      skimHeat.phase === "off" && (skiV4Enabled || mountainHalfpipeApproachClearance(player) || (!!ride && !runoutComplete));
   }
   const skiAirRotation=new THREE.Quaternion();
   const skiAirBones=[...legs,...skiKnees].map(()=>({position:new THREE.Vector3(),rotation:new THREE.Quaternion(),scale:new THREE.Vector3()}));
@@ -4719,7 +4728,9 @@ export function createWorld(
           canvas.dataset.skiIndexMs=(performance.now()-started).toFixed(2);
         }
         if (!ride) {
-          ride = new SkiSimulation(rideSnow, player.x, player.z, "independent",false,skiCollision);
+          ride = skiV4Enabled
+            ? new SkiV4Simulation(rideSnow,player.x,player.z,skiCollision)
+            : new SkiSimulation(rideSnow, player.x, player.z, "independent",false,skiCollision);
           skiHalfpipe=new SkiHalfpipeQualification();
           skiTricks=new SkiTrickQualification();
           skiTrickNotice.style.display="none";
@@ -4728,13 +4739,18 @@ export function createWorld(
           ride.setHeading(travel.heading.x, travel.heading.z);
           if(!tracks){tracks = new SnowTracks(rideSnow);scene.add(tracks.mesh);}
         }
-        // Local +X points left on screen with the skier facing downhill (+Z).
-        skiInput.steer = -right;
-        skiInput.pitch = forward;
+        // Snow-force V4 uses skier-relative left/right edges and progressive
+        // S-braking. Camera heading must never invert an edge decision.
+        const v4Steer = mobileJoysticks.enabled ? mobileJoysticks.movement.x :
+          Number(keys.has("d")||keys.has("arrowright"))-Number(keys.has("a")||keys.has("arrowleft"));
+        const v4Forward = mobileJoysticks.enabled ? mobileJoysticks.movement.y :
+          Number(keys.has("w")||keys.has("arrowup"))-Number(keys.has("s")||keys.has("arrowdown"));
+        skiInput.steer = skiV4Enabled?v4Steer:-right;
+        skiInput.pitch = skiV4Enabled?v4Forward:forward;
         skiInput.roll = Number(keys.has("q")) - Number(keys.has("e"));
         const inRunout=!mountainHalfpipeApproachClearance(player);
-        skiInput.brake = forward < 0 || inRunout;
-        skiInput.tuck = forward > 0;
+        skiInput.brake = skiV4Enabled?v4Forward<-.1:forward<0||inRunout;
+        skiInput.tuck = skiV4Enabled?v4Forward>.1:forward>0;
         skiInput.grab = keys.has("shift");
         ride.advance(rawDelta, readSkiInput,(sim,input)=>{
           const trick=skiTricks.observe(sim,input);
@@ -4756,7 +4772,7 @@ export function createWorld(
         verticalSpeed = ride.phase==="air"?ride.velocity.y:0;
         // Continue across the face boundary through landing and recovery.
         // Yield to exploration at rest, retaining the last travel heading.
-        runoutComplete=inRunout && ride.phase==="riding" && horizontal<.06;
+        runoutComplete=!skiV4Enabled && inRunout && ride.phase==="riding" && horizontal<.06;
         if(runoutComplete)travel.speed=0;
         destination = null;
       } else {
@@ -5390,6 +5406,21 @@ export function createWorld(
           canvas.dataset.skiRightBankVisits=String(skiHalfpipe.metrics.rightVisits);
           canvas.dataset.skiBankCrossings=String(skiHalfpipe.metrics.bankCrossings);
           canvas.dataset.skiLateralReversals=String(skiHalfpipe.metrics.lateralReversals);
+        }
+        canvas.dataset.skiEngine=skiV4Enabled?"v4":skiV3Enabled?"v3":"legacy";
+        skiV4Notice.style.display=skiV4Enabled&&state.entered&&mode==="ski"?"block":"none";
+        if(ride instanceof SkiV4Simulation){
+          const p=ride.v4.telemetry;
+          canvas.dataset.skiV4EdgeRadians=p.edgeRadians.toFixed(4);
+          canvas.dataset.skiV4AttackRadians=p.attackRadians.toFixed(4);
+          canvas.dataset.skiV4CarveAcceleration=p.carveAcceleration.toFixed(4);
+          canvas.dataset.skiV4SkidDeceleration=p.skidDeceleration.toFixed(4);
+          canvas.dataset.skiV4SnowResistance=p.snowResistance.toFixed(4);
+          canvas.dataset.skiV4SnowPower=p.powerToSnow.toFixed(4);
+          canvas.dataset.skiV4LeftLoaded=String(ride.v4.contact[0].loaded);
+          canvas.dataset.skiV4RightLoaded=String(ride.v4.contact[1].loaded);
+          canvas.dataset.skiV4SoleMismatch=ride.visualContactMismatch.map(x=>x.toFixed(4)).join(",");
+          canvas.dataset.skiV4ContactPatches=ride.v4.contact.map(x=>x.contactStations).join(",");
         }
         canvas.dataset.skiRidePhase=ride?.phase ?? "";
         canvas.dataset.skiLanding=ride?.landing ?? "";
@@ -7963,6 +7994,7 @@ export function createWorld(
     },
     dispose() {
       skiTrickNotice.remove();
+      skiV4Notice.remove();
       tracks?.dispose();
       skiSoleVisuals.forEach(sole=>sole.dispose());
       arcadeGraffiti.dispose();
