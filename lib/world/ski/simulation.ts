@@ -85,12 +85,12 @@ export class SkiSimulation {
   interpolate(out:Vector3){
     return out.lerpVectors(this.previous,this.position,this.remainder/tuning.dt);
   }
-  private sample(){
+  private sample(forceIndependentContact=false){
     const {x,z}=this.position;
     const d=.05;
     this.normal.set(this.height(x-d,z)-this.height(x+d,z),2*d,
       this.height(x,z-d)-this.height(x,z+d)).normalize();
-    if(this.footprint==="independent"&&this.phase!=="air"){
+    if(this.footprint==="independent"&&(this.phase!=="air"||forceIndependentContact)){
       const heading=this.solePoint.set(0,0,1).applyQuaternion(this.rotation);
       for(let i=0;i<2;i++){
         const pose=fitSkiContact(this.position,heading,2*i-1,this.sampleHeight,this.soles[i],true,this.pitchOffset[i],this.pivotStation[i]);
@@ -193,6 +193,11 @@ export class SkiSimulation {
       this.move();
       const support=this.sample();
       if(this.position.y<=support && this.velocity.dot(this.normal)<=0){
+        // Aerial collision uses conservative sweep support for the landing
+        // *instant*. Before assigning quality, resample BOTH independent
+        // ski soles under their loaded bindings. The airborne footprint
+        // proxy is not the same contact model as the actual ski stance.
+        if(this.footprint==="independent")this.sample(true);
         this.impact=-this.velocity.dot(this.normal);
         this.forward.set(0,0,1).applyQuaternion(this.rotation);
         this.axis.copy(this.velocity).projectOnPlane(this.normal);
