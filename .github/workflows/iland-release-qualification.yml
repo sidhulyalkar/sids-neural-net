@@ -80,6 +80,7 @@ jobs:
           npm install --prefix /tmp/island-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
           /tmp/island-playwright/node_modules/.bin/playwright install --with-deps chromium
       - name: Serve exact production build and smoke current site + island
+        id: serve
         shell: bash
         run: |
           set -euo pipefail
@@ -91,25 +92,65 @@ jobs:
           tail -n 100 /tmp/iland-next.log
           exit 1
       - name: Real desktop + mobile HUD and sport control entry
+        id: sport_hub
+        # Run every browser audit even if an earlier independent audit fails.
+        # Preserve each failure's evidence and aggregate the real outcomes below.
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' }}
         env:
           WORLD_AUDIT_DIR: artifacts/iland/flag-${{ matrix.ski_v3 }}/sport-hub
         run: node scripts/playtest-sport-hub.mjs
       - name: Real simultaneous mobile movement and camera controls
+        id: dual_stick
+        # Run every browser audit even if an earlier independent audit fails.
+        # Preserve each failure's evidence and aggregate the real outcomes below.
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' }}
         env:
           WORLD_AUDIT_DIR: artifacts/iland/flag-${{ matrix.ski_v3 }}/dual-stick
         run: node scripts/playtest-world-mobile-dual-stick.mjs
       - name: Cairn discovery, links and mobile reading
+        id: cairn
+        # Run every browser audit even if an earlier independent audit fails.
+        # Preserve each failure's evidence and aggregate the real outcomes below.
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' }}
         env:
           WORLD_AUDIT_DIR: artifacts/iland/flag-${{ matrix.ski_v3 }}/cairn-stories
         run: node scripts/playtest-cairn-stories.mjs
       - name: Snow halfpipe entry and unarmed free-ski invariants
+        id: halfpipe
+        # Run every browser audit even if an earlier independent audit fails.
+        # Preserve each failure's evidence and aggregate the real outcomes below.
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' }}
         env:
           WORLD_AUDIT_DIR: artifacts/iland/flag-${{ matrix.ski_v3 }}/ski-halfpipe
         run: node scripts/playtest-clean-mountain-halfpipe.mjs
       - name: Jet-ski dock, steering and race course
+        id: jet_ski
+        # Run every browser audit even if an earlier independent audit fails.
+        # Preserve each failure's evidence and aggregate the real outcomes below.
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' }}
         env:
           WORLD_AUDIT_DIR: artifacts/iland/flag-${{ matrix.ski_v3 }}/jet-ski
         run: node scripts/playtest-jet-ski.mjs
+      - name: Fail closed on every browser gate's actual outcome
+        if: ${{ !cancelled() && steps.serve.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          failures=0
+          echo 'sport_hub: ${{ steps.sport_hub.outcome }}'
+          if [[ "${{ steps.sport_hub.outcome }}" != "success" ]]; then failures=$((failures+1)); fi
+          echo 'dual_stick: ${{ steps.dual_stick.outcome }}'
+          if [[ "${{ steps.dual_stick.outcome }}" != "success" ]]; then failures=$((failures+1)); fi
+          echo 'cairn: ${{ steps.cairn.outcome }}'
+          if [[ "${{ steps.cairn.outcome }}" != "success" ]]; then failures=$((failures+1)); fi
+          echo 'halfpipe: ${{ steps.halfpipe.outcome }}'
+          if [[ "${{ steps.halfpipe.outcome }}" != "success" ]]; then failures=$((failures+1)); fi
+          echo 'jet_ski: ${{ steps.jet_ski.outcome }}'
+          if [[ "${{ steps.jet_ski.outcome }}" != "success" ]]; then failures=$((failures+1)); fi
+          if [[ "$failures" -ne 0 ]]; then
+            echo "::error::iLand browser qualification has $failures failing/incomplete checks"
+            exit 1
+          fi
       - name: Upload diagnostic evidence even when a gate fails
         if: always()
         uses: actions/upload-artifact@v4
