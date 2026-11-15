@@ -194,7 +194,8 @@ export class SkiV4Physics{
     this.contact[1]=solveSkiContact(this.surface,point,this.yaw,this.edgeAngle,1,1-loadLeft);
     const norm=this.contact[0].load+this.contact[1].load;
     this.pressure=norm;
-    this.grip=norm*SKI_V4_TUNING.carveMu*Math.abs(Math.sin(this.edgeAngle));
+    const covered=this.contact.reduce((sum,c)=>sum+c.load*c.contactFraction,0);
+    this.grip=covered*SKI_V4_TUNING.carveMu*Math.abs(Math.sin(this.edgeAngle));
   }
   private supportHeight(snowHeight:number){
     const supports=this.contact.filter(s=>s.loaded);
@@ -263,6 +264,7 @@ export class SkiV4Physics{
       }
       this.telemetry.tick=this.tick;this.telemetry.speed=mag(this.velocity);
       this.telemetry.carveAcceleration=0;this.telemetry.skidDeceleration=0;
+      this.telemetry.snowResistance=0;this.telemetry.powerToSnow=0;
       this.telemetry.carveQuality=0;this.telemetry.contactCoverage=0;
       this.telemetry.actualSlipRadians=0;this.telemetry.observedTurnRate=0;
       this.telemetry.observedTurnRadius=null;this.telemetry.turnRegime="air";
@@ -326,7 +328,7 @@ export class SkiV4Physics{
     // largely cancels, while the longitudinal work is strictly dissipative.
     const wedgeResistance=normalAcceleration*t.snowplowMu*contactRatio*
       Math.sin(wedge)**2*(1+0.3*Math.abs(steer));
-    const snowResistance=contactSpeed>0?t.baseSnowResistance+wedgeResistance:0;
+    const snowResistance=contactSpeed>0?t.baseSnowResistance*contactRatio+wedgeResistance:0;
     const aerodynamic=t.airDrag*speed*speed*(input.tuck?.52:1);
     const resistance=impaired?2.3+snowResistance:snowResistance+aerodynamic;
     const before={x:this.velocity.x,z:this.velocity.z};
@@ -370,11 +372,15 @@ export class SkiV4Physics{
     }
     this.telemetry.tick=this.tick;this.telemetry.speed=mag(this.velocity);
     this.telemetry.edgeRadians=this.edgeAngle;this.telemetry.attackRadians=this.attackAngle;
-    this.telemetry.carveAcceleration=carved;this.telemetry.skidDeceleration=wedgeResistance;
+    // Shear is dissipative even without S braking: this is a skidded turn.
+    const skidShearDecel=speed>.08?Math.max(0,-shear*lateralSlip)/speed:0;
+    this.telemetry.carveAcceleration=carved;
+    this.telemetry.skidDeceleration=wedgeResistance+skidShearDecel;
     this.telemetry.gravityAcceleration={x:gx,z:gz};
     this.telemetry.leftLoad=this.contact[0].load;this.telemetry.rightLoad=this.contact[1].load;
-    this.telemetry.snowResistance=resistance;
-    this.telemetry.powerToSnow=Math.max(0,-shear*lateralSlip)+resistance*speed;
+    // Distinguish snow friction from aerodynamic drag and crash damping.
+    this.telemetry.snowResistance=snowResistance;
+    this.telemetry.powerToSnow=Math.max(0,-shear*lateralSlip)+snowResistance*speed;
     const newSpeed=mag(this.velocity);
     const deltaHeading=Math.atan2(before.z*this.velocity.x-before.x*this.velocity.z,
       before.x*this.velocity.x+before.z*this.velocity.z);
