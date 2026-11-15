@@ -10,12 +10,12 @@ export const tuning = Object.freeze({
 export type SkiCarveSettings={
  maxTurn:number;edgeResponse:number;flatGrip:number;
  engagedGrip:number;contactForceScale:number;drag:number;
- surfaceTransport:number;
+ surfaceTransport:number;carveRedirect:number;
 };
 export const SKI_CARVE_BASELINE:Readonly<SkiCarveSettings>=Object.freeze({
  maxTurn:tuning.maxTurn,edgeResponse:tuning.edgeResponse,
  flatGrip:tuning.flatGrip,engagedGrip:tuning.engagedGrip,
- contactForceScale:1,drag:tuning.drag,surfaceTransport:0
+ contactForceScale:1,drag:tuning.drag,surfaceTransport:0,carveRedirect:0
 });
 export type SkiInput = { steer:number; pitch:number; roll:number; tuck:boolean; brake:boolean; jump:boolean; grab:boolean };
 export const neutral:SkiInput = {steer:0,pitch:0,roll:0,tuck:false,brake:false,jump:false,grab:false};
@@ -71,7 +71,8 @@ export class SkiSimulation {
     for(const [name,value] of Object.entries(this.dynamics))
       if(!Number.isFinite(value)||value<0||
         (name==="contactForceScale"&&value>3)||
-        (name==="surfaceTransport"&&value>1))
+        (name==="surfaceTransport"&&value>1)||
+        (name==="carveRedirect"&&value>1))
         throw Error("Invalid experimental ski dynamics: "+name);
     this.position.set(x,height(x,z),z);
     if(footprint)this.position.y=this.sample();
@@ -247,7 +248,26 @@ export class SkiSimulation {
       (.25+.75*alignment)*(1-.45*this.charge/tuning.maxCharge);
     const slipImpulse=lateral*(1-Math.exp(-this.grip*dt));
     const contactLimit=this.footprint!=="independent"?Infinity:tuning.gravity*this.pressure*(.28+.92*Math.abs(this.edge))*this.dynamics.contactForceScale*dt;
-    this.velocity.addScaledVector(this.side,-Math.sign(slipImpulse)*Math.min(contactLimit,Math.abs(slipImpulse)));
+    const correction=-Math.sign(slipImpulse)*Math.min(contactLimit,Math.abs(slipImpulse));
+    const originalForward=this.velocity.dot(this.forward);
+    this.velocity.addScaledVector(this.side,correction);
+    // An edged, loaded ski can REDIRECT lateral momentum instead of
+    // annihilating all of it as slip/friction. The square-root transfer
+    // conserves at most the kinetic energy removed by the bounded lateral
+    // contact impulse. The normal default is exactly the old dissipative
+    // path; this is an opt-in experimental A/B, not player acceleration.
+    if(this.dynamics.carveRedirect>0&&!impaired&&this.contact.some(Boolean)&&
+       Math.abs(this.edge)>.05&&Math.abs(originalForward)>.35){
+      const remainingLateral=lateral+correction;
+      const lateralEnergyRemoved=Math.max(0,
+        lateral*lateral-remainingLateral*remainingLateral);
+      const forwardMagnitude=Math.sqrt(
+        originalForward*originalForward+
+        this.dynamics.carveRedirect*lateralEnergyRemoved);
+      const forwardCorrection=Math.sign(originalForward)*
+        (forwardMagnitude-Math.abs(originalForward));
+      this.velocity.addScaledVector(this.forward,forwardCorrection);
+    }
     this.velocity.multiplyScalar(Math.exp(-dt*(this.dynamics.drag*speed*(input.tuck?.55:1)+(impaired?2:0))));
     if(input.brake)this.velocity.multiplyScalar(Math.max(0,1-tuning.brake*dt/Math.max(.001,this.velocity.length())));
     const target=this.delta.setFromRotationMatrix(this.basis.makeBasis(this.side,this.normal,this.forward));
