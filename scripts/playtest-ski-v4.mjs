@@ -19,6 +19,7 @@ const snapshot=async stage=>{
   const data=await canvas.evaluate(el=>({...el.dataset}));
   frames.push({stage,time:Date.now(),engine:data.skiEngine,activity:data.activity,
     player:data.player,speed:data.speed,phase:data.skiRidePhase,
+    awaiting:data.skiV4AwaitingStart,spawn:data.skiV4Spawn,
     edge:data.skiV4EdgeRadians,carve:data.skiV4CarveAcceleration,
     skid:data.skiV4SkidDeceleration,slip:data.skiV4AttackRadians,
     contact:data.skiV4ContactPatches,rigidMismatch:data.skiV4SoleMismatch,
@@ -49,37 +50,56 @@ try{
   const [spawnX,spawnZ]=(entry.skiV4Spawn??"").split(",").map(Number);
   assert.ok(Math.abs(spawnX-7)<2.7 && spawnZ>-60.8 && spawnZ<-53,
     "Ski V4 must command an in-channel spawn before descent: "+entry.skiV4Spawn);
-  // Record input history from actual browser locomotion, not injected state.
+  assert.equal(entry.skiV4AwaitingStart,"true",
+    "No gravity-driven ski escape before the first deliberate player control");
+  const [entryX,entryZ]=(entry.player??"").split(",").map(Number);
+  assert.ok(Math.abs(entryX-7)<1&&entryZ>-61&&entryZ<-55,
+    "The first displayed skier must still be at Granite Ridge: "+entry.player);
+  // Read telemetry *before* taking slow software-WebGL screenshots.
+  // This distinguishes actual input dynamics from screenshots of the coast.
   await page.keyboard.down("w");
-  await page.waitForTimeout(500);
-  const glide=await snapshot("02-v4-glide");
+  await page.waitForFunction(()=>{
+    const d=document.querySelector("canvas")?.dataset;
+    return d?.skiV4AwaitingStart==="false"&&Number(d.speed)>1.5;
+  },null,{timeout:20000});
+  const glide=await canvas.evaluate(el=>({...el.dataset}));
+  frames.push({stage:"02-v4-glide",time:Date.now(),player:glide.player,
+    speed:glide.speed,awaiting:glide.skiV4AwaitingStart});
   await page.keyboard.up("w");
-  // Capture while the player is holding D. The edge relaxes quickly after release.
   await page.keyboard.down("d");
   await page.waitForFunction(()=>{
     const d=document.querySelector("canvas")?.dataset;
-    return d?.skiEngine==="v4" && Number(d?.skiInputSteer)>.5 &&
+    return d?.skiEngine==="v4"&&Number(d?.skiInputSteer)>.5 &&
       Math.abs(Number(d?.skiV4EdgeRadians))>.25 &&
       Math.abs(Number(d?.skiV4CarveAcceleration))>.05;
   },null,{timeout:20000});
-  const carved=await snapshot("03-v4-edge");
-  assert.ok(Number(carved.skiInputSteer)>.5);
-  assert.ok(Math.abs(Number(carved.skiV4EdgeRadians))>.25,
-    "Held steering must produce real ski-edge engagement");
+  const carved=await canvas.evaluate(el=>({...el.dataset}));
+  frames.push({stage:"03-v4-edge",time:Date.now(),player:carved.player,
+    speed:carved.speed,edge:carved.skiV4EdgeRadians,
+    carve:carved.skiV4CarveAcceleration,steer:carved.skiInputSteer});
+  assert.ok(Number(carved.skiInputSteer)>.5 &&
+    Math.abs(Number(carved.skiV4EdgeRadians))>.25);
   await page.keyboard.up("d");
   const brakeEntrySpeed=Number(carved.speed);
   await page.keyboard.down("s");
   await page.waitForFunction(()=>{
     const d=document.querySelector("canvas")?.dataset;
-    return Number(d?.skiV4SkidDeceleration)>.1 && Number(d?.skiV4SnowPower)>0;
+    return Number(d?.skiV4BrakeEngagement)>.8 &&
+      Number(d?.skiV4SkidDeceleration)>.1 &&
+      Number(d?.skiV4SnowPower)>=0;
   },null,{timeout:20000});
-  await page.waitForTimeout(1500);
-  const braked=await snapshot("04-v4-brake");
+  const braking=await canvas.evaluate(el=>({...el.dataset}));
+  await page.waitForTimeout(1000);
+  const braked=await canvas.evaluate(el=>({...el.dataset}));
+  frames.push({stage:"04-v4-brake",time:Date.now(),player:braked.player,
+    speed:braked.speed,skid:braking.skiV4SkidDeceleration,
+    brakeEngagement:braked.skiV4BrakeEngagement});
+  await page.screenshot({path:path.join(out,"04-v4-brake.png")});
   await page.keyboard.up("s");
-  assert.ok(Number(braked.skiV4SkidDeceleration)>.1,
+  assert.ok(Number(braking.skiV4SkidDeceleration)>.1,
     "Held S must apply a real positive snowplow resistance");
-  assert.ok(Number(braked.speed)<brakeEntrySpeed || Number(braked.speed)<.4,
-    "S braking must reduce actual speed rather than just turning the visual skier");
+  assert.ok(Number(braked.speed)<brakeEntrySpeed||Number(braked.speed)<.4,
+    "Snow braking must reduce measured speed without velocity clamping");
   assert.equal(braked.bigAirPhase,"idle");
   assert.deepEqual(errors,[],"No uncaught WebGL/browser exceptions");
   fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({url:url.toString(),

@@ -50,3 +50,11 @@ This replaces *grounded skiing physics*, not the island's ecosystems, mountain h
 - A second browser pass proved the skier reached inside the halfpipe but was already at z=-45.86 when a slow software-render snapshot arrived. A new read-only `skiV4Spawn` diagnostic captures the actual command-time location, rather than failing based on the time screenshots take.
 - An analytical grade sweep exposed weak S braking on steep slopes: with grade 0.5, speed after 2s was ~6.69 with S versus ~11.33 without. Increasing *shear/ploughing resistance* with a finite 0.5s press-in and 0.25s release ramp locally stopped the same controlled grade near zero, without a maximum-speed clamp. These are provisional game-force coefficients, not snow measurements.
 - Genuine user braking and physical halfpipe traversals remain unqualified until exact-browser traces and same-head CI pass. The full 24-config halfpipe audit currently reports zero qualified runs, including unsupported contact patches and multi-unit toe/tail gaps on steep lips.
+
+### 2026-11-15: first browser motion, low-speed control and ready stance
+
+The previous Chrome test confirmed genuine held-D edge force and held-S deceleration, but its slow browser screenshots observed skiing on the coastline, not Granite Ridge. Passing a keyboard responsiveness test is not proof of a usable halfpipe.
+
+A controlled local Ski V4 physics revision now (1) retains the skier at the chosen ski spawn until deliberate W or steering input, (2) increases turning force at low speeds via speed-dependent attack angle, and (3) increases continuous snow rolling/snowplow resistance so speed changes arise from the forces rather than an arbitrary speed clamp. The displayed experimental HUD states when the skier is ready. It does not imply these arbitrary coefficients are measured from physical ski equipment.
+
+The browser qualification now captures starting pose and input telemetry **before** high-latency screenshots; it requires the actual on-screen skier to be at Granite Ridge before motion. A separate geometry budget exposes the incompatible steep-lip dimensions and rigid ski flex limit. Halfpipe crossing and real-device performance remain blockers.
