@@ -35,6 +35,11 @@ jobs:
         run: npm run lint
       - name: Entire existing + new unit suite
         run: npm test
+      - name: Generate Next route and module bundle analysis
+        run: |
+          npx next experimental-analyze --output
+          mkdir -p artifacts/bundle-analyzer
+          cp -R .next/diagnostics/analyze/. artifacts/bundle-analyzer/
       - name: Production build of original home plus /world
         run: npm run build
       - name: Enforce original JavaScript budget
@@ -56,6 +61,7 @@ jobs:
           mkdir -p artifacts/world-master-port
           git rev-parse HEAD > artifacts/world-master-port/tested-sha.txt
           cp /tmp/world-master-port.log artifacts/world-master-port/server.log 2>/dev/null || true
+          cp artifacts/bundle-budget/report.json artifacts/world-master-port/bundle-report.json 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
