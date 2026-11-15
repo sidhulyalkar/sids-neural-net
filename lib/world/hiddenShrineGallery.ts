@@ -181,7 +181,7 @@ function galleryMounts():GalleryMount[]{
  return mounts;
 }
 function galleryMountRank(m:GalleryMount){
- return GALLERY_ROUTE.indexOf(m.roomIndex)*4+
+ return (GALLERY_ROUTE as readonly number[]).indexOf(m.roomIndex)*4+
    (["north","east","south","west"] as const).indexOf(m.side);
 }
 export function galleryPhotoSlots():readonly GalleryPhotoSlot[]{
