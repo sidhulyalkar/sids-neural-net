@@ -189,7 +189,7 @@ try {
       await page.getByRole('heading', { name: gazeTitle, exact: true }).waitFor();
       const directHref = await page.getByRole('link', { name: new RegExp(`Play ${gazeTitle}`) }).getAttribute('href');
       assert.ok(directHref?.startsWith('/arcade/'));
-      assert.equal((await page.request.get(`${base}${directHref}`)).status(), 200);
+      assert.equal((await page.request.get(new URL(directHref, base).toString())).status(), 200);
       await page.keyboard.press('Escape');
       // Side niches must independently select their own canonical game.
       for (const [dragX,index] of [[Math.PI/2/.005,0],[-Math.PI/.005,2]]) {
@@ -206,7 +206,7 @@ try {
       await page.getByRole('heading', { name: 'Arcade cavern.', exact: true }).waitFor();
       const games = await page.locator('dialog a[href^="/arcade/"]').evaluateAll(links => links.map(a => a.getAttribute('href')));
       assert.equal(games.length, 3);
-      for (const href of games) assert.equal((await page.request.get(`${base}${href}`)).status(), 200);
+      for (const href of games) assert.equal((await page.request.get(new URL(href, base).toString())).status(), 200);
       await page.keyboard.press('Escape');
       assert.equal(await page.locator('dialog').evaluate(d => d.open), false);
       results.push('Arcade cavern lands outside a camera-safe flat backside tunnel, then gaze-selects three spaced carved games under lantern light');
@@ -222,7 +222,7 @@ try {
     if (name.startsWith('02') || name.startsWith('03')) {
       const hrefs = await page.locator('dialog a[href^="/projects/"]').evaluateAll(links => links.map(link => link.getAttribute('href')));
       assert.equal(hrefs.length, 3);
-      for (const href of hrefs) assert.equal((await page.request.get(`${base}${href}`)).status(), 200, href);
+      for (const href of hrefs) assert.equal((await page.request.get(new URL(href, base).toString())).status(), 200, href);
     }
     if (name.startsWith('04')) for (const memory of ['Wet beach', 'Coastal flowers', 'Shasta · trail', 'Shasta · beach']) {
       await page.getByRole('button', { name: new RegExp(memory) }).click();

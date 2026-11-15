@@ -28,7 +28,7 @@ try {
   for(const width of [1440,390]){
     const page=await browser.newPage({viewport:{width,height:900},isMobile:width<500,hasTouch:width<500});
     page.on("pageerror",e=>errors.push(e.message));
-    await page.goto(`${base}/photography`);
+    await page.goto(new URL("/photography",base).toString());
     const stills=page.getByRole("region",{name:"Selected personal photography"});
     await stills.waitFor({state:"visible",timeout:45000});
     const thumbnails=stills.getByRole("button",{name:/Open image \d+ of 49/});

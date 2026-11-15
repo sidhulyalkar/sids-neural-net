@@ -38,7 +38,7 @@ try{
     if(message.type()==="error"||/WebGL.*context lost/i.test(message.text()))
       console.error("GALLERY BROWSER",message.type(),message.text());
   });
-  await page.goto(base+"/?gallery=photos",{waitUntil:"domcontentloaded"});
+  await page.goto(new URL("/world?gallery=photos",base).toString(),{waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>{
     const canvas=document.querySelector("canvas[data-hidden-gallery-phase='inside']");
     return !!canvas && canvas.dataset.hiddenGalleryLocomotion==="walking" &&
@@ -192,7 +192,7 @@ try{
   report.routes.push({route:"/?gallery=photos",phase:"inside",
     locomotion:"walking",moved:true,throughDoor:true,
     floorPixelDifference:stability.floor,wholeFrameDifference:stability.full});
-  await page.goto(base+"/photography?photo=photo-021",{waitUntil:"domcontentloaded"});
+  await page.goto(new URL("/photography?photo=photo-021",base).toString(),{waitUntil:"domcontentloaded"});
   const viewer=page.getByRole("dialog",{name:"Visual Cortex image viewer"});
   await viewer.waitFor({state:"visible",timeout:60000});
   assert.ok(await viewer.locator("img[src*='photo-021']").count()>0);
@@ -201,7 +201,7 @@ try{
   const worldPhotoLink=page.getByRole("link",{name:/Walk through the hidden photography gallery/});
   assert.equal(await worldPhotoLink.getAttribute("href"),"/?gallery=photos");
   report.routes.push({route:"/photography?photo=photo-021",viewer:true,worldBacklink:true});
-  await page.goto(base+"/publications",{waitUntil:"domcontentloaded"});
+  await page.goto(new URL("/publications",base).toString(),{waitUntil:"domcontentloaded"});
   const worldPaperLink=page.getByRole("link",{name:/Enter the hidden waterfall research museum/});
   await worldPaperLink.waitFor({state:"visible",timeout:90000});
   assert.equal(await worldPaperLink.getAttribute("href"),"/?gallery=papers");
