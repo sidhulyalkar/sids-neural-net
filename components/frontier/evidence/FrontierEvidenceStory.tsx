@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, Expand, Minimize, FileText, Images, ShieldCheck } from 'lucide-react';
 import type { StoryManifest, EvidenceRecord } from '@/lib/frontier/evidence/schema';
 import { sourceChapterMap } from '@/lib/frontier/evidence/sourceChapterMap';
+import { sourcePreview } from '@/lib/frontier/evidence/sourcePreview';
 import styles from './frontier-evidence-story.module.css';
 
 export type StoryFigure = Extract<EvidenceRecord, { type: 'figure' }>;
@@ -30,6 +31,7 @@ function vettedAssetUrl(src: string | undefined): string | null {
 
 export function FrontierEvidenceStory({ manifest, title, summary, assets, syntheticFixture = false }: Props) {
   const chapters = sourceChapterMap(manifest);
+  const lead = sourcePreview(summary);
   const figureScene = manifest.scenes.find((scene) => scene.type === 'original-figure');
   const indexed = new Map(manifest.evidence.map((evidence) => [evidence.id, evidence]));
   const figures: StoryFigure[] = (figureScene?.evidenceIds ?? [])
@@ -87,7 +89,7 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
           {syntheticFixture ? <span className={styles.testLabel}>SYNTHETIC VISUAL QA FIXTURE · NOT EXPERIMENTAL EVIDENCE</span> : null}
           <p className={styles.eyebrow}>Original research · {manifest.source.publisher}</p>
           <h1>{title}</h1>
-          {summary ? <p className={styles.summary}>{summary}</p> : null}
+          {lead ? <p className={styles.summary}>{lead}</p> : null}
           <div className={styles.provenance}>
             <span><ShieldCheck size={15} aria-hidden="true"/> Source-linked evidence</span>
             <span>{figures.length} approved display {figures.length === 1 ? 'figure' : 'figures'}</span>
@@ -97,8 +99,8 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
           </div>
         </div>
 
-        <div className={styles.storyGrid}>
-          <section className={styles.stage} aria-label="Original scientific figures">
+        <div className={`${styles.storyGrid} ${figures.length === 0 ? styles.storyGridSourceOnly : ''}`}>
+          <section className={`${styles.stage} ${figures.length === 0 ? styles.stageSourceOnly : ''}`} aria-label="Original scientific figures">
             <div className={styles.stageTop}>
               <div className={styles.sectionTitle}><Images size={17} aria-hidden="true"/> ORIGINAL SOURCE MATERIAL</div>
               <span>{figure ? String(index + 1).padStart(2, '0') + ' / ' + String(figures.length).padStart(2, '0') : selectedChapter ? 'NO FIGURE IN CHAPTER' : 'NO QUALIFIED FIGURES'}</span>
@@ -151,8 +153,10 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
             ) : (
               <div className={styles.emptyStage}>
                 <FileText size={30} strokeWidth={1.2} aria-hidden="true"/>
-                <h2>{selectedChapter ? 'No figure linked to this chapter' : 'Start with the original source'}</h2>
-                <p>{selectedChapter
+                <h2>{figures.length === 0 ? 'No approved figures yet' : selectedChapter ? 'No figure linked to this chapter' : 'Start with the original source'}</h2>
+                <p>{figures.length === 0
+                  ? 'Figures remain pending individual rights and asset review. The original publication and source chapters are available.'
+                  : selectedChapter
                   ? 'This section has no approved original figure associated with it. Follow the source heading to inspect its actual material.'
                   : 'This story has no rights-cleared, source-verified figure available for display. Read the original publisher document instead.'}</p>
                 <a href={activeChapter?.sections[0]?.sourceUrl ?? manifest.source.url}
@@ -198,7 +202,7 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
             ) : (
               <div className={styles.step}>
                 <span>01</span><div><strong>Understand the question</strong>
-                  <p>{summary || 'Open the original paper for the research question and reported findings. No summary has been inferred.'}</p>
+                  <p>{lead || 'Open the original paper for the research question and reported findings. No summary has been inferred.'}</p>
                 </div>
               </div>
             )}
