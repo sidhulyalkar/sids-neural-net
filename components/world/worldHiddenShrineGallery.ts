@@ -140,8 +140,8 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     add(e.x+side*1.5,top+shaftHeight/2,e.z,.32,shaftHeight,3.2,"#625a4b");
     add(e.x,top+shaftHeight/2,e.z+side*1.5,3.2,shaftHeight,.32,"#625a4b");
   }
-  // No freestanding entrance plinth: all 49 frames are wall-mounted,
-  // leaving the shaft approach and every straight-on viewing cone open.
+  // No freestanding entrance plinth: all 49 frames are wall-mounted.
+  // Orientation-aware frames leave door returns and sightlines clear.
   const stoneGeometry=batched.finish();
   geometries.push(stoneGeometry);
   const stoneMesh=new THREE.Mesh(stoneGeometry,stone);
@@ -194,7 +194,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   // tile from a native photo texture by mistake.
   const fullUvs=[0,0,1,0,1,1,0,0,1,1,0,1];
   slots.forEach((slot,i)=>{
-    const imageHeight=GALLERY_VIEWING.imageHeight;
+    const imageHeight=slot.height;
     const normalX=Math.sin(slot.yaw),normalZ=Math.cos(slot.yaw);
     const px=slot.x+normalX*.275,pz=slot.z+normalZ*.275;
     const facePoint=(dx:number,dy:number,offset:number)=>
@@ -260,7 +260,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
       bead(sign*.36,-halfH-.37,.33,.043,"#efcb8a");
       // Thin carved beading runs down both stiles in evenly spaced relief.
       for(let k=0;k<7;k++){
-        bead(sign*(halfW+.16),-.74+k*.25,.30,.036,
+        bead(sign*(halfW+.16),-imageHeight/2+.19+k*(imageHeight-.38)/6,.30,.036,
           k%2===0?"#eac784":"#b98a4a");
       }
       for(const vertical of [-1,1]){
@@ -305,6 +305,8 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     const m=new THREE.Mesh(geometry,photoMat);
     m.name="gallery-"+slot.id;
     m.userData.discovery=slot.id;
+    m.userData.frame={mountId:slot.mountId,wallKind:slot.wallKind,
+      width:slot.width,height:slot.height};
     m.frustumCulled=false;
     m.renderOrder=2;
     photoTargets.push(m);
@@ -395,10 +397,11 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
       image.decoding="async";image.src=entry.src;
       void image.decode().then(()=>{
         if(disposed||!selectedHighRes.has(i))return;
-        // Keep native landscapes and portraits proportional within the
-        // same-sized walnut-and-gold frame, leaving a dark matte border.
-        const fit=galleryImageContainScale(image.naturalWidth,image.naturalHeight);
+        // The physical ornate frame already matches the source aspect;
+        // preserve a matte only if replacement pixels differ from metadata.
         const slot=slots[i];
+        const fit=galleryImageContainScale(image.naturalWidth,image.naturalHeight,
+          slot.width/slot.height);
         const centerX=slot.x+Math.sin(slot.yaw)*.275;
         const centerZ=slot.z+Math.cos(slot.yaw)*.275;
         const source=photoTargets[i].geometry.getAttribute("position");
@@ -439,10 +442,11 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
         await image.decode();
         if(disposed)return;
         const tx=i%columns*tileW,ty=Math.floor(i/columns)*tileH;
-        // Atlas texels are later displayed on a 1.75:2.15 rectangle,
-        // not a square. Fit in that *physical* aspect to avoid stretching
-        // thumbnails before the original-size photo has loaded.
-        const fit=galleryImageContainScale(image.naturalWidth,image.naturalHeight);
+        // Every square atlas tile maps to its own proportional wall frame.
+        // Fit against that aperture so thumbnail and native HD agree.
+        const slot=slots[i];
+        const fit=galleryImageContainScale(image.naturalWidth,image.naturalHeight,
+          slot.width/slot.height);
         const w=(tileW-12)*fit.width,h=(tileH-12)*fit.height;
         ctx.fillStyle="#252923";ctx.fillRect(tx,ty,tileW,tileH);
         ctx.drawImage(image,tx+(tileW-w)/2,ty+(tileH-h)/2,w,h);
