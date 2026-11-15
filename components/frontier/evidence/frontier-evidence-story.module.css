@@ -118,3 +118,30 @@
   .chapterTab { padding: 10px 11px; }
   .chapterDetail h3 { font-size: 20px; }
 }
+
+/* Source-only papers should lead with their authenticated chapter structure.
+ * Do not reserve a dramatic empty 4:3 image stage for unapproved media. */
+.storyGridSourceOnly { grid-template-columns: minmax(0, 1fr); }
+.stageSourceOnly { padding: 18px 0 0; }
+.storyGridSourceOnly .emptyStage {
+  min-height: 0; padding: 17px 20px;
+  display: flex; flex-direction: row; flex-wrap: wrap;
+  align-items: center; justify-content: flex-start; gap: 9px 16px;
+  text-align: left;
+}
+.storyGridSourceOnly .emptyStage h2 { font-size: 18px; }
+.storyGridSourceOnly .emptyStage p { flex: 1 1 280px; max-width: none; }
+.storyGridSourceOnly .emptyStage a { margin: 0; min-height: 32px; }
+.storyGridSourceOnly .narrative {
+  border-left: 0; border-top: 0; padding: 22px 0 35px;
+  width: 100%; max-width: 880px;
+}
+.storyGridSourceOnly .narrative h2 { margin-bottom: 19px; }
+@media (max-width: 500px) {
+  .storyGridSourceOnly .emptyStage {
+    padding: 15px; flex-direction: column; align-items: flex-start; gap: 8px;
+  }
+  .storyGridSourceOnly .emptyStage p { flex: auto; }
+  .storyGridSourceOnly .emptyStage h2 { font-size: 17px; }
+  .storyGridSourceOnly .stageTop { padding-bottom: 10px; }
+}

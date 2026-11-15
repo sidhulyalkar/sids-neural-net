@@ -211,6 +211,10 @@ async function genuineSourceOnlyPilot(browser) {
       assert.equal(await page.locator('[data-frontier-story] img').count(), 0,
         'Real paper must not load unreviewed publisher image bytes');
       assert.equal(await page.getByText(/0 approved display figures/).count(), 1);
+      await page.getByRole('heading', { name: 'No approved figures yet' }).waitFor();
+      assert.equal(await page.getByRole('button', { name: /Camera signals/i }).count(), 0,
+        'Scientific reading must never be overlaid by the unrelated webcam control');
+
       const chapters = page.getByRole('group', { name: 'Research chapters' });
       await chapters.getByRole('button', { name: /Methods/ }).click();
       const methods = page.getByRole('link', { name: '4 Experiment Design' });
@@ -229,12 +233,25 @@ async function genuineSourceOnlyPilot(browser) {
       await limitations.waitFor();
       assert.equal(await limitations.getAttribute('href'),
         'https://arxiv.org/html/2611.17323v1#S9.SS0.SSS0.Px1');
-      await page.getByRole('heading', { name: 'No figure linked to this chapter' }).waitFor();
+      await page.getByRole('heading', { name: 'No approved figures yet' }).waitFor();
       assert.equal(unexpectedAssets.length, 0, 'Source-only paper must never preload figure assets');
-      const geometry = await page.evaluate(() => ({
-        viewport: window.innerWidth,
-        scrollWidth: document.documentElement.scrollWidth,
-      }));
+      const geometry = await page.evaluate(() => {
+        const article = document.querySelector('[data-frontier-story]');
+        const lead = article?.querySelector('h1')?.parentElement?.querySelector('p:nth-of-type(2)');
+        const sourceStatus = article && Array.from(article.querySelectorAll('h2'))
+          .find((el) => el.textContent?.includes('No approved figures yet'))?.parentElement;
+        return {
+          viewport: window.innerWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+          statusHeight: sourceStatus?.getBoundingClientRect().height ?? -1,
+          lead: lead?.textContent ?? '',
+        };
+      });
+      assert(geometry.statusHeight > 0 && geometry.statusHeight < 235,
+        'Missing-media indicator must be a compact notice rather than a giant figure stage: ' + JSON.stringify(geometry));
+      assert(geometry.lead.length <= 430 && geometry.lead.endsWith('abundant.'),
+        'Source preview must use only complete original paper sentences: ' + JSON.stringify(geometry));
+      assert(!geometry.lead.includes('performance drop'), 'Truncated claims must not appear as findings');
       assert(geometry.scrollWidth <= geometry.viewport + 2,
         'Real paper source outline overflows ' + width + 'px: ' + JSON.stringify(geometry));
       await page.evaluate(() => {
