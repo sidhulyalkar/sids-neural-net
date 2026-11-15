@@ -5,10 +5,10 @@
  */
 import {spawnSync} from "node:child_process";
 import {createHash} from "node:crypto";
-import {existsSync, readFileSync, mkdirSync, mkdtempSync, readdirSync,
+import {existsSync, readFileSync, mkdirSync, mkdtempSync,
  copyFileSync, rmSync, writeFileSync, statSync} from "node:fs";
 import {tmpdir} from "node:os";
-import {resolve,join,dirname,relative,sep} from "node:path";
+import {resolve,join,dirname,sep} from "node:path";
 import {fileURLToPath} from "node:url";
 
 const repoRoot=resolve(dirname(fileURLToPath(import.meta.url)),"..");
