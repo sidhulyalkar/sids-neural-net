@@ -30,6 +30,8 @@ export type SkiV4Contact={
   /** Geometry can support a boot on rock; only snowLoad supplies ski-edge force. */
   snowFraction:number;snowLoad:number;
   edgeAngle:number;contactFraction:number;contactStations:number;
+  /** Contact on the actual cutting edge, not just the nearest ski-base corner. */
+  edgeContactFraction:number;edgeContactStations:number;
   supportStart:number;supportEnd:number;minGap:number;meanGap:number;maxGap:number;
   maxBend:number; pitch:number;crossSlope:number;
   /** 17 stations, with actual snow-clearance and constrained ski deflection. */
@@ -109,7 +111,7 @@ export function solveSkiContact(height:Surface,point:Vec2,yaw:number,
   }
   const lift=bestLift+Math.max(0,correction);
   const sections:SkiV4Contact["sections"]=[];
-  let min=Infinity,max=-Infinity,sum=0,patches=0,maxBend=0;
+  let min=Infinity,max=-Infinity,sum=0,patches=0,edgePatches=0,maxBend=0;
   let supportStart=Infinity,supportEnd=-Infinity;
   for(let j=0;j<=16;j++){
     const s=along[j];
@@ -119,12 +121,20 @@ export function solveSkiContact(height:Surface,point:Vec2,yaw:number,
     sum+=gaps.reduce((a,b)=>a+b,0)/3;
     maxBend=Math.max(maxBend,Math.abs(flex[j]));
     const active=Math.abs(s)<=.43&&closest<=t.contactTolerance;
+    // Edge contact must not be inferred from the *opposite* ski-base edge
+    // touching. On a cambered bank that would invent traction despite the
+    // downhill cutting edge floating above the rendered snow.
+    const cuttingEdgeIndex=Math.abs(edgeAngle)<.1?-1:rollSlope>=0?0:2;
+    const edgeGap=cuttingEdgeIndex<0?closest:gaps[cuttingEdgeIndex];
+    if(active&&edgeGap<=t.contactTolerance)edgePatches++;
     if(active){patches++;supportStart=Math.min(supportStart,s);supportEnd=Math.max(supportEnd,s);}
     sections.push({along:s,gap:closest,flex:flex[j],load:active?load:0});
   }
   const loaded=patches>0;
   return {side,boot:{x,y:snow.height+lift,z},normal:snow.normal,load:loaded?load:0,
-    loaded,snowFraction:1,snowLoad:loaded?load:0,edgeAngle,contactFraction:patches/5,contactStations:patches,
+    loaded,snowFraction:1,snowLoad:loaded?load:0,edgeAngle,
+    contactFraction:patches/5,contactStations:patches,
+    edgeContactFraction:edgePatches/5,edgeContactStations:edgePatches,
     supportStart:loaded?supportStart:0,supportEnd:loaded?supportEnd:0,
     minGap:min,meanGap:sum/17,maxGap:max,maxBend,pitch:bestPitch,crossSlope,sections};
 }
@@ -206,12 +216,18 @@ export class SkiV4Physics{
     // The *material* beneath each ski, including its loaded binding patch,
     // determines whether the edge may cut snow. Merely touching any height
     // field is not evidence of ski traction.
-    const heading=frame(this.yaw).f;
+    const basis=frame(this.yaw);
     for(const contact of this.contact){
+      // Only the physically engaged edge may claim snow material. A ski
+      // straddling snow and rock must NOT carve on the rock-facing edge.
+      const localEdge=Math.abs(contact.edgeAngle)<.1?0:
+        contact.crossSlope+Math.tan(contact.edgeAngle)>=0?
+          -SKI_V4_TUNING.skiHalfWidth:SKI_V4_TUNING.skiHalfWidth;
       let coverage=0;
       for(const s of [-.3,0,.3]){
-        const v=this.groundSnowCoverage(contact.boot.x+heading.x*s,
-          contact.boot.z+heading.z*s);
+        const x=contact.boot.x+basis.f.x*s+basis.r.x*localEdge;
+        const z=contact.boot.z+basis.f.z*s+basis.r.z*localEdge;
+        const v=this.groundSnowCoverage(x,z);
         coverage+=Number.isFinite(v)?clamp(v,0,1)/3:0;
       }
       contact.snowFraction=coverage;
@@ -221,7 +237,7 @@ export class SkiV4Physics{
       (this.contact[0].snowFraction+this.contact[1].snowFraction)*.5,0,1);
     const norm=this.contact[0].load+this.contact[1].load;
     this.pressure=norm;
-    const covered=this.contact.reduce((sum,c)=>sum+c.snowLoad*c.contactFraction,0);
+    const covered=this.contact.reduce((sum,c)=>sum+c.snowLoad*c.edgeContactFraction,0);
     this.grip=covered*SKI_V4_TUNING.carveMu*Math.abs(Math.sin(this.edgeAngle));
   }
   private updateSurfaceTelemetry(){
@@ -331,7 +347,7 @@ export class SkiV4Physics{
     // Carve centripetal acceleration acts perpendicular to actual velocity:
     // it changes the path, never injects forward kinetic energy.
     const sinEdge=Math.sin(this.edgeAngle);
-    const contactRatio=clamp(this.contact.reduce((n,c)=>n+c.snowLoad*c.contactFraction,0),0,1);
+    const contactRatio=clamp(this.contact.reduce((n,c)=>n+c.snowLoad*c.edgeContactFraction,0),0,1);
     const requestedCarve=(speed*speed/t.sidecutRadius)*Math.abs(sinEdge);
     const maxCarve=normalAcceleration*t.carveMu*contactRatio;
     const carvedRequested=impaired?0:Math.sign(sinEdge)*Math.min(requestedCarve,maxCarve);
