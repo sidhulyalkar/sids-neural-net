@@ -1,0 +1,11 @@
+# Five-carve trial · not qualified
+
+Run Next in development and open `/dev/ski-lab?five-carve`. The trial starts at (7, −57) with velocity (6, 0, 3), steers toward a cross-pipe heading and switches the requested bank only on contact in the riding state. Input is limited to ordinary steering. A grounded visit requires |x − 7| ≥ 4.35 (halfway up the bank in horizontal distance), within x = 0.6…13.4 and z = −61…−33. Six alternating visits are required. Stop on first boundary exit or after 30 seconds. Trial failure describes this input policy and initial condition only.
+
+At 120 Hz the right bank was first reached at tick 706. The rider exited downhill at tick 830 before reaching the left bank. Zero completed traversals. Speed 30 ticks before, at, and 30 ticks after the reversal was 5.53, 3.38 and 4.00 units/s. Signed lateral slip was −4.30, −3.38 and −3.59 units/s. The velocity retained at the bank was about 61% of its magnitude 0.25 s earlier. Gravity, drag and sideways damping all contribute.
+
+Each independently fitted visual sole is probed at 33 longitudinal stations × 3 widths in world coordinates. Across ticks flagged as riding and contacting for that ski, signed vertical clearance (min / mean / max, world units) was left 0.0074 / 0.2030 / 0.8703 and right 0.0072 / 0.2169 / 0.8692. These measurements compare ski poses against the analytic terrain. The triangulated display mesh can introduce additional mismatch. Contact flags are still based on the solver’s two support samples. The observed maximum gaps are unresolved.
+
+Reproduce with `node --import tsx tests/ski-lab-evidence/record.ts`. The CSV includes continuous pose, world velocity, steering input, phase, contact, heading, speed, lateral slip, signed edge, load proxy, grip and both clearance summaries. The checked-in gzip contains the same unrounded rows. The SVG plots these samples. Angular headings are radians; time is tick/120.
+
+For chase frames run `node tests/ski-lab-evidence/capture.mjs` with the existing ski presentation QA Playwright environment and Next dev server. Chromium failed at process startup in the authoring environment (socket operation denied). Browser images and GPU performance remain unverified. No island runtime or terrain integration.
