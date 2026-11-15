@@ -27,8 +27,10 @@ test("V4 flat glide loses speed, and deliberate snowplow can bring skier to rest
 });
 test("V4 low-speed steering redirects true velocity uphill and reduces speed",()=>{
   const h:Surface=(_x,z)=>-.12*z;
-  const first=drive(ski(h),2,{steer:.75});
-  assert.ok(first.velocity.z<-.15,"snow-edge force must bend velocity uphill");
+  // Clean carving redirects true velocity more progressively than old
+  // high-pivot skidding; qualify the crossed fall-line at 2.75s.
+  const first=drive(ski(h),2.75,{steer:.75});
+  assert.ok(first.velocity.z<-.3,"edged snow force must bend true momentum uphill");
   const straight=drive(ski(h),6,{}),turn=drive(ski(h),6,{steer:.75});
   assert.ok(speed(straight)>3&&speed(straight)<6);
   assert.ok(speed(turn)<speed(straight)-1);
@@ -129,6 +131,8 @@ test("high velocity-relative attack skids instead of inventing carved force",()=
   assert.ok(Math.abs(sim.telemetry.actualSlipRadians)>.5);
   assert.ok(sim.telemetry.carveQuality===0);
   assert.ok(sim.telemetry.carveAcceleration===0);
+  assert.ok(sim.telemetry.skidDeceleration>0,
+    "Lateral snow shearing must be recorded as dissipative skidding");
   assert.equal(sim.telemetry.turnRegime,"skid");
 });
 test("unsupported ski bindings cannot produce edge traction or claim a carve",()=>{
@@ -140,8 +144,10 @@ test("unsupported ski bindings cannot produce edge traction or claim a carve",()
   assert.equal(sim.telemetry.contactCoverage,0);
   assert.equal(sim.telemetry.carveAcceleration,0);
   assert.equal(sim.telemetry.turnRegime,"unsupported");
-  // An unsupported grounded state is a separate remaining design defect.
-  assert.equal(sim.phase,"riding");
+  assert.equal(sim.telemetry.snowResistance,0);
+  assert.equal(sim.telemetry.powerToSnow,0);
+  // Natural unsupported bank takeoff remains a tracked release blocker,
+  // not a deliberately encoded "riding" behavior that must be preserved.
 });
 test("edge-only turns never create kinetic energy on level snow",()=>{
   const sim=ski();
@@ -172,4 +178,11 @@ test("a deliberate snowplow is classified as skid rather than clean carving",()=
   assert.equal(sim.telemetry.turnRegime,"skid");
   assert.ok(sim.telemetry.skidDeceleration>0);
   assert.ok(sim.brakeEngagement>.95);
+});
+
+test.todo("unsupported halfpipe lip transitions to physically supported ballistic takeoff and touchdown");
+test("V4 snow-work telemetry excludes speed-dependent aerodynamic drag",()=>{
+  const sim=ski();drive(sim,dt,{tuck:true});
+  assert.ok(Math.abs(sim.telemetry.snowResistance-SKI_V4_TUNING.baseSnowResistance)<1e-8);
+  assert.ok(Math.abs(sim.telemetry.powerToSnow-5*SKI_V4_TUNING.baseSnowResistance)<.1);
 });
