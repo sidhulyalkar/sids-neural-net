@@ -392,12 +392,12 @@ export function nextHold(p: Point) {
   );
 }
 
-export function activityLanding(id: Activity): Point | null {
+export function activityLanding(id: Activity, skiV4=false): Point | null {
   // The ordinary Skiing button starts on a dry, high snow approach to the
   // *single* downhill halfpipe. It does not arm the separate Ski Jump game.
   if (id === "ski") return {
     x:MOUNTAIN_HALFPIPE.centerX,
-    z:MOUNTAIN_HALFPIPE.startZ+(process.env.NEXT_PUBLIC_SKI_V3==="1"?-.05:-1.65),
+    z:MOUNTAIN_HALFPIPE.startZ+(skiV4?2.5:process.env.NEXT_PUBLIC_SKI_V3==="1"?-.05:-1.65),
   };
   if (id === "skate") return {...SKATE_GROVE_FLOW.approach};
   if (id === "boulder") return { x: 13, z: -15 };

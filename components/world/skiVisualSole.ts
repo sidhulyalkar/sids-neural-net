@@ -1,5 +1,6 @@
 import {BufferAttribute,BufferGeometry,DynamicDrawUsage,Vector3} from "three/src/Three.Core.js";
 import {SKI_HALF_LENGTH,SKI_HALF_WIDTH,SKI_SOLE_Y,type SkiContact} from "./worldSkiContact";
+import type {SkiV4Contact} from "@/lib/world/ski/v4/core";
 
 // Presentation-only deformation: the collision solver and ski bindings remain
 // authoritative. The limit is deliberately conservative, not a fitted ski
@@ -109,6 +110,40 @@ export class SkiVisualSole {
       }
     }
     attribute.needsUpdate=true;
+    this.geometry.computeVertexNormals();
+    Object.assign(this.metrics,{active,min,max,rigidMax,maxBend});
+    return this.metrics;
+  }
+
+  /** Draw the SAME beam deformation produced by snow forces. V4 does not
+   * independently invent a second ski-surface fit. Signed clearance is
+   * measured against the actual triangle-exact snow heights, not clipped. */
+  updatePhysical(pose:SkiContact,sections:SkiV4Contact["sections"],
+    height:(x:number,z:number)=>number,load:number,loaded:boolean):SkiVisualSoleMetrics{
+    const attr=this.geometry.getAttribute("position") as BufferAttribute;
+    const active=loaded&&load>.05;
+    let min=Infinity,max=-Infinity,rigidMax=-Infinity,maxBend=0;
+    for(let j=0;j<=SECTIONS;j++){
+      const along=(j/SECTIONS*2-1)*SKI_HALF_LENGTH;
+      const sourcePosition=j/2;
+      const before=Math.min(sections.length-1,Math.floor(sourcePosition));
+      const after=Math.min(sections.length-1,before+1);
+      const t=sourcePosition-before;
+      const flex=sections[before].flex*(1-t)+sections[after].flex*t;
+      maxBend=Math.max(maxBend,Math.abs(flex));
+      const lift=Math.max(0,(along/SKI_HALF_LENGTH-.82)/.18);
+      const tipLift=.10*lift*lift;
+      for(let w=0;w<2;w++){
+        const width=(2*w-1)*SKI_HALF_WIDTH;
+        for(let face=0;face<2;face++)
+          attr.setXYZ(j*STRIDE+face*2+w,width,
+            SKI_SOLE_Y+flex+tipLift+face*THICKNESS,along);
+        const gap=this.gap(pose,width,along,-flex-tipLift,height);
+        min=Math.min(min,gap);max=Math.max(max,gap);
+        rigidMax=Math.max(rigidMax,this.gap(pose,width,along,0,height));
+      }
+    }
+    attr.needsUpdate=true;
     this.geometry.computeVertexNormals();
     Object.assign(this.metrics,{active,min,max,rigidMax,maxBend});
     return this.metrics;

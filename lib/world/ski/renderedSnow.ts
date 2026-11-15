@@ -1,5 +1,6 @@
 import type { BufferGeometry } from "three";
 import { WORLD_BOUNDS } from "../model";
+import {BARE_SNOWPACK,makeSnowpack,type Snowpack} from "./snowpack";
 
 // Index the actual refined terrain once. Within each cell the planes use
 // barycentric coordinates, so even triangles crossing a cell boundary agree
@@ -10,6 +11,8 @@ export function renderedSnowHeight(mesh: BufferGeometry, fallback: (x:number,z:n
   const cells = Array.from({length: width * depth}, () => [] as number[]);
   const planes: number[][] = [];
   const vertices = mesh.getAttribute("position");
+  const snowCoverage=mesh.getAttribute("snowCoverage");
+  const snowLayers=mesh.getAttribute("snowLayers");
   const index = mesh.getIndex();
   if (!index) throw new Error("Indexed island terrain required");
   for (let i = 0; i < index.count; i += 3) {
@@ -23,7 +26,7 @@ export function renderedSnowHeight(mesh: BufferGeometry, fallback: (x:number,z:n
     const z1 = Math.min(depth-1,Math.floor(z+Math.max(0,bz,cz)-minZ));
     const det = bx*cz-bz*cx;
     if (x0>x1 || z0>z1 || Math.abs(det)<1e-12) continue;
-    const id = planes.push([x,z,y,cz/det,-cx/det,-bz/det,bx/det,vertices.getY(b)-y,vertices.getY(c)-y])-1;
+    const id = planes.push([x,z,y,cz/det,-cx/det,-bz/det,bx/det,vertices.getY(b)-y,vertices.getY(c)-y,a,b,c])-1;
     for (let row=z0; row<=z1; row++) for (let col=x0; col<=x1; col++) cells[row*width+col].push(id);
   }
   let last = -1;
@@ -32,7 +35,7 @@ export function renderedSnowHeight(mesh: BufferGeometry, fallback: (x:number,z:n
     const u=dx*p[3]+dz*p[4], v=dx*p[5]+dz*p[6];
     return u>=-1e-8 && v>=-1e-8 && u+v<=1+1e-8 ? p[2]+u*p[7]+v*p[8] : NaN;
   }
-  return (x:number,z:number) => {
+  const result=((x:number,z:number) => {
     if(last>=0){
       const height=sample(last,x,z);
       if(Number.isFinite(height)) return height;
@@ -43,5 +46,49 @@ export function renderedSnowHeight(mesh: BufferGeometry, fallback: (x:number,z:n
       if(Number.isFinite(height)){last=id; return height;}
     }
     return fallback(x,z);
+  }) as ((x:number,z:number)=>number)&{
+    snowCoverage:(x:number,z:number)=>number;
+    snowpack:(x:number,z:number)=>Snowpack;
   };
+  // Snow coverage is interpolated from exactly the same indexed triangle
+  // used for WebGL terrain and the height sampler. No snow from mere altitude
+  // or an equipped Skiing menu. Unknown terrain conservatively means no snow.
+  result.snowCoverage=(x:number,z:number)=>{
+    if(!snowCoverage)return 0;
+    const check=(id:number)=>{
+      const p=planes[id],dx=x-p[0],dz=z-p[1];
+      const u=dx*p[3]+dz*p[4],v=dx*p[5]+dz*p[6];
+      if(u< -1e-8||v< -1e-8||u+v>1+1e-8)return NaN;
+      return Math.min(1,Math.max(0,(1-u-v)*snowCoverage.getX(p[9])+
+        u*snowCoverage.getX(p[10])+v*snowCoverage.getX(p[11])));
+    };
+    if(last>=0){
+      const v=check(last);
+      if(Number.isFinite(v))return v;
+    }
+    const col=Math.floor(x-minX),row=Math.floor(z-minZ);
+    if(col>=0&&col<width&&row>=0&&row<depth)for(const id of cells[row*width+col]){
+      const v=check(id);
+      if(Number.isFinite(v)){last=id;return v;}
+    }
+    return 0;
+  };
+  result.snowpack=(x:number,z:number)=>{
+    if(!snowLayers)return {...BARE_SNOWPACK};
+    // The separate scalar coverage query reuses the exact cached triangle;
+    // the snow-layer components are barycentric on that same triangle.
+    const coverage=result.snowCoverage(x,z);
+    if(coverage<1e-6||last<0)return {...BARE_SNOWPACK};
+    const p=planes[last],dx=x-p[0],dz=z-p[1];
+    const u=dx*p[3]+dz*p[4],v=dx*p[5]+dz*p[6];
+    if(u< -1e-8||v< -1e-8||u+v>1+1e-8)
+      return {...BARE_SNOWPACK};
+    const sample=(axis:0|1|2|3)=>{
+      const getter=axis===0?"getX":axis===1?"getY":axis===2?"getZ":"getW";
+      return (1-u-v)*snowLayers[getter](p[9])+
+        u*snowLayers[getter](p[10])+v*snowLayers[getter](p[11]);
+    };
+    return makeSnowpack(coverage,sample(0),sample(1),sample(2),sample(3));
+  };
+  return result;
 }

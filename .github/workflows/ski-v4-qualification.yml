@@ -1,0 +1,122 @@
+name: Ski V4 Snow-Force Experimental Qualification
+
+on:
+  pull_request:
+    paths:
+      - 'lib/world/ski/v4/**'
+      - 'lib/world/ski/renderedSnow.ts'
+      - 'lib/world/ski/snowpack.ts'
+      - 'components/world/worldSnowpackSurface.ts'
+      - 'tests/world-ski-snowpack.test.ts'
+      - 'tests/world-ski-snowpack-render.test.ts'
+      - 'components/world/worldMountainHalfpipe.ts'
+      - 'components/world/skiSnowTracks.ts'
+      - 'tests/world-ski-v4-material-transition.test.ts'
+      - 'tests/world-ski-rendered-coverage.test.ts'
+      - 'components/world/worldRenderer.ts'
+      - 'components/world/skiSnowTracks.ts'
+      - 'components/world/skiVisualSole.ts'
+      - 'tests/world-ski-v4-entry.test.ts'
+      - 'tests/world-ski-v4.test.ts'
+      - 'scripts/playtest-ski-v4.mjs'
+      - 'scripts/ski-v4-halfpipe-audit.ts'
+      - 'scripts/ski-v4-geometry-audit.ts'
+      - 'lib/world/ski/v4/geometryBudget.ts'
+      - 'tests/world-ski-v4-geometry.test.ts'
+      - 'docs/world/ski-v4-implementation.md'
+      - '.github/workflows/ski-v4-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ski-v4-qualification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-v4:
+    name: V4 actual engine · exact head SHA
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      NEXT_PUBLIC_SITE_URL: https://example.invalid
+      NEXT_PUBLIC_WORLD_LOOM_XR: disabled
+      WORLD_BASE_URL: http://127.0.0.1:3000/world
+      WORLD_AUDIT_DIR: artifacts/ski-v4/browser
+      PLAYWRIGHT_MODULE_ROOT: /tmp/island-playwright/node_modules/playwright
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Pull-request github.sha is a synthetic merge; qualify literal PR head.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Record literal source and prevent accidental Ski Jump enablement
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          echo "Checking literal V4 candidate: $EXPECTED_HEAD_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          test -f lib/world/ski/v4/core.ts
+          test -f lib/world/ski/v4/adapter.ts
+          test -f scripts/playtest-ski-v4.mjs
+          grep -q 'ski-engine' components/world/worldRenderer.ts
+      - name: Install locked project dependencies
+        run: npm ci
+      - name: Strict type and lint checks
+        run: |
+          npm run typecheck
+          npm run lint
+      - name: All deterministic tests and ski V4 physics regressions
+        run: |
+          npm test
+          node --import tsx --test tests/world-ski-v4.test.ts
+      - name: Real rendered-snow halfpipe envelope and contact audit
+        # Diagnostic only: failing traversal counts remain release blockers.
+        # Do not fake a pass by moving a skier or relaxing bank thresholds.
+        run: node --import tsx scripts/ski-v4-halfpipe-audit.ts
+      - name: Record analytic cross-section contact and ski-flex feasibility
+        run: node --import tsx scripts/ski-v4-geometry-audit.ts
+      - name: Production bundle within existing limits
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx next experimental-analyze --output
+          mkdir -p artifacts/bundle-analyzer
+          cp -R .next/diagnostics/analyze/. artifacts/bundle-analyzer/
+          npm run build
+          npm run check:bundle
+      - name: Install isolated Chromium
+        shell: bash
+        run: |
+          mkdir -p /tmp/island-playwright
+          npm install --prefix /tmp/island-playwright --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          /tmp/island-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Serve exact production build
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run start -- -p 3000 >/tmp/ski-v4-next.log 2>&1 &
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null && curl -fsS http://127.0.0.1:3000/world >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 100 /tmp/ski-v4-next.log
+          exit 1
+      - name: Player-driven V4 WebGL turn and speed-check proof
+        run: node scripts/playtest-ski-v4.mjs
+      - name: Preserve screenshots and raw telemetry including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ski-v4-snow-force-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            artifacts/ski-v4
+            artifacts/bundle-budget
+            /tmp/ski-v4-next.log
+          if-no-files-found: warn
