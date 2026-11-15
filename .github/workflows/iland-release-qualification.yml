@@ -91,14 +91,24 @@ jobs:
           tail -n 100 /tmp/iland-next.log
           exit 1
       - name: Real desktop + mobile HUD and sport control entry
+        env:
+          WORLD_AUDIT_DIR: artifacts/iland/flag-${{ matrix.ski_v3 }}/sport-hub
         run: node scripts/playtest-sport-hub.mjs
       - name: Real simultaneous mobile movement and camera controls
+        env:
+          WORLD_AUDIT_DIR: artifacts/iland/flag-${{ matrix.ski_v3 }}/dual-stick
         run: node scripts/playtest-world-mobile-dual-stick.mjs
       - name: Cairn discovery, links and mobile reading
+        env:
+          WORLD_AUDIT_DIR: artifacts/iland/flag-${{ matrix.ski_v3 }}/cairn-stories
         run: node scripts/playtest-cairn-stories.mjs
       - name: Snow halfpipe entry and unarmed free-ski invariants
+        env:
+          WORLD_AUDIT_DIR: artifacts/iland/flag-${{ matrix.ski_v3 }}/ski-halfpipe
         run: node scripts/playtest-clean-mountain-halfpipe.mjs
       - name: Jet-ski dock, steering and race course
+        env:
+          WORLD_AUDIT_DIR: artifacts/iland/flag-${{ matrix.ski_v3 }}/jet-ski
         run: node scripts/playtest-jet-ski.mjs
       - name: Upload diagnostic evidence even when a gate fails
         if: always()
