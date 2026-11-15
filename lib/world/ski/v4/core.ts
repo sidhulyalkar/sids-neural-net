@@ -58,54 +58,65 @@ export function solveSkiContact(height:Surface,point:Vec2,yaw:number,
   edgeAngle:number,side:-1|1,load:number):SkiV4Contact{
   const t=SKI_V4_TUNING,basis=frame(yaw),x=point.x+side*t.bootStance*basis.r.x,
     z=point.z+side*t.bootStance*basis.r.z;
-  const terrain=sampleSnow(height,x,z),half=.44;
-  const pitch=(height(x+basis.f.x*half,z+basis.f.z*half)-height(x-basis.f.x*half,z-basis.f.z*half))/(2*half);
-  const crossSlope=terrain.dx*basis.r.x+terrain.dz*basis.r.z;
-  const sections:SkiV4Contact["sections"]=[];
-  let nearBootMax=-Infinity;
-  for(let j=0;j<=16;j++){
-    const along=(j/8-1)*t.skiHalfLength;
-    if(Math.abs(along)>.43)continue;
-    const sx=x+basis.f.x*along,sz=z+basis.f.z*along;
-    for(const w of [-t.skiHalfWidth,0,t.skiHalfWidth]){
-      const px=sx+basis.r.x*w,pz=sz+basis.r.z*w;
-      const need=height(px,pz)-(terrain.height+along*pitch+w*(crossSlope+Math.tan(edgeAngle)));
-      nearBootMax=Math.max(need,nearBootMax);
+  const snow=sampleSnow(height,x,z),span=.44;
+  const localPitch=(height(x+basis.f.x*span,z+basis.f.z*span)-
+    height(x-basis.f.x*span,z-basis.f.z*span))/(2*span);
+  const crossSlope=snow.dx*basis.r.x+snow.dz*basis.r.z;
+  const rollSlope=crossSlope+Math.tan(clamp(edgeAngle,-1.15,1.15));
+  // Cache exact snow heights once per ski/tick; fit multiple beam poses
+  // without repeating expensive triangle lookups.
+  const along=Array.from({length:17},(_,j)=>t.skiHalfLength*(j/8-1));
+  const halfWidth=t.skiHalfWidth, width=[-halfWidth,0,halfWidth];
+  const field=along.map(s=>width.map(w=>height(x+basis.f.x*s+basis.r.x*w,
+    z+basis.f.z*s+basis.r.z*w)-snow.height));
+  const flexWeight=(s:number)=>Math.min(1,Math.abs(s)/.18)*
+    Math.min(1,Math.max(0,(t.skiHalfLength-Math.abs(s))/.34));
+  let bestPitch=localPitch,bestLift=Infinity,bestCost=Infinity;
+  const pitchStep=Math.max(.12,Math.abs(localPitch)*.14);
+  // A ski may rotate about the boot before lifting the rider. Choose the
+  // lowest nonpenetrating support with a cost for gratuitous pitch motion.
+  for(let n=-7;n<=7;n++){
+    const pitch=localPitch+n*pitchStep;
+    let required=-Infinity;
+    for(let j=0;j<=16;j++)for(let k=0;k<3;k++){
+      const needed=field[j][k]-pitch*along[j]-rollSlope*width[k];
+      required=Math.max(required,needed-t.maxSoleFlex*flexWeight(along[j]));
     }
+    const lift=Math.max(0,required)+.008;
+    const cost=lift*lift+.06*(pitch-localPitch)**2;
+    if(cost<bestCost){bestCost=cost;bestLift=lift;bestPitch=pitch;}
   }
-  // Constraint is evaluated at the loaded binding patch rather than the tip.
-  // Deflection subsequently resolves smaller surrounding penetration and
-  // reports any unsupported severe ridge rather than translating the athlete.
-  const heave=Math.max(0,nearBootMax)+.008;
-  const rollSlope=Math.tan(clamp(edgeAngle,-1.15,1.15));
+  let flex=along.map((s,j)=>{
+    const needed=Math.max(...field[j].map((h,k)=>h-bestPitch*s-rollSlope*width[k]));
+    return clamp(needed-bestLift,-t.maxSoleFlex,t.maxSoleFlex)*flexWeight(s);
+  });
+  // Constrain the entire physical sole envelope, including tips and both
+  // edges. Do not truncate negative penetration to a reassuring metric.
+  let correction=0;
+  for(let j=0;j<=16;j++)for(let k=0;k<3;k++){
+    const clearance=bestLift+bestPitch*along[j]+rollSlope*width[k]+flex[j]-field[j][k];
+    correction=Math.max(correction,.008-clearance);
+  }
+  const lift=bestLift+Math.max(0,correction);
+  const sections:SkiV4Contact["sections"]=[];
   let min=Infinity,max=-Infinity,sum=0,patches=0,maxBend=0;
   let supportStart=Infinity,supportEnd=-Infinity;
   for(let j=0;j<=16;j++){
-    const along=(j/8-1)*t.skiHalfLength;
-    const sx=x+basis.f.x*along,sz=z+basis.f.z*along;
-    let needed=-Infinity;
-    for(const w of [-t.skiHalfWidth,0,t.skiHalfWidth]){
-      const px=sx+basis.r.x*w,pz=sz+basis.r.z*w;
-      needed=Math.max(needed,height(px,pz)-(terrain.height+heave+along*pitch+w*(crossSlope+rollSlope)));
-    }
-    // The binding must never flex away from the boot; exposed tips can bend
-    // only in a physically limited range. Favor smooth center-dominant flex.
-    const supportWeight=Math.min(1,Math.max(0,(t.skiHalfLength-Math.abs(along))/.34));
-    const bindingWeight=Math.min(1,Math.abs(along)/.19);
-    const flex=clamp(needed,-t.maxSoleFlex,t.maxSoleFlex)*supportWeight*bindingWeight;
-    maxBend=Math.max(maxBend,Math.abs(flex));
-    const gap=Math.max(-.15,-needed+flex);
-    min=Math.min(min,gap);max=Math.max(max,gap);sum+=gap;
-    const inBoot=Math.abs(along)<=.43;
-    const active=inBoot&&Math.abs(gap)<=t.contactTolerance;
-    if(active){patches++;supportStart=Math.min(supportStart,along);supportEnd=Math.max(supportEnd,along);}
-    sections.push({along,gap,flex,load:active?load:0});
+    const s=along[j];
+    const gaps=width.map((w,k)=>lift+bestPitch*s+rollSlope*w+flex[j]-field[j][k]);
+    const closest=Math.min(...gaps);
+    min=Math.min(min,closest);max=Math.max(max,...gaps);
+    sum+=gaps.reduce((a,b)=>a+b,0)/3;
+    maxBend=Math.max(maxBend,Math.abs(flex[j]));
+    const active=Math.abs(s)<=.43&&closest<=t.contactTolerance;
+    if(active){patches++;supportStart=Math.min(supportStart,s);supportEnd=Math.max(supportEnd,s);}
+    sections.push({along:s,gap:closest,flex:flex[j],load:active?load:0});
   }
-  const loaded=patches>=1;
-  return {side,boot:{x,y:terrain.height+heave,z},normal:terrain.normal,load:loaded?load:0,
+  const loaded=patches>0;
+  return {side,boot:{x,y:snow.height+lift,z},normal:snow.normal,load:loaded?load:0,
     loaded,edgeAngle,contactFraction:patches/5,contactStations:patches,
     supportStart:loaded?supportStart:0,supportEnd:loaded?supportEnd:0,
-    minGap:min,meanGap:sum/17,maxGap:max,maxBend,pitch,crossSlope,sections};
+    minGap:min,meanGap:sum/17,maxGap:max,maxBend,pitch:bestPitch,crossSlope,sections};
 }
 export class SkiV4Physics{
   position:Vec3;
@@ -132,6 +143,7 @@ export class SkiV4Physics{
     this.initSurface=sampleSnow(surface,x,z);
     this.position={x,y:this.initSurface.height,z};
     this.contact=[solveSkiContact(surface,{x,z},0,0,-1,.5),solveSkiContact(surface,{x,z},0,0,1,.5)];
+    this.position.y=this.supportHeight(this.initSurface.height);
     this.velocity.y=0;
   }
   setHeading(x:number,z:number){if(Math.hypot(x,z)>.001)this.yaw=Math.atan2(x,z);}
@@ -173,6 +185,12 @@ export class SkiV4Physics{
     const norm=this.contact[0].load+this.contact[1].load;
     this.pressure=norm;
     this.grip=norm*SKI_V4_TUNING.carveMu*Math.abs(Math.sin(this.edgeAngle));
+  }
+  private supportHeight(snowHeight:number){
+    const supports=this.contact.filter(s=>s.loaded);
+    if(supports.length===0)return snowHeight;
+    const sum=supports.reduce((value,s)=>value+s.load,0);
+    return Math.max(snowHeight,supports.reduce((value,s)=>value+s.boot.y*s.load,0)/sum-.008);
   }
   private step(input:SkiV4Input){
     const t=SKI_V4_TUNING,dt=t.dt;
@@ -227,10 +245,7 @@ export class SkiV4Physics{
     this.updateContacts(speed);
     // Reconcile contact under each boot. Do not use the highest tip/lip as a
     // fictitious support point for the entire skier.
-    const supporting=this.contact.filter(x=>x.loaded);
-    const support=supporting.length?supporting.reduce((a,b)=>a+b.boot.y*b.load,0)/
-      supporting.reduce((a,b)=>a+b.load,0):snow.height;
-    this.position.y=Math.max(snow.height,support-.008);
+    this.position.y=this.supportHeight(snow.height);
     const slopeNorm=1+snow.dx*snow.dx+snow.dz*snow.dz;
     const gx=-t.gravity*snow.dx/slopeNorm,gz=-t.gravity*snow.dz/slopeNorm;
     const normalAcceleration=t.gravity/Math.sqrt(slopeNorm);
@@ -280,8 +295,12 @@ export class SkiV4Physics{
     }
     this.reposition(this.velocity.x*dt,this.velocity.z*dt);
     const afterSnow=sampleSnow(this.surface,this.position.x,this.position.z);
-    this.position.y=afterSnow.height;
-    this.velocity.y=afterSnow.dx*this.velocity.x+afterSnow.dz*this.velocity.z;
+    const supportBeforeMove=this.position.y;
+    // Rendering and forces consume the same CURRENT boot patches. Never report
+    // yesterday's ski contact after the skier has moved into another bank.
+    this.updateContacts(mag(this.velocity));
+    this.position.y=this.supportHeight(afterSnow.height);
+    this.velocity.y=(this.position.y-supportBeforeMove)/dt;
     if(!impaired&&input.jump){
       this.phase="charging";
       this.charge=Math.min(t.chargeMax,this.charge+dt);

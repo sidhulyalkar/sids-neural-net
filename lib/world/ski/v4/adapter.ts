@@ -4,8 +4,7 @@
  * is deliberately never called. This is a non-release experiment until the
  * old long-ski presentation matches physical contact at the halfpipe lips.
  */
-import {Euler,Vector3} from "three/src/Three.Core.js";
-import {fitSkiContact} from "@/components/world/worldSkiContact";
+import {Euler,Matrix4,Vector3} from "three/src/Three.Core.js";
 import {SkiSimulation,type SkiInput} from "../simulation";
 import {SkiV4Physics,type SkiV4Input,type SkiV4Contact} from "./core";
 
@@ -19,6 +18,10 @@ export class SkiV4Simulation extends SkiSimulation{
   private readonly from=new Vector3();
   private readonly to=new Vector3();
   private readonly euler=new Euler(0,0,0,"YXZ");
+  private readonly physicalBasis=new Matrix4();
+  private readonly physicalF=new Vector3();
+  private readonly physicalR=new Vector3();
+  private readonly physicalU=new Vector3();
   constructor(height:(x:number,z:number)=>number,x:number,z:number,
     constrain?:(from:Vector3,to:Vector3)=>{x:number;z:number}){
     super(height,x,z,"independent",false,constrain);
@@ -72,14 +75,45 @@ export class SkiV4Simulation extends SkiSimulation{
     this.grip=p.grip;this.grab=p.grab;this.airSpinRadians=p.airSpinRadians;
     this.contact[0]=p.contact[0].loaded;this.contact[1]=p.contact[1].loaded;
     this.load[0]=p.contact[0].load;this.load[1]=p.contact[1].load;
-    const forward={x:Math.sin(p.yaw),z:Math.cos(p.yaw)};
     for(let i=0;i<2;i++){
       const source=p.contact[i] as SkiV4Contact;
-      const fit=fitSkiContact({x:p.position.x,z:p.position.z},forward,
-        i===0?-1:1,({x,z})=>this.contactSurface(x,z),this.soles[i],true);
-      // The *measured* discrepancy is retained: never claim visual matching by
-      // replacing the rigid ski with an unconstrained painted snow ribbon.
-      this.visualContactMismatch[i]=Math.abs(fit.position.y-source.boot.y);
+      const fit=this.soles[i];
+      // Physical ski surface, not a second unrelated rigid height fit.
+      // The two longitudinal/pitch and transverse/edge gradients are taken
+      // directly from the force-bearing V4 contact model.
+      this.physicalF.set(Math.sin(p.yaw),source.pitch,Math.cos(p.yaw)).normalize();
+      this.physicalR.set(Math.cos(p.yaw),source.crossSlope+Math.tan(source.edgeAngle),
+        -Math.sin(p.yaw));
+      this.physicalR.addScaledVector(this.physicalF,-this.physicalR.dot(this.physicalF)).normalize();
+      this.physicalU.crossVectors(this.physicalF,this.physicalR).normalize();
+      this.physicalR.crossVectors(this.physicalU,this.physicalF).normalize();
+      fit.position.set(source.boot.x,source.boot.y,source.boot.z);
+      fit.right.copy(this.physicalR);fit.up.copy(this.physicalU);
+      fit.forward.copy(this.physicalF);
+      fit.rotation.setFromRotationMatrix(this.physicalBasis.makeBasis(fit.right,fit.up,fit.forward));
+      fit.supportStart=source.supportStart;fit.supportEnd=source.supportEnd;
+      for(let j=0;j<fit.deficits.length;j++){
+        const section=source.sections[Math.min(source.sections.length-1,Math.floor(j/2))];
+        fit.deficits[j]=-section.gap;
+      }
+      // Compare the actual geometric underside to the rendered triangle
+      // sampler at tip, mid, boot, and edge stations. Do not erase mismatch.
+      let mismatch=0;
+      for(let j=0;j<source.sections.length;j++){
+        const along=source.sections[j].along;
+        const flex=source.sections[j].flex;
+        for(const w of [-.095,0,.095]){
+          const wx=fit.position.x+fit.forward.x*along+fit.right.x*w+
+            fit.up.x*(-.0125+flex);
+          const wz=fit.position.z+fit.forward.z*along+fit.right.z*w+
+            fit.up.z*(-.0125+flex);
+          const wy=fit.position.y+fit.forward.y*along+fit.right.y*w+
+            fit.up.y*(-.0125+flex);
+          const clearance=wy-this.contactSurface(wx,wz);
+          mismatch=Math.max(mismatch,Math.max(0,-clearance));
+        }
+      }
+      this.visualContactMismatch[i]=mismatch;
     }
     this.normal.set((p.contact[0].normal.x+p.contact[1].normal.x)*.5,
       (p.contact[0].normal.y+p.contact[1].normal.y)*.5,

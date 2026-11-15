@@ -5323,7 +5323,9 @@ export function createWorld(
             skiBases[i].visible=!useSkin;skiTips[i].visible=true;
             skiSoleMeshes[i].visible=useSkin;
             if(useSkin && rideSnow && ride){
-              const flex=skiSoleVisuals[i].update(pose,rideSnow,ride.load[i],true);
+              const flex=ride instanceof SkiV4Simulation
+                ? skiSoleVisuals[i].updatePhysical(pose,ride.v4.contact[i].sections,rideSnow,ride.load[i],true)
+                : skiSoleVisuals[i].update(pose,rideSnow,ride.load[i],true);
               minSkiVisual=Math.min(minSkiVisual,flex.min);
               maxSkiVisual=Math.max(maxSkiVisual,flex.max);
               maxSkiBend=Math.max(maxSkiBend,flex.maxBend);
@@ -5421,6 +5423,8 @@ export function createWorld(
           canvas.dataset.skiV4RightLoaded=String(ride.v4.contact[1].loaded);
           canvas.dataset.skiV4SoleMismatch=ride.visualContactMismatch.map(x=>x.toFixed(4)).join(",");
           canvas.dataset.skiV4ContactPatches=ride.v4.contact.map(x=>x.contactStations).join(",");
+          canvas.dataset.skiV4PhysicalSoleMin=ride.v4.contact.map(x=>x.minGap.toFixed(4)).join(",");
+          canvas.dataset.skiV4PhysicalSoleMax=ride.v4.contact.map(x=>x.maxGap.toFixed(4)).join(",");
         }
         canvas.dataset.skiRidePhase=ride?.phase ?? "";
         canvas.dataset.skiLanding=ride?.landing ?? "";

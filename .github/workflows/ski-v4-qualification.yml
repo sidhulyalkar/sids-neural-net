@@ -60,7 +60,12 @@ jobs:
         # Do not fake a pass by moving a skier or relaxing bank thresholds.
         run: node --import tsx scripts/ski-v4-halfpipe-audit.ts
       - name: Production bundle within existing limits
+        shell: bash
         run: |
+          set -euo pipefail
+          npx next experimental-analyze --output
+          mkdir -p artifacts/bundle-analyzer
+          cp -R .next/diagnostics/analyze/. artifacts/bundle-analyzer/
           npm run build
           npm run check:bundle
       - name: Install isolated Chromium
