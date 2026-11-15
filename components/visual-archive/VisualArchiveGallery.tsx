@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { VisualArchiveEntry } from '@/src/data/visualArchive';
 import { photoMapUrl } from '@/src/data/photoPlaces';
+import { parsePhotoArchiveId } from '@/lib/world/galleryLinks';
 
 type VisualArchiveGalleryProps = {
   entries: VisualArchiveEntry[];
@@ -127,6 +128,11 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
       document.body.style.overflow = originalOverflow;
     };
   }, [activeIndex, close, showNext, showPrevious]);
+
+  useEffect(() => {
+    const id=parsePhotoArchiveId(window.location.search,entries.map(entry=>entry.id));
+    if(id)setActiveIndex(entries.findIndex(entry=>entry.id===id));
+  },[entries]);
 
   useEffect(() => {
     const updateColumnCount = () => setColumnCount(getResponsiveColumnCount());

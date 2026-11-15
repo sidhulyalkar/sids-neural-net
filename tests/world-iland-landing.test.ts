@@ -5,13 +5,13 @@ import {UNDERWATER_TRIDENTS} from "../lib/world/artifacts";
 
 const home=readFileSync(new URL("../components/world/WorldHome.tsx",import.meta.url),"utf8");
 const styles=readFileSync(new URL("../components/world/world.module.css",import.meta.url),"utf8");
-const metadata=readFileSync(new URL("../app/page.tsx",import.meta.url),"utf8");
+const metadata=readFileSync(new URL("../app/world/page.tsx",import.meta.url),"utf8");
 
 test("Sid's iLand has one minimal, accessible homepage heading and one name-only wordmark",()=>{
   assert.match(home,/<h1 id="world-title">Welcome to <em>Sid’s iLand<\/em><\/h1>/);
   assert.match(home,/>\s*Sid Hulyalkar\s*<\/Link>/);
   assert.doesNotMatch(home,/CALIFORNIA, IN MIND|Brains, machines,|usually outside|Neuroscience & engineering/);
-  assert.match(metadata,/title: "Sid’s iLand \| Sid Hulyalkar"/);
+  assert.match(metadata,/title: "Sid’s iLand \| Interactive World"/);
   assert.match(home,/Explore world/,"exploration launch remains discoverable");
   assert.match(home,/View site/,"portfolio entry is preserved");
   assert.match(styles,/\.welcome h1 em \{[\s\S]*?display: block;/);
@@ -29,4 +29,10 @@ test("UCSD trident keeps the real discoverable underwater contract",()=>{
   assert.match(home,/GEISEL_SOURCE/);
   assert.doesNotMatch(home,/celebrating Bioengineering and scientific exploration/);
   assert.match(home,/Continue diving/,"return-to-water action is preserved");
+});
+
+test("the production homepage remains the independent fractal experience",()=>{
+ const siteHome=readFileSync(new URL("../app/page.tsx",import.meta.url),"utf8");
+ assert.match(siteHome,/AdaptiveFractalHome/);
+ assert.doesNotMatch(siteHome,/WorldHome/);
 });

@@ -1,7 +1,7 @@
 /** Canonical, shareable cross-navigation between the fast website archives and Sid's iLand. */
 export type GalleryDestination = "photos" | "papers";
 export const galleryWorldHref = (destination:GalleryDestination):string =>
-  `/?gallery=${destination}`;
+  `/world?gallery=${destination}`;
 
 export function parseGalleryDestination(search:string):GalleryDestination|null {
   const value=new URLSearchParams(search).get("gallery");
