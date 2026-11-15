@@ -68,7 +68,7 @@ import { createShrineCoralWayfinding } from "./worldShrineCoralWayfinding";
 import { shrineDiveMarkerSightlineReserved } from "@/lib/world/shrineCoralWayfinding";
 import { createHiddenShrineGallery } from "./worldHiddenShrineGallery";
 import { createWorldPaperGallery } from "./worldPaperGallery";
-import { SHRINE_GALLERY, GALLERY_VIEWING, galleryConstrainMove, galleryStepWalk, galleryNearShaft, galleryWalkable, shrineReachable, galleryPhotoSlots, galleryPhotoViewpoint, galleryPhotoClearance, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
+import { SHRINE_GALLERY, GALLERY_VIEWING, galleryConstrainMove, galleryStepWalk, galleryNearShaft, galleryWalkable, shrineReachable, galleryPhotoSlots, galleryPhotoViewpoint, galleryFocusedViewpoint, galleryFocusedFov, galleryPhotoClearance, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
@@ -6155,7 +6155,7 @@ export function createWorld(
           // Human eye-level, first-person museum exploration: the avatar
           // cannot fill the screen or occlude the wall art.
           const focus=galleryFocusIndex===null?null:gallerySlots[galleryFocusIndex];
-          const viewpoint=focus?galleryPhotoViewpoint(focus):player;
+          const viewpoint=focus?galleryFocusedViewpoint(focus,camera.aspect):player;
           targetCamera.set(viewpoint.x,
             SHRINE_GALLERY.floorY+GALLERY_VIEWING.eyeHeight,viewpoint.z);
           targetLook.set(
@@ -7028,7 +7028,7 @@ export function createWorld(
     }
     if(galleryPhase!=="outside"){
       const anchor=galleryPhase==="inside"&&galleryFocusIndex!==null
-        ? galleryPhotoViewpoint(gallerySlots[galleryFocusIndex])
+        ? galleryFocusedViewpoint(gallerySlots[galleryFocusIndex],camera.aspect)
         : player;
       const bounded=galleryPhase==="inside"
         ? galleryConstrainMove(anchor,{x:camera.position.x,z:camera.position.z})
@@ -7064,10 +7064,11 @@ export function createWorld(
       (sceneryCamera.restore(),0);
     canvas.dataset.discGolfCameraCutaways=String(cutawayCount);
     // A 47° outdoor lens crops the carved photo pediment at 2.45m. The
-    // 74° inspection lens includes the entire frame with comfortable margin;
-    // a slightly narrower 68° lens preserves depth cues while walking.
+    // 74° inspection lens frames desktop art; an adaptive phone viewing
+    // distance and 92° lens show the entire horizontal gilded border.
+    // Walking retains the original 68° first-person museum framing.
     const museumFov=galleryPhase==="inside"
-      ? galleryFocusIndex===null?68:74
+      ? galleryFocusIndex===null?68:galleryFocusedFov(gallerySlots[galleryFocusIndex],camera.aspect)
       : caveLayer==="paper"&&paperCaveInside(player)?62:47;
     if(camera.fov!==museumFov){
       camera.fov=museumFov;
