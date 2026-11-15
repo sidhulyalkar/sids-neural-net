@@ -8,8 +8,8 @@ import {
 } from "../lib/world/galleryLinks";
 
 test("deep links are canonical and reject unrelated query data",()=>{
-  assert.equal(galleryWorldHref("photos"),"/?gallery=photos");
-  assert.equal(galleryWorldHref("papers"),"/?gallery=papers");
+  assert.equal(galleryWorldHref("photos"),"/world?gallery=photos");
+  assert.equal(galleryWorldHref("papers"),"/world?gallery=papers");
   assert.equal(parseGalleryDestination("?gallery=photos"),"photos");
   assert.equal(parseGalleryDestination("?gallery=papers"),"papers");
   assert.equal(parseGalleryDestination("?gallery=unknown"),null);

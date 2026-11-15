@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import {galleryWorldHref} from '@/lib/world/galleryLinks';
 import { ComicSectionLayout } from '@/components/neural-atlas/ComicSectionLayout';
 import { VisualArchiveGallery } from '@/components/visual-archive';
 import { VisualMotionGallery } from '@/components/visual-archive/VisualMotionGallery';
@@ -55,6 +57,14 @@ export default function PhotographyPage() {
           </section>
         )}
       </section>
+      <nav aria-label="Explore photography in Sid's iLand" className="mt-16 border-t border-white/15 pt-7">
+        <Link href={galleryWorldHref("photos")} prefetch={false}
+          className="group inline-flex min-h-11 items-center gap-3 text-sm text-text-secondary transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan">
+          <span aria-hidden="true" className="text-lg text-cyan/80">◇</span>
+          Walk through the hidden photography gallery in Sid’s iLand
+          <span aria-hidden="true" className="transition-transform group-hover:translate-x-1">↗</span>
+        </Link>
+      </nav>
     </ComicSectionLayout>
   );
 }

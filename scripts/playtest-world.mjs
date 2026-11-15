@@ -687,7 +687,7 @@ try {
   const plain = await browser.newPage({ javaScriptEnabled: false }); await plain.goto(base);
   assert.ok(await plain.getByRole('navigation', { name: 'Browse without JavaScript' }).isVisible());
   results.push('No-JavaScript navigation is visible'); await plain.close();
-  const atlas = await browser.newPage(); await atlas.goto(`${base}/atlas`);
+  const atlas = await browser.newPage(); await atlas.goto(new URL("/", base).toString());
   await atlas.locator('[data-home-branch-count="8"]').waitFor();
   results.push('Original eight-destination neural atlas remains available'); await atlas.close();
   assert.deepEqual(errors, []);
