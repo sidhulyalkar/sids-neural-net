@@ -14,7 +14,9 @@ const results=[],errors=[];
 async function attempt(degrees){
   const name=String(degrees),output=path.join(dir,name);
   fs.mkdirSync(output,{recursive:true});
-  const page=await browser.newPage({viewport:{width:850,height:610}});
+  // Keep CSS layout desktop-sized while limiting SwiftShader pixel work.
+  // This is browser evidence, not a hardware FPS measurement.
+  const page=await browser.newPage({viewport:{width:850,height:610},deviceScaleFactor:.5});
   const pageErrors=[];
   page.on("pageerror",error=>pageErrors.push(error.message));
   const inputs=[];
@@ -83,28 +85,52 @@ async function attempt(degrees){
       return d&&Number(d.skiTick)>=n&&d.skiRidePhase==="charging";
     },startTick+65);
     const release=await state();
+    // Begin the real A-key spin before releasing the jump charge.
+    // Under SwiftShader there can be 30 physics ticks between two browser
+    // observation frames: waiting to *notice* flight previously cost
+    // 60+ airborne ticks and made a clean 180 physically impossible.
+    await page.keyboard.down("a");
+    track("a down",{atTick:Number(release.skiTick)});
     await page.keyboard.up("Space");
     track("Space up",{atTick:Number(release.skiTick)});
-    await until(()=>document.querySelector('canvas[role="application"]')?.dataset.skiRidePhase==="air");
-    const lift=await state();
-    await page.keyboard.down("a");
-    track("a down",{atTick:Number(lift.skiTick)});
-    // Release the real A key when integrated yaw plus the decaying
-    // angular momentum is predicted to complete the target rotation.
-    // This is a browser test driver, NOT an in-game autopilot or time freeze.
-    const radians=degrees*Math.PI/180;
-    await until(goal=>{
+    await until(()=>{
       const d=document.querySelector('canvas[role="application"]')?.dataset;
-      if(!d||d.skiRidePhase!=="air")return false;
-      const predicted=Math.abs(Number(d.skiAirSpinRadians))+
-        Math.abs(Number(d.skiAngularY))/6;
-      return predicted>=goal-.10;
+      return d?.skiRidePhase==="air" || d?.skiLanding!=="none";
+    });
+    const lift=await state();
+    assert.equal(lift.skiRidePhase,"air","must observe actual airborne input");
+    // Real D-key countersteer is required to arrest angular rate before
+    // landing. A spin number without a controlled, clean touchdown is not
+    // a trick. The predicted braking arc for the 6/s angular response is
+    // about 0.4-0.6 radians at full speed.
+    const radians=degrees*Math.PI/180;
+    const target=await until(goal=>{
+      const d=document.querySelector('canvas[role="application"]')?.dataset;
+      if(!d)return false;
+      if(d.skiRidePhase!=="air"&&d.skiLanding!=="none")return "landed-before-target";
+      const anticipated=Math.abs(Number(d.skiAirSpinRadians))+
+        Math.abs(Number(d.skiAngularY))*.05;
+      return d.skiRidePhase==="air"&&anticipated>=goal-.30?"countersteer":false;
     },radians,120000);
-    const releaseSpin=await state();
+    const approach=await target.jsonValue();
+    if(approach!=="countersteer")
+      throw Error("airtime ended before the commanded rotation");
+    const brakeStart=await state();
     await page.keyboard.up("a");
-    track("a up",{atTick:Number(releaseSpin.skiTick),
-      yaw:Number(releaseSpin.skiAirSpinRadians),
-      omega:Number(releaseSpin.skiAngularY)});
+    track("a up",{atTick:Number(brakeStart.skiTick),
+      yaw:Number(brakeStart.skiAirSpinRadians),
+      omega:Number(brakeStart.skiAngularY)});
+    await page.keyboard.down("d");
+    track("d down",{atTick:Number(brakeStart.skiTick)});
+    await until(()=>{
+      const d=document.querySelector('canvas[role="application"]')?.dataset;
+      return d&&(Number(d.skiAngularY)<=1||d.skiRidePhase!=="air");
+    },null,120000);
+    const brakeEnd=await state();
+    await page.keyboard.up("d");
+    track("d up",{atTick:Number(brakeEnd.skiTick),
+      yaw:Number(brakeEnd.skiAirSpinRadians),
+      omega:Number(brakeEnd.skiAngularY)});
     await until(()=>{
       const d=document.querySelector('canvas[role="application"]')?.dataset;
       return d&&d.skiRidePhase!=="air"&&d.skiLanding!=="none"&&
@@ -125,6 +151,7 @@ async function attempt(degrees){
     errors.push({degrees,error:reason});
   }finally{
     await page.keyboard.up("a").catch(()=>{});
+    await page.keyboard.up("d").catch(()=>{});
     await page.keyboard.up("Space").catch(()=>{});
     await capture().catch(e=>errors.push({degrees,evidenceError:String(e)}));
     results.push({degrees,passed,reason,inputCount:inputs.length,
