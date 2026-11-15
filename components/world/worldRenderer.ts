@@ -6818,8 +6818,9 @@ export function createWorld(
     }
     // Skimboarding beach and ordinary coastal exploration must look around
     // the physical log, never straight through its huge bark exterior.
-    const shoreCameraActive=r==="north-shore"&&aquatic==="land"&&
-      !sequoiaCamera&&!skateTunnelRide&&!skateLoopRide&&!surfing&&
+    const shoreCameraActive=aquatic==="land"&&
+      state.activity!=="ski"&&!skateTunnelRide&&!skateLoopRide&&
+      skimHeat.phase!=="riding"&&
       galleryPhase==="outside"&&discGolf.phase==="off"&&
       bigAir.phase==="idle"&&!jetSki&&
       Math.abs(player.x)<23&&player.z>northShoreZ(player.x)-10&&
