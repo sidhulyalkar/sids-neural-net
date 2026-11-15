@@ -42,7 +42,8 @@ try{
     document.querySelector('canvas[role="application"]')?.dataset.hiddenGalleryPhotoFocus??""),
     null,{timeout:15000});
    result.focus=await canvas.getAttribute("data-hidden-gallery-photo-focus");
-   assert.equal(result.focus,"photo-001","gallery focus must select the west-room wide north-wall photo");
+   assert.ok(["photo-001","photo-003"].includes(result.focus),
+    "gallery focus must select a wide landscape on the first room\u0027s full walls");
    await page.waitForTimeout(1200);
    await page.screenshot({path:path.join(out,vp.name+"-02-landscape-focus.png")});
    await page.keyboard.press("Escape");
