@@ -7,6 +7,7 @@ on:
       - 'components/world/worldRenderer.ts'
       - 'tests/world-ski-v4.test.ts'
       - 'scripts/playtest-ski-v4.mjs'
+      - 'scripts/ski-v4-halfpipe-audit.ts'
       - 'docs/world/ski-v4-implementation.md'
       - '.github/workflows/ski-v4-qualification.yml'
   workflow_dispatch:
@@ -54,6 +55,10 @@ jobs:
         run: |
           npm test
           node --import tsx --test tests/world-ski-v4.test.ts
+      - name: Real rendered-snow halfpipe envelope and contact audit
+        # Diagnostic only: failing traversal counts remain release blockers.
+        # Do not fake a pass by moving a skier or relaxing bank thresholds.
+        run: node --import tsx scripts/ski-v4-halfpipe-audit.ts
       - name: Production bundle within existing limits
         run: |
           npm run build
