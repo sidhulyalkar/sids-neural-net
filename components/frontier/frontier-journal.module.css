@@ -719,3 +719,444 @@
   .chapterSteps { gap: 7px 13px; }
   .chapterSteps button { font-size: 11px; }
 }
+/* FRONTIER V3.1: editorial finishing system.
+ * Identity follows source format and genuine media, not decorative data.
+ * No new assets, extra JS, animation loops, or third-party font requests. */
+.reader {
+  --journal-inset: clamp(20px, 4.8vw, 72px);
+  --journal-hairline: color-mix(in srgb, var(--ink) 15%, transparent);
+  --journal-hover: color-mix(in srgb, var(--accent) 9%, var(--paper));
+  background:
+    radial-gradient(ellipse 63% 40% at 86% 2%, var(--context-wash), transparent 82%),
+    linear-gradient(180deg, var(--paper) 0%, var(--paper) 70%, var(--paper-soft) 100%);
+}
+.reader .masthead {
+  min-height: 82px;
+  padding-inline: var(--journal-inset);
+  border-bottom-color: var(--journal-hairline);
+}
+.reader .brand { font-weight: 740; letter-spacing: .16em; }
+.reader .identityCaption { font-size: 13px; letter-spacing: .005em; }
+.reader .contentsToggle,
+.reader .advanced { min-height: 44px; }
+.reader .contentsToggle { letter-spacing: .02em; }
+.reader .advanced { display: inline-flex; align-items: center; text-underline-offset: 4px; }
+.reader .advanced:hover { text-decoration: underline; }
+.reader .iconButton { min-width: 44px; min-height: 44px; }
+.reader .search { min-height: 44px; }
+.reader .search input { font-size: 13px; }
+.reader .sectionNavigation {
+  background: color-mix(in srgb, var(--paper-soft) 68%, var(--paper));
+  border-bottom-color: var(--journal-hairline);
+}
+.reader .sectionNavigationInner {
+  gap: clamp(25px, 3.3vw, 52px);
+  padding-inline: var(--journal-inset);
+}
+.reader .sectionTab {
+  min-height: 54px;
+  gap: 10px;
+  padding: 15px 1px;
+  font-size: 13px;
+  letter-spacing: .008em;
+}
+.reader .sectionTab[aria-selected='true']::after { height: 3px; }
+.reader .sectionTabCount { font-size: 10px; opacity: .85; }
+.reader .realmRibbon {
+  padding: 11px var(--journal-inset);
+  font-size: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+}
+.reader .realmSignal { box-shadow: 0 0 0 5px var(--context-wash); }
+.reader .article {
+  width: min(calc(100% - var(--journal-inset) - var(--journal-inset)), 1270px);
+  padding-top: clamp(27px, 4vw, 55px);
+  padding-bottom: clamp(78px, 10vw, 125px);
+}
+.reader .editionMarker {
+  padding-bottom: 15px;
+  color: var(--muted);
+  border-color: var(--journal-hairline);
+  font-size: 10px;
+  letter-spacing: .12em;
+}
+.reader .headline {
+  max-width: 1060px;
+  margin-top: clamp(30px, 4vw, 52px);
+  margin-bottom: clamp(30px, 4.4vw, 57px);
+}
+.reader .headlineMeta { margin-bottom: 17px; }
+.reader .kicker { font-size: 11px; letter-spacing: .145em; }
+.reader .article h1 {
+  max-width: 1040px;
+  font-size: clamp(30px, 3.08vw, 42px);
+  line-height: 1.19;
+  letter-spacing: -.032em;
+  text-wrap: balance;
+  font-kerning: normal;
+}
+.reader .byline {
+  max-width: 72ch;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: clamp(13px, 1.14vw, 15px);
+  line-height: 1.6;
+}
+.reader .storyBody,
+.reader .storyBodyText {
+  column-gap: clamp(35px, 5vw, 78px);
+  grid-template-columns: minmax(0, 1fr) minmax(235px, 285px);
+}
+.reader .sectionLabel {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 18px;
+  color: var(--accent);
+}
+.reader .sectionLabel::before {
+  content: '';
+  width: 21px;
+  height: 1px;
+  flex: 0 0 21px;
+  background: currentColor;
+}
+.reader .summary {
+  max-width: 64ch;
+  font-size: clamp(18px, 1.65vw, 23px);
+  line-height: 1.64;
+  letter-spacing: -.011em;
+  text-wrap: pretty;
+}
+.reader[data-format='brief'] .summary {
+  max-width: 58ch;
+  font-size: clamp(19px, 1.83vw, 24px);
+  line-height: 1.68;
+}
+.reader .sourceDetail > summary,
+.reader .evidenceDetails > summary { min-height: 44px; display: inline-flex; align-items: center; }
+.reader .chapterMap {
+  min-width: 0;
+  gap: 17px 35px;
+  margin-bottom: 36px;
+  padding: 14px 0;
+  border-top-color: var(--journal-hairline);
+  border-bottom-color: var(--journal-hairline);
+}
+.reader .chapterMapCaption { letter-spacing: .12em; }
+.reader .chapterSteps { gap: 8px 18px; }
+.reader .chapterSteps button {
+  position: relative;
+  min-height: 44px;
+  align-items: center;
+  padding: 8px 9px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 560;
+  text-decoration: none;
+  border-radius: 2px;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.reader .chapterSteps button:hover,
+.reader .chapterSteps button[aria-current='step'] {
+  background: var(--journal-hover);
+  color: var(--ink);
+  text-decoration: none;
+}
+.reader .chapterSteps button[aria-current='step']::after {
+  content: '';
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  bottom: 3px;
+  height: 1px;
+  background: var(--accent);
+}
+.reader .chapterIndex { font-size: 10px; }
+.reader .content .visual { margin-top: 30px; }
+.reader .content .visualViewport {
+  background: var(--paper-soft);
+  border-color: var(--journal-hairline);
+  box-shadow: 0 14px 42px color-mix(in srgb, var(--ink) 7%, transparent);
+}
+.reader .caption {
+  padding-block: 15px;
+  border-color: var(--journal-hairline);
+  line-height: 1.65;
+  font-size: 11px;
+}
+.reader .figureRail { gap: 8px; }
+.reader .figureRail button { min-width: 44px; min-height: 44px; }
+.reader .sourceImprint {
+  padding-bottom: 26px;
+  margin-bottom: 24px;
+  border-bottom-color: var(--journal-hairline);
+}
+.reader .imprintGlyph {
+  width: 42px;
+  height: 42px;
+  flex-basis: 42px;
+  border-color: var(--journal-hairline);
+  background: var(--paper-soft);
+}
+.reader .imprintIdentity { line-height: 1.28; }
+.reader .imprintProvenance { line-height: 1.6; }
+.reader .journalRail {
+  border-top: 2px solid var(--accent);
+  padding-top: 20px;
+}
+.reader .railSourceNote { line-height: 1.65; }
+.reader .railJump { min-height: 44px; align-items: center; }
+.reader .tagGroup span { padding: 7px 10px; }
+.reader .relatedList button {
+  min-height: 78px;
+  padding-block: 19px;
+  gap: 8px;
+}
+.reader .relatedList button strong { line-height: 1.34; }
+.reader .exhibitHeading { margin-bottom: 30px; }
+.reader .exhibitLabel { font-size: clamp(21px, 2vw, 25px); }
+.reader .metricExhibit { padding-block: 20px 25px; }
+.reader .metricExhibit dd { font-size: clamp(24px, 2.2vw, 32px); line-height: 1.15; }
+.reader .scoreGrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; }
+.reader .scoreRow {
+  padding: 17px 19px;
+  background: var(--paper-soft);
+  border-color: var(--journal-hairline);
+}
+.reader .scoreTeam span { font-variant-numeric: tabular-nums; }
+.reader .artifactExhibitItem {
+  padding: 20px 18px;
+  background: color-mix(in srgb, var(--context-surface) 60%, var(--paper));
+  border-color: var(--journal-hairline);
+}
+.reader .sourceEvidenceList a { padding-block: 18px; }
+.reader .mediaPoster, .reader .journalVideo {
+  background: color-mix(in srgb, var(--ink) 88%, #000);
+  border-color: var(--journal-hairline);
+}
+.reader .mediaPlay {
+  min-height: 44px;
+  box-shadow: 0 6px 32px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+.reader .articleActions { gap: 19px 28px; border-top-color: var(--journal-hairline); }
+.reader .sourceLink, .reader .saveButton {
+  min-height: 44px;
+  font-size: 13px;
+  text-underline-offset: 5px;
+}
+.reader .sourceLink:hover { text-decoration: underline; }
+.reader .contentsPanel { background: var(--paper); }
+.reader .contentsEntry { gap: 12px; padding-block: 22px; }
+.reader .contentsEntryBody strong { line-height: 1.3; }
+.reader .navigation button {
+  width: 48px;
+  height: 48px;
+  background: var(--paper);
+  border-color: var(--journal-hairline);
+  box-shadow: 0 7px 24px color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.reader .navigation button:focus-visible { outline-offset: 3px; }
+
+@media (min-width: 1180px) and (min-height: 720px) {
+  .reader .journalRail { position: sticky; top: 24px; align-self: start; }
+}
+@media (max-width: 780px) {
+  .reader .masthead { min-height: 72px; padding-inline: var(--journal-inset); }
+  .reader .article { padding-top: 25px; }
+  .reader .article h1 { font-size: clamp(29px, 4.35vw, 36px); }
+  .reader .storyBody, .reader .storyBodyText {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 35px;
+  }
+  .reader .sectionNavigationInner { gap: 24px; }
+  .reader .sectionTab { min-height: 48px; padding-block: 12px; }
+  .reader .summary { font-size: clamp(18px, 2.8vw, 21px); }
+  .reader .chapterMap { margin-bottom: 26px; gap: 11px; }
+  .reader .chapterSteps { gap: 7px 16px; }
+  .reader .navigation button { width: 46px; height: 46px; }
+  .reader .journalRail { position: static; }
+}
+@media (max-width: 560px) {
+  .reader { --journal-inset: 20px; }
+  .reader .masthead { padding-block: 13px; }
+  .reader .identityCaption { font-size: 11px; }
+  .reader .topActions { gap: 8px; }
+  .reader .contentsToggle, .reader .advanced { min-height: 44px; }
+  .reader .iconButton { min-width: 44px; min-height: 44px; }
+  .reader .search { min-height: 44px; }
+  .reader .sectionNavigationInner { gap: 22px; }
+  .reader .sectionTab { min-height: 44px; font-size: 12px; }
+  .reader .article { padding-top: 20px; }
+  .reader .headline { margin: 24px 0 30px; }
+  .reader .headlineMeta { margin-bottom: 13px; }
+  .reader .article h1 {
+    font-size: clamp(28px, 7.4vw, 34px);
+    line-height: 1.2;
+    letter-spacing: -.025em;
+  }
+  .reader .summary, .reader[data-format='brief'] .summary {
+    font-size: 19px;
+    line-height: 1.66;
+  }
+  .reader .chapterMap { gap: 8px; }
+  .reader .chapterMapCaption { width: 100%; }
+  .reader .chapterSteps { gap: 7px 15px; }
+  .reader .chapterSteps button { min-height: 44px; font-size: 11px; }
+  .reader .content .visual { margin-top: 24px; }
+  .reader .caption { font-size: 11px; }
+  .reader .navigation button {
+    width: 46px;
+    height: 46px;
+    bottom: max(17px, env(safe-area-inset-bottom));
+  }
+  .reader .navigation .previous { left: 15px; }
+  .reader .navigation .next { right: 15px; }
+  .reader .artifactExhibitGrid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 360px) {
+  .reader { --journal-inset: 16px; }
+  .reader .topActions { flex-wrap: wrap; }
+  .reader .search { flex-basis: 85px; }
+  .reader .realmRibbon { gap: 6px; }
+  .reader .editionMarker { letter-spacing: .05em; }
+  .reader .article h1 { font-size: 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reader .chapterSteps button { transition: none; }
+}
+@media (prefers-contrast: more) {
+  .reader { --journal-hairline: var(--ink); --journal-hover: var(--paper-soft); }
+  .reader .kicker, .reader .sectionLabel { color: var(--ink); }
+  .reader .sectionTab { color: var(--ink); }
+}
+/* Editorial issue index: the lead reads like a cover feature while the rest
+ * remains a navigable, source-labeled table of contents. */
+.reader .contentsHeading {
+  padding-bottom: clamp(20px, 3vw, 36px);
+  border-bottom: 1px solid var(--journal-hairline);
+  margin-bottom: 0;
+}
+.reader .contentsHeading h2 {
+  font-size: clamp(30px, 3vw, 42px);
+  letter-spacing: -.033em;
+  line-height: 1.16;
+}
+.reader .contentsHeading button { min-height: 44px; }
+.reader .contentsGrid { column-gap: clamp(24px, 4vw, 58px); }
+.reader .contentsEntry {
+  border-top-color: var(--line);
+  transition: background-color 160ms ease;
+}
+.reader .contentsEntry:hover { background: var(--journal-hover); }
+.reader .contentsEntry:focus-visible { outline-offset: -3px; }
+.reader .contentsEntry:first-child {
+  grid-column: 1 / -1;
+  grid-template-columns: 48px minmax(0, 1fr) 24px;
+  gap: clamp(13px, 2vw, 28px);
+  padding: clamp(24px, 3vw, 39px) clamp(14px, 2vw, 30px);
+  margin: 0 0 18px;
+  border-top: 0;
+  border-bottom: 1px solid var(--ink);
+  background: linear-gradient(100deg, var(--context-wash), transparent 80%);
+}
+.reader .contentsEntry:first-child:hover { background: var(--journal-hover); }
+.reader .contentsEntry:first-child .contentsOrdinal {
+  font-size: 13px;
+  letter-spacing: -.05em;
+}
+.reader .contentsEntry:first-child .contentsEntryBody {
+  gap: clamp(10px, 1.5vw, 16px);
+}
+.reader .contentsEntry:first-child .contentsEntryBody .overline {
+  font-size: 10px;
+  letter-spacing: .105em;
+}
+.reader .contentsEntry:first-child .contentsEntryBody strong {
+  max-width: 29ch;
+  font: 400 clamp(23px, 2.7vw, 36px)/1.2 var(--serif);
+  letter-spacing: -.028em;
+  text-wrap: balance;
+}
+.reader .contentsEntry:first-child > svg {
+  margin-top: 5px;
+  width: 19px;
+  height: 19px;
+}
+@media (max-width: 780px) {
+  .reader .contentsGrid { grid-template-columns: minmax(0, 1fr); }
+  .reader .contentsEntry:first-child { margin-bottom: 8px; }
+}
+@media (max-width: 560px) {
+  .reader .contentsEntry:first-child {
+    padding: 24px 12px;
+    grid-template-columns: 24px minmax(0, 1fr) 16px;
+    gap: 10px;
+  }
+  .reader .contentsEntry:first-child .contentsEntryBody strong {
+    font-size: clamp(23px, 6.4vw, 29px);
+    max-width: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reader .contentsEntry { transition: none; }
+}
+/* Narrow screens: use an explicit two-row editorial masthead.
+ * Flex shrink previously collapsed search to zero width at 390px. */
+@media (max-width: 560px) {
+  .reader .masthead {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) 44px max-content;
+    grid-template-rows: auto auto;
+    gap: 8px 9px;
+    align-items: center;
+  }
+  .reader .identity {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-width: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 7px 13px;
+  }
+  .reader .topActions { display: contents; }
+  .reader .contentsToggle {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+    white-space: nowrap;
+  }
+  .reader .search {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    width: 100%;
+    height: 44px;
+    display: flex;
+    gap: 7px;
+    overflow: visible;
+  }
+  .reader .search > svg { flex: 0 0 16px; }
+  .reader .search input {
+    display: block;
+    flex: 1 1 0;
+    min-width: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .reader .iconButton {
+    grid-column: 3;
+    grid-row: 2;
+  }
+  .reader .advanced {
+    grid-column: 4;
+    grid-row: 2;
+    min-width: 0;
+  }
+  .reader .latestChip, .reader .checkingLatest {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: start;
+  }
+}

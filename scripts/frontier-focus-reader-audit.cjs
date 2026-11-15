@@ -112,6 +112,52 @@ async function audit(width, height) {
     const titleSize = await page.locator('article h1').first().evaluate((node) =>
       Number.parseFloat(getComputedStyle(node).fontSize));
     assert(titleSize >= 26 && titleSize <= 49, 'Oversized or illegible headline: ' + titleSize + 'px');
+    // Visual release contract: aesthetic quality is a measured part of the
+    // default reader, not a screenshot-only aspiration.
+    const visual = await page.evaluate(() => {
+      const heading = document.querySelector('article h1');
+      const summary = document.querySelector('[aria-label="Source-grounded summary"] p');
+      const tab = document.querySelector('[data-journal-section="for-you"]');
+      const chapter = document.querySelector('nav[aria-label="Story chapters"] button');
+      const next = document.querySelector('[data-frontier-next="true"]');
+      const rail = document.querySelector('aside[aria-label="Source context and next reading"]');
+      if (!heading || !summary || !tab || !chapter || !next || !rail) return null;
+      const title = getComputedStyle(heading);
+      const lead = getComputedStyle(summary);
+      return {
+        headlineSize: parseFloat(title.fontSize),
+        headlineLineRatio: parseFloat(title.lineHeight) / parseFloat(title.fontSize),
+        summaryLineRatio: parseFloat(lead.lineHeight) / parseFloat(lead.fontSize),
+        tabHeight: tab.getBoundingClientRect().height,
+        chapterHeight: chapter.getBoundingClientRect().height,
+        nextHeight: next.getBoundingClientRect().height,
+        railPosition: getComputedStyle(rail).position,
+        paper: getComputedStyle(document.querySelector('[data-frontier-journal="true"]')).getPropertyValue('--paper').trim(),
+        searchWidth: document.querySelector('input[aria-label="Search live topics"]')?.getBoundingClientRect().width ?? 0,
+        searchVisible: (() => {
+          const input = document.querySelector('input[aria-label="Search live topics"]');
+          return input ? getComputedStyle(input).visibility === 'visible'
+            && getComputedStyle(input).display !== 'none' : false;
+        })(),
+      };
+    });
+    assert(visual, 'The journal must expose an actual typeset article and source rail');
+    assert(visual.headlineSize <= 42 && visual.headlineSize >= 28,
+      'Editorial headline must remain a compact display type size: ' + JSON.stringify(visual));
+    assert(visual.headlineLineRatio >= 1.15,
+      'A long research headline must have sufficient line-height: ' + JSON.stringify(visual));
+    assert(visual.summaryLineRatio >= 1.5,
+      'The evidence summary must read like an editorial paragraph: ' + JSON.stringify(visual));
+    assert(visual.searchVisible && visual.searchWidth >= 75,
+      'Live topic search must remain visibly usable at 320px and 390px: ' + JSON.stringify(visual));
+    assert(visual.tabHeight >= 44 && visual.chapterHeight >= 44 && visual.nextHeight >= 44,
+      'Touch/keyboard chapter and edition navigation must keep usable hit areas: ' + JSON.stringify(visual));
+    assert(/^#[0-9a-f]{6}$/i.test(visual.paper), 'A journal realm must have a real paper palette');
+    if (width >= 1180 && height >= 720) {
+      assert.equal(visual.railPosition, 'sticky', 'Desktop source context should remain available while reading');
+    } else {
+      assert.notEqual(visual.railPosition, 'sticky', 'Mobile/tablet source context must scroll naturally');
+    }
     const screenshotDir = path.resolve('artifacts/frontier/journal');
     fs.mkdirSync(screenshotDir, { recursive: true });
     await page.screenshot({ path: path.join(screenshotDir, 'journal-' + width + '.png'), fullPage: true, animations: 'disabled' });
@@ -123,6 +169,18 @@ async function audit(width, height) {
     await page.locator('#frontier-contents').waitFor();
     const entries = page.locator('#frontier-contents button[aria-current], #frontier-contents button[aria-current="true"]');
     assert((await entries.count()) >= 1, 'The current article should be marked in the edition index');
+    const featuredIndexEntry = page.locator('#frontier-contents button').filter({ has: page.locator('strong') }).first();
+    const featuredIndexGeometry = await featuredIndexEntry.evaluate((element) => ({
+      gridColumn: getComputedStyle(element).gridColumnEnd,
+      width: element.getBoundingClientRect().width,
+    }));
+    assert.equal(featuredIndexGeometry.gridColumn, '-1',
+      'The issue cover should lead the editorial contents across available columns');
+    assert(featuredIndexGeometry.width > 0, 'The issue cover must be visible');
+    await page.screenshot({
+      path: path.join(screenshotDir, 'journal-index-' + width + '.png'),
+      fullPage: true, animations: 'disabled',
+    });
     const issueButtons = page.locator('#frontier-contents button').filter({ has: page.locator('strong') });
     assert((await issueButtons.count()) >= 2, 'Contents should permit direct article navigation');
     await issueButtons.nth(1).click();
