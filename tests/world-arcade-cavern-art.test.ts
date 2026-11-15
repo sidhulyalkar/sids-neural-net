@@ -23,7 +23,7 @@ test("Curated arcade includes anime and comedy while preserving the three real g
   ["anime","comedy","sport-anime"].includes(m.theme)).map(m=>m.theme),
   ["anime","sport-anime","comedy"]);
  const left=ARCADE_CAVERN_MURALS.filter(m=>m.surface==="left");
- assert.deepEqual(left.map(m=>m.id),["striker-setpoint","out-of-this-world"]);
+ assert.deepEqual(left.map(m=>m.id),["raid-ascend","striker-setpoint"]);
  const games=ARCADE_CAVERN_MURALS.find(m=>m.theme==="game-gallery")!;
  assert.equal(games.surface,"right");
  assert.deepEqual(games.tags,["UNICORN STAMPEDE","UNIRICO","STRETCHICORN"]);
@@ -188,7 +188,7 @@ test("Photo walls are text-free, with only three sports caption exceptions",()=>
   "sports mural should not restore unrelated giant headings");
  assert.equal(ARCADE_CAVERN_MURALS.some(m=>m.id==="sids-underground"),false);
  assert.deepEqual(ARCADE_CAVERN_MURALS.filter(m=>m.surface==="left").map(m=>m.theme),
-  ["sport-anime","comedy"]);
+  ["anime","sport-anime"]);
  assert.ok(CAVERN_PHOTO_ALBUMS.feature.images.every(p=>p.startsWith("/")));
 });
 

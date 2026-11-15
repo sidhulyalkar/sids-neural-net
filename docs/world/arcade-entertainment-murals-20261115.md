@@ -6,12 +6,13 @@ geometry changes**.
 
 ## Artwork now mounted in the existing cave renderer
 
-- **Anime: RAID ASCEND**. Right upper wall, behind the playable sports niche,
-  `z=-75.48..-68.10, v=.56..95`. Uses the original local SVG.
-- **Sports anime: STRIKER // SET POINT**. Left lower, rearward
-  `z=-74.95..-69.08, v=.12..51`. Uses original local SVG.
-- **TV sci-fi comedy: OUT OF THIS WORLD**. Left lower, toward entrance
-  `z=-80.45..-75.20, v=.12..51`. Uses original local SVG.
+- **Anime: RAID ASCEND**. Left middle-height wall near the entrance,
+  `z=-80.45..-75.12, v=.26..86`. Uses the original local SVG.
+- **Sports anime: STRIKER // SET POINT**. Left middle-height wall, rearward,
+  `z=-74.93..-69.08, v=.26..86`. Uses the original local SVG.
+- **TV sci-fi comedy: OUT OF THIS WORLD**. Right upper wall, between
+  the entry landscape and the game niches,
+  `z=-75.48..-71.75, v=.56..95`. Uses the original local SVG.
 - **Sports fandom**. Existing Chelsea / Patriots / Warriors crest tribute
   stays in the lower right zone.
 - **Personal highlights**. Real Shasta photo remains on the rear wall,
@@ -20,9 +21,10 @@ geometry changes**.
   and Unicorn Stampede preserve their original art and selection targets.
 
 The former very wide right-side travel gallery is shortened to the entrance
-so it does not layer under the anime mural. The long Shasta collage on the
+so it does not layer under the comedy mural. The long Shasta collage on the
 left was removed from the cave **only** (the photo archive and rear portrait
-remain intact) to make room for the entertainment panels.
+remain intact) to make room for the entertainment panels. Their narrower
+physical footprints better respect the original 1600x1000 SVG proportions.
 
 ## Asset provenance and performance
 
