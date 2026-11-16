@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {galleryPhotoSlots} from "../lib/world/hiddenShrineGallery";
-import {galleryAtlasGpuBytes,galleryAtlasTileSize,galleryHighResPriority}
+import {galleryAtlasGpuBytes,galleryAtlasTileSize,galleryHighResPriority,galleryDecodeQueue}
  from "../lib/world/galleryPhotoStreaming";
 
 const slots=galleryPhotoSlots();
@@ -64,4 +64,41 @@ test("thumbnail upload is progressive, bounded and survives a broken image",()=>
  assert.match(scene,/finally\{thumbnailSettled\(\);\}/);
  assert.match(scene,/if\(!entry\|\|!ctx\)\{thumbnailSettled\(\);continue;\}/);
  assert.match(scene,/if\(!disposed\)atlas\.needsUpdate=true/);
+});
+
+test("native decoder queue never exceeds two concurrent image decodes",()=>{
+ const selected=[5,6,7,8];
+ const resident=new Set<number>();
+ const loading=new Set<number>();
+ const initial=galleryDecodeQueue(selected,resident,loading,2);
+ assert.deepEqual(initial,[5,6]);
+ loading.add(5);loading.add(6);
+ assert.deepEqual(galleryDecodeQueue(selected,resident,loading,2),[]);
+ loading.delete(5);resident.add(5);
+ assert.deepEqual(galleryDecodeQueue(selected,resident,loading,2),[7]);
+ loading.add(7);
+ assert.deepEqual(galleryDecodeQueue(selected,resident,loading,2),[]);
+ loading.delete(6);
+ assert.deepEqual(galleryDecodeQueue([8,7,6],resident,loading,2),[8]);
+});
+test("rapid focus switches cannot bypass the decoder limit or enqueue stale photos",()=>{
+ const resident=new Set<number>(),loading=new Set<number>([5,6]);
+ const requested=[40,3];
+ assert.deepEqual(galleryDecodeQueue(requested,resident,loading,2),[]);
+ loading.delete(5);
+ assert.deepEqual(galleryDecodeQueue(requested,resident,loading,2),[40]);
+ loading.add(40);
+ assert.deepEqual(galleryDecodeQueue([31,2],resident,loading,2),[]);
+ loading.delete(6);
+ assert.deepEqual(galleryDecodeQueue([31,2],resident,loading,2),[31]);
+ assert.deepEqual(galleryDecodeQueue([31,31,-1,NaN,2],resident,new Set(),2),[31,2]);
+ assert.deepEqual(galleryDecodeQueue([31,2],resident,new Set(),0),[]);
+});
+test("scene pumps the newest focus selection when one decoder settles",()=>{
+ const scene=readFileSync(
+  new URL("../components/world/worldHiddenShrineGallery.ts",import.meta.url),"utf8");
+ assert.match(scene,/galleryDecodeQueue\(\[\.\.\.selectedHighRes\]/);
+ assert.match(scene,/if\(!disposed\)startHighResolutionRequests\(\)/);
+ assert.match(scene,/loading\.delete\(i\)/);
+ assert.match(scene,/hdResources\.has\(i\)/);
 });
