@@ -1,6 +1,6 @@
 import * as THREE from "three/src/Three.Core.js";
 import { visualArchive } from "@/src/data/visualArchive";
-import {galleryHighResPriority,galleryAtlasTileSize,galleryDecodeQueue,galleryNativeTextureSize} from "@/lib/world/galleryPhotoStreaming";
+import {galleryHighResPriority,galleryAtlasTileSize,galleryDecodeQueue,galleryNativeTextureSize,galleryFadeAlpha} from "@/lib/world/galleryPhotoStreaming";
 import { GeometryBatch } from "./worldGeometry";
 import {
   SHRINE_GALLERY, GALLERY_ROOMS, galleryDoorSide,
@@ -396,11 +396,9 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     if(disposed||!Number.isFinite(deltaSeconds))return;
     // Keep the atlas behind each native image during a short, frame-rate
     // independent fade. This avoids a black flash during upload or eviction.
-    const dt=Math.max(0,Math.min(.1,deltaSeconds));
     for(const {material} of hdResources.values()){
-      if(material.opacity<1){
-        material.opacity=Math.min(1,material.opacity+dt*4.5);
-      }
+      if(material.opacity<1)
+        material.opacity=galleryFadeAlpha(material.opacity,deltaSeconds);
     }
   }
   function updateNearPhotos(player:{x:number;z:number},
