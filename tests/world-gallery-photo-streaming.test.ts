@@ -60,7 +60,7 @@ test("thumbnail upload is progressive, bounded and survives a broken image",()=>
  const scene=readFileSync(
    new URL("../components/world/worldHiddenShrineGallery.ts",import.meta.url),"utf8");
  assert.match(scene,/let next=0,loaded=0,settled=0/);
-  assert.match(scene,/settled<=4\\|\\|settled%8===0\\|\\|settled===slots\\.length/);
+  assert.match(scene,/settled<=4\|\|settled%8===0\|\|settled===slots\.length/);
  assert.match(scene,/finally\{thumbnailSettled\(\);\}/);
  assert.match(scene,/if\(!entry\|\|!ctx\)\{thumbnailSettled\(\);continue;\}/);
  assert.match(scene,/if\(!disposed\)atlas\.needsUpdate=true/);
