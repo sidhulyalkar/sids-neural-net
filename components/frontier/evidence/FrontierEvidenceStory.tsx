@@ -48,7 +48,7 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, editor
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState<string[]>([]);
   const [mechanismFocus, setMechanismFocus] = useState<'discovery' | 'selection'>('discovery');
-  const mechanism = editorial?.mechanisms.find((entry) => entry.id === mechanismFocus);
+  const mechanism = editorial?.mechanisms?.find((entry) => entry.id === mechanismFocus);
 
   const index = Math.min(activeIndex, Math.max(0, figures.length - 1));
   const activeChapter = chapters.find((chapter) => chapter.id === selectedChapter);
@@ -141,7 +141,7 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, editor
           </section>
         ) : null}
 
-        {editorial && mechanism ? (
+        {editorial?.mechanisms && mechanism ? (
           <section className={styles.mechanismSection} aria-label="Source-cited AgentSSL mechanism"
             data-frontier-explanation="editorial">
             <div className={styles.mechanismHeading}>
