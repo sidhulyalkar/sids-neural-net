@@ -58,6 +58,12 @@ test('editorial explanation has two distinct qualified phases and six publisher-
   }
 });
 
+test('research material without a conceptual treatment still validates as a source-only article', () => {
+  const original = parseSourceEditorial(raw, manifest);
+  const withoutMechanism = { ...original, mechanisms: undefined };
+  assert.equal(parseSourceEditorial(withoutMechanism, manifest).mechanisms, undefined);
+});
+
 test('conceptual flow rejects unapproved source sections or repeated/removed phases', () => {
   const editorial = parseSourceEditorial(raw, manifest);
   const mutate = (fn: (editorial: typeof editorial) => void) => {
