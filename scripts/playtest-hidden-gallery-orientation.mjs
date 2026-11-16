@@ -29,12 +29,15 @@ try{
     phase:el.dataset.hiddenGalleryPhase,count:el.dataset.hiddenGalleryPhotos,
     loaded:el.dataset.hiddenGalleryPhotosReady,hd:el.dataset.hiddenGalleryHD,
     motion:el.dataset.hiddenGalleryLocomotion,camera:el.dataset.hiddenGalleryCamera,
-    inBounds:el.dataset.hiddenGalleryInBounds,drawCalls:el.dataset.drawCalls
+    inBounds:el.dataset.hiddenGalleryInBounds,drawCalls:el.dataset.drawCalls,
+    atlasEdge:el.dataset.hiddenGalleryAtlasEdge
    }));
    assert.equal(result.arrival.phase,"inside");
    assert.equal(Number(result.arrival.count),49);
    assert.equal(result.arrival.motion,"walking");
    assert.equal(result.arrival.camera,"eye-level");
+   assert.equal(Number(result.arrival.atlasEdge),vp.name==="mobile"?1792:2688);
+   assert.ok(Number(result.arrival.hd)<= (vp.name==="mobile"?2:4));
    await page.screenshot({path:path.join(out,vp.name+"-01-gallery-arrival.png")});
    await canvas.focus();
    await page.keyboard.press("f");
@@ -44,11 +47,17 @@ try{
    result.focus=await canvas.getAttribute("data-hidden-gallery-photo-focus");
    assert.ok(["photo-001","photo-003"].includes(result.focus),
     "gallery focus must select a wide landscape on the first room\u0027s full walls");
-   await page.waitForTimeout(1200);
+   await page.waitForFunction(()=>
+    document.querySelector('canvas[role="application"]')?.dataset.hiddenGalleryFocusedHd==="true",
+    null,{timeout:30000});
+   result.highResFocus=await canvas.getAttribute("data-hidden-gallery-focused-hd");
+   await page.waitForTimeout(500);
    result.fov=await canvas.getAttribute("data-hidden-gallery-fov");
    assert.equal(result.fov,vp.name==="mobile"?"92.0":"74.0");
    await page.screenshot({path:path.join(out,vp.name+"-02-landscape-focus.png")});
    await page.keyboard.press("Escape");
+   result.highResAfterFocus=await canvas.getAttribute("data-hidden-gallery-hd");
+   assert.ok(Number(result.highResAfterFocus)<= (vp.name==="mobile"?2:4));
    await page.waitForFunction(()=>
     document.querySelector('canvas[role="application"]')?.dataset.hiddenGalleryPhotoFocus==="",null,{timeout:15000});
    assert.deepEqual(errors,[]);

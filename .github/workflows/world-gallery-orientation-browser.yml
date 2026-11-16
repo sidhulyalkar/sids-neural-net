@@ -4,6 +4,9 @@ on:
     paths:
       - "lib/world/hiddenShrineGallery.ts"
       - "components/world/worldHiddenShrineGallery.ts"
+      - "components/world/worldRenderer.ts"
+      - "lib/world/galleryPhotoStreaming.ts"
+      - "tests/world-gallery-photo-streaming.test.ts"
       - "tests/world-hidden-shrine-gallery.test.ts"
       - "scripts/playtest-hidden-gallery-orientation.mjs"
       - ".github/workflows/world-gallery-orientation-browser.yml"
@@ -29,7 +32,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Frame and link geometry unit tests
-        run: node --import tsx --test tests/world-hidden-shrine-gallery.test.ts tests/world-gallery-archive-links.test.ts
+        run: node --import tsx --test tests/world-hidden-shrine-gallery.test.ts tests/world-gallery-archive-links.test.ts tests/world-gallery-photo-streaming.test.ts
       - name: Install Chromium
         run: |
           npm install --prefix /tmp/iland-gallery-playwright --no-package-lock playwright@1.56.1
