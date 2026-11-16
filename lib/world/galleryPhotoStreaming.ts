@@ -57,3 +57,22 @@ export function galleryDecodeQueue(
  }
  return requests;
 }
+
+/** Upload size, not archival source size. Keep the source file untouched.
+ * A 390px phone cannot display 2400 image pixels across a 3D picture.
+ * Larger sources are shrunk before GPU texture upload to avoid ~17MB each.
+ */
+export function galleryNativeTextureSize(width:number,height:number,
+ smallScreen:boolean,hardwareMaxTextureSize=4096){
+ const widthOk=Number.isFinite(width)&&width>0?Math.floor(width):1;
+ const heightOk=Number.isFinite(height)&&height>0?Math.floor(height):1;
+ const hardware=Number.isFinite(hardwareMaxTextureSize)&&hardwareMaxTextureSize>0
+   ?Math.floor(hardwareMaxTextureSize):4096;
+ const maxEdge=Math.max(1,Math.min(hardware,smallScreen?1536:2048));
+ const ratio=Math.min(1,maxEdge/Math.max(widthOk,heightOk));
+ return {
+  width:Math.max(1,Math.round(widthOk*ratio)),
+  height:Math.max(1,Math.round(heightOk*ratio)),
+  needsResize:ratio<1,
+ };
+}
