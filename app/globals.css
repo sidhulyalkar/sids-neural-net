@@ -66,6 +66,12 @@ body::before {
   mask-image: radial-gradient(circle at 50% 20%, black, transparent 78%);
 }
 
+/* Source-qualified research pages are a continuous paper surface, including
+ * parent flex space below the source's own provenance footer. */
+#main-content:has([data-frontier-story="verified"]) {
+  background: #f5f3ec;
+}
+
 /* Removed blue dot pattern - using dendrite patterns instead */
 
 /* Selection */
