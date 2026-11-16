@@ -39,7 +39,7 @@ concurrency:
 
 jobs:
   fractal-home-gate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.55 cannot install Chromium dependencies on Ubuntu 26.04
     timeout-minutes: 35
     steps:
       - name: Checkout

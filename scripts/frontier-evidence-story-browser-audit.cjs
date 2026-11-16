@@ -19,6 +19,12 @@ async function view(browser, width, height) {
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
   await page.locator('[data-frontier-story="verified"]').waitFor({ timeout: 12_000 });
+  assert.equal(await page.getByRole('link', { name: 'Return home' }).count(), 0,
+    'The global home badge cannot overlap the research masthead');
+  const paperSurface = await page.evaluate(() =>
+    getComputedStyle(document.querySelector('#main-content')).backgroundColor);
+  assert.equal(paperSurface, 'rgb(245, 243, 236)',
+    'Research page and parent document must share a continuous paper background');
   await page.getByRole('heading', { name: 'Synthetic evidence reader layout test' }).waitFor();
   assert.equal(await page.locator('[data-story-state="partial"]').count(), 1);
   assert.equal(await page.getByText(/NOT EXPERIMENTAL EVIDENCE/).count(), 1);

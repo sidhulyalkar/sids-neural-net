@@ -65,6 +65,9 @@ jobs:
           FRONTIER_YOUTUBE_CHANNELS: ${{ vars.FRONTIER_YOUTUBE_CHANNELS }}
           FRONTIER_SUBREDDITS: ${{ vars.FRONTIER_SUBREDDITS }}
           FRONTIER_MUSIC_ARTISTS: ${{ vars.FRONTIER_MUSIC_ARTISTS }}
+          # PR audits remain bounded: only scheduled/manual refreshes may
+          # inspect the canonical publisher HTML for optional original figures.
+          FRONTIER_ENRICH_SOURCE_FIGURES: ${{ github.event_name != 'pull_request' && '1' || '0' }}
         run: npm run frontier:snapshot
 
       - name: Audit candidate slate counterfactual
