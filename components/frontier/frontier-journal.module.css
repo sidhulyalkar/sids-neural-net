@@ -1160,3 +1160,59 @@
     justify-self: start;
   }
 }
+/* Verified research doorway: editorial note rather than another generic card.
+ * Source evidence is server-qualified before this route is exposed. */
+.reader .contentsInvestigation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 11px clamp(14px, 2vw, 28px);
+  align-items: end;
+  padding: clamp(23px, 2.6vw, 34px) clamp(18px, 3vw, 42px);
+  margin: 18px 0 clamp(25px, 4vw, 44px);
+  text-decoration: none;
+  border-top: 2px solid var(--accent);
+  border-bottom: 1px solid var(--journal-hairline, var(--line));
+  background: linear-gradient(105deg, var(--context-wash), transparent 78%);
+  color: var(--ink);
+}
+.reader .contentsInvestigation:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.reader .contentsInvestigation:hover { background: var(--journal-hover, var(--paper-soft)); }
+.reader .investigationEyebrow {
+  grid-column: 1 / -1;
+  color: var(--accent);
+  font: 650 10px/1.5 var(--font-geist-mono), monospace;
+  letter-spacing: .13em;
+}
+.reader .contentsInvestigation strong {
+  grid-column: 1 / -1;
+  max-width: 36ch;
+  font: 400 clamp(22px, 2.35vw, 32px)/1.22 var(--serif);
+  letter-spacing: -.027em;
+  text-wrap: balance;
+}
+.reader .investigationDetail {
+  max-width: 55ch;
+  color: var(--muted);
+  font: 400 13px/1.65 var(--font-geist-sans), system-ui, sans-serif;
+}
+.reader .investigationAction {
+  color: var(--accent);
+  font: 660 12px/1.45 var(--font-geist-sans), system-ui, sans-serif;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.reader .contentsInvestigation:hover .investigationAction {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+@media (max-width: 620px) {
+  .reader .contentsInvestigation {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 23px 18px;
+  }
+  .reader .investigationDetail, .reader .investigationAction { grid-column: 1; }
+  .reader .contentsInvestigation strong { font-size: clamp(22px, 5.6vw, 29px); }
+}
