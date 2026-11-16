@@ -1,5 +1,6 @@
 import * as THREE from "three/src/Three.Core.js";
 import { visualArchive } from "@/src/data/visualArchive";
+import {galleryHighResPriority,galleryAtlasTileSize} from "@/lib/world/galleryPhotoStreaming";
 import { GeometryBatch } from "./worldGeometry";
 import {
   SHRINE_GALLERY, GALLERY_ROOMS, galleryDoorSide,
@@ -153,9 +154,11 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   // The atlas is a SINGLE GPU texture. Each failed thumbnail only replaces its
   // own tile with a labelled fallback, never hiding other photographs.
   const slots=galleryPhotoSlots();
-  // 2688² atlas supplies safe image fallbacks while nearby photos use their
-  // ORIGINAL high-resolution web files, loaded only around the viewer.
-  const columns=7,tileW=384,tileH=384;
+  // On phones the 1792px atlas costs ~56% less GPU memory than the 2688px
+  // desktop atlas, without changing the size of native-resolution overlays.
+  const columns=7;
+  const tileW=galleryAtlasTileSize(window.matchMedia("(max-width: 760px)").matches);
+  const tileH=tileW;
   const canvas=document.createElement("canvas");
   canvas.width=columns*tileW;canvas.height=columns*tileH;
   const ctx=canvas.getContext("2d");
@@ -186,9 +189,11 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   const photoEntries=new Map(visualArchive.map(p=>[p.id,p]));
   let disposed=false;
   let lastFocusedRoom=-1;
+  let lastFocusedPhotoId:string|null=null;
+  let lastSelectionPosition:{x:number;z:number}|null=null;
   // Native-resolution photos can each occupy tens of MB in GPU memory.
-  // Keep the closest four on desktop, two on mobile; the 2688px atlas
-  // remains an always-visible fallback when rotating or changing rooms.
+  // Keep the closest four on desktop, two on mobile; the low-resolution
+  // atlas remains visible while only the nearest or focused HD art is resident.
   const highResCap=window.matchMedia("(max-width: 760px)").matches?2:4;
   // Shared plane UVs for full-resolution overlays: never sample a small atlas
   // tile from a native photo texture by mistake.
@@ -358,6 +363,8 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   function releaseHighResolution(){
     selectedHighRes.clear();
     lastFocusedRoom=-1;
+    lastFocusedPhotoId=null;
+    lastSelectionPosition=null;
     for(const [i,resource] of hdResources){
       hdMeshes[i].visible=false;
       photoTargets[i].visible=true;
@@ -366,19 +373,25 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     }
     hdResources.clear();
   }
-  function updateNearPhotos(player:{x:number;z:number}){
-    let focused=0,best=Infinity;
+  function updateNearPhotos(player:{x:number;z:number},
+    focusedPhotoId:string|null=null){
+    let focusedRoom=0,best=Infinity;
     for(const [i,room] of GALLERY_ROOMS.entries()){
       const d=Math.hypot(player.x-room.x,player.z-room.z);
-      if(d<best){best=d;focused=i;}
+      if(d<best){best=d;focusedRoom=i;}
     }
-    if(focused===lastFocusedRoom)return;
-    lastFocusedRoom=focused;
-    const candidates=slots.map((slot,i)=>({
-      i,dist:Math.hypot(slot.x-player.x,slot.z-player.z)
-    })).sort((a,b)=>a.dist-b.dist)
-      .filter(o=>o.dist<14).slice(0,highResCap);
-    const selected=new Set(candidates.map(o=>o.i));
+    // Moving within one room can change the nearest four photographs.
+    // Focus changing must also update immediately, even with a still camera.
+    if(focusedRoom===lastFocusedRoom&&focusedPhotoId===lastFocusedPhotoId&&
+       lastSelectionPosition&&
+       Math.hypot(player.x-lastSelectionPosition.x,
+         player.z-lastSelectionPosition.z)<1.15)return;
+    lastFocusedRoom=focusedRoom;
+    lastFocusedPhotoId=focusedPhotoId;
+    lastSelectionPosition={x:player.x,z:player.z};
+    const candidates=galleryHighResPriority(
+      slots,player,highResCap,focusedPhotoId);
+    const selected=new Set(candidates);
     selectedHighRes=selected;
     for(const [i,resource] of hdResources){
       if(selected.has(i))continue;
@@ -388,7 +401,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
       resource.material.dispose();resource.texture.dispose();
       hdResources.delete(i);
     }
-    for(const {i} of candidates){
+    for(const i of candidates){
       if(hdResources.has(i)||loading.has(i))continue;
       const entry=photoEntries.get(slots[i].id);
       if(!entry)continue;
@@ -462,6 +475,8 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     photoCount:slots.length,
     loadedPhotos:()=>loaded,
     highResolutionPhotos:()=>hdResources.size,
+    highResolutionHasPhoto:(id:string)=>slots.some((s,i)=>s.id===id&&hdResources.has(i)),
+    atlasEdgePixels:()=>columns*tileW,
     updateNearPhotos,releaseHighResolution,
     dispose(){
       disposed=true;
