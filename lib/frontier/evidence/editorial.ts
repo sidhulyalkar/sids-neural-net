@@ -16,6 +16,20 @@ const Insight = z.strictObject({
   detail: z.string().trim().min(20).max(360),
   sourceUrl: PublicSourceUrlSchema,
 });
+const ResearchMechanism = z.strictObject({
+  id: z.enum(['discovery', 'selection']),
+  label: z.string().trim().min(3).max(35),
+  title: z.string().trim().min(10).max(120),
+  explanation: z.string().trim().min(25).max(260),
+  stages: z.array(z.strictObject({
+    label: z.string().trim().min(5).max(80),
+    detail: z.string().trim().min(20).max(210),
+    sourceUrl: PublicSourceUrlSchema,
+  })).length(3),
+  takeaway: z.string().trim().min(25).max(240),
+  sourceUrl: PublicSourceUrlSchema,
+});
+
 export const SourceEditorialSchema = z.strictObject({
   schemaVersion: z.literal(1),
   itemId: z.string().regex(/^[a-z0-9][a-z0-9_-]{2,119}$/),
@@ -29,6 +43,7 @@ export const SourceEditorialSchema = z.strictObject({
   question: z.string().trim().min(15).max(220),
   signals: z.array(Signal).min(2).max(4),
   insight: Insight,
+  mechanisms: z.array(ResearchMechanism).length(2),
 });
 export type SourceEditorial = z.infer<typeof SourceEditorialSchema>;
 
@@ -54,6 +69,20 @@ export function parseSourceEditorial(input: unknown, manifest: StoryManifest): S
   }
   if (!anchored.has(editorial.insight.sourceUrl)) {
     throw new Error('Editorial research insight must link to a verified source section');
+  }
+  // Original section anchors provide provenance for the explanatory model.
+  // This is editorial interpretation, never a publisher figure or measured graph.
+  const mechanismIds = new Set<string>();
+  for (const mechanism of editorial.mechanisms) {
+    if (mechanismIds.has(mechanism.id)) throw new Error('Repeated research mechanism');
+    mechanismIds.add(mechanism.id);
+    if (!anchored.has(mechanism.sourceUrl) ||
+      mechanism.stages.some((stage) => !anchored.has(stage.sourceUrl))) {
+      throw new Error('Research explanation must cite reviewed publisher sections');
+    }
+  }
+  if (!mechanismIds.has('discovery') || !mechanismIds.has('selection')) {
+    throw new Error('Research mechanism must distinguish discovery and selection');
   }
   return editorial;
 }
