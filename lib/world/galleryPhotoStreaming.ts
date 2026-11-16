@@ -76,3 +76,12 @@ export function galleryNativeTextureSize(width:number,height:number,
   needsResize:ratio<1,
  };
 }
+
+/** Native-HD fade over the always-visible atlas. Behaves consistently across
+ * low-power phones and fast desktop GPUs; no wall-clock timers or allocations.
+ */
+export function galleryFadeAlpha(current:number,deltaSeconds:number):number{
+  const alpha=Number.isFinite(current)?Math.max(0,Math.min(1,current)):0;
+  const dt=Number.isFinite(deltaSeconds)?Math.max(0,Math.min(.3,deltaSeconds)):0;
+  return Math.min(1,alpha+dt*4.5);
+}
