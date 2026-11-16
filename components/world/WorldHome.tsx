@@ -404,14 +404,25 @@ export function WorldHome({ content }: { content: WorldContent }) {
     const key = (event: KeyboardEvent) => {
       if (event.altKey || event.ctrlKey || event.metaKey || event.repeat)
         return;
-      if (event.key.toLowerCase() === "m" && !panel) {
+      const pressed=event.key.toLowerCase();
+      // Modal inspection pauses WebGL and owns focus. E must still complete
+      // the gallery exit instead of silently disappearing into that pause.
+      if(pressed==="e"&&galleryPhase==="inside"&&
+         panel?.startsWith("museum-photo:")){
+        event.preventDefault();
+        setPanel(null);
+        setWaterAction("surface");setWaterActionSerial(n=>n+1);
+        requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
+        return;
+      }
+      if (pressed === "m" && !panel) {
         event.preventDefault();
         open("menu");
       }
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [open, panel]);
+  }, [open, panel, galleryPhase]);
   function exploreWorld(){
     setSessionExitSerial(n=>n+1);
     setActivity("run");
