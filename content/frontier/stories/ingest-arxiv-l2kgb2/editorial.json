@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "itemId": "ingest-arxiv-l2kgb2",
+  "source": {
+    "id": "arxiv:2611.17323v1",
+    "url": "https://arxiv.org/abs/2611.17323v1",
+    "revision": "v1"
+  },
+  "title": "AgentSSL: Can MLE Agents Leverage Unlabeled Data?",
+  "lead": "AgentSSL treats semi-supervised learning as a search over executable programs. The researchers examine two different challenges: whether agents can discover strong methods from scarce labels and abundant unlabeled data, and whether those methods can be selected reliably without trustworthy validation.",
+  "question": "Can agents find a strong learning strategy when labeled examples are scarce?",
+  "signals": [
+    {
+      "id": "discovery-settings",
+      "value": "8 / 12",
+      "label": "Settings with stronger discovered programs",
+      "detail": "The strongest agent-discovered programs outperform the best human-designed SSL baselines in eight of twelve evaluated settings. These are oracle-selected results.",
+      "sourceUrl": "https://arxiv.org/html/2611.17323v1#S5"
+    },
+    {
+      "id": "largest-gain",
+      "value": "+21.8%",
+      "label": "Largest reported improvement",
+      "detail": "The largest improvement reported over a strong human SSL baseline occurs in an individual dataset and label setting. It is not an average gain across tasks.",
+      "sourceUrl": "https://arxiv.org/html/2611.17323v1#S5"
+    },
+    {
+      "id": "selection-gap",
+      "value": "47%",
+      "label": "Selection can erase gains",
+      "detail": "The authors report up to a 47% performance drop when their agent feedback metric is used to select a program, rather than an oracle choosing the strongest.",
+      "sourceUrl": "https://arxiv.org/html/2611.17323v1#S5"
+    },
+    {
+      "id": "program-pool",
+      "value": "16,977",
+      "label": "Evaluated program instances",
+      "detail": "ProgramSelectBench collects agent-generated and human-designed SSL programs across six classification datasets, enabling further selection research.",
+      "sourceUrl": "https://arxiv.org/html/2611.17323v1#A3"
+    }
+  ],
+  "insight": {
+    "label": "OPEN RESEARCH PROBLEM",
+    "title": "Discovering a strong program is not the same as selecting one.",
+    "detail": "The paper separates search quality from choosing a deployable program without trustworthy labeled validation. It also describes challenges transferring agent-discovered SSL strategies into real ecology detection tasks.",
+    "sourceUrl": "https://arxiv.org/html/2611.17323v1#S9"
+  }
+}
