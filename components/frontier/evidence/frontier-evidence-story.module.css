@@ -477,3 +477,213 @@
   .editorialDigest { --hairline: var(--ink); }
   .digestSignal p,.digestHead > p { color: var(--ink); }
 }
+/* Original editorial teaching aid, deliberately distinguished from the
+ * publisher's actual figures and quantitative benchmark results. */
+.mechanismSection {
+  margin: clamp(40px, 6vw, 80px) 0 clamp(48px, 7vw, 90px);
+}
+.mechanismHeading {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(230px, .7fr);
+  gap: clamp(24px, 4vw, 60px);
+  align-items: end;
+  padding-bottom: clamp(20px, 3vw, 32px);
+}
+.mechanismKicker {
+  display: inline-block;
+  margin-bottom: 14px;
+  font: 650 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--accent);
+  letter-spacing: .13em;
+}
+.mechanismHeading h2 {
+  margin: 0;
+  font: 400 clamp(27px, 3vw, 41px)/1.16 Georgia,Cambria,serif;
+  letter-spacing: -.032em;
+  text-wrap: balance;
+}
+.mechanismHeading > p {
+  max-width: 45ch;
+  font: 400 13px/1.72 system-ui,sans-serif;
+  color: var(--muted);
+  margin: 0;
+  text-wrap: pretty;
+}
+.mechanismFrame {
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 14px 40px #16221a18;
+}
+.mechanismControl {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  border-bottom: 1px solid #e5ece438;
+}
+.mechanismTab {
+  border: 0;
+  border-right: 1px solid #e5ece438;
+  padding: clamp(17px, 2.3vw, 30px);
+  min-height: 108px;
+  text-align: left;
+  background: transparent;
+  color: var(--paper);
+  opacity: .78;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+  transition: background-color 160ms ease, opacity 160ms ease;
+}
+.mechanismTab:last-child { border-right: 0; }
+.mechanismTab:hover { background: #ffffff12; opacity: 1; }
+.mechanismTab[aria-pressed='true'] {
+  color: var(--ink);
+  background: var(--paper);
+  opacity: 1;
+}
+.mechanismTab[aria-pressed='true']:hover { background: #e8eee4; }
+.mechanismTab > span {
+  font: 650 10px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing: .11em;
+}
+.mechanismTab > strong {
+  max-width: 30ch;
+  font: 400 clamp(18px, 2vw, 25px)/1.24 Georgia,Cambria,serif;
+  letter-spacing: -.025em;
+  text-wrap: balance;
+}
+.page .mechanismTab:focus-visible {
+  outline: 3px solid #aac8b6;
+  outline-offset: -4px;
+}
+.mechanismContent {
+  padding: clamp(23px, 3vw, 46px);
+}
+.mechanismIntro {
+  display: grid;
+  grid-template-columns: minmax(130px, .45fr) minmax(0, 1fr);
+  gap: clamp(20px, 3vw, 45px);
+  align-items: start;
+  padding-bottom: clamp(25px, 3vw, 39px);
+  border-bottom: 1px solid #e5ece43b;
+}
+.mechanismIntro > span,.mechanismTakeaway > span {
+  font: 650 10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing: .12em;
+  color: #b0c9b5;
+}
+.mechanismIntro > p {
+  max-width: 58ch;
+  margin: 0;
+  font: 400 clamp(16px,1.5vw,19px)/1.55 Georgia,Cambria,serif;
+  letter-spacing: -.009em;
+  text-wrap: pretty;
+}
+.mechanismSteps {
+  margin: 0;
+  padding: clamp(24px,3.4vw,45px) 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: clamp(20px,3vw,46px);
+}
+.mechanismStep { position: relative; min-width: 0; }
+.mechanismStep:not(:last-child)::after {
+  content: '→';
+  position: absolute;
+  right: calc(-.5 * clamp(20px,3vw,46px) - 6px);
+  top: 33px;
+  color: #a5bdad;
+  font: 400 16px/1 Georgia,serif;
+}
+.mechanismStepNumber {
+  display: block;
+  width: 36px;
+  height: 36px;
+  padding-top: 11px;
+  margin-bottom: 25px;
+  border: 1px solid #b4c9b671;
+  color: #bdcfbc;
+  text-align: center;
+  font: 600 10px/1 ui-monospace,monospace;
+}
+.mechanismStep h3 {
+  font: 400 clamp(18px,1.65vw,23px)/1.25 Georgia,Cambria,serif;
+  letter-spacing: -.02em;
+  max-width: 17ch;
+  margin: 0 0 11px;
+}
+.mechanismStep p {
+  max-width: 31ch;
+  margin: 0 0 16px;
+  color: #e0e9dfd0;
+  font: 400 12px/1.73 system-ui,sans-serif;
+  text-wrap: pretty;
+}
+.mechanismStep a,.mechanismTakeaway a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: #c8e5cf;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+  font: 650 11px/1.4 system-ui,sans-serif;
+}
+.mechanismStep a:hover,.mechanismTakeaway a:hover {
+  text-decoration-color: currentColor;
+}
+.mechanismTakeaway {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,2fr);
+  gap: 6px clamp(24px,4vw,54px);
+  align-items: start;
+  border-top: 1px solid #e5ece43b;
+  padding-top: clamp(24px,3vw,39px);
+}
+.mechanismTakeaway > span { grid-column: 1; grid-row: 1/span 2; }
+.mechanismTakeaway p {
+  margin: 0;
+  color: var(--paper);
+  max-width: 53ch;
+  font: 400 clamp(16px,1.6vw,20px)/1.5 Georgia,Cambria,serif;
+  text-wrap: pretty;
+}
+.mechanismTakeaway a { justify-self: start; }
+@media (max-width: 750px) {
+  .mechanismHeading { grid-template-columns: minmax(0,1fr); gap: 16px; }
+  .mechanismIntro { grid-template-columns: minmax(0,1fr); gap: 12px; }
+  .mechanismSteps { grid-template-columns: minmax(0,1fr); gap: 26px; }
+  .mechanismStep {
+    display: grid;
+    grid-template-columns: 38px minmax(0,1fr);
+    column-gap: 14px;
+    align-items: start;
+  }
+  .mechanismStepNumber { grid-column: 1; grid-row: 1/span 3; margin: 0; }
+  .mechanismStep h3 { grid-column: 2; grid-row: 1; max-width: none; }
+  .mechanismStep p { grid-column: 2; grid-row: 2; max-width: 60ch; }
+  .mechanismStep a { grid-column: 2; grid-row: 3; }
+  .mechanismStep:not(:last-child)::after {
+    content: '↓'; left: 11px; right: auto; top: auto; bottom: -22px;
+  }
+  .mechanismTakeaway { grid-template-columns: minmax(0,1fr); gap: 10px; }
+  .mechanismTakeaway > span { grid-column: 1; grid-row: auto; }
+}
+@media (max-width: 420px) {
+  .mechanismHeading h2 { font-size: 29px; }
+  .mechanismControl { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .mechanismTab { min-height: 109px; padding: 16px 14px; }
+  .mechanismTab > strong { font-size: 18px; }
+  .mechanismContent { padding: 23px 17px; }
+  .mechanismIntro > p { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mechanismTab { transition: none; }
+}
+@media (prefers-contrast: more) {
+  .mechanismTab:not([aria-pressed='true']) { opacity: 1; }
+  .mechanismStep p { color: var(--paper); }
+  .mechanismFrame { box-shadow: none; }
+}
