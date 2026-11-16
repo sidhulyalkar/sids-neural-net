@@ -244,6 +244,13 @@ export function createWorld(
   shrineHint.style.top="134px";
   shrineHint.hidden=true;
   host.appendChild(shrineHint);
+  // A short teal veil makes the instant, collision-safe gallery teleport feel
+  // like resurfacing into the ocean rather than a hard camera cut. It never
+  // captures input or causes a separate WebGL render.
+  const galleryReturnVeil=document.createElement("div");
+  galleryReturnVeil.setAttribute("aria-hidden","true");
+  galleryReturnVeil.style.cssText="position:absolute;inset:0;z-index:8;pointer-events:none;opacity:0;background:linear-gradient(165deg,#0b4049f0,#031d28f5);transition:opacity 320ms ease-out";
+  host.appendChild(galleryReturnVeil);
   // A brief, non-blocking landing card is more rewarding than a permanent
   // dashboard. The island stays visible while the completed move is named.
   const skateResult=document.createElement("div");
@@ -3356,6 +3363,8 @@ export function createWorld(
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let galleryPhase:GalleryPhase="outside";
   let galleryReturn:GallerySwimPose|null=null;
+  let galleryReturnedUntil=-Infinity;
+  let galleryReturnVeilFrame=0;
   let lastGalleryCameraPhase:GalleryPhase="outside";
   let lastNotifiedGalleryPhase:GalleryPhase="outside";
   const gallerySlots=galleryPhotoSlots();
@@ -3869,6 +3878,17 @@ export function createWorld(
     canvas.dataset.hiddenGalleryLastExit=galleryReturn?"saved":"shrine-fallback";
     galleryReturn=null;
     galleryPhase="outside";
+    galleryReturnedUntil=elapsed+2.25;
+    if(!window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+      if(galleryReturnVeilFrame)cancelAnimationFrame(galleryReturnVeilFrame);
+      galleryReturnVeil.style.transition="none";
+      galleryReturnVeil.style.opacity="0.93";
+      galleryReturnVeilFrame=requestAnimationFrame(()=>{
+        galleryReturnVeilFrame=0;
+        galleryReturnVeil.style.transition="opacity 320ms ease-out";
+        galleryReturnVeil.style.opacity="0";
+      });
+    }
     galleryFocusIndex=null;
     // Drop museum walking input and click destinations before restoring the
     // diver; otherwise a held key or queued waypoint immediately moves them.
@@ -5780,7 +5800,9 @@ export function createWorld(
         galleryPhase!=="inside"||galleryWalkable(player));
       canvas.dataset.hiddenGalleryPhotosReady=String(hiddenShrineGallery.loadedPhotos());
       const nearShrine=distance(player,SHRINE_GALLERY.entrance)<3.5;
-      const hint=galleryPhase==="inside"
+      const hint=galleryPhase==="outside"&&elapsed<galleryReturnedUntil
+        ?"Back underwater · resumed from your museum visit"
+        : galleryPhase==="inside"
         ? (galleryFocusIndex===null
           ?"E: resume snorkeling · F: inspect · tap artwork to inspect"
           :"E: resume snorkeling · F or Esc: walk · tap art again to open")
@@ -8067,6 +8089,8 @@ export function createWorld(
       mossCanyonReef.dispose();
       hiddenShrineGallery.dispose();
       paperGallery.dispose();
+      if(galleryReturnVeilFrame)cancelAnimationFrame(galleryReturnVeilFrame);
+      galleryReturnVeil.remove();
       shrineHint.remove();
       disposed = true;
       cancelAnimationFrame(raf);
