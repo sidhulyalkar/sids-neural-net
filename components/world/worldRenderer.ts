@@ -244,6 +244,13 @@ export function createWorld(
   shrineHint.style.top="134px";
   shrineHint.hidden=true;
   host.appendChild(shrineHint);
+  // A short teal veil makes the instant, collision-safe gallery teleport feel
+  // like resurfacing into the ocean rather than a hard camera cut. It never
+  // captures input or causes a separate WebGL render.
+  const galleryReturnVeil=document.createElement("div");
+  galleryReturnVeil.setAttribute("aria-hidden","true");
+  galleryReturnVeil.style.cssText="position:absolute;inset:0;z-index:8;pointer-events:none;opacity:0;background:linear-gradient(165deg,#0b4049f0,#031d28f5);transition:opacity 320ms ease-out";
+  host.appendChild(galleryReturnVeil);
   // A brief, non-blocking landing card is more rewarding than a permanent
   // dashboard. The island stays visible while the completed move is named.
   const skateResult=document.createElement("div");
@@ -3356,6 +3363,8 @@ export function createWorld(
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let galleryPhase:GalleryPhase="outside";
   let galleryReturn:GallerySwimPose|null=null;
+  let galleryReturnedUntil=-Infinity;
+  let galleryReturnVeilFrame=0;
   let lastGalleryCameraPhase:GalleryPhase="outside";
   let lastNotifiedGalleryPhase:GalleryPhase="outside";
   const gallerySlots=galleryPhotoSlots();
@@ -3728,6 +3737,30 @@ export function createWorld(
     canvas.dataset.rideBoostAimAssist=String(success&&!!assisted);
     return true;
   }
+  function toggleGalleryPhotoFocus(){
+    if(galleryPhase!=="inside")return;
+    if(galleryFocusIndex!==null){galleryFocusIndex=null;return;}
+    // Prefer a visible photograph in the center of the visitor's gaze. The
+    // discovery ray checks the opaque stone shell, so this never focuses art
+    // through a wall. Otherwise fall back to the nearest reachable frame.
+    const gazedId=discovery?.startsWith("gallery-photo:")
+      ?discovery.slice("gallery-photo:".length):null;
+    if(gazedId){
+      const index=gallerySlots.findIndex(slot=>slot.id===gazedId);
+      if(index>=0&&galleryPhotoClearance(gallerySlots[index])){
+        galleryFocusIndex=index;destination=null;return;
+      }
+    }
+    let nearest=-1,score=Infinity;
+    for(let i=0;i<gallerySlots.length;i++){
+      const slot=gallerySlots[i];
+      if(!galleryPhotoClearance(slot))continue;
+      const view=galleryPhotoViewpoint(slot);
+      const d=Math.hypot(view.x-player.x,view.z-player.z);
+      if(d<score){score=d;nearest=i;}
+    }
+    if(nearest>=0&&score<=2.4){galleryFocusIndex=nearest;destination=null;}
+  }
   function onUp(e: PointerEvent) {
     if (!drag || e.pointerId !== drag.id) return;
     const wasClick = !drag.moved;
@@ -3744,22 +3777,32 @@ export function createWorld(
       (-(e.clientY - rect.top) / rect.height) * 2 + 1,
     );
     ray.setFromCamera(pointer, camera);
+    if(galleryPhase==="inside"){
+      const photoHit=ray.intersectObjects([
+        ...hiddenShrineGallery.photoTargets,hiddenShrineGallery.stoneMesh],false)[0];
+      if(photoHit && photoHit.distance<7 && photoHit.object.userData.discovery){
+        const photoId=photoHit.object.userData.discovery as string;
+        const photoIndex=gallerySlots.findIndex(slot=>slot.id===photoId);
+        // Touch is a two-stage interaction: inspect the complete frame first,
+        // then tap again for the source-resolution, accessible photo dialog.
+        // Mouse click retains its original immediate-open behavior.
+        if(e.pointerType!=="mouse"&&photoIndex>=0&&
+           galleryFocusIndex!==photoIndex){
+          galleryFocusIndex=photoIndex;destination=null;return;
+        }
+        callbacks.onInteract("gallery-photo:"+photoId);
+        return;
+      }
+      return; // Under the seabed: never click the terrain above to teleport.
+    }
+    // Other island objects may lie above the buried museum along the same ray.
+    // They never intercept underwater photograph inspection.
     const boardHit=ray.intersectObjects(skimProps,false)[0];
     if(boardHit&&boardHit.distance<60){
       const index=boardHit.object.userData.skimBoardIndex as number;
       if(nearbySkimBoard(player)===index)doSkimAction("pickup",index);
       else if(!mobileJoysticks.enabled||e.pointerType==="mouse")destination=boardPoint(index);
       return;
-    }
-    if(galleryPhase==="inside"){
-      const photoHit=ray.intersectObjects([
-        ...hiddenShrineGallery.photoTargets,hiddenShrineGallery.stoneMesh],false)[0];
-      if(photoHit && photoHit.distance<7 && photoHit.object.userData.discovery){
-        const photoId=photoHit.object.userData.discovery as string;
-        callbacks.onInteract("gallery-photo:"+photoId);
-        return;
-      }
-      return; // Under the seabed: never click the terrain above to teleport.
     }
     const marker = ray.intersectObjects(markerObjects)[0];
     if (marker && marker.distance < 55) {
@@ -3837,6 +3880,17 @@ export function createWorld(
     canvas.dataset.hiddenGalleryLastExit=galleryReturn?"saved":"shrine-fallback";
     galleryReturn=null;
     galleryPhase="outside";
+    galleryReturnedUntil=elapsed+2.25;
+    if(!window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+      if(galleryReturnVeilFrame)cancelAnimationFrame(galleryReturnVeilFrame);
+      galleryReturnVeil.style.transition="none";
+      galleryReturnVeil.style.opacity="0.93";
+      galleryReturnVeilFrame=requestAnimationFrame(()=>{
+        galleryReturnVeilFrame=0;
+        galleryReturnVeil.style.transition="opacity 320ms ease-out";
+        galleryReturnVeil.style.opacity="0";
+      });
+    }
     galleryFocusIndex=null;
     // Drop museum walking input and click destinations before restoring the
     // diver; otherwise a held key or queued waypoint immediately moves them.
@@ -3888,16 +3942,7 @@ export function createWorld(
       }
       if(!e.repeat&&key==="f"){
         e.preventDefault();
-        if(galleryFocusIndex!==null){galleryFocusIndex=null;return;}
-        let nearest=-1,score=Infinity;
-        for(let i=0;i<gallerySlots.length;i++){
-          const slot=gallerySlots[i];
-          if(!galleryPhotoClearance(slot))continue;
-          const view=galleryPhotoViewpoint(slot);
-          const d=Math.hypot(view.x-player.x,view.z-player.z);
-          if(d<score){score=d;nearest=i;}
-        }
-        if(score<=2.0)galleryFocusIndex=nearest;
+        toggleGalleryPhotoFocus();
         return;
       }
       if(["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(key))
@@ -5757,10 +5802,12 @@ export function createWorld(
         galleryPhase!=="inside"||galleryWalkable(player));
       canvas.dataset.hiddenGalleryPhotosReady=String(hiddenShrineGallery.loadedPhotos());
       const nearShrine=distance(player,SHRINE_GALLERY.entrance)<3.5;
-      const hint=galleryPhase==="inside"
+      const hint=galleryPhase==="outside"&&elapsed<galleryReturnedUntil
+        ?"Back underwater · resumed from your museum visit"
+        : galleryPhase==="inside"
         ? (galleryFocusIndex===null
-          ?"Press E to resume snorkeling · F to inspect a photograph"
-          :"Press E to resume snorkeling · F or Esc to walk")
+          ?"E: resume snorkeling · F: inspect · tap artwork to inspect"
+          :"E: resume snorkeling · F or Esc: walk · tap art again to open")
         : galleryPhase==="descending"?"Descending into the hidden gallery"
         : galleryPhase==="ascending"?"Ascending to the seabed"
         : aquatic==="dive" && nearShrine
@@ -7105,11 +7152,19 @@ export function createWorld(
     const museumFov=galleryPhase==="inside"
       ? galleryFocusIndex===null?68:galleryFocusedFov(gallerySlots[galleryFocusIndex],camera.aspect)
       : caveLayer==="paper"&&paperCaveInside(player)?62:47;
+    // Cinematic focus should ease the lens change instead of popping the
+    // entire 74°/92° portrait-mobile composition in one render frame.
     if(camera.fov!==museumFov){
-      camera.fov=museumFov;
+      const response=1-Math.exp(-Math.max(0,Math.min(rawDelta,.25))*18);
+      camera.fov+= (museumFov-camera.fov)*response;
+      if(Math.abs(camera.fov-museumFov)<.07)camera.fov=museumFov;
       camera.updateProjectionMatrix();
     }
     canvas.dataset.hiddenGalleryFov=camera.fov.toFixed(1);
+    const targetGalleryExposure=galleryPhase==="inside"?1.10:1.05;
+    renderer.toneMappingExposure+=
+      (targetGalleryExposure-renderer.toneMappingExposure)*
+      (1-Math.exp(-Math.max(0,Math.min(rawDelta,.15))*4));
     if(aquatic==="dive"&&waterZone(player)==="south-channel"){
       // Exact-frame camera proof, not a target/desired pose; useful for
       // verifying the diver remains visible and avoiding first-person clipping.
@@ -7516,6 +7571,8 @@ export function createWorld(
     canvas.dataset.hiddenGalleryHd=canvas.dataset.hiddenGalleryHD;
     canvas.dataset.hiddenGalleryFocusedHd=String(focusedPhotoId!==null&&
       hiddenShrineGallery.highResolutionHasPhoto(focusedPhotoId));
+    hiddenShrineGallery.updatePhotoTransitions(rawDelta);
+    canvas.dataset.hiddenGalleryHdFade=hiddenShrineGallery.transitionOpacity(focusedPhotoId).toFixed(2);
     hiddenShrineGallery.interior.visible=galleryPhase!=="outside";
     renderer.render(scene, camera);
     // This per-mode diagnostic is sampled from the *current underwater
@@ -8034,6 +8091,8 @@ export function createWorld(
       mossCanyonReef.dispose();
       hiddenShrineGallery.dispose();
       paperGallery.dispose();
+      if(galleryReturnVeilFrame)cancelAnimationFrame(galleryReturnVeilFrame);
+      galleryReturnVeil.remove();
       shrineHint.remove();
       disposed = true;
       cancelAnimationFrame(raf);

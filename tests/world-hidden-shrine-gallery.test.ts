@@ -240,8 +240,12 @@ test("native images are never distorted inside the common-size frames",()=>{
   const renderer=readFileSync(
     new URL("../components/world/worldHiddenShrineGallery.ts",import.meta.url),"utf8");
   assert.match(renderer,/galleryImageContainScale\(image\.naturalWidth,image\.naturalHeight,/);
-  assert.match(renderer,/photoTargets\[i\]\.visible=false/);
+  // During the native-HD crossfade the thumbnail atlas remains underneath;
+  // hiding it immediately would produce a visible empty-image flash.
+  assert.doesNotMatch(renderer,/photoTargets\[i\]\.visible=false/);
   assert.match(renderer,/photoTargets\[i\]\.visible=true/);
+  assert.match(renderer,/hdMeshes\[i\]\.visible=true/);
+  assert.match(renderer,/transparent:true,opacity:0/);
   assert.match(renderer,/photoPickTargets\.push\(hd\)/);
   assert.match(renderer,/const fit=galleryImageContainScale\(image\.naturalWidth,image\.naturalHeight,/);
   assert.match(renderer,/const w=\(tileW-12\)\*fit\.width/);
@@ -291,7 +295,11 @@ test("render integration keeps opaque wall architecture and cavern-specific dive
   assert.match(scene,/sealed-stone-photo-gallery/);
   assert.match(scene,/opaque-gallery-stone-shell/);
   assert.match(scene,/CanvasTexture/);
-  assert.doesNotMatch(scene,/MeshPhysicalMaterial|transmission:|transparent:\s*true|opacity:\s*0\.\d/i);
+  // Only the photo overlay is transparent; the physical stone shell is not.
+  const stoneMaterial=scene.match(/const stone = new THREE\.MeshStandardMaterial\(\{([\s\S]*?)\}\);/)?.[1];
+  assert.ok(stoneMaterial,"opaque museum shell material must exist");
+  assert.match(stoneMaterial,/depthWrite:true, depthTest:true/);
+  assert.doesNotMatch(stoneMaterial,/transparent:|opacity:|transmission:/);
   assert.match(runtime,/galleryPhase==="descending"/);
   assert.match(runtime,/galleryConstrainMove/);
   assert.match(runtime,/hiddenShrineGallery\.interior\.visible=galleryPhase!=="outside"/);

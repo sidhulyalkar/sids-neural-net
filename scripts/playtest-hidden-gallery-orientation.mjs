@@ -52,19 +52,53 @@ try{
     null,{timeout:30000});
    result.highResFocus=await canvas.getAttribute("data-hidden-gallery-focused-hd");
    assert.equal(result.highResFocus,"true");
-   await page.waitForTimeout(500);
+   // The inspection camera now eases to its authored viewing pose. Wait for
+   // the visible FOV and the HD overlay to settle, not a fixed number of RAFs.
+   const expectedFov=vp.name==="mobile"?92:74;
+   await page.waitForFunction(expected=>{
+     const d=document.querySelector('canvas[role="application"]')?.dataset;
+     return Math.abs(Number(d?.hiddenGalleryFov)-expected)<.2&&
+       Number(d?.hiddenGalleryHdFade)>.95;
+   },expectedFov,{timeout:15000});
    result.fov=await canvas.getAttribute("data-hidden-gallery-fov");
-   assert.equal(result.fov,vp.name==="mobile"?"92.0":"74.0");
+   result.hdFade=await canvas.getAttribute("data-hidden-gallery-hd-fade");
+   assert.ok(Math.abs(Number(result.fov)-expectedFov)<.2);
    await page.screenshot({path:path.join(out,vp.name+"-02-landscape-focus.png")});
-   await page.keyboard.press("Escape");
-   result.highResAfterFocus=await canvas.getAttribute("data-hidden-gallery-hd");
-   assert.ok(Number(result.highResAfterFocus)<= (vp.name==="mobile"?2:4));
-   await page.waitForFunction(()=>
-    document.querySelector('canvas[role="application"]')?.dataset.hiddenGalleryPhotoFocus==="",null,{timeout:15000});
-   // Focus may leave the canvas after opening/closing a photo. E must
-   // still return the visitor to seawater without retracing the shaft.
-   await canvas.evaluate(el=>el.blur());
-   await page.keyboard.press("e");
+   // Full-size artwork opens in a local dialog, preserving the active
+   // underwater museum state instead of navigating off the island.
+   const bounds=await canvas.boundingBox();
+   assert.ok(bounds,"museum canvas remains in the viewport");
+   await canvas.click({position:{x:bounds.width/2,y:bounds.height/2}});
+   await page.waitForFunction(()=>!!document.querySelector('dialog[open] section[aria-label="Museum photograph inspection"]'),
+     null,{timeout:15000});
+   result.lightbox=await page.locator('dialog[open]').evaluate(el=>({
+     image:!!el.querySelector('img'),
+     link:!!el.querySelector('a[href*="/photography?photo="]'),
+     scrollHeight:el.scrollHeight,
+   }));
+   assert.equal(result.lightbox.image,true);
+   assert.equal(result.lightbox.link,true);
+   assert.ok(page.url().includes('/world?gallery=photos'));
+   await page.screenshot({path:path.join(out,vp.name+"-03-photo-inspection-dialog.png")});
+   if(vp.name==="mobile"){
+    // A modal owns focus and pauses WebGL, but E still resumes snorkeling.
+    await page.keyboard.press("e");
+    result.modalExitViaE=true;
+   }else{
+    await page.locator('dialog[open] button[aria-label="Close panel"]').click();
+    await page.waitForFunction(()=>!document.querySelector('dialog[open]'),
+     null,{timeout:15000});
+    await canvas.focus();
+    await page.keyboard.press("Escape");
+    result.highResAfterFocus=await canvas.getAttribute("data-hidden-gallery-hd");
+    assert.ok(Number(result.highResAfterFocus)<=4);
+    await page.waitForFunction(()=>
+     document.querySelector('canvas[role="application"]')?.dataset.hiddenGalleryPhotoFocus==="",
+     null,{timeout:15000});
+    // The canvas may have lost focus after modal inspection.
+    await canvas.evaluate(el=>el.blur());
+    await page.keyboard.press("e");
+   }
    await page.waitForFunction(()=>
     document.querySelector('canvas[role="application"]')?.dataset.hiddenGalleryPhase==="outside",
     null,{timeout:20000});
@@ -82,7 +116,8 @@ try{
    assert.equal(result.exit.locomotion,"swimming");
    assert.equal(result.exit.camera,"third-person");
    assert.equal(result.exit.focus,"");
-   assert.equal(result.exit.player,"-62.00,7.00");
+   assert.deepEqual(result.exit.player.split(",").map(Number),[-62,7],
+    "return location must be the real shrine swim position regardless of telemetry formatting");
    assert.ok(result.exit.depth>=.52&&result.exit.depth<4);
    await page.screenshot({path:path.join(out,vp.name+"-03-gallery-return-to-sea.png")});
    assert.deepEqual(errors,[]);
