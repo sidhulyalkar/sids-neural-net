@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { getIntegratedFrontierFeed } from '../lib/frontier/aggregate';
 import { assertQualifiedFrontierArchive, buildFrontierDiscoveryLedger } from '../lib/frontier/discoveryLedger';
+import { enrichFrontierPaperFigures } from '../lib/frontier/paperFigures';
 
 async function readPreviousLedger(path: string): Promise<unknown> {
   try {
@@ -17,11 +18,25 @@ async function readPreviousLedger(path: string): Promise<unknown> {
 async function main() {
   // Full adapter deadlines only in scheduled discovery. Page rendering and
   // cached-fresh searches remain separate from this deep ingestion path.
-  const feed = await getIntegratedFrontierFeed({
+  let feed = await getIntegratedFrontierFeed({
     includeSnapshot: false,
     adapterDeadlineMs: false,
   });
   assertQualifiedFrontierArchive(feed);
+
+  // Offline enrichment only. PR qualification avoids new external requests;
+  // scheduled/master refreshes may attach up to three real arXiv HTML figures
+  // with original captions. Unavailable HTML leaves the story unchanged.
+  if (process.env.FRONTIER_ENRICH_SOURCE_FIGURES === '1') {
+    const enrichment = await enrichFrontierPaperFigures(feed, {
+      maxPapers: 3,
+      minIntervalMs: 3000,
+      timeoutMs: 4200,
+    });
+    feed = enrichment.feed;
+    assertQualifiedFrontierArchive(feed);
+    console.log('FRONTIER verified paper figures:', JSON.stringify(enrichment.report));
+  }
 
   const directory = join(process.cwd(), 'content', 'frontier');
   const snapshotPath = join(directory, 'latest.json');
