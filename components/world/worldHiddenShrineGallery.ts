@@ -176,6 +176,9 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   textures.push(atlas);
   const photoMat=new THREE.MeshBasicMaterial({
     map:atlas,side:THREE.DoubleSide,depthWrite:true,depthTest:true,
+    // Photographs keep their original sRGB color instead of picking up the
+    // stone-gallery light rigs and ACES filmic tonemapping.
+    toneMapped:false,
     polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,
   });
   materials.push(photoMat);
@@ -184,7 +187,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   const hdMeshes:THREE.Mesh[]=[];
   const placeholderMaterials:THREE.MeshBasicMaterial[]=[];
   let selectedHighRes=new Set<number>();
-  const hdResources=new Map<number,{texture:THREE.Texture;material:THREE.Material}>();
+  const hdResources=new Map<number,{texture:THREE.Texture;material:THREE.MeshBasicMaterial}>();
   const loading=new Set<number>();
   // A broken full-resolution file must not instantly retry forever when
   // the bounded decoder queue pumps. Re-arm on explicit photo/room changes.
@@ -347,10 +350,13 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
 
   // Stable indirect bounce light avoids abrupt dark-room transitions between
   // the authored point-light pools at each doorway.
-  interior.add(new THREE.AmbientLight("#cdb79a",0.42));
+  // Indirect bounce for readable masonry and glinting frames; discrete lamps
+  // remain warm, avoiding a flat uniform wash across the architecture.
+  interior.add(new THREE.HemisphereLight("#e6ddcc","#445a52",0.62));
+  interior.add(new THREE.AmbientLight("#cdb79a",0.30));
   for(let i=0;i<GALLERY_ROOMS.length;i+=2){
     const r=GALLERY_ROOMS[i];
-    const lamp=new THREE.PointLight("#ffc68a",3.2,12,2);
+    const lamp=new THREE.PointLight("#ffc68a",2.7,12,2);
     lamp.position.set(r.x,bottom+3.25,r.z);
     interior.add(lamp);
     const material=new THREE.MeshStandardMaterial({
@@ -365,7 +371,9 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   let next=0,loaded=0,settled=0;
   function thumbnailSettled(){
     settled++;
-    if(!disposed&&(settled%12===0||settled===slots.length))
+    // Early art is visible as soon as it decodes, while later atlas uploads
+    // stay batched. No forty-nine-times full-texture upload storm.
+    if(!disposed&&(settled<=4||settled%8===0||settled===slots.length))
       atlas.needsUpdate=true;
   }
   // Only keep full-resolution images in the nearby rooms. Offscreen images
@@ -383,6 +391,17 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
       resource.material.dispose();resource.texture.dispose();
     }
     hdResources.clear();
+  }
+  function updatePhotoTransitions(deltaSeconds:number){
+    if(disposed||!Number.isFinite(deltaSeconds))return;
+    // Keep the atlas behind each native image during a short, frame-rate
+    // independent fade. This avoids a black flash during upload or eviction.
+    const dt=Math.max(0,Math.min(.1,deltaSeconds));
+    for(const {material} of hdResources.values()){
+      if(material.opacity<1){
+        material.opacity=Math.min(1,material.opacity+dt*4.5);
+      }
+    }
   }
   function updateNearPhotos(player:{x:number;z:number},
     focusedPhotoId:string|null=null){
@@ -474,12 +493,14 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
         tex.anisotropy=8;
         tex.needsUpdate=true;
         const material=new THREE.MeshBasicMaterial({
-          map:tex,side:THREE.DoubleSide,depthWrite:true,
+          map:tex,side:THREE.DoubleSide,toneMapped:false,
+          transparent:true,opacity:0,depthWrite:false,depthTest:true,
           polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,
         });
         hdResources.set(i,{texture:tex,material});
         hdMeshes[i].material=material;
-        photoTargets[i].visible=false;
+        // Leave the atlas beneath the transparent native photo until the
+        // transition has fully settled, so no missing-photo flash can occur.
         hdMeshes[i].visible=true;
       }).catch(()=>{
         // A permanent 404/decode error should leave the atlas visible and
@@ -527,7 +548,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     highResolutionPhotos:()=>hdResources.size,
     highResolutionHasPhoto:(id:string)=>slots.some((s,i)=>s.id===id&&hdResources.has(i)),
     atlasEdgePixels:()=>columns*tileW,
-    updateNearPhotos,releaseHighResolution,
+    updateNearPhotos,updatePhotoTransitions,releaseHighResolution,
     dispose(){
       disposed=true;
       releaseHighResolution();
