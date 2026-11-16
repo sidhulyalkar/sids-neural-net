@@ -374,3 +374,106 @@
 @media (prefers-contrast: more) {
   .page { --hairline: var(--ink); --chapter-wash: var(--paper-raised); }
 }
+/* A publisher-reported research spread. No fabricated bar-chart geometry;
+   source-linked typography carries the actual scientific distinctions. */
+.editorialDigest { margin: clamp(16px,3vw,34px) 0 clamp(42px,6vw,76px); }
+.digestHead {
+  display: grid; grid-template-columns: minmax(0,1.4fr) minmax(220px,.65fr);
+  gap: 28px; align-items: end; border-top: 2px solid var(--ink);
+  padding: clamp(22px,2.6vw,36px) 0 24px;
+}
+.digestOverline, .digestOrdinal {
+  display: block; color: var(--accent);
+  font: 650 10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing: .12em;
+}
+.digestHead h2 {
+  font: 400 clamp(24px,2.4vw,34px)/1.2 Georgia,Cambria,serif;
+  letter-spacing: -.025em; max-width: 25ch; text-wrap: balance; margin: 14px 0 0;
+}
+.digestHead > p {
+  color: var(--muted); font: 400 12px/1.7 system-ui,sans-serif;
+  max-width: 34ch; margin: 0;
+}
+.digestGrid {
+  display: grid; grid-template-columns: repeat(4,minmax(0,1fr));
+  border-top: 1px solid var(--hairline,var(--line));
+  border-bottom: 1px solid var(--hairline,var(--line));
+}
+.digestSignal {
+  padding: 19px clamp(14px,2vw,28px) 22px 0;
+  margin: 0; min-width: 0;
+}
+.digestSignal + .digestSignal {
+  border-left: 1px solid var(--hairline,var(--line));
+  padding-left: clamp(14px,2vw,28px);
+}
+.digestOrdinal { font-size: 9px; white-space: nowrap; letter-spacing: .04em; }
+.digestValue {
+  display: block; margin: 26px 0 17px; color: var(--ink);
+  font: 400 clamp(30px,3.6vw,50px)/1 Georgia,Cambria,serif;
+  letter-spacing: -.048em; font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+.digestSignal h3 {
+  color: var(--ink); font: 600 13px/1.4 system-ui,sans-serif;
+  margin: 0 0 10px; text-wrap: pretty;
+}
+.digestSignal p {
+  color: var(--muted); font: 400 12px/1.65 system-ui,sans-serif;
+  margin: 0 0 16px; text-wrap: pretty; overflow-wrap: anywhere;
+}
+.digestSignal a,.digestInsight a {
+  display: inline-flex; min-height: 44px; align-items: center; gap: 6px;
+  color: var(--accent); font: 650 11px/1.4 system-ui,sans-serif; text-decoration: none;
+}
+.digestSignal a:hover,.digestInsight a:hover {
+  text-decoration: underline; text-underline-offset: 4px;
+}
+.digestInsight {
+  display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  gap: clamp(22px,3vw,45px); padding: 23px 0 12px;
+}
+.digestInsight h3 {
+  max-width: 27ch; font: 400 clamp(20px,2.2vw,30px)/1.25 Georgia,Cambria,serif;
+  margin: 10px 0 0; letter-spacing: -.026em; text-wrap: balance;
+}
+.digestInsight p {
+  color: var(--ink); font: 400 13px/1.7 system-ui,sans-serif;
+  max-width: 58ch; margin: 0;
+}
+@media (max-width: 980px) {
+  .digestGrid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .digestSignal { padding: 20px 19px 22px 0; }
+  .digestSignal + .digestSignal { padding-left: 19px; }
+  .digestSignal:nth-child(3) {
+    border-left: 0; padding-left: 0;
+    border-top: 1px solid var(--hairline,var(--line));
+  }
+  .digestSignal:nth-child(4) { border-top: 1px solid var(--hairline,var(--line)); }
+}
+@media (max-width: 560px) {
+  .digestHead { grid-template-columns: minmax(0,1fr); gap: 14px; padding-top: 22px; }
+  .digestHead h2 { font-size: 26px; }
+  .digestHead > p { max-width: none; }
+  .digestGrid { grid-template-columns: minmax(0,1fr); }
+  .digestSignal,.digestSignal + .digestSignal,.digestSignal:nth-child(3),.digestSignal:nth-child(4) {
+    display: grid; grid-template-columns: minmax(0,103px) minmax(0,1fr);
+    gap: 6px 16px; padding: 18px 0;
+    border: 0; border-top: 1px solid var(--hairline,var(--line));
+  }
+  .digestSignal:first-child { border-top: 0; }
+  .digestOrdinal { grid-column: 1/-1; margin-bottom: 3px; }
+  .digestValue {
+    grid-column: 1; grid-row: 2/span 3; align-self: start;
+    margin: 4px 0 0; font-size: clamp(28px,7.5vw,38px);
+  }
+  .digestSignal h3 { grid-column: 2; grid-row: 2; margin: 0; }
+  .digestSignal p { grid-column: 2; grid-row: 3; margin: 0; font-size: 11px; line-height: 1.6; }
+  .digestSignal a { grid-column: 2; grid-row: 4; font-size: 11px; }
+  .digestInsight { grid-template-columns: minmax(0,1fr); gap: 14px; }
+  .digestInsight h3 { max-width: none; }
+}
+@media (prefers-contrast: more) {
+  .editorialDigest { --hairline: var(--ink); }
+  .digestSignal p,.digestHead > p { color: var(--ink); }
+}

@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, Expand, Minimize, FileText, Images, ShieldCheck } from 'lucide-react';
 import type { StoryManifest, EvidenceRecord } from '@/lib/frontier/evidence/schema';
+import type { SourceEditorial } from '@/lib/frontier/evidence/editorial';
 import { sourceChapterMap } from '@/lib/frontier/evidence/sourceChapterMap';
 import { sourcePreview } from '@/lib/frontier/evidence/sourcePreview';
 import styles from './frontier-evidence-story.module.css';
@@ -15,6 +16,7 @@ type Props = {
   summary?: string;
   /** Manifest-keyed URLs generated and verified server-side. Never raw publisher paths. */
   assets: Record<string, string>;
+  editorial?: SourceEditorial | null;
   syntheticFixture?: boolean;
 };
 
@@ -29,7 +31,7 @@ function vettedAssetUrl(src: string | undefined): string | null {
   }
 }
 
-export function FrontierEvidenceStory({ manifest, title, summary, assets, syntheticFixture = false }: Props) {
+export function FrontierEvidenceStory({ manifest, title, summary, assets, editorial, syntheticFixture = false }: Props) {
   const chapters = sourceChapterMap(manifest);
   const lead = sourcePreview(summary);
   const figureScene = manifest.scenes.find((scene) => scene.type === 'original-figure');
@@ -98,6 +100,44 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, synthe
             </a>
           </div>
         </div>
+
+        {editorial ? (
+          <section className={styles.editorialDigest} aria-label="Publisher-reported research highlights"
+            data-frontier-editorial-source={editorial.source.id}>
+            <div className={styles.digestHead}>
+              <div>
+                <span className={styles.digestOverline}>THE RESEARCH RECORD / PUBLISHER REPORTED</span>
+                <h2>{editorial.question}</h2>
+              </div>
+              <p>Four source-linked signals. Each number opens its original paper section, and none is an independently replicated result.</p>
+            </div>
+            <div className={styles.digestGrid}>
+              {editorial.signals.map((signal, index) => (
+                <article key={signal.id} className={styles.digestSignal}>
+                  <span className={styles.digestOrdinal}>{String(index + 1).padStart(2, '0')} / REPORTED</span>
+                  <strong className={styles.digestValue}>{signal.value}</strong>
+                  <h3>{signal.label}</h3>
+                  <p>{signal.detail}</p>
+                  <a href={signal.sourceUrl} target="_blank" rel="noopener noreferrer">
+                    Check source <ArrowUpRight size={13} aria-hidden="true"/>
+                  </a>
+                </article>
+              ))}
+            </div>
+            <div className={styles.digestInsight}>
+              <div>
+                <span className={styles.digestOverline}>{editorial.insight.label}</span>
+                <h3>{editorial.insight.title}</h3>
+              </div>
+              <div>
+                <p>{editorial.insight.detail}</p>
+                <a href={editorial.insight.sourceUrl} target="_blank" rel="noopener noreferrer">
+                  Read the authors’ discussion <ArrowUpRight size={14} aria-hidden="true"/>
+                </a>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <div className={`${styles.storyGrid} ${figures.length === 0 ? styles.storyGridSourceOnly : ''}`}>
           <section className={`${styles.stage} ${figures.length === 0 ? styles.stageSourceOnly : ''}`} aria-label="Original scientific figures">

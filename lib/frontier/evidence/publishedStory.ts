@@ -6,6 +6,7 @@ import { resolve, relative, isAbsolute, sep } from 'node:path';
 import { z } from 'zod';
 import { parseQualifiedStoryManifest } from './eligibility';
 import type { StoryManifest } from './schema';
+import { parseSourceEditorial, type SourceEditorial } from './editorial';
 
 const CONTENT_DIR = resolve(process.cwd(), 'content/frontier/stories');
 const STORY_ID = /^[a-z0-9][a-z0-9_-]{2,119}$/;
@@ -24,6 +25,7 @@ const AssetIndexSchema = z.array(z.strictObject({
 type AssetRecord = z.infer<typeof AssetIndexSchema>[number];
 export type PublishedStory = {
   manifest: StoryManifest;
+  editorial: SourceEditorial | null;
   assetPaths: Record<string, string>;
   /** Private index, never serialized to the client. */
   assetIndex: AssetRecord[];
@@ -70,6 +72,22 @@ export async function getPublishedStory(id: string): Promise<PublishedStory | nu
   const manifest = parseQualifiedStoryManifest(await readBoundedJson(resolve(canonical, 'manifest.json')));
   if (manifest.itemId !== id) throw new Error('Published manifest identity does not match route ID');
 
+  // An optional, bounded editorial record is still held to the same exact
+  // source/revision provenance as the already qualified evidence manifest.
+  let editorial: SourceEditorial | null = null;
+  const editorialPath = resolve(canonical, 'editorial.json');
+  try {
+    const file = await lstat(editorialPath);
+    if (!file.isFile() || file.isSymbolicLink() || file.size > 24_000) {
+      throw new Error('Source editorial must be a bounded regular JSON artifact');
+    }
+    editorial = parseSourceEditorial(
+      JSON.parse(await readFile(editorialPath, 'utf8')) as unknown, manifest,
+    );
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+
   const assetIndex = AssetIndexSchema.parse(await readBoundedJson(resolve(canonical, 'assets.json')));
   const matched = new Map<string, AssetRecord>();
   for (const asset of assetIndex) {
@@ -88,7 +106,7 @@ export async function getPublishedStory(id: string): Promise<PublishedStory | nu
     const digest = figure.assetKey.slice('sha256:'.length);
     assetPaths[figure.assetKey] = '/api/frontier/story-assets/' + encodeURIComponent(id) + '/' + digest;
   }
-  return { manifest, directory: canonical, assetIndex, assetPaths };
+  return { manifest, editorial, directory: canonical, assetIndex, assetPaths };
 }
 
 export async function readPublishedStoryAsset(
