@@ -186,6 +186,9 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   let selectedHighRes=new Set<number>();
   const hdResources=new Map<number,{texture:THREE.Texture;material:THREE.Material}>();
   const loading=new Set<number>();
+  // A broken full-resolution file must not instantly retry forever when
+  // the bounded decoder queue pumps. Re-arm on explicit photo/room changes.
+  const failedHighRes=new Set<number>();
   const photoEntries=new Map(visualArchive.map(p=>[p.id,p]));
   let disposed=false;
   let lastFocusedRoom=-1;
@@ -369,6 +372,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   // remain legible at atlas quality and never flash blank while HD loads.
   function releaseHighResolution(){
     selectedHighRes.clear();
+    failedHighRes.clear();
     lastFocusedRoom=-1;
     lastFocusedPhotoId=null;
     lastSelectionPosition=null;
@@ -393,6 +397,8 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
        lastSelectionPosition&&
        Math.hypot(player.x-lastSelectionPosition.x,
          player.z-lastSelectionPosition.z)<1.15)return;
+    if(focusedRoom!==lastFocusedRoom||focusedPhotoId!==lastFocusedPhotoId)
+      failedHighRes.clear();
     lastFocusedRoom=focusedRoom;
     lastFocusedPhotoId=focusedPhotoId;
     lastSelectionPosition={x:player.x,z:player.z};
@@ -418,8 +424,9 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
    */
   function startHighResolutionRequests(){
     if(disposed)return;
+    const blocked=new Set([...hdResources.keys(),...failedHighRes]);
     const requests=galleryDecodeQueue([...selectedHighRes],
-      new Set(hdResources.keys()),loading,2);
+      blocked,loading,2);
     for(const i of requests){
       const entry=photoEntries.get(slots[i].id);
       if(!entry)continue;
@@ -474,7 +481,11 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
         hdMeshes[i].material=material;
         photoTargets[i].visible=false;
         hdMeshes[i].visible=true;
-      }).catch(()=>{/* Atlas stays visible when a native file cannot decode. */})
+      }).catch(()=>{
+        // A permanent 404/decode error should leave the atlas visible and
+        // never spin the decode queue on the same bad URL this session.
+        if(!disposed)failedHighRes.add(i);
+      })
         .finally(()=>{
           loading.delete(i);
           // Resume against the CURRENT priority list, not the stale room.
