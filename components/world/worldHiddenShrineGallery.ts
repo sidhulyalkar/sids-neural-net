@@ -1,6 +1,6 @@
 import * as THREE from "three/src/Three.Core.js";
 import { visualArchive } from "@/src/data/visualArchive";
-import {galleryHighResPriority,galleryAtlasTileSize,galleryDecodeQueue} from "@/lib/world/galleryPhotoStreaming";
+import {galleryHighResPriority,galleryAtlasTileSize,galleryDecodeQueue,galleryNativeTextureSize} from "@/lib/world/galleryPhotoStreaming";
 import { GeometryBatch } from "./worldGeometry";
 import {
   SHRINE_GALLERY, GALLERY_ROOMS, galleryDoorSide,
@@ -443,7 +443,24 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
         }
         positions.needsUpdate=true;
         hdMeshes[i].geometry.computeBoundingSphere();
-        const tex=new THREE.Texture(image);
+        // Keep archival originals accessible, but avoid paying for 2400px
+        // native GPU textures on 390px screens. Use a contained draw,
+        // never a crop. These canvases are only created for oversized images.
+        const uploadSize=galleryNativeTextureSize(
+          image.naturalWidth,image.naturalHeight,highResCap===2);
+        let uploadSource:HTMLImageElement|HTMLCanvasElement=image;
+        if(uploadSize.needsResize){
+          const surface=document.createElement("canvas");
+          surface.width=uploadSize.width;surface.height=uploadSize.height;
+          const context=surface.getContext("2d",{alpha:false});
+          if(context){
+            context.imageSmoothingEnabled=true;
+            context.imageSmoothingQuality="high";
+            context.drawImage(image,0,0,surface.width,surface.height);
+            uploadSource=surface;
+          }
+        }
+        const tex=new THREE.Texture(uploadSource);
         tex.colorSpace=THREE.SRGBColorSpace;
         tex.minFilter=THREE.LinearMipmapLinearFilter;
         tex.magFilter=THREE.LinearFilter;
