@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - "lib/world/hiddenShrineGallery.ts"
+      - "lib/world/galleryReturn.ts"
+      - "tests/world-gallery-exit-return.test.ts"
+      - "components/world/WorldHome.tsx"
       - "components/world/worldHiddenShrineGallery.ts"
       - "components/world/worldRenderer.ts"
       - "lib/world/galleryPhotoStreaming.ts"
@@ -32,7 +35,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Frame and link geometry unit tests
-        run: node --import tsx --test tests/world-hidden-shrine-gallery.test.ts tests/world-gallery-archive-links.test.ts tests/world-gallery-photo-streaming.test.ts
+        run: node --import tsx --test tests/world-hidden-shrine-gallery.test.ts tests/world-gallery-archive-links.test.ts tests/world-gallery-photo-streaming.test.ts tests/world-gallery-exit-return.test.ts
       - name: Install Chromium
         run: |
           npm install --prefix /tmp/iland-gallery-playwright --no-package-lock playwright@1.56.1
