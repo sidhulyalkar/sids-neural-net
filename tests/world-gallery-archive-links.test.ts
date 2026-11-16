@@ -25,7 +25,9 @@ test("deep links are canonical and reject unrelated query data",()=>{
 test("photo wall retains native high resolution near the visitor, never draws IDs",()=>{
   const source=readFileSync(new URL("../components/world/worldHiddenShrineGallery.ts",import.meta.url),"utf8");
   assert.match(source,/image\.src=entry\.src/);
-  assert.match(source,/new THREE\.Texture\(image\)/);
+  // New bounded-HD streaming may resize onto a canvas before GPU upload.
+  assert.match(source,/galleryNativeTextureSize\(/);
+  assert.match(source,/new THREE\.Texture\(uploadSource\)/);
   assert.match(source,/LinearMipmapLinearFilter/);
   assert.match(source,/selectedHighRes\.has\(i\)/);
   assert.match(source,/hdResources\.size/);
