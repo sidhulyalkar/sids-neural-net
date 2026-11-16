@@ -7,6 +7,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {parseGalleryDestination,photoArchiveHref} from "@/lib/world/galleryLinks";
+import {visualArchive} from "@/src/data/visualArchive";
 import type {GalleryPhase} from "@/lib/world/hiddenShrineGallery";
 import {
   Component,
@@ -344,7 +345,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
     }
     if(id.startsWith("gallery-photo:")){
       const photoId=id.slice("gallery-photo:".length);
-      router.push(photoArchiveHref(photoId));
+      // Keep the player's museum and snorkeling position alive during
+      // full-size inspection. The original photography deep link remains
+      // available from the dialog as an explicit choice.
+      if(visualArchive.some(photo=>photo.id===photoId))
+        open("museum-photo:"+photoId);
+      else router.push(photoArchiveHref(photoId));
       return;
     }
     open(id);
@@ -524,6 +530,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const carvedGame = Number.isInteger(carvedGameIndex) ? content.games[carvedGameIndex] : undefined;
   const photo = content.photos.find((p) => p.id === panel ||
     (panel === "sloth-portrait" && p.id === "photo-050"));
+  const museumPhoto=panel?.startsWith("museum-photo:")
+    ?visualArchive.find(p=>p.id===panel.slice("museum-photo:".length)):undefined;
   const video = content.videos.find((item) => item.id === panel);
   const caption = MEMORY_POINTS.find((m) => m.id === panel);
   const trident = UNDERWATER_TRIDENTS.find((a) => a.id === panel);
@@ -834,7 +842,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             )}
           </p>
           <div className={styles.touchHelp} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
-            {galleryPhase==="inside" ? "Use joysticks to walk and look · Tap photograph to open · Exit gallery to resume swimming" :
+            {galleryPhase==="inside" ? "Tap artwork to inspect its frame · Tap again for the full photo · Exit gallery to resume swimming" :
               aquatic === "land" ? "Tap ground to move · Drag to look" : "Tap water to swim · Drag to look"}
           </div>
         </>
@@ -848,7 +856,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       )}
       <dialog
         ref={dialog}
-        className={`${styles.dialog} ${photo || panel === "trident-lagoon" ? styles.photoDialog : ""}`}
+        className={`${styles.dialog} ${photo || museumPhoto || panel === "trident-lagoon" ? styles.photoDialog : ""}`}
         onCancel={(event) => {
           event.preventDefault();
           close();
@@ -1041,6 +1049,27 @@ export function WorldHome({ content }: { content: WorldContent }) {
               <p className={styles.photoCaption}>{video.detail}</p>
               <button onClick={close}>Back to reef</button>
             </>
+          )}
+          {museumPhoto && (
+            <section className={styles.museumPhotoInspection} aria-label="Museum photograph inspection">
+              <p className={styles.eyebrow}>SUBMERGED PHOTO MUSEUM · {museumPhoto.id}</p>
+              <h2 id="world-panel-title">{museumPhoto.title ?? "From the visual archive"}</h2>
+              <Image
+                className={styles.museumPhotoImage}
+                src={museumPhoto.src}
+                alt={museumPhoto.alt}
+                width={museumPhoto.width}
+                height={museumPhoto.height}
+                sizes="(max-width: 760px) 92vw, 1000px"
+              />
+              <p className={styles.photoCaption}>{museumPhoto.location} · {museumPhoto.alt}</p>
+              <div className={styles.museumPhotoActions}>
+                <button type="button" onClick={close}>Return to the gallery</button>
+                <Link href={photoArchiveHref(museumPhoto.id)} prefetch={false}>
+                  View in photography archive
+                </Link>
+              </div>
+            </section>
           )}
           {photo && (
             <>
