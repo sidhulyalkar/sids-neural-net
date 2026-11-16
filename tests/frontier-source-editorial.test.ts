@@ -66,7 +66,7 @@ test('research material without a conceptual treatment still validates as a sour
 
 test('conceptual flow rejects unapproved source sections or repeated/removed phases', () => {
   const editorial = parseSourceEditorial(raw, manifest);
-  const mutate = (fn: (editorial: typeof editorial) => void) => {
+  const mutate = (fn: (candidate: typeof editorial) => void) => {
     const candidate = structuredClone(editorial);
     fn(candidate);
     return candidate;
