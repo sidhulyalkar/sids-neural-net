@@ -40,7 +40,7 @@ test("same-room focus, movement and release can reselect image residency",()=>{
  assert.match(scene,/galleryHighResPriority\(/);
  assert.match(scene,/highResolutionHasPhoto/);
  assert.match(renderer,/updateNearPhotos\(player,focusedPhotoId\)/);
- assert.match(renderer,/hiddenGalleryFocusedHD/);
+ assert.match(renderer,/hiddenGalleryFocusedHd/);
 });
 test("mobile gallery atlas saves memory without reducing native-image cap",()=>{
  assert.equal(galleryAtlasTileSize(false),384);

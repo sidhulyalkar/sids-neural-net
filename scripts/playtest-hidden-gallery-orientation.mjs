@@ -51,6 +51,7 @@ try{
     document.querySelector('canvas[role="application"]')?.dataset.hiddenGalleryFocusedHd==="true",
     null,{timeout:30000});
    result.highResFocus=await canvas.getAttribute("data-hidden-gallery-focused-hd");
+   assert.equal(result.highResFocus,"true");
    await page.waitForTimeout(500);
    result.fov=await canvas.getAttribute("data-hidden-gallery-fov");
    assert.equal(result.fov,vp.name==="mobile"?"92.0":"74.0");
