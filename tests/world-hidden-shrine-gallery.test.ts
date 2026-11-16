@@ -295,7 +295,11 @@ test("render integration keeps opaque wall architecture and cavern-specific dive
   assert.match(scene,/sealed-stone-photo-gallery/);
   assert.match(scene,/opaque-gallery-stone-shell/);
   assert.match(scene,/CanvasTexture/);
-  assert.doesNotMatch(scene,/MeshPhysicalMaterial|transmission:|transparent:\s*true|opacity:\s*0\.\d/i);
+  // Only the photo overlay is transparent; the physical stone shell is not.
+  const stoneMaterial=scene.match(/const stone = new THREE\\.MeshStandardMaterial\\(\\{([\\s\\S]*?)\\}\\);/)?.[1];
+  assert.ok(stoneMaterial,"opaque museum shell material must exist");
+  assert.match(stoneMaterial,/depthWrite:true, depthTest:true/);
+  assert.doesNotMatch(stoneMaterial,/transparent:|opacity:|transmission:/);
   assert.match(runtime,/galleryPhase==="descending"/);
   assert.match(runtime,/galleryConstrainMove/);
   assert.match(runtime,/hiddenShrineGallery\.interior\.visible=galleryPhase!=="outside"/);
