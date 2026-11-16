@@ -116,7 +116,8 @@ try{
    assert.equal(result.exit.locomotion,"swimming");
    assert.equal(result.exit.camera,"third-person");
    assert.equal(result.exit.focus,"");
-   assert.equal(result.exit.player,"-62.00,7.00");
+   assert.deepEqual(result.exit.player.split(",").map(Number),[-62,7],
+    "return location must be the real shrine swim position regardless of telemetry formatting");
    assert.ok(result.exit.depth>=.52&&result.exit.depth<4);
    await page.screenshot({path:path.join(out,vp.name+"-03-gallery-return-to-sea.png")});
    assert.deepEqual(errors,[]);
