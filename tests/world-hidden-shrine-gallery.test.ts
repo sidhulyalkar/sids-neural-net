@@ -10,6 +10,7 @@ import {
   galleryFloorFootprint, galleryDoorThresholds, galleryCeilingTiles,
   GALLERY_FLOOR_GEOMETRY, galleryStepWalk, GALLERY_VIEWING,
   galleryPhotoViewpoint, galleryPhotoClearance, galleryImageContainScale,
+  galleryFrameFitsWall, galleryFocusedFov, galleryFocusedViewpoint,
 } from "../lib/world/hiddenShrineGallery";
 
 test("the shrine is a discoverable WEST-coast underwater entrance near the UCSD trident",()=>{
@@ -186,7 +187,7 @@ test("all actual archive photographs appear exactly once in the hidden cave",()=
   assert.deepEqual(slots.map(p=>p.id).sort(),visualArchive.map(p=>p.id).sort());
   for(const photo of slots){
     assert.ok(photo.roomIndex>=0&&photo.roomIndex<GALLERY_ROOMS.length);
-    assert.ok(photo.width>=1.5);
+    assert.ok(photo.width>=1.1&&photo.height>=1.5);
     assert.ok(photo.y<SHRINE_GALLERY.roofY);
     assert.ok(photo.y>SHRINE_GALLERY.floorY);
   }
@@ -207,10 +208,12 @@ test("all 49 photographs have the same eye-level straight-on viewing pose",()=>{
   assert.ok(focusHalfHeight>ornamentAboveEye+.06,
     "The entire elaborate pediment fits within the focused camera");
   for(const slot of slots){
-    assert.equal(slot.width,v.imageWidth);
+    const entry=visualArchive.find(e=>e.id===slot.id)!;
+    assert.ok(Math.abs(slot.aspectRatio-entry.width/entry.height)<1e-9);
+    assert.ok(Math.abs(slot.width/slot.height-slot.aspectRatio)<1e-9);
     assert.equal(slot.y,SHRINE_GALLERY.floorY+v.imageCenterAboveFloor);
     const position=galleryPhotoViewpoint(slot);
-    assert.ok(galleryWalkable(position),slot.id+" has a walkable front-on viewpoint");
+    assert.ok(galleryWalkable(position),slot.id+" has a walkable front-on viewpoint: "+JSON.stringify({slot,position,room:GALLERY_ROOMS[slot.roomIndex]}));
     assert.ok(galleryPhotoClearance(slot),slot.id+" has no blocked viewing corridor");
     const delta={x:position.x-slot.x,z:position.z-slot.z};
     assert.ok(Math.abs(Math.hypot(delta.x,delta.z)-v.standOff)<1e-8);
@@ -236,11 +239,11 @@ test("native images are never distorted inside the common-size frames",()=>{
   assert.deepEqual(galleryImageContainScale(0,0),{width:1,height:1});
   const renderer=readFileSync(
     new URL("../components/world/worldHiddenShrineGallery.ts",import.meta.url),"utf8");
-  assert.match(renderer,/galleryImageContainScale\(image\.naturalWidth,image\.naturalHeight\)/);
+  assert.match(renderer,/galleryImageContainScale\(image\.naturalWidth,image\.naturalHeight,/);
   assert.match(renderer,/photoTargets\[i\]\.visible=false/);
   assert.match(renderer,/photoTargets\[i\]\.visible=true/);
   assert.match(renderer,/photoPickTargets\.push\(hd\)/);
-  assert.match(renderer,/const fit=galleryImageContainScale\(image\.naturalWidth,image\.naturalHeight\)/);
+  assert.match(renderer,/const fit=galleryImageContainScale\(image\.naturalWidth,image\.naturalHeight,/);
   assert.match(renderer,/const w=\(tileW-12\)\*fit\.width/);
   assert.match(renderer,/hd\.userData\.discovery=slot\.id/);
 });
@@ -258,23 +261,25 @@ test("frames are outside door apertures and cannot block corridor approaches",()
       slot.id+" frame must leave meaningful clear space at doorway");
   }
   const double=slots.filter(s=>s.roomIndex===0&&s.side==="south");
-  assert.deepEqual(double.map(s=>s.id).sort(),["photo-003","photo-049"]);
+  assert.deepEqual(double.map(s=>s.mountId).sort(),
+    ["room-0-south-left","room-0-south-right"]);
   const separation=Math.abs(double[0].x-double[1].x);
-  assert.ok(separation>v.imageWidth+2*v.frameOutsideArtwork+.4,
+  assert.ok(separation>(double[0].width+double[1].width)/2+
+    2*v.frameOutsideArtwork+.4,
     "Paired photos have independent frame clearance");
   const lineOfSightSpacing=Math.hypot(
     galleryPhotoViewpoint(double[0]).x-galleryPhotoViewpoint(double[1]).x,
     galleryPhotoViewpoint(double[0]).z-galleryPhotoViewpoint(double[1]).z,
   );
   assert.ok(lineOfSightSpacing>2*v.clearRadius+.5);
-  assert.ok(!slots.some(s=>s.id==="photo-049"&&Math.abs(s.yaw)!==Math.PI),
-    "The 49th picture must be straight wall-mounted, not diagonal freestanding");
+  assert.ok(!slots.some(s=>s.mountId==="room-0-south-left"&&Math.abs(s.yaw)!==Math.PI),
+    "The 49th picture must be straight wall-mounted, not diagonal freestanding: "+JSON.stringify(slots.find(s=>s.mountId==="room-0-south-left")));
 });
 
 test("no freestanding plinth or corner columns occlude the equal-view artwork",()=>{
   const source=readFileSync(
     new URL("../components/world/worldHiddenShrineGallery.ts",import.meta.url),"utf8");
-  assert.match(source,/GALLERY_VIEWING\.imageHeight/);
+  assert.match(source,/const imageHeight=slot\.height/);
   assert.doesNotMatch(source,/const entrancePhoto=galleryPhotoSlots/);
   assert.doesNotMatch(source,/for\(const dx of \[-h\+\.38,h-\.38\]\)/);
   assert.match(source,/All 49 frames are wall-mounted|all 49 frames are wall-mounted/i);
@@ -292,4 +297,94 @@ test("render integration keeps opaque wall architecture and cavern-specific dive
   assert.match(runtime,/hiddenShrineGallery\.interior\.visible=galleryPhase!=="outside"/);
   assert.match(runtime,/terrain\.setIndex\(keep\)/);
   assert.match(runtime,/hiddenShrineGallery\.dispose\(\)/);
+});
+
+
+test("horizontal originals receive genuinely wide gilded frames only on full solid walls",()=>{
+ const slots=galleryPhotoSlots();
+ let landscape=0,portrait=0;
+ for(const slot of slots){
+  const meta=visualArchive.find(p=>p.id===slot.id)!;
+  const ratio=meta.width/meta.height;
+  assert.ok(galleryFrameFitsWall(slot),slot.id+" frame projects beyond the wall");
+  assert.ok(Math.abs(slot.width/slot.height-ratio)<1e-10,
+    slot.id+" changed the original photographic aspect");
+  assert.ok(slot.width<=3.2+.001,"wide frame exceeds authored material budget");
+  if(ratio>1.06){
+   landscape++;
+   assert.equal(slot.wallKind,"full",
+    slot.id+" landscape illegally hung on a doorway or paired wall");
+   assert.ok(slot.width>slot.height,slot.id+" must show horizontal image natively");
+   assert.ok(slot.width>2.5,slot.id+" should visibly use broad wall space");
+  }else{
+   portrait++;
+   assert.ok(slot.height>slot.width,slot.id+" must retain portrait proportions");
+  }
+ }
+ assert.equal(landscape,23);
+ assert.equal(portrait,26);
+ assert.equal(slots.length,49);
+});
+
+test("portrait door returns, entrance pair and photographs have non-overlapping outer frames",()=>{
+ const slots=galleryPhotoSlots();
+ for(const a of slots){
+  const nearby=slots.filter(b=>a.roomIndex===b.roomIndex&&
+    a.side===b.side&&a.mountId!==b.mountId);
+  for(const b of nearby){
+   const lateral=a.side==="north"||a.side==="south";
+   const separation=lateral?Math.abs(a.x-b.x):Math.abs(a.z-b.z);
+   const minSeparation=(a.width+b.width)/2+
+     2*GALLERY_VIEWING.frameOutsideArtwork+.24;
+   assert.ok(separation>=minSeparation,
+     a.mountId+" and "+b.mountId+" frames overlap");
+  }
+  if(a.wallKind!=="full"){
+   assert.ok(a.width<1.8,"small wall runs can hold only small portraits");
+   assert.ok(a.aspectRatio<1,"landscape clipped into a door surround");
+  }
+ }
+});
+
+test("metadata/native replacement fallback preserves aspect without cropping",()=>{
+ for(const slot of galleryPhotoSlots()){
+  const meta=visualArchive.find(p=>p.id===slot.id)!;
+  assert.deepEqual(galleryImageContainScale(meta.width,meta.height,
+    slot.width/slot.height),{width:1,height:1});
+  const changed=galleryImageContainScale(1920,1080,slot.width/slot.height);
+  assert.ok(Math.abs((changed.width/changed.height)*(slot.width/slot.height)
+    -(1920/1080))<1e-9);
+ }
+ const code=readFileSync(new URL("../components/world/worldHiddenShrineGallery.ts",
+  import.meta.url),"utf8");
+ assert.match(code,/const imageHeight=slot\.height/);
+ assert.match(code,/slot\.width\/slot\.height/);
+ assert.match(code,/const slot=slots\[i\]/);
+ assert.match(code,/hd\.userData\.discovery=slot\.id/);
+ assert.match(code,/selectedHighRes\.has\(i\)/);
+});
+
+
+test("portrait viewports see the full wide gilded frame without leaving the museum chamber",()=>{
+ const aspect=390/844;
+ for(const slot of galleryPhotoSlots()){
+  const mobile=galleryFocusedViewpoint(slot,aspect);
+  const desktop=galleryFocusedViewpoint(slot,1440/900);
+  const standard=galleryPhotoViewpoint(slot);
+  assert.deepEqual(desktop,standard,"desktop viewing poses remain unchanged");
+  assert.equal(galleryFocusedFov(slot,aspect),92);
+  assert.equal(galleryFocusedFov(slot,1440/900),74);
+  assert.ok(galleryWalkable(mobile),slot.id+" phone focus is outside stone room");
+  const distance=Math.hypot(mobile.x-slot.x,mobile.z-slot.z);
+  assert.ok(distance>=GALLERY_VIEWING.standOff);
+  assert.ok(distance<SHRINE_GALLERY.halfRoom*2-.7);
+  const visibleWidth=2*distance*Math.tan(92*Math.PI/360)*aspect;
+  const outside=slot.width+2*GALLERY_VIEWING.frameOutsideArtwork+.38;
+  assert.ok(visibleWidth>=outside*1.04,
+    slot.id+" full frame clips on portrait phone");
+ }
+ const renderer=readFileSync(
+  new URL("../components/world/worldRenderer.ts",import.meta.url),"utf8");
+ assert.match(renderer,/galleryFocusedViewpoint\(focus,camera\.aspect\)/);
+ assert.match(renderer,/galleryFocusedFov\(gallerySlots\[galleryFocusIndex\],camera\.aspect\)/);
 });

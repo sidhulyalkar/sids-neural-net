@@ -58,9 +58,9 @@ test("the website and three-dimensional galleries share bidirectional navigation
   assert.match(renderer,/lastGalleryCameraPhase="outside"/);
   assert.match(renderer,/explorer\.visible=!jetChoosing&&!cameraInsideAvatar&&galleryPhase!=="inside"/);
   assert.match(renderer,/galleryFocusIndex/);
-  assert.match(renderer,/galleryPhotoViewpoint\(gallerySlots\[galleryFocusIndex\]\)/);
+  assert.match(renderer,/galleryFocusedViewpoint\(gallerySlots\[galleryFocusIndex\],camera\.aspect\)/);
   assert.match(renderer,/galleryPhase==="inside"\?"eye-level":"third-person"/);
-  assert.match(renderer,/galleryFocusIndex===null\?68:74/);
+  assert.match(renderer,/galleryFocusIndex===null\?68:galleryFocusedFov\(gallerySlots\[galleryFocusIndex\],camera\.aspect\)/);
   assert.match(renderer,/camera\.updateProjectionMatrix\(\)/);
   assert.match(renderer,/canvas\.dataset\.hiddenGalleryFov/);
   assert.match(renderer,/galleryFocusIndex=null;e\.preventDefault\(\);return/);
