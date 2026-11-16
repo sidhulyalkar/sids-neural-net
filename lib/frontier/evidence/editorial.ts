@@ -43,7 +43,9 @@ export const SourceEditorialSchema = z.strictObject({
   question: z.string().trim().min(15).max(220),
   signals: z.array(Signal).min(2).max(4),
   insight: Insight,
-  mechanisms: z.array(ResearchMechanism).length(2),
+  // Optional teaching treatment: source records without a qualified conceptual
+  // pathway retain their existing publisher-only presentation.
+  mechanisms: z.array(ResearchMechanism).length(2).optional(),
 });
 export type SourceEditorial = z.infer<typeof SourceEditorialSchema>;
 
@@ -73,7 +75,7 @@ export function parseSourceEditorial(input: unknown, manifest: StoryManifest): S
   // Original section anchors provide provenance for the explanatory model.
   // This is editorial interpretation, never a publisher figure or measured graph.
   const mechanismIds = new Set<string>();
-  for (const mechanism of editorial.mechanisms) {
+  for (const mechanism of editorial.mechanisms ?? []) {
     if (mechanismIds.has(mechanism.id)) throw new Error('Repeated research mechanism');
     mechanismIds.add(mechanism.id);
     if (!anchored.has(mechanism.sourceUrl) ||
@@ -81,7 +83,7 @@ export function parseSourceEditorial(input: unknown, manifest: StoryManifest): S
       throw new Error('Research explanation must cite reviewed publisher sections');
     }
   }
-  if (!mechanismIds.has('discovery') || !mechanismIds.has('selection')) {
+  if (editorial.mechanisms && (!mechanismIds.has('discovery') || !mechanismIds.has('selection'))) {
     throw new Error('Research mechanism must distinguish discovery and selection');
   }
   return editorial;
