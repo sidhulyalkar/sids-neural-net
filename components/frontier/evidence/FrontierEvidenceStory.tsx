@@ -47,6 +47,8 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, editor
   const [selectedChapter, setSelectedChapter] = useState<string>(firstChapter);
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState<string[]>([]);
+  const [mechanismFocus, setMechanismFocus] = useState<'discovery' | 'selection'>('discovery');
+  const mechanism = editorial?.mechanisms.find((entry) => entry.id === mechanismFocus);
 
   const index = Math.min(activeIndex, Math.max(0, figures.length - 1));
   const activeChapter = chapters.find((chapter) => chapter.id === selectedChapter);
@@ -134,6 +136,58 @@ export function FrontierEvidenceStory({ manifest, title, summary, assets, editor
                 <a href={editorial.insight.sourceUrl} target="_blank" rel="noopener noreferrer">
                   Read the authors’ discussion <ArrowUpRight size={14} aria-hidden="true"/>
                 </a>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {editorial && mechanism ? (
+          <section className={styles.mechanismSection} aria-label="Source-cited AgentSSL mechanism"
+            data-frontier-explanation="editorial">
+            <div className={styles.mechanismHeading}>
+              <div>
+                <span className={styles.mechanismKicker}>FIELD GUIDE / THE UNDERLYING MECHANISM</span>
+                <h2>Two decisions.<br/>Two very different problems.</h2>
+              </div>
+              <p>An editorial schematic based on the authors’ problem formulation.
+                Not an original paper figure, a measured performance chart, or a simulation.</p>
+            </div>
+            <div className={styles.mechanismFrame}>
+              <div className={styles.mechanismControl} role="group" aria-label="Research process phase">
+                {editorial.mechanisms.map((entry) => (
+                  <button type="button" key={entry.id}
+                    aria-pressed={mechanismFocus === entry.id}
+                    className={styles.mechanismTab} onClick={() => setMechanismFocus(entry.id)}>
+                    <span>{entry.label}</span>
+                    <strong>{entry.title}</strong>
+                  </button>
+                ))}
+              </div>
+              <div className={styles.mechanismContent} data-mechanism-phase={mechanism.id}
+                aria-live="polite">
+                <div className={styles.mechanismIntro}>
+                  <span>THE {mechanism.id.toUpperCase()} PROBLEM</span>
+                  <p>{mechanism.explanation}</p>
+                </div>
+                <ol className={styles.mechanismSteps}>
+                  {mechanism.stages.map((step, index) => (
+                    <li key={step.label} className={styles.mechanismStep}>
+                      <span className={styles.mechanismStepNumber}>{String(index + 1).padStart(2, '0')}</span>
+                      <h3>{step.label}</h3>
+                      <p>{step.detail}</p>
+                      <a href={step.sourceUrl} target="_blank" rel="noopener noreferrer">
+                        Source section <ArrowUpRight size={13} aria-hidden="true"/>
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+                <div className={styles.mechanismTakeaway}>
+                  <span>WHY THIS DISTINCTION MATTERS</span>
+                  <p>{mechanism.takeaway}</p>
+                  <a href={mechanism.sourceUrl} target="_blank" rel="noopener noreferrer">
+                    Inspect the authors’ formulation <ArrowUpRight size={14} aria-hidden="true"/>
+                  </a>
+                </div>
               </div>
             </div>
           </section>
