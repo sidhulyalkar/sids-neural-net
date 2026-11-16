@@ -27,6 +27,7 @@ const EDITION_LIMIT = 36;
 type Props = {
   initialItems: FrontierItem[];
   generatedAt: string;
+  publishedInvestigation?: { id: string; title: string; url: string } | null;
 };
 
 function sourceDate(date: string): string {
@@ -37,7 +38,7 @@ function sourceDate(date: string): string {
 }
 
 /** One DOM article and at most one image are mounted at any point in time. */
-export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
+export function FrontierFocusReader({ initialItems, generatedAt, publishedInvestigation }: Props) {
   // Deterministic diverse first edition during SSR, before preference hydration.
   const [baseItems, setItems] = useState(() => selectDailyRun(initialItems, {}, EDITION_LIMIT));
   const [poolItems, setPoolItems] = useState<FrontierItem[]>(initialItems);
@@ -485,6 +486,17 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
       {contentsOpen ? (
         <section id="frontier-contents" className={styles.contentsPanel} aria-label="Edition contents">
           <div className={styles.contentsHeading}><div><span className={styles.overline}>THE CURRENT EDITION</span><h2>Explore the issue.</h2></div><button type="button" onClick={() => setContentsOpen(false)} aria-label="Close contents">Close ×</button></div>
+          {publishedInvestigation ? (
+            <Link href={publishedInvestigation.url} className={styles.contentsInvestigation}
+              data-frontier-deep-link="true">
+              <span className={styles.investigationEyebrow}>A VERIFIED INVESTIGATION / DEEP READING</span>
+              <strong>{publishedInvestigation.title}</strong>
+              <span className={styles.investigationDetail}>
+                Explore the authors’ published results, source chapters, and the open questions behind the findings.
+              </span>
+              <span className={styles.investigationAction}>Explore the research <ArrowRight size={15} aria-hidden="true" /></span>
+            </Link>
+          ) : null}
           <div className={styles.contentsGrid}>{items.map((entry, index) => (
             <button type="button" key={entry.id} className={styles.contentsEntry} data-realm={journalRealm(entry)} aria-current={position === index ? 'true' : undefined} onClick={() => { move(index - position); setContentsOpen(false); }}>
               <span className={styles.contentsOrdinal}>{String(index + 1).padStart(2, '0')}</span>
@@ -632,6 +644,12 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
                 </div>
 
                 <div className={styles.articleActions}>
+                  {publishedInvestigation?.id === item.id ? (
+                    <Link href={publishedInvestigation.url} data-frontier-current-deep-link="true"
+                      className={styles.sourceLink} onClick={() => { readerInteractedRef.current = true; recordOpen(item); }}>
+                      Explore research <ArrowRight size={15} aria-hidden="true" />
+                    </Link>
+                  ) : null}
                   <a href={item.url} target="_blank" rel="noopener noreferrer"
                     onClick={() => { readerInteractedRef.current = true; recordOpen(item); }}
                     className={styles.sourceLink}>Original <ExternalLink size={15} aria-hidden="true" /></a>
