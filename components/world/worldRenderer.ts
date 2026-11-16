@@ -3777,13 +3777,6 @@ export function createWorld(
       (-(e.clientY - rect.top) / rect.height) * 2 + 1,
     );
     ray.setFromCamera(pointer, camera);
-    const boardHit=ray.intersectObjects(skimProps,false)[0];
-    if(boardHit&&boardHit.distance<60){
-      const index=boardHit.object.userData.skimBoardIndex as number;
-      if(nearbySkimBoard(player)===index)doSkimAction("pickup",index);
-      else if(!mobileJoysticks.enabled||e.pointerType==="mouse")destination=boardPoint(index);
-      return;
-    }
     if(galleryPhase==="inside"){
       const photoHit=ray.intersectObjects([
         ...hiddenShrineGallery.photoTargets,hiddenShrineGallery.stoneMesh],false)[0];
@@ -3801,6 +3794,15 @@ export function createWorld(
         return;
       }
       return; // Under the seabed: never click the terrain above to teleport.
+    }
+    // Other island objects may lie above the buried museum along the same ray.
+    // They never intercept underwater photograph inspection.
+    const boardHit=ray.intersectObjects(skimProps,false)[0];
+    if(boardHit&&boardHit.distance<60){
+      const index=boardHit.object.userData.skimBoardIndex as number;
+      if(nearbySkimBoard(player)===index)doSkimAction("pickup",index);
+      else if(!mobileJoysticks.enabled||e.pointerType==="mouse")destination=boardPoint(index);
+      return;
     }
     const marker = ray.intersectObjects(markerObjects)[0];
     if (marker && marker.distance < 55) {
