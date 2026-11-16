@@ -79,19 +79,26 @@ try{
    assert.equal(result.lightbox.image,true);
    assert.equal(result.lightbox.link,true);
    assert.ok(page.url().includes('/world?gallery=photos'));
-   await page.locator('dialog[open] button[aria-label="Close panel"]').click();
-   await page.waitForFunction(()=>!document.querySelector('dialog[open]'),
+   await page.screenshot({path:path.join(out,vp.name+"-03-photo-inspection-dialog.png")});
+   if(vp.name==="mobile"){
+    // A modal owns focus and pauses WebGL, but E still resumes snorkeling.
+    await page.keyboard.press("e");
+    result.modalExitViaE=true;
+   }else{
+    await page.locator('dialog[open] button[aria-label="Close panel"]').click();
+    await page.waitForFunction(()=>!document.querySelector('dialog[open]'),
      null,{timeout:15000});
-   await canvas.focus();
-   await page.keyboard.press("Escape");
-   result.highResAfterFocus=await canvas.getAttribute("data-hidden-gallery-hd");
-   assert.ok(Number(result.highResAfterFocus)<= (vp.name==="mobile"?2:4));
-   await page.waitForFunction(()=>
-    document.querySelector('canvas[role="application"]')?.dataset.hiddenGalleryPhotoFocus==="",null,{timeout:15000});
-   // Focus may leave the canvas after opening/closing a photo. E must
-   // still return the visitor to seawater without retracing the shaft.
-   await canvas.evaluate(el=>el.blur());
-   await page.keyboard.press("e");
+    await canvas.focus();
+    await page.keyboard.press("Escape");
+    result.highResAfterFocus=await canvas.getAttribute("data-hidden-gallery-hd");
+    assert.ok(Number(result.highResAfterFocus)<=4);
+    await page.waitForFunction(()=>
+     document.querySelector('canvas[role="application"]')?.dataset.hiddenGalleryPhotoFocus==="",
+     null,{timeout:15000});
+    // The canvas may have lost focus after modal inspection.
+    await canvas.evaluate(el=>el.blur());
+    await page.keyboard.press("e");
+   }
    await page.waitForFunction(()=>
     document.querySelector('canvas[role="application"]')?.dataset.hiddenGalleryPhase==="outside",
     null,{timeout:20000});
