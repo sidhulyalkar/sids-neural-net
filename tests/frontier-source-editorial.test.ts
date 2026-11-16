@@ -45,3 +45,46 @@ test('source headings are the only valid claim anchors; the UI cannot invent fig
   const route = fs.readFileSync('app/frontier/story/[id]/page.tsx', 'utf8');
   assert.match(route, /story\.editorial\.title/);
 });
+
+
+test('editorial explanation has two distinct qualified phases and six publisher-anchored stages', () => {
+  const editorial = parseSourceEditorial(raw, manifest);
+  assert.deepEqual(editorial.mechanisms.map((mechanism) => mechanism.id), ['discovery', 'selection']);
+  assert(editorial.mechanisms.every((mechanism) => mechanism.stages.length === 3));
+  for (const mechanism of editorial.mechanisms) {
+    assert(mechanism.stages.every((stage) =>
+      stage.sourceUrl.startsWith('https://arxiv.org/html/2611.17323v1#')));
+    assert(mechanism.sourceUrl.startsWith('https://arxiv.org/html/2611.17323v1#'));
+  }
+});
+
+test('research material without a conceptual treatment still validates as a source-only article', () => {
+  const original = parseSourceEditorial(raw, manifest);
+  const withoutMechanism = { ...original, mechanisms: undefined };
+  assert.equal(parseSourceEditorial(withoutMechanism, manifest).mechanisms, undefined);
+});
+
+test('conceptual flow rejects unapproved source sections or repeated/removed phases', () => {
+  const editorial = parseSourceEditorial(raw, manifest);
+  const mutate = (fn: (candidate: typeof editorial) => void) => {
+    const candidate = structuredClone(editorial);
+    fn(candidate);
+    return candidate;
+  };
+  assert.throws(() => parseSourceEditorial(mutate((x) => {
+    x.mechanisms[0].stages[0].sourceUrl = 'https://arxiv.org/html/2611.17323v1#NotASection';
+  }), manifest));
+  assert.throws(() => parseSourceEditorial(mutate((x) => {
+    x.mechanisms[0].id = 'selection';
+  }), manifest));
+  assert.throws(() => parseSourceEditorial(mutate((x) => {
+    x.mechanisms.pop();
+  }), manifest));
+  assert.throws(() => parseSourceEditorial(mutate((x) => {
+    x.mechanisms[1].sourceUrl = 'https://example.com/other-paper';
+  }), manifest));
+  const reader = fs.readFileSync('components/frontier/evidence/FrontierEvidenceStory.tsx', 'utf8');
+  assert.match(reader, /data-frontier-explanation="editorial"/);
+  assert.match(reader, /setMechanismFocus/);
+  assert.match(reader, /An editorial schematic based on the authors/);
+});

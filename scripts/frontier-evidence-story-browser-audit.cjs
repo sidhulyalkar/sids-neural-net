@@ -229,6 +229,38 @@ async function genuineSourceOnlyPilot(browser) {
         assert(/^https:\/\/arxiv\.org\/html\/2611\.17323v1#[A-Z]/.test(target || ''),
           'A claim must point to the exact source revision and section: ' + target);
       }
+
+      const fieldGuide = page.getByRole('region', { name: 'Source-cited AgentSSL mechanism' });
+      assert.equal(await fieldGuide.count(), 1, 'Only a reviewed editorial may expose the teaching aid');
+      const phase = fieldGuide.locator('[data-mechanism-phase]');
+      assert.equal(await phase.getAttribute('data-mechanism-phase'), 'discovery');
+      assert.equal(await fieldGuide.locator('ol > li').count(), 3,
+        'The discover stage must have exactly three source-anchored explanatory steps');
+      assert.equal(await fieldGuide.getByRole('link').count(), 4,
+        'Each explanatory stage plus the takeaway must cite the publisher');
+      const auditExplanationLinks = async () => {
+        const anchors = await fieldGuide.getByRole('link').all();
+        for (const link of anchors) {
+          const url = await link.getAttribute('href');
+          assert(/^https:\/\/arxiv\.org\/html\/2611\.17323v1#[A-Z]/.test(url || ''),
+            'No original-figure or synthetic data claims: only exact publisher sections: ' + url);
+        }
+      };
+      await auditExplanationLinks();
+      await page.screenshot({ path: OUT + '/agentssl-explain-discovery-' + width + '.png',
+        fullPage: true, animations: 'disabled' });
+      const chooseSelection = fieldGuide.getByRole('button', { name: /02 \/ SELECT/ });
+      await chooseSelection.click();
+      assert.equal(await chooseSelection.getAttribute('aria-pressed'), 'true');
+      assert.equal(await phase.getAttribute('data-mechanism-phase'), 'selection');
+      assert.equal(await fieldGuide.getByText('Measure selection regret').count(), 1);
+      await auditExplanationLinks();
+      await page.screenshot({ path: OUT + '/agentssl-explain-selection-' + width + '.png',
+        fullPage: true, animations: 'disabled' });
+      const chooseDiscovery = fieldGuide.getByRole('button', { name: /01 \/ DISCOVER/ });
+      await chooseDiscovery.click();
+      assert.equal(await phase.getAttribute('data-mechanism-phase'), 'discovery',
+        'The explanation must be reversible without losing the paper reader state');
       assert.equal(await page.getByText(/0 approved display figures/).count(), 1);
       await page.getByRole('heading', { name: 'No approved figures yet' }).waitFor();
       assert.equal(await page.getByRole('button', { name: /Camera signals/i }).count(), 0,

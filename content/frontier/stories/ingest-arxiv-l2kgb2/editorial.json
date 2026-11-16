@@ -44,5 +44,57 @@
     "title": "Discovering a strong program is not the same as selecting one.",
     "detail": "The paper separates search quality from choosing a deployable program without trustworthy labeled validation. It also describes challenges transferring agent-discovered SSL strategies into real ecology detection tasks.",
     "sourceUrl": "https://arxiv.org/html/2611.17323v1#S9"
-  }
+  },
+  "mechanisms": [
+    {
+      "id": "discovery",
+      "label": "01 / DISCOVER",
+      "title": "Search for a learning procedure",
+      "explanation": "An agent explores different executable SSL programs with very little labeled supervision. Search quality asks whether a strong program was found, not whether it can later be identified.",
+      "stages": [
+        {
+          "label": "Start with L and U",
+          "detail": "A small labeled set L and a larger unlabeled set U define the learning task.",
+          "sourceUrl": "https://arxiv.org/html/2611.17323v1#S3.SS2"
+        },
+        {
+          "label": "Generate programs",
+          "detail": "Draft, Debug, Improve and Analyze operators expand and revise executable SSL procedures.",
+          "sourceUrl": "https://arxiv.org/html/2611.17323v1#S3.SS2"
+        },
+        {
+          "label": "Guide search with feedback",
+          "detail": "Unsupervised signals or noisy validation help choose which candidate programs to explore.",
+          "sourceUrl": "https://arxiv.org/html/2611.17323v1#S3.SS3"
+        }
+      ],
+      "takeaway": "In the paper's evaluation, an oracle identifies the best discovered program using test performance. That oracle is not available for real deployment.",
+      "sourceUrl": "https://arxiv.org/html/2611.17323v1#S3.SS2"
+    },
+    {
+      "id": "selection",
+      "label": "02 / SELECT",
+      "title": "Choose one program to use",
+      "explanation": "A strong discovered candidate is only useful if the system can identify it with very few trustworthy validation labels. Selection quality is a separate problem from discovery.",
+      "stages": [
+        {
+          "label": "Consider the program pool",
+          "detail": "Discovery yields multiple candidate SSL programs, each producing a potentially different predictor.",
+          "sourceUrl": "https://arxiv.org/html/2611.17323v1#S3.SS2"
+        },
+        {
+          "label": "Estimate without oracle labels",
+          "detail": "Compare candidates using unsupervised metrics or actively request a limited number of labels.",
+          "sourceUrl": "https://arxiv.org/html/2611.17323v1#S3.SS2"
+        },
+        {
+          "label": "Measure selection regret",
+          "detail": "Compare the chosen program with the best candidate in the pool to quantify the lost test performance.",
+          "sourceUrl": "https://arxiv.org/html/2611.17323v1#S3.SS2"
+        }
+      ],
+      "takeaway": "The paper finds that choosing a program from weak feedback can lose much of the improvement obtained during discovery.",
+      "sourceUrl": "https://arxiv.org/html/2611.17323v1#S5"
+    }
+  ]
 }
