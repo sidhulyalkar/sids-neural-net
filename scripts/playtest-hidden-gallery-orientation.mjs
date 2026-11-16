@@ -69,7 +69,7 @@ try{
    const bounds=await canvas.boundingBox();
    assert.ok(bounds,"museum canvas remains in the viewport");
    await canvas.click({position:{x:bounds.width/2,y:bounds.height/2}});
-   await page.waitForFunction(()=>!!document.querySelector('dialog[open] .museum-photo-test'),
+   await page.waitForFunction(()=>!!document.querySelector('dialog[open] section[aria-label="Museum photograph inspection"]'),
      null,{timeout:15000});
    result.lightbox=await page.locator('dialog[open]').evaluate(el=>({
      image:!!el.querySelector('img'),
