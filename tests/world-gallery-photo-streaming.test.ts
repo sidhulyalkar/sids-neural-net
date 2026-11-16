@@ -128,3 +128,19 @@ test("large archival photos are never cropped or replaced in the website gallery
  assert.match(scene,/new THREE\.Texture\(uploadSource\)/);
  assert.match(scene,/const entry=photoEntries\.get\(slots\[i\]\.id\)/);
 });
+
+test("failed HD decodes do not loop forever and atlas fallback remains available",()=>{
+ const loading=new Set<number>();
+ const failed=new Set<number>([5]);
+ const resident=new Set<number>([...failed]);
+ assert.deepEqual(galleryDecodeQueue([5,6],resident,loading,2),[6]);
+ resident.add(6);
+ assert.deepEqual(galleryDecodeQueue([5,6],resident,loading,2),[]);
+ const scene=readFileSync(
+  new URL("../components/world/worldHiddenShrineGallery.ts",import.meta.url),"utf8");
+ assert.match(scene,/const failedHighRes=new Set<number>\(\)/);
+ assert.match(scene,/failedHighRes\.add\(i\)/);
+ assert.match(scene,/new Set\(\[\.\.\.hdResources\.keys\(\),\.\.\.failedHighRes\]\)/);
+ assert.match(scene,/if\(focusedRoom!==lastFocusedRoom\|\|focusedPhotoId!==lastFocusedPhotoId\)/);
+ assert.match(scene,/failedHighRes\.clear\(\)/);
+});
