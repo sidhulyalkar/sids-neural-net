@@ -69,7 +69,7 @@ import { shrineDiveMarkerSightlineReserved } from "@/lib/world/shrineCoralWayfin
 import { createHiddenShrineGallery } from "./worldHiddenShrineGallery";
 import {restoreGallerySwimPose,type GallerySwimPose} from "@/lib/world/galleryReturn";
 import { createWorldPaperGallery } from "./worldPaperGallery";
-import { SHRINE_GALLERY, GALLERY_VIEWING, galleryConstrainMove, galleryStepWalk, galleryNearShaft, galleryWalkable, shrineReachable, galleryPhotoSlots, galleryPhotoViewpoint, galleryFocusedViewpoint, galleryFocusedFov, galleryPhotoClearance, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
+import { SHRINE_GALLERY, GALLERY_VIEWING, galleryConstrainMove, galleryStepWalk, galleryWalkable, shrineReachable, galleryPhotoSlots, galleryPhotoViewpoint, galleryFocusedViewpoint, galleryFocusedFov, galleryPhotoClearance, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
 import { createHabitats } from "./worldHabitats";
 import { createSkimWake } from "./worldSkimWake";
