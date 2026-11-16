@@ -1299,6 +1299,7 @@ export function createWorld(
   const markerObjects: THREE.Mesh[] = [];
   const hiddenShrineGallery=createHiddenShrineGallery(scene);
   canvas.dataset.hiddenGalleryPhotos=String(hiddenShrineGallery.photoCount);
+  canvas.dataset.hiddenGalleryAtlasEdge=String(hiddenShrineGallery.atlasEdgePixels());
   canvas.dataset.hiddenGalleryVersion="submerged-stone-shrine-v1";
   const cairnPieces: Instance[] = [], markerHitVolumes: Instance[] = [];
   const markerIds: string[] = [];
@@ -7473,8 +7474,11 @@ export function createWorld(
       hideUpland?submergedSurfaceDecor.length:0);
     hiddenShrineGallery.exterior.visible=aquatic!=="land" &&
       distance(player,SHRINE_GALLERY.entrance)<27;
-    if(galleryPhase==="inside")hiddenShrineGallery.updateNearPhotos(player);
+    const focusedPhotoId=galleryFocusIndex===null?null:gallerySlots[galleryFocusIndex].id;
+    if(galleryPhase==="inside")hiddenShrineGallery.updateNearPhotos(player,focusedPhotoId);
     canvas.dataset.hiddenGalleryHD=String(hiddenShrineGallery.highResolutionPhotos());
+    canvas.dataset.hiddenGalleryFocusedHD=String(focusedPhotoId!==null&&
+      hiddenShrineGallery.highResolutionHasPhoto(focusedPhotoId));
     hiddenShrineGallery.interior.visible=galleryPhase!=="outside";
     renderer.render(scene, camera);
     // This per-mode diagnostic is sampled from the *current underwater
