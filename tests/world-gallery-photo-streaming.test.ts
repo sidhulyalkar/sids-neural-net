@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {galleryPhotoSlots} from "../lib/world/hiddenShrineGallery";
-import {galleryAtlasGpuBytes,galleryAtlasTileSize,galleryHighResPriority,galleryDecodeQueue}
+import {galleryAtlasGpuBytes,galleryAtlasTileSize,galleryHighResPriority,galleryDecodeQueue,galleryNativeTextureSize}
  from "../lib/world/galleryPhotoStreaming";
 
 const slots=galleryPhotoSlots();
@@ -101,4 +101,30 @@ test("scene pumps the newest focus selection when one decoder settles",()=>{
  assert.match(scene,/if\(!disposed\)startHighResolutionRequests\(\)/);
  assert.match(scene,/loading\.delete\(i\)/);
  assert.match(scene,/hdResources\.has\(i\)/);
+});
+
+test("native GPU uploads preserve image orientation while respecting viewport budget",()=>{
+ const portraitPhone=galleryNativeTextureSize(1800,2400,true);
+ assert.deepEqual(portraitPhone,{width:1152,height:1536,needsResize:true});
+ const landscapePhone=galleryNativeTextureSize(2400,1800,true);
+ assert.deepEqual(landscapePhone,{width:1536,height:1152,needsResize:true});
+ const desktop=galleryNativeTextureSize(1800,2400,false);
+ assert.deepEqual(desktop,{width:1536,height:2048,needsResize:true});
+ const small=galleryNativeTextureSize(1000,700,true);
+ assert.deepEqual(small,{width:1000,height:700,needsResize:false});
+ assert.deepEqual(galleryNativeTextureSize(1800,2400,false,1024),
+  {width:768,height:1024,needsResize:true});
+ assert.ok(Math.abs(portraitPhone.width/portraitPhone.height-1800/2400)<1e-10);
+ assert.ok(Math.abs(landscapePhone.width/landscapePhone.height-2400/1800)<1e-10);
+ const before=1800*2400*4*4/3;
+ const after=portraitPhone.width*portraitPhone.height*4*4/3;
+ assert.ok(after/before<.42,"native mobile frame should save >58% GPU pixels");
+});
+test("large archival photos are never cropped or replaced in the website gallery",()=>{
+ const scene=readFileSync(
+   new URL("../components/world/worldHiddenShrineGallery.ts",import.meta.url),"utf8");
+ assert.match(scene,/galleryNativeTextureSize\(/);
+ assert.match(scene,/context\.drawImage\(image,0,0,surface\.width,surface\.height\)/);
+ assert.match(scene,/new THREE\.Texture\(uploadSource\)/);
+ assert.match(scene,/const entry=photoEntries\.get\(slots\[i\]\.id\)/);
 });
