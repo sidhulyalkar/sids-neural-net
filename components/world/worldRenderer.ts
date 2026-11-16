@@ -67,6 +67,7 @@ import { createWorldTridents } from "./worldTridents";
 import { createShrineCoralWayfinding } from "./worldShrineCoralWayfinding";
 import { shrineDiveMarkerSightlineReserved } from "@/lib/world/shrineCoralWayfinding";
 import { createHiddenShrineGallery } from "./worldHiddenShrineGallery";
+import {restoreGallerySwimPose,type GallerySwimPose} from "@/lib/world/galleryReturn";
 import { createWorldPaperGallery } from "./worldPaperGallery";
 import { SHRINE_GALLERY, GALLERY_VIEWING, galleryConstrainMove, galleryStepWalk, galleryNearShaft, galleryWalkable, shrineReachable, galleryPhotoSlots, galleryPhotoViewpoint, galleryFocusedViewpoint, galleryFocusedFov, galleryPhotoClearance, type GalleryPhase } from "@/lib/world/hiddenShrineGallery";
 import { nearbyUnderwaterTrident } from "@/lib/world/artifacts";
@@ -3354,6 +3355,7 @@ export function createWorld(
   }
   let aquatic: AquaticMode = "land", swimDepth = 0, targetDepth = 0;
   let galleryPhase:GalleryPhase="outside";
+  let galleryReturn:GallerySwimPose|null=null;
   let lastGalleryCameraPhase:GalleryPhase="outside";
   let lastNotifiedGalleryPhase:GalleryPhase="outside";
   const gallerySlots=galleryPhotoSlots();
@@ -3829,6 +3831,25 @@ export function createWorld(
     }
     callbacks.onSkim(skimHeat);
   }
+  function exitGalleryToSnorkeling(){
+    if(galleryPhase!=="inside")return;
+    const pose=restoreGallerySwimPose(galleryReturn);
+    canvas.dataset.hiddenGalleryLastExit=galleryReturn?"saved":"shrine-fallback";
+    galleryReturn=null;
+    galleryPhase="outside";
+    galleryFocusIndex=null;
+    // Drop museum walking input and click destinations before restoring the
+    // diver; otherwise a held key or queued waypoint immediately moves them.
+    clearInput();
+    player={...pose.point};
+    travel={point:player,speed:0,heading:{...pose.heading}};
+    swimDepth=pose.swimDepth;
+    targetDepth=pose.targetDepth;
+    playerY=SEA_SURFACE-swimDepth;
+    yaw=pose.yaw;pitch=pose.pitch;zoom=pose.zoom;
+    setAquaticMode("dive");
+    canvas.focus({preventScroll:true});
+  }
   function onKey(e: KeyboardEvent) {
     if (!state.entered || state.paused || e.metaKey || e.ctrlKey || e.altKey)
       return;
@@ -3846,12 +3867,22 @@ export function createWorld(
     // Canvas focus can move to a touch/accessible control while riding.
     // Keep steering active inside the world, but never grab keys from the
     // surrounding site or a text field.
-    if(e.target !== canvas && !(jetSki&&
+    const galleryTarget=galleryPhase==="inside"&&(
+      e.target===document.body||
+      (e.target instanceof Node&&host.contains(e.target)&&
+        !(e.target instanceof HTMLElement&&e.target.closest(
+          "button,input,textarea,select,[contenteditable]"))));
+    if(e.target!==canvas&&!galleryTarget&&!(jetSki&&
       (e.target===document.body||host.contains(e.target as Node))))return;
     const key = e.key.toLowerCase();
     // F aligns the lens to an identical museum viewing pose near a framed
     // photograph. ESC returns to ordinary first-person walking immediately.
     if(galleryPhase==="inside"){
+      if(key==="e"){
+        e.preventDefault();
+        if(!e.repeat)exitGalleryToSnorkeling();
+        return;
+      }
       if(key==="escape"&&galleryFocusIndex!==null){
         galleryFocusIndex=null;e.preventDefault();return;
       }
@@ -3976,13 +4007,16 @@ export function createWorld(
     if (aquatic === "land") return;
     if(galleryPhase==="descending"||galleryPhase==="ascending")return;
     if(galleryPhase==="inside"){
-      if(galleryNearShaft(player)&&(action==="surface"||action==="shallower")){
-        galleryPhase="ascending";destination=null;
-      }
+      if(action==="surface"||action==="shallower")exitGalleryToSnorkeling();
       return;
     }
     if(action==="deeper" && aquatic==="dive" && shrineReachable(player,swimDepth)){
+      galleryReturn={
+        point:{...player},swimDepth,targetDepth,
+        heading:{...travel.heading},yaw,pitch,zoom,
+      };
       galleryPhase="descending";
+      delete canvas.dataset.hiddenGalleryLastExit;
       destination=null;
       return;
     }
@@ -5724,9 +5758,9 @@ export function createWorld(
       canvas.dataset.hiddenGalleryPhotosReady=String(hiddenShrineGallery.loadedPhotos());
       const nearShrine=distance(player,SHRINE_GALLERY.entrance)<3.5;
       const hint=galleryPhase==="inside"
-        ? (galleryNearShaft(player)?"Press E to return through the shrine":
-          galleryFocusIndex===null?"Walk · F to align a nearby picture · click to open":
-          "Photo view · F or Esc to walk · click to open")
+        ? (galleryFocusIndex===null
+          ?"Press E to resume snorkeling · F to inspect a photograph"
+          :"Press E to resume snorkeling · F or Esc to walk")
         : galleryPhase==="descending"?"Descending into the hidden gallery"
         : galleryPhase==="ascending"?"Ascending to the seabed"
         : aquatic==="dive" && nearShrine
@@ -7820,7 +7854,8 @@ export function createWorld(
           {x:0,z:r.id==="north-shore"||r.id==="canyon"?1:-1} };
         airHeight = verticalSpeed = swimDepth = targetDepth = 0;
         galleryPhase="outside";lastGalleryCameraPhase="outside";
-        galleryFocusIndex=null;
+        galleryReturn=null;galleryFocusIndex=null;
+        delete canvas.dataset.hiddenGalleryLastExit;
         climb = null;
         grind = null;
         const arrivalIsCanyon=r.id==="canyon"&&!flowStart&&!galleryStart;
