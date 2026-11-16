@@ -43,6 +43,8 @@ test("museum focus, touch inspection, accessible lightbox and ocean exit stay co
   assert.match(runtime,/prefers-reduced-motion: reduce/);
   assert.match(runtime,/galleryReturnVeil\.remove\(\)/);
   assert.match(ui,/open\("museum-photo:"\+photoId\)/);
+  assert.match(ui,/panel\?\.startsWith\("museum-photo:"\)/);
+  assert.match(ui,/setWaterAction\("surface"\);setWaterActionSerial/);
   assert.match(ui,/Museum photograph inspection/);
   assert.match(ui,/Return to the gallery/);
   assert.match(ui,/photoArchiveHref\(museumPhoto\.id\)/);
