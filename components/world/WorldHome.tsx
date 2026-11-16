@@ -800,6 +800,13 @@ export function WorldHome({ content }: { content: WorldContent }) {
               )}
             </aside>
           )}
+          {galleryPhase==="inside" && skim.phase==="off" && (
+            <div className={styles.waterDock} role="group" aria-label="Photo gallery exit">
+              <button className={styles.surfaceButton} onClick={() => waterControl("surface")}>
+                Exit gallery · resume snorkeling
+              </button>
+            </div>
+          )}
           {aquatic !== "land" && galleryPhase!=="inside" && skim.phase==="off" && (
             <div className={styles.waterDock} role="group" aria-label="Swimming depth controls">
               <span className={styles.waterMode}>{aquatic === "surface" ? "Snorkeling" : "Diving"}</span>
@@ -816,7 +823,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
           )}
           <p className={styles.controls} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
             {galleryPhase==="inside" ? (
-              <>WASD / arrows to walk <span>·</span> F to focus photograph <span>·</span> Esc to resume <span>·</span> Click to open <span>·</span> E to exit near shrine</>
+              <>WASD / arrows to walk <span>·</span> F to inspect <span>·</span> Esc to stop inspecting <span>·</span> Click to open <span>·</span> E to resume snorkeling</>
             ) : aquatic === "land" ? (
               <>WASD / arrows to move <span>·</span> Drag to look <span>·</span>{" "}
                 Space to {activityConfig(activity).action.toLowerCase()} <span>·</span> M for menu</>
@@ -827,7 +834,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
             )}
           </p>
           <div className={styles.touchHelp} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
-            {galleryPhase==="inside" ? "Use joysticks to walk and look · Tap photograph to open" :
+            {galleryPhase==="inside" ? "Use joysticks to walk and look · Tap photograph to open · Exit gallery to resume swimming" :
               aquatic === "land" ? "Tap ground to move · Drag to look" : "Tap water to swim · Drag to look"}
           </div>
         </>
