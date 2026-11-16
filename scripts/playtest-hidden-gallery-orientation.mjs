@@ -61,6 +61,30 @@ try{
    assert.ok(Number(result.highResAfterFocus)<= (vp.name==="mobile"?2:4));
    await page.waitForFunction(()=>
     document.querySelector('canvas[role="application"]')?.dataset.hiddenGalleryPhotoFocus==="",null,{timeout:15000});
+   // Focus may leave the canvas after opening/closing a photo. E must
+   // still return the visitor to seawater without retracing the shaft.
+   await canvas.evaluate(el=>el.blur());
+   await page.keyboard.press("e");
+   await page.waitForFunction(()=>
+    document.querySelector('canvas[role="application"]')?.dataset.hiddenGalleryPhase==="outside",
+    null,{timeout:20000});
+   result.exit=await canvas.evaluate(el=>({
+    phase:el.dataset.hiddenGalleryPhase,
+    locomotion:el.dataset.hiddenGalleryLocomotion,
+    camera:el.dataset.hiddenGalleryCamera,
+    player:el.dataset.player,
+    depth:Number(el.dataset.hiddenGalleryDepth),
+    origin:el.dataset.hiddenGalleryLastExit,
+    focus:el.dataset.hiddenGalleryPhotoFocus
+   }));
+   assert.equal(result.exit.origin,"shrine-fallback");
+   assert.equal(result.exit.phase,"outside");
+   assert.equal(result.exit.locomotion,"swimming");
+   assert.equal(result.exit.camera,"third-person");
+   assert.equal(result.exit.focus,"");
+   assert.equal(result.exit.player,"-62.00,7.00");
+   assert.ok(result.exit.depth>=.52&&result.exit.depth<4);
+   await page.screenshot({path:path.join(out,vp.name+"-03-gallery-return-to-sea.png")});
    assert.deepEqual(errors,[]);
    result.passed=true;
    console.log("GALLERY-WALL-ORIENTATION-PASS",JSON.stringify(result));
