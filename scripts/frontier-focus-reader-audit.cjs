@@ -405,6 +405,42 @@ async function auditSourceVideo() {
   }
 }
 
+async function auditDeepResearchJourney() {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  try {
+    await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
+    await page.locator('article h1').waitFor();
+    await page.locator('[aria-controls="frontier-contents"]').click();
+    const sourceLink = page.locator('[data-frontier-deep-link="true"]');
+    await sourceLink.waitFor();
+    assert.equal(await sourceLink.getAttribute('href'), '/frontier/story/ingest-arxiv-l2kgb2',
+      'Only the server-qualified published manuscript may receive the deep-reading link');
+    fs.mkdirSync(path.resolve('artifacts/frontier/journal'), { recursive: true });
+    await page.screenshot({ path: 'artifacts/frontier/journal/investigation-entry-390.png',
+      fullPage: true, animations: 'disabled' });
+    await sourceLink.click();
+    await page.waitForURL('**/frontier/story/ingest-arxiv-l2kgb2');
+    await page.getByRole('heading', { name: /AgentSSL: Can MLE Agents/ }).waitFor();
+    const editorial = page.getByRole('region', { name: 'Publisher-reported research highlights' });
+    assert.equal(await editorial.count(), 1,
+      'Deep-reading navigation must reach a real, reviewed evidence editorial');
+    assert.equal(await editorial.locator('article').count(), 4,
+      'The manuscript should expose only the four source-verified reported signals');
+    assert.equal(await page.locator('[data-frontier-story] img').count(), 0,
+      'Unapproved source figures must remain absent');
+    const viewport = await page.evaluate(() => ({
+      width: document.documentElement.scrollWidth, viewport: innerWidth,
+    }));
+    assert(viewport.width <= viewport.viewport + 2,
+      'Deep reading must preserve mobile geometry: ' + JSON.stringify(viewport));
+    return { sourceVerifiedDeepLink: true, publisherSignals: 4, figurePermissionPreserved: true };
+  } finally {
+    await page.close();
+    await browser.close();
+  }
+}
+
 async function main() {
   const results = [];
   results.push(await audit(1440, 900));
@@ -412,6 +448,7 @@ async function main() {
   results.push(await audit(320, 700));
   results.push(await auditBackgroundLatest());
   results.push(await auditSourceVideo());
+  results.push(await auditDeepResearchJourney());
   console.log('FRONTIER focus reader audit:', JSON.stringify(results));
 }
 
