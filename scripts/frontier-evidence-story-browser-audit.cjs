@@ -210,6 +210,19 @@ async function genuineSourceOnlyPilot(browser) {
       await page.getByRole('heading', { name: /AgentSSL/ }).first().waitFor();
       assert.equal(await page.locator('[data-frontier-story] img').count(), 0,
         'Real paper must not load unreviewed publisher image bytes');
+      const signals = page.getByRole('region', { name: 'Publisher-reported research highlights' });
+      assert.equal(await signals.count(), 1, 'The reviewed source should display its evidence index');
+      assert.equal(await signals.locator('article').count(), 4,
+        'Only the four citation-anchored publisher-reported signals may be displayed');
+      assert.equal(await signals.getByText('8 / 12', { exact: true }).count(), 1);
+      assert.equal(await signals.getByText('16,977', { exact: true }).count(), 1);
+      const publisherLinks = await signals.getByRole('link').all();
+      assert.equal(publisherLinks.length, 5, 'Four original result anchors and one limitation anchor');
+      for (const link of publisherLinks) {
+        const target = await link.getAttribute('href');
+        assert(/^https:\/\/arxiv\.org\/html\/2611\.17323v1#[A-Z]/.test(target || ''),
+          'A claim must point to the exact source revision and section: ' + target);
+      }
       assert.equal(await page.getByText(/0 approved display figures/).count(), 1);
       await page.getByRole('heading', { name: 'No approved figures yet' }).waitFor();
       assert.equal(await page.getByRole('button', { name: /Camera signals/i }).count(), 0,
@@ -243,13 +256,16 @@ async function genuineSourceOnlyPilot(browser) {
         return {
           viewport: window.innerWidth,
           scrollWidth: document.documentElement.scrollWidth,
+          digestWidth: article?.querySelector('[data-frontier-editorial-source]')?.getBoundingClientRect().width ?? -1,
           statusHeight: sourceStatus?.getBoundingClientRect().height ?? -1,
           lead: lead?.textContent ?? '',
         };
       });
+      assert(geometry.digestWidth > 0 && geometry.digestWidth <= width,
+        'Source evidence spread must fit the viewport: ' + JSON.stringify(geometry));
       assert(geometry.statusHeight > 0 && geometry.statusHeight < 235,
         'Missing-media indicator must be a compact notice rather than a giant figure stage: ' + JSON.stringify(geometry));
-      assert(geometry.lead.length <= 430 && geometry.lead.endsWith('abundant.'),
+      assert(geometry.lead.length <= 430 && geometry.lead.endsWith('validation.'),
         'Source preview must use only complete original paper sentences: ' + JSON.stringify(geometry));
       assert(!geometry.lead.includes('performance drop'), 'Truncated claims must not appear as findings');
       assert(geometry.scrollWidth <= geometry.viewport + 2,
