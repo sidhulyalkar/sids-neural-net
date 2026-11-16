@@ -7477,7 +7477,10 @@ export function createWorld(
     const focusedPhotoId=galleryFocusIndex===null?null:gallerySlots[galleryFocusIndex].id;
     if(galleryPhase==="inside")hiddenShrineGallery.updateNearPhotos(player,focusedPhotoId);
     canvas.dataset.hiddenGalleryHD=String(hiddenShrineGallery.highResolutionPhotos());
-    canvas.dataset.hiddenGalleryFocusedHD=String(focusedPhotoId!==null&&
+    // Match the browser-facing data-hidden-gallery-hd attribute while also
+    // keeping the older uppercase-acronym dataset property compatible.
+    canvas.dataset.hiddenGalleryHd=canvas.dataset.hiddenGalleryHD;
+    canvas.dataset.hiddenGalleryFocusedHd=String(focusedPhotoId!==null&&
       hiddenShrineGallery.highResolutionHasPhoto(focusedPhotoId));
     hiddenShrineGallery.interior.visible=galleryPhase!=="outside";
     renderer.render(scene, camera);
