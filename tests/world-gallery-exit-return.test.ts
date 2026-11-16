@@ -50,5 +50,7 @@ test("world renderer prioritizes gallery E before swimming, skate and ski bindin
   assert.match(s,/if\(!e\.repeat\)exitGalleryToSnorkeling\(\)/);
   assert.match(s,/galleryReturn=\{\s*point:\{\.\.\.player\},swimDepth,targetDepth/);
   assert.match(s,/if\(action==="surface"\|\|action==="shallower"\)exitGalleryToSnorkeling\(\)/);
-  assert.match(s,/galleryPhase="outside";\s*galleryFocusIndex=null;/);
+  assert.match(s,/galleryPhase="outside";/);
+  assert.match(s,/galleryFocusIndex=null;/);
+  assert.match(s,/player=\{\.\.\.pose\.point\}/);
 });
