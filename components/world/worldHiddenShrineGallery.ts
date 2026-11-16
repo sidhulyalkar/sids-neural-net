@@ -1,6 +1,6 @@
 import * as THREE from "three/src/Three.Core.js";
 import { visualArchive } from "@/src/data/visualArchive";
-import {galleryHighResPriority,galleryAtlasTileSize} from "@/lib/world/galleryPhotoStreaming";
+import {galleryHighResPriority,galleryAtlasTileSize,galleryDecodeQueue} from "@/lib/world/galleryPhotoStreaming";
 import { GeometryBatch } from "./worldGeometry";
 import {
   SHRINE_GALLERY, GALLERY_ROOMS, galleryDoorSide,
@@ -408,17 +408,26 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
       resource.material.dispose();resource.texture.dispose();
       hdResources.delete(i);
     }
-    for(const i of candidates){
-      if(hdResources.has(i)||loading.has(i))continue;
+    startHighResolutionRequests();
+  }
+  /**
+   * Keep browser image decoders bounded independently from GPU texture
+   * residency. A focus change can select entirely different photos while
+   * older image.decode() promises are in flight. They are discarded unless
+   * still selected. When one settles, the newest requested photo is next.
+   */
+  function startHighResolutionRequests(){
+    if(disposed)return;
+    const requests=galleryDecodeQueue([...selectedHighRes],
+      new Set(hdResources.keys()),loading,2);
+    for(const i of requests){
       const entry=photoEntries.get(slots[i].id);
       if(!entry)continue;
       loading.add(i);
       const image=new Image();
       image.decoding="async";image.src=entry.src;
       void image.decode().then(()=>{
-        if(disposed||!selectedHighRes.has(i))return;
-        // The physical ornate frame already matches the source aspect;
-        // preserve a matte only if replacement pixels differ from metadata.
+        if(disposed||!selectedHighRes.has(i)||hdResources.has(i))return;
         const slot=slots[i];
         const fit=galleryImageContainScale(image.naturalWidth,image.naturalHeight,
           slot.width/slot.height);
@@ -448,7 +457,12 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
         hdMeshes[i].material=material;
         photoTargets[i].visible=false;
         hdMeshes[i].visible=true;
-      }).catch(()=>{}).finally(()=>loading.delete(i));
+      }).catch(()=>{/* Atlas stays visible when a native file cannot decode. */})
+        .finally(()=>{
+          loading.delete(i);
+          // Resume against the CURRENT priority list, not the stale room.
+          if(!disposed)startHighResolutionRequests();
+        });
     }
   }
   const entries=photoEntries;
