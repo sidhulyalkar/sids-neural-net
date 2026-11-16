@@ -547,6 +547,11 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     loadedPhotos:()=>loaded,
     highResolutionPhotos:()=>hdResources.size,
     highResolutionHasPhoto:(id:string)=>slots.some((s,i)=>s.id===id&&hdResources.has(i)),
+    transitionOpacity:(id:string|null)=>{
+      if(id===null)return 0;
+      const i=slots.findIndex(slot=>slot.id===id);
+      return i<0?0:(hdResources.get(i)?.material.opacity??0);
+    },
     atlasEdgePixels:()=>columns*tileW,
     updateNearPhotos,updatePhotoTransitions,releaseHighResolution,
     dispose(){
