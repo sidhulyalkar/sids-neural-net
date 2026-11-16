@@ -240,8 +240,12 @@ test("native images are never distorted inside the common-size frames",()=>{
   const renderer=readFileSync(
     new URL("../components/world/worldHiddenShrineGallery.ts",import.meta.url),"utf8");
   assert.match(renderer,/galleryImageContainScale\(image\.naturalWidth,image\.naturalHeight,/);
-  assert.match(renderer,/photoTargets\[i\]\.visible=false/);
+  // During the native-HD crossfade the thumbnail atlas remains underneath;
+  // hiding it immediately would produce a visible empty-image flash.
+  assert.doesNotMatch(renderer,/photoTargets\[i\]\.visible=false/);
   assert.match(renderer,/photoTargets\[i\]\.visible=true/);
+  assert.match(renderer,/hdMeshes\[i\]\.visible=true/);
+  assert.match(renderer,/transparent:true,opacity:0/);
   assert.match(renderer,/photoPickTargets\.push\(hd\)/);
   assert.match(renderer,/const fit=galleryImageContainScale\(image\.naturalWidth,image\.naturalHeight,/);
   assert.match(renderer,/const w=\(tileW-12\)\*fit\.width/);
