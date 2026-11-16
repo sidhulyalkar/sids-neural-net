@@ -357,7 +357,14 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
     plank(interior,r.x,bottom+3.55,r.z,.34,.17,.34,material);
   }
   // Start only a bounded number of decodes concurrently.
-  let next=0,loaded=0;
+  // Upload the atlas in a few batches so the first wall becomes visible
+  // before every photograph has decoded. Never upload 49 full 7x7 textures.
+  let next=0,loaded=0,settled=0;
+  function thumbnailSettled(){
+    settled++;
+    if(!disposed&&(settled%12===0||settled===slots.length))
+      atlas.needsUpdate=true;
+  }
   // Only keep full-resolution images in the nearby rooms. Offscreen images
   // remain legible at atlas quality and never flash blank while HD loads.
   function releaseHighResolution(){
@@ -448,7 +455,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
   const worker=async()=>{
     while(next<slots.length && !disposed){
       const i=next++,entry=entries.get(slots[i].id);
-      if(!entry||!ctx)continue;
+      if(!entry||!ctx){thumbnailSettled();continue;}
       try{
         const image=new Image();
         image.src=entry.thumbSrc;
@@ -465,6 +472,7 @@ export function createHiddenShrineGallery(scene: THREE.Scene) {
         ctx.drawImage(image,tx+(tileW-w)/2,ty+(tileH-h)/2,w,h);
         loaded++;
       }catch{/* The labelled fallback for this image remains visible. */}
+      finally{thumbnailSettled();}
     }
   };
   void Promise.all(Array.from({length:6},()=>worker())).then(()=>{
