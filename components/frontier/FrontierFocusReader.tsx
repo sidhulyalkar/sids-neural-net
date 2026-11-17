@@ -21,6 +21,7 @@ import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierFeedResponse, FrontierItem } from '@/lib/frontier/types';
 import styles from './frontier-journal.module.css';
+import { FrontierIssueAtlas } from './FrontierIssueAtlas';
 
 const EDITION_LIMIT = 36;
 
@@ -439,7 +440,8 @@ export function FrontierFocusReader({ initialItems, generatedAt, publishedInvest
 
   return (
     <section className={styles.reader} aria-label="Frontier focused reader" data-frontier-journal="true"
-      data-frontier-edition-at={editionAt} data-realm={presentation?.realm ?? sectionMeta.realm} data-format={presentation?.format ?? "brief"}>
+      data-frontier-edition-at={editionAt} data-realm={presentation?.realm ?? sectionMeta.realm}
+      data-format={presentation?.format ?? "brief"} data-cover-open={contentsOpen ? 'true' : 'false'}>
       <header className={styles.masthead}>
         <div className={styles.identity}><Link href="/" className={styles.brand}>FRONTIER<span className={styles.brandDot}>.</span></Link><span className={styles.identityCaption}>{activeSection === 'for-you' ? 'A journal of what matters next' : sectionMeta.subtitle}</span></div>
         <div className={styles.topActions}>
@@ -485,18 +487,42 @@ export function FrontierFocusReader({ initialItems, generatedAt, publishedInvest
 
       {contentsOpen ? (
         <section id="frontier-contents" className={styles.contentsPanel} aria-label="Edition contents">
-          <div className={styles.contentsHeading}><div><span className={styles.overline}>THE CURRENT EDITION</span><h2>Explore the issue.</h2></div><button type="button" onClick={() => setContentsOpen(false)} aria-label="Close contents">Close ×</button></div>
+          <div className={styles.contentsHeading}>
+            <div>
+              <span className={styles.overline}>THE CURRENT EDITION / {sourceDate(editionAt)}</span>
+              <h2>Explore the issue.</h2>
+              <p className={styles.contentsDeck}>A field guide to the ideas, systems and moments shaping the world.</p>
+            </div>
+            <button type="button" onClick={() => setContentsOpen(false)} aria-label="Close contents">Close ×</button>
+          </div>
           {publishedInvestigation ? (
             <Link href={publishedInvestigation.url} className={styles.contentsInvestigation}
               data-frontier-deep-link="true">
-              <span className={styles.investigationEyebrow}>A VERIFIED INVESTIGATION / DEEP READING</span>
-              <strong>{publishedInvestigation.title}</strong>
-              <span className={styles.investigationDetail}>
-                Explore the authors’ published results, source chapters, and the open questions behind the findings.
+              <span className={styles.investigationCopy}>
+                <span className={styles.investigationEyebrow}>THE FEATURE / SOURCE-VERIFIED RESEARCH</span>
+                <strong>{publishedInvestigation.title}</strong>
+                <span className={styles.investigationDetail}>
+                  Follow a real paper from its reported results to its most interesting open questions.
+                  Every finding leads back to the published source.
+                </span>
+                <span className={styles.investigationAction}>Read the investigation <ArrowRight size={15} aria-hidden="true" /></span>
               </span>
-              <span className={styles.investigationAction}>Explore the research <ArrowRight size={15} aria-hidden="true" /></span>
+              <span className={styles.investigationArtwork} aria-hidden="true">
+                <span className={styles.investigationArtworkOverline}>FRONTIER / LONG FORM</span>
+                <span className={styles.investigationArtworkNumber}>01</span>
+                <span className={styles.investigationArtworkFooter}>ORIGINAL SOURCES / DEEPER UNDERSTANDING</span>
+              </span>
             </Link>
           ) : null}
+          <FrontierIssueAtlas counts={sectionCounts} activeSection={activeSection}
+            onSelect={(section) => {
+              if (section === activeSection) setContentsOpen(false);
+              else selectSection(section);
+            }} />
+          <div className={styles.contentsListHeading}>
+            <span>THE READING LIST</span>
+            <span>{String(items.length).padStart(2, '0')} STORIES IN THIS EDITION</span>
+          </div>
           <div className={styles.contentsGrid}>{items.map((entry, index) => (
             <button type="button" key={entry.id} className={styles.contentsEntry} data-realm={journalRealm(entry)} aria-current={position === index ? 'true' : undefined} onClick={() => { move(index - position); setContentsOpen(false); }}>
               <span className={styles.contentsOrdinal}>{String(index + 1).padStart(2, '0')}</span>
