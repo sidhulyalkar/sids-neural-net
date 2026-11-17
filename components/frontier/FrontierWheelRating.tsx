@@ -42,7 +42,11 @@ export function FrontierWheelRating({ title, savedScore, onSave }: Props) {
       setDraft((value) => nextWheelInterestScore(value, direction));
     };
     node.addEventListener('wheel', onWheel, { passive: false });
-    return () => node.removeEventListener('wheel', onWheel);
+    node.dataset.wheelReady = 'true';
+    return () => {
+      delete node.dataset.wheelReady;
+      node.removeEventListener('wheel', onWheel);
+    };
   }, [open]);
 
   const arm = () => {

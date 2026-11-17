@@ -19,11 +19,11 @@ async function audit(width,height) {
     assert(result?.ok(), 'The default Frontier edition must load');
     const edition = page.locator('[data-frontier-edition="multi-article"]');
     await edition.waitFor();
-    const cards = page.locator('main#frontier-stories article');
+    const cards = page.locator('#frontier-stories article');
     assert((await cards.count()) >= 2, 'The default Frontier must show multiple independently navigable stories');
     assert.equal(await page.locator('canvas').count(),0, 'Cold edition cannot start WebGL');
     assert.equal(requests.length,0, 'Cold navigation cannot start a live feed search');
-    const links = page.locator('main#frontier-stories article h2 a');
+    const links = page.locator('#frontier-stories article h2 a');
     assert((await links.count()) >= 2,'Every story must have its own original source');
     for (const url of await links.evaluateAll(nodes => nodes.slice(0,5).map(n => n.getAttribute('href')))) {
       assert(/^https?:\/\//.test(url || ''),'Original source links must be actual HTTP(S) URLs');
@@ -40,6 +40,10 @@ async function audit(width,height) {
     const knob=firstRating.getByRole('slider',{name:/Interest level for/});
     const starting=Number(await knob.getAttribute('aria-valuenow'));
     assert(starting >= 1 && starting <= 10,'Wheel needs a bounded explicit draft');
+    await knob.scrollIntoViewIfNeeded();
+    await page.waitForFunction(() =>
+      document.querySelector('[data-frontier-wheel-rating] [role="slider"]')?.dataset.wheelReady === 'true'
+    ,null,{timeout:4000});
     const bounds=await knob.boundingBox();
     assert(bounds,'Wheel should have on-screen geometry');
     await page.mouse.move(bounds.x + bounds.width/2,bounds.y + bounds.height/2);
@@ -47,7 +51,19 @@ async function audit(width,height) {
     await page.waitForFunction(([start])=>{
       const el=document.querySelector('[data-frontier-wheel-rating] [role="slider"]');
       return el && Number(el.getAttribute('aria-valuenow')) > start;
-    },[starting],{timeout:4000});
+    },[starting],{timeout:4000}).catch(async (cause) => {
+      const diagnostic = await page.evaluate(() => {
+        const el=document.querySelector('[data-frontier-wheel-rating] [role="slider"]');
+        const box=el?.getBoundingClientRect();
+        return {
+          ready:el?.dataset.wheelReady, value:el?.getAttribute('aria-valuenow'),
+          scrollY:scrollY, viewport:[innerWidth,innerHeight],
+          bounds:box ? {x:box.x,y:box.y,width:box.width,height:box.height} : null,
+          wheelTarget:document.elementFromPoint(box ? box.x+box.width/2 : 0, box ? box.y+box.height/2 : 0)?.tagName,
+        };
+      });
+      throw new Error('Wheel input was not accepted: '+JSON.stringify(diagnostic)+'; '+cause.message);
+    });
     assert.equal(Number(await knob.getAttribute('aria-valuenow')),Math.min(starting+1,10),
       'One deliberate wheel step should tune interest by one');
     const selected=Number(await knob.getAttribute('aria-valuenow'));

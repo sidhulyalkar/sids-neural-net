@@ -217,10 +217,10 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
       {status ? <p role="status" className={styles.status}>{status}</p> : null}
       {filtered.length ? (
         <>
-          <main className={styles.grid} id="frontier-stories">
+          <section className={styles.grid} id="frontier-stories" aria-label="Stories in this edition">
             {shown.map((item,index) => <EditionArticle key={item.id} item={item} ordinal={index+1}
               lead={subject === 'all' && index === 0}/>)}
-          </main>
+          </section>
           {filtered.length > visible ? <div className={styles.moreStories}>
             <button type="button" onClick={() => setVisible((n) => Math.min(filtered.length,n+PAGE_SIZE))}>
               More stories <span>{filtered.length-visible} remaining</span>
