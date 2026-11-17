@@ -1,18 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
+import { boundInterestScore, nextWheelInterestScore, interestScoreLabel } from '@/lib/frontier/wheelRating';
 import type { KeyboardEvent } from 'react';
 import styles from './frontier-wheel-rating.module.css';
-
-export function boundInterestScore(value: number): number {
-  return Math.max(1, Math.min(10, Math.round(value)));
-}
-
-/** Scrolling down lowers interest, scrolling up raises it; one notch per
- * threshold crossing. All actual input is gated behind deliberate arming. */
-export function nextWheelInterestScore(current: number, wheelDirection: number): number {
-  return boundInterestScore(current + (wheelDirection < 0 ? 1 : wheelDirection > 0 ? -1 : 0));
-}
 
 type Props = {
   title: string;
@@ -88,14 +80,14 @@ export function FrontierWheelRating({ title, savedScore, onSave }: Props) {
           <div ref={wheelRef} className={styles.wheel}
             role="slider" tabIndex={0} aria-label={`Interest level for ${title}`}
             aria-valuemin={1} aria-valuemax={10} aria-valuenow={draft}
-            aria-valuetext={`${draft} of 10 interest`}
+            aria-valuetext={`${draft} of 10: ${interestScoreLabel(draft)}`}
             onKeyDown={onKeyDown}
-            style={{ '--rating-arc': (draft * 10) + '%' } as React.CSSProperties}>
+            style={{ '--rating-arc': (draft * 10) + '%' } as CSSProperties}>
             <strong aria-hidden="true">{String(draft).padStart(2, '0')}</strong>
             <span aria-hidden="true">/10</span>
           </div>
           <div className={styles.controls}>
-            <p>Click the dial, then turn the wheel. Or use the slider below.</p>
+            <p><strong>{interestScoreLabel(draft)}.</strong> Turn the wheel over the dial, use arrow keys, or drag the slider. Normal scrolling is unchanged.</p>
             <input type="range" min={1} max={10} step={1} value={draft}
               aria-label={`Set interest level for ${title}`}
               onChange={(event) => { setDraft(Number(event.target.value)); setViaWheel(false); }}/>
