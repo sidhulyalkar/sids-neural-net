@@ -82,7 +82,7 @@ import { createNorthShoreLife } from "./worldNorthShoreLife";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
-import { backsideLogs,timberTop,timberExit,timberLanding,timberTransfer,stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
+import { backsideLogs,timberTop,timberExit,timberLanding,timberTransfer,stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, winterGroundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
 import {stepCritterLocomotion} from "@/lib/world/landWildlifeMotion";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
@@ -679,6 +679,15 @@ export function createWorld(
   }
   function releaseWinterTerrain(){
     if(!winterTerrain)return;
+    // The winter mesh and the support provider must hand off on the same
+    // update. Keep coordinates stable and reconcile the grounded rider to
+    // the original geology, rather than leaving them inside a removed bank.
+    if(aquatic==="land"&&caveLayer==="surface"&&!isWater(player)&&
+      airHeight<=.001&&verticalSpeed<=0&&!ride){
+      const adjustment=groundHeight(player)-winterGroundHeight(player);
+      playerY=groundHeight(player);
+      canvas.dataset.winterExitHeightAdjustment=adjustment.toFixed(4);
+    }
     ground.geometry=terrain;
     ground.material=ordinaryGroundMaterial;
     geometries.delete(winterTerrain);winterTerrain.dispose();winterTerrain=null;
@@ -3609,7 +3618,7 @@ export function createWorld(
     const layer = supportLayerAtPoint(caveLayer, p, playerY);
     if (layer === "arcade") return arcadeCaveFloorHeight(p);
     if (layer === "paper") return paperCaveFloorHeight(p);
-    return groundHeight(p);
+    return winterTerrain?winterGroundHeight(p):groundHeight(p);
   };
   explorer.rotation.order = "YXZ";
   let dog: Point = { x: 3, z: 12 };
@@ -4963,6 +4972,7 @@ export function createWorld(
           // Otherwise frame N lands correctly and frame N+1 snaps upward.
           const groundY=caveLayer==="surface"?
             airborneSupportHeight(previousY,supportY,
+              winterTerrain?winterWorldFloorHeight(player.x,player.z):
               terrainHeight(player.x,player.z)):supportY;
           const timberLip=state.activity==="ski" && caveLayer==="surface" &&
             bigAir.phase==="idle" && airHeight===0 && verticalSpeed===0
@@ -5309,7 +5319,8 @@ export function createWorld(
           SHRINE_GALLERY.floorY:
           caveLayer==="surface"?
           airborneSupportHeight(playerY,supportHeight(p),
-            terrainHeight(p.x,p.z)):supportHeight(p);
+            winterTerrain?winterWorldFloorHeight(p.x,p.z):
+              terrainHeight(p.x,p.z)):supportHeight(p);
         const bikeContact = mode==="bike"&&airHeight<=.001&&!climb&&!grind
           ? bikeTerrainPose(player,travel.heading,rigSupport):null;
         const footprint = mode === "bike"
