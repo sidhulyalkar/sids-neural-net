@@ -71,6 +71,7 @@ async function attempt(degrees){
   const d=await state();
   trace.push({
    tick:Number(d.skiTick),phase:d.skiRidePhase,
+   x:Number(d.skiPositionX),z:Number(d.skiPositionZ),
    spin:Number(d.skiAirSpinRadians),omega:Number(d.skiAngularY),
    steer:Number(d.skiInputSteer),
    landing:d.skiLanding,score:d.skiTrickName,
@@ -160,8 +161,14 @@ async function attempt(degrees){
   const start=await record();
   assert.equal(start.bigAirPhase,"idle");
   await press("Space");
-  // 40 production frames = 2/3 simulated seconds, 80 fixed ski ticks.
-  await advance(40);
+  // A real downhill turn prepares the takeoff near the pipe center,
+  // instead of letting initial lateral momentum carry both skis onto a
+  // steep outside bank. It uses only the ordinary right-turn key.
+  // The initial 18 frames stay neutral; 22 frames of D steer inward.
+  await advance(18);
+  await press("d");
+  await advance(22);
+  await release("d");
   const charge=await record();
   assert.equal(charge.skiRidePhase,"charging");
   await screenshot("charge");
@@ -190,7 +197,8 @@ async function attempt(degrees){
          alignment:Number(d.skiLandingAlignment),
          angularRate:Number(d.skiLandingAngularRate),
          oneSki:d.skiLandingOneSki,
-         inputSteeringTicks:Number(d.skiTrickInputTicks),tick:Number(d.skiTick)
+         inputSteeringTicks:Number(d.skiTrickInputTicks),tick:Number(d.skiTick),
+         x:Number(d.skiPositionX),z:Number(d.skiPositionZ)
         };
         break;
       }
