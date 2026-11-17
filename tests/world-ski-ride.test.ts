@@ -60,6 +60,30 @@ test("charged input trace lands a half and full rotation at four render cadences
   }
 });
 
+test("midair touchdown samples both independent skis on a moderate snow cross-slope",()=>{
+ for(const bank of [.12,-.12,.20,-.20]){
+  const surface=(x:number,z:number)=>bank*x-.06*z;
+  const sim=new SkiSimulation(surface,0,0,"independent");
+  sim.setHeading(0,1);
+  sim.velocity.set(0,0,5);
+  let airborne=false;
+  for(let tick=0;tick<420;tick++){
+   sim.advance(tuning.dt,()=>({...neutral,jump:tick<65}),state=>{
+    if(state.phase==="air")airborne=true;
+   });
+   if(airborne&&sim.landing!=="none")break;
+  }
+  assert.ok(airborne,"manual pop must leave the snow");
+  assert.ok(sim.landingEvidence,"touchdown must retain actual ski-contact measurements");
+  assert.ok(sim.contact.every(Boolean),
+    "both real independent skis should touch a uniform bank after landing");
+  assert.equal(sim.landingEvidence.oneSki,false,
+    "a low cross-slope cannot produce an imaginary one-ski landing");
+  assert.equal(sim.landing,"clean",
+    "aligned, upright, controlled contact on smooth snow must be clean");
+ }
+});
+
 test("a skier moving over a convex lip departs with no jump input",()=>{
   const height=(_x:number,z:number)=>z<0?.35*z:-.9*z;
   const sim=new SkiSimulation(height,0,-4,"independent");
