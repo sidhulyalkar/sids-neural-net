@@ -19,5 +19,5 @@ export const metadata: Metadata = {
  */
 export default function FrontierPage() {
   const feed = getFrontierColdSnapshotFeed();
-  return <FrontierEditionFeed initialItems={feed.items.slice(0, 96)} generatedAt={feed.generatedAt} />;
+  return <FrontierEditionFeed initialItems={feed.items.slice(0, 36)} generatedAt={feed.generatedAt} />;
 }
