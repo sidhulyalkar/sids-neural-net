@@ -99,11 +99,11 @@ export class SkiVisualSole {
       this.bend[j]=bend;
       maxBend=Math.max(maxBend,bend);
       const along=(j/SECTIONS*2-1)*SKI_HALF_LENGTH;
-      const tip=Math.max(0,(along/SKI_HALF_LENGTH-.82)/.18);
-      // The standalone authored ski tip already carries the upturn.
-      // Keep this running-surface lift conservative to avoid a second
-      // exaggerated gap at curved-wall touchdown.
-      const tipLift=.075*tip*tip;
+      // The independently modeled tip already rises at the end of the ski.
+      // An extra lift in this running-surface ribbon double-counted that
+      // geometry, and on steep walls moved the vertex sideways into lower
+      // terrain, creating an exaggerated midair gap.
+      const tipLift=0;
       for(let w=0;w<2;w++){
         const x=(2*w-1)*SKI_HALF_WIDTH;
         for(let face=0;face<2;face++){
