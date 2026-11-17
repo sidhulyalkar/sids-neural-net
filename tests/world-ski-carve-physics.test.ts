@@ -39,7 +39,8 @@ test("invalid experimental force and turn parameters fail closed",()=>{
  for(const bad of [{contactForceScale:Infinity},{contactForceScale:-1},
   {contactForceScale:4},{maxTurn:NaN},{drag:-.05},
   {surfaceTransport:-.1},{surfaceTransport:1.1},{surfaceTransport:Infinity},
-  {carveRedirect:-.1},{carveRedirect:1.01},{carveRedirect:NaN}])
+  {carveRedirect:-.1},{carveRedirect:1.01},{carveRedirect:NaN},
+  {carveAlignment:-.01},{carveAlignment:1.01},{carveAlignment:Infinity}])
   assert.throws(()=>new SkiSimulation(()=>0,0,0,false,false,undefined,bad));
 });
 
@@ -82,4 +83,27 @@ test("bounded edge redirection conserves speed but retains more momentum than br
  }
  assert.ok(sawLessDissipation,
    "redirected edge impulse should retain forward momentum relative to baseline");
+});
+
+test("traction-limited edge steering changes trajectory without inventing energy",()=>{
+ const settings={carveAlignment:1,carveRedirect:0,contactForceScale:1};
+ for(const height of [()=>0,(x:number,z:number)=>.1*x-.04*z]){
+  const sim=new SkiSimulation(height,0,0,"independent",false,undefined,settings);
+  sim.velocity.set(5,0,6);
+  let energyAdded=0;
+  let hasBanked=false;
+  for(let i=0;i<600;i++){
+   const initial=sim.velocity.length();
+   sim.advance(tuning.dt,()=>({...neutral,steer:i%180<90?1:-1}));
+   const target=sim.velocity.length();
+   const gravityBound=tuning.gravity*tuning.dt+1e-8;
+   assert.ok(target<=initial+gravityBound,
+     "carve alignment is a rotation, never propulsive energy");
+   if(Math.abs(sim.velocity.x)>1)hasBanked=true;
+   if(target>initial+gravityBound)energyAdded++;
+   assert.ok(sim.position.toArray().every(Number.isFinite));
+  }
+  assert.equal(energyAdded,0);
+  assert.ok(hasBanked,"a loaded ski must be able to change travel direction");
+ }
 });
