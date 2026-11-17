@@ -11,11 +11,12 @@ export type SkiCarveSettings={
  maxTurn:number;edgeResponse:number;flatGrip:number;
  engagedGrip:number;contactForceScale:number;drag:number;
  surfaceTransport:number;carveRedirect:number;carveAlignment:number;
+ snowContactDrag:number;
 };
 export const SKI_CARVE_BASELINE:Readonly<SkiCarveSettings>=Object.freeze({
  maxTurn:tuning.maxTurn,edgeResponse:tuning.edgeResponse,
  flatGrip:tuning.flatGrip,engagedGrip:tuning.engagedGrip,
- contactForceScale:1,drag:tuning.drag,surfaceTransport:0,carveRedirect:0,carveAlignment:0
+ contactForceScale:1,drag:tuning.drag,surfaceTransport:0,carveRedirect:0,carveAlignment:0,snowContactDrag:0
 });
 export type SkiInput = { steer:number; pitch:number; roll:number; tuck:boolean; brake:boolean; jump:boolean; grab:boolean };
 export const neutral:SkiInput = {steer:0,pitch:0,roll:0,tuck:false,brake:false,jump:false,grab:false};
@@ -73,7 +74,8 @@ export class SkiSimulation {
         (name==="contactForceScale"&&value>3)||
         (name==="surfaceTransport"&&value>1)||
         (name==="carveRedirect"&&value>1)||
-        (name==="carveAlignment"&&value>1))
+        (name==="carveAlignment"&&value>1)||
+        (name==="snowContactDrag"&&value>.3))
         throw Error("Invalid experimental ski dynamics: "+name);
     this.position.set(x,height(x,z),z);
     if(footprint)this.position.y=this.sample();
@@ -292,7 +294,20 @@ export class SkiSimulation {
         (forwardMagnitude-Math.abs(originalForward));
       this.velocity.addScaledVector(this.forward,forwardCorrection);
     }
-    this.velocity.multiplyScalar(Math.exp(-dt*(this.dynamics.drag*speed*(input.tuck?.55:1)+(impaired?2:0))));
+    // Opt-in snow friction: a dissipative resistance ONLY while the
+    // independent ski footprints carry load. More engaged edge, load,
+    // and residual side slip plow more snow. Ordinary aerial drag remains
+    // unchanged. Never grants forward thrust or an unearned turn.
+    const snowDrag=this.dynamics.snowContactDrag>0 &&
+      this.footprint==="independent"&&this.contact.some(Boolean)
+      ?this.dynamics.snowContactDrag*this.pressure*
+       (.35+.65*Math.abs(this.edge))*
+       (.4+.6*Math.min(1,Math.abs(this.velocity.dot(this.side))/
+         Math.max(.01,this.velocity.length())))
+      :0;
+    this.velocity.multiplyScalar(Math.exp(-dt*(
+      (this.dynamics.drag*(input.tuck?.55:1)+snowDrag)*speed+
+      (impaired?2:0))));
     if(input.brake)this.velocity.multiplyScalar(Math.max(0,1-tuning.brake*dt/Math.max(.001,this.velocity.length())));
     const target=this.delta.setFromRotationMatrix(this.basis.makeBasis(this.side,this.normal,this.forward));
     if(this.phase!=="crash")this.rotation.slerp(target,1-Math.exp(-(impaired?3:15)*dt));
