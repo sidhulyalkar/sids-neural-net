@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
 import {SKI_HALF_LENGTH,fitSkiContact,skiFollowYaw,skiCameraHeight,constrainSkiCamera} from "../components/world/worldSkiContact";
-import {terrainHeight} from "../lib/world/model";
+import {winterTerrainHeight as terrainHeight} from "../lib/world/model";
 
 test("both rigid skis contact their soles on inclined planes without height double counting",()=>{
  for(const dx of [-2,0,2])for(const dz of [-1,0,1])for(const side of [-1,1]){
@@ -50,7 +50,7 @@ test("ski follow rotates smoothly through the angle wrap and clears steep camera
 });
 
 test("ski contact agrees with the rendered full-resolution snow triangles",async()=>{
- const {WORLD_BOUNDS:b,worldFloorHeight}=await import('../lib/world/model');
+ const {WORLD_BOUNDS:b,winterWorldFloorHeight:worldFloorHeight}=await import('../lib/world/model');
  const {refineMountainSnow}=await import('../components/world/worldMountainHalfpipe');
  const grid=new THREE.PlaneGeometry(b.maxX-b.minX,b.maxZ-b.minZ,142,132);
  grid.rotateX(-Math.PI/2);grid.translate((b.minX+b.maxX)/2,0,(b.minZ+b.maxZ)/2);
