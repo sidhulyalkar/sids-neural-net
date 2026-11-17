@@ -1,7 +1,7 @@
 import {mkdirSync,writeFileSync} from "node:fs";
 import {join} from "node:path";
 import {Float32BufferAttribute,PlaneGeometry} from "three/src/Three.Core.js";
-import {WORLD_BOUNDS as bounds,worldFloorHeight} from "../lib/world/model";
+import {WORLD_BOUNDS as bounds,winterWorldFloorHeight as worldFloorHeight} from "../lib/world/model";
 import {MOUNTAIN_HALFPIPE as pipe} from "../lib/world/mountainHalfpipe";
 import {refineMountainSnow} from "../components/world/worldMountainHalfpipe";
 import {renderedSnowHeight} from "../lib/world/ski/renderedSnow";

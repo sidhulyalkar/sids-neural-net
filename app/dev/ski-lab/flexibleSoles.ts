@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import {createSkiContact,fitSkiContact,SKI_HALF_LENGTH,SKI_HALF_WIDTH,
  SKI_SOLE_Y} from "@/components/world/worldSkiContact";
-import {terrainHeight} from "@/lib/world/model";
+import {winterTerrainHeight as terrainHeight} from "@/lib/world/model";
 import type {SkiSimulation} from "@/lib/world/ski/simulation";
 
 export type SoleDeformation="rigid"|"bounded"|"surface";

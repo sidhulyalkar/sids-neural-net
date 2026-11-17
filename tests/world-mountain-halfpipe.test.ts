@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
 import {
-  ARCADE_CAVE,MEMORY_POINTS,REGIONS,terrainHeight,
+  ARCADE_CAVE,MEMORY_POINTS,REGIONS,winterTerrainHeight as terrainHeight,
   terrainHeightBeforeHalfpipe,isWater,
 } from "../lib/world/model";
 import {SNOWMELT_PATH,DOWNSTREAM_PATH,drainagePoints,
   downstreamPoints,waterfallCrownRings,waterfallProfile} from "../lib/world/hydrology";
-import {backsideLogs,timberLanding,timberTransfer,timberExit,timberTop,nearestGrind,stepAirborne,activityLanding,groundHeight,rampImpulseAt,RIDE_RAMPS,sportClearance,stepTravel,type Travel} from "../lib/world/activities";
+import {backsideLogs,timberLanding,timberTransfer,timberExit,timberTop,nearestGrind,stepAirborne,activityLanding,winterGroundHeight as groundHeight,rampImpulseAt,RIDE_RAMPS,sportClearance,stepTravel,type Travel} from "../lib/world/activities";
 import {BIG_AIR,shouldLaunchAuthoredSkiJump} from "../lib/world/bigAir";
 import {
  MOUNTAIN_HALFPIPE,MOUNTAIN_SUMMIT,MOUNTAIN_PROTECTED_ANCHORS,

@@ -1,6 +1,8 @@
 import {worldFrameDelta} from "@/lib/world/frameTiming";
 import { SkiSimulation, neutral as neutralSkiInput } from "@/lib/world/ski/simulation";
 import { SkiV4Simulation } from "@/lib/world/ski/v4/adapter";
+import {advanceWinter,INITIAL_WINTER_STATE} from "@/lib/world/ski/winterState";
+import type {createWorldSnowfall} from "./worldSnowfall";
 import { renderedSnowHeight } from "@/lib/world/ski/renderedSnow";
 import { SnowTracks } from "./skiSnowTracks";
 import {SkiVisualSole} from "./skiVisualSole";
@@ -80,7 +82,7 @@ import { createNorthShoreLife } from "./worldNorthShoreLife";
 import { ringSurface, ribbon } from "./worldGeometry";
 import { drainagePoints, downstreamPoints, waterfallProfile, waterfallCrownRings } from "@/lib/world/hydrology";
 import { biomeAt, BIOME_COLORS } from "@/lib/world/biomes";
-import { backsideLogs,timberTop,timberExit,timberLanding,timberTransfer,stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
+import { backsideLogs,timberTop,timberExit,timberLanding,timberTransfer,stepAirborne, rampSurface, sportClearance, activityLanding, BOULDER_HOLDS, effectiveActivity, FALLEN_LOGS, grindStyleForApproach, groundHeight, winterGroundHeight, nearestGrind, nextHold, onSnow, rampImpulseCrossing, RIDE_RAMPS, stepSwim, stepTravel, terrainContact, type Activity, type AquaticMode, type GrindStyle, type GrindRail, type Travel } from "@/lib/world/activities";
 import { LAND_WILDLIFE, LAND_WILDLIFE_COLORS } from "@/lib/world/ecology";
 import {stepCritterLocomotion} from "@/lib/world/landWildlifeMotion";
 import { SHASTA_CHARACTER } from "@/lib/world/shastaCharacter";
@@ -136,6 +138,7 @@ import {
   terrainHeight,
   waterZone,
   worldFloorHeight,
+  winterWorldFloorHeight,
   WORLD_BOUNDS,
   type CaveLayer,
   type Obstacle,
@@ -433,6 +436,13 @@ export function createWorld(
   sun.shadow.normalBias = 0.1;
   sun.shadow.bias = -0.0003;
   scene.add(sun);
+  // Cached palette samples avoid per-frame Color allocation and must not
+  // override the authoritative gallery/underwater background and fog.
+  const winterSkyColor=new THREE.Color("#819eae");
+  const winterFogColor=new THREE.Color("#b8ccd6");
+  const winterSunColor=new THREE.Color("#e6f1ff");
+  const standardSunColor=sun.color.clone();
+  const standardSunIntensity=sun.intensity;
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
   const geo = <T extends THREE.BufferGeometry>(g: T): T => {
@@ -618,13 +628,85 @@ export function createWorld(
     }
     terrain.setIndex(keep);
   }
-  const snowTriangles = refineMountainSnow(terrain);
-  const ground = mesh(
-    terrain,
-    applySnowpackMaterial(mat("#ffffff", { vertexColors: true, flatShading: false, roughness: 0.92 })),
-    [0, 0, 0],
-    [1, 1, 1],
-  );
+  // Keep the shared island on its ordinary mesh. Snow refinement and its
+  // material are allocated only when Ski mode is selected.
+  let snowTriangles=0;
+  const ordinaryGroundMaterial=mat("#ffffff",{vertexColors:true,flatShading:false,roughness:.92});
+  const ground=mesh(terrain,ordinaryGroundMaterial,[0,0,0],[1,1,1]);
+  const winterBlend={value:0};
+  let winterState=INITIAL_WINTER_STATE;
+  let winterTerrain:THREE.BufferGeometry|null=null;
+  let winterGroundMaterial:THREE.MeshStandardMaterial|null=null;
+  let winterSnowfall:ReturnType<typeof createWorldSnowfall>|null=null;
+  let winterSnowfallLoading=false;
+  let winterSnowfallGeneration=0;
+  function prepareWinterTerrain(){
+    if(winterTerrain)return;
+    const refined=geo(terrain.clone());
+    // The shared base terrain is always unmodified geology. Author winter
+    // shape only on its clone, using the explicit winter surface provider.
+    const winterPoints=refined.getAttribute("position");
+    for(let i=0;i<winterPoints.count;i++){
+      const x=winterPoints.getX(i),z=winterPoints.getZ(i);
+      winterPoints.setY(i,winterWorldFloorHeight(x,z));
+    }
+    snowTriangles=refineMountainSnow(refined);
+    winterGroundMaterial=applySnowpackMaterial(
+      mat("#ffffff",{vertexColors:true,flatShading:false,roughness:.92}),winterBlend);
+    winterTerrain=refined;
+    // One visible mesh, no z-fighting snow overlay. Ski-contact indexing
+    // always uses this exact indexed geometry when the new run begins.
+    ground.geometry=refined;
+    ground.material=winterGroundMaterial;
+    canvas.dataset.mountainHalfpipeTriangles=String(snowTriangles);
+    canvas.dataset.winterTerrain="active";
+  }
+  function requestWinterSnowfall(){
+    if(winterSnowfall||winterSnowfallLoading)return;
+    winterSnowfallLoading=true;
+    const generation=++winterSnowfallGeneration;
+    void import("./worldSnowfall").then(({createWorldSnowfall})=>{
+      if(disposed||generation!==winterSnowfallGeneration)return;
+      winterSnowfall=createWorldSnowfall(scene,window.matchMedia("(pointer:coarse)").matches);
+      canvas.dataset.winterSnowfall="ready";
+      canvas.dataset.winterParticleCount=String(winterSnowfall.particleCount);
+    }).catch(()=>{
+      if(generation===winterSnowfallGeneration)
+        canvas.dataset.winterSnowfall="unavailable";
+    }).finally(()=>{
+      if(generation===winterSnowfallGeneration)winterSnowfallLoading=false;
+    });
+  }
+  function releaseWinterTerrain(){
+    if(!winterTerrain)return;
+    // The winter mesh and the support provider must hand off on the same
+    // update. Keep coordinates stable and reconcile the grounded rider to
+    // the original geology, rather than leaving them inside a removed bank.
+    if(aquatic==="land"&&caveLayer==="surface"&&!isWater(player)&&
+      airHeight<=.001&&verticalSpeed<=0&&!ride){
+      const adjustment=groundHeight(player)-winterGroundHeight(player);
+      playerY=groundHeight(player);
+      canvas.dataset.winterExitHeightAdjustment=adjustment.toFixed(4);
+    }
+    ground.geometry=terrain;
+    ground.material=ordinaryGroundMaterial;
+    geometries.delete(winterTerrain);winterTerrain.dispose();winterTerrain=null;
+    if(winterGroundMaterial){
+      materials.delete(winterGroundMaterial);
+      winterGroundMaterial.dispose();
+      winterGroundMaterial=null;
+    }
+    winterSnowfallGeneration++;
+    winterSnowfallLoading=false;
+    winterSnowfall?.dispose();winterSnowfall=null;
+    rideSnow=null;
+    if(tracks){scene.remove(tracks.mesh);tracks.dispose();tracks=null;}
+    snowTriangles=0;
+    canvas.dataset.mountainHalfpipeTriangles="0";
+    canvas.dataset.winterTerrain="none";
+    canvas.dataset.winterSnowfall="off";
+    canvas.dataset.winterParticleCount="0";
+  }
   ground.castShadow = false;
   // Soft north/south shoreline aprons join the finite island terrain to the
   // existing ocean plane. The outside racing channel starts beyond these
@@ -3257,17 +3339,8 @@ export function createWorld(
   scene.add(bubbles);
   bubbles.visible = false;
 
-  // One draw call of local snowfall follows the player whenever ski mode is equipped.
-  const snowPositions = new Float32Array(220 * 3);
-  for (let i = 0; i < 220; i++)
-    snowPositions.set([(random() - 0.5) * 46, random() * 25, (random() - 0.5) * 46], i * 3);
-  const snowGeo = geo(new THREE.BufferGeometry());
-  snowGeo.setAttribute("position", new THREE.BufferAttribute(snowPositions, 3));
-  const snowMat = new THREE.PointsMaterial({ color: "#ffffff", size: 0.16, transparent: true, opacity: 0.82 });
-  materials.add(snowMat);
-  const snowfall = new THREE.Points(snowGeo, snowMat);
-  snowfall.visible = false;
-  scene.add(snowfall);
+  // Snowfall is now dynamically imported only for Skiing. There is no
+  // permanently allocated legacy snow particle system in the base world.
 
   let state: State = {
     entered: false,
@@ -3545,7 +3618,7 @@ export function createWorld(
     const layer = supportLayerAtPoint(caveLayer, p, playerY);
     if (layer === "arcade") return arcadeCaveFloorHeight(p);
     if (layer === "paper") return paperCaveFloorHeight(p);
-    return groundHeight(p);
+    return winterTerrain?winterGroundHeight(p):groundHeight(p);
   };
   explorer.rotation.order = "YXZ";
   let dog: Point = { x: 3, z: 12 };
@@ -4193,6 +4266,20 @@ export function createWorld(
       dt = worldFrameDelta(rawDelta);
     last = now;
     elapsed += dt;
+    const skiWinterRequested=state.entered&&state.activity==="ski";
+    if(skiWinterRequested){
+      if(!winterTerrain)prepareWinterTerrain();
+      if(!winterSnowfall&&!winterSnowfallLoading)requestWinterSnowfall();
+    }
+    // Do not detach snowy terrain during an airborne exit or unfinished
+    // ski run. A normal-mode restore is valid only once support is stable.
+    const safeWinterExit=bigAir.phase!=="flying"&&
+      airHeight<=.001&&verticalSpeed<=0&&!ride;
+    winterState=advanceWinter(winterState,dt,skiWinterRequested,safeWinterExit);
+    winterBlend.value=winterState.blend;
+    canvas.dataset.winterPhase=winterState.phase;
+    canvas.dataset.winterBlend=winterBlend.value.toFixed(3);
+    if(winterState.phase==="normal"&&winterTerrain)releaseWinterTerrain();
     mobileJoysticks.setVisible(state.entered&&!state.paused&&!jetSki&&!jetChoosing&&
       discGolf.phase==="off");
     if(mobileJoysticks.enabled){
@@ -4740,7 +4827,8 @@ export function createWorld(
       } else if (useSkiRide) {
         if(!rideSnow){
           const started=performance.now();
-          rideSnow=renderedSnowHeight(terrain,worldFloorHeight);
+          if(!winterTerrain)prepareWinterTerrain();
+          rideSnow=renderedSnowHeight(winterTerrain!,winterWorldFloorHeight);
           canvas.dataset.skiIndexMs=(performance.now()-started).toFixed(2);
         }
         if (!ride) {
@@ -4884,6 +4972,7 @@ export function createWorld(
           // Otherwise frame N lands correctly and frame N+1 snaps upward.
           const groundY=caveLayer==="surface"?
             airborneSupportHeight(previousY,supportY,
+              winterTerrain?winterWorldFloorHeight(player.x,player.z):
               terrainHeight(player.x,player.z)):supportY;
           const timberLip=state.activity==="ski" && caveLayer==="surface" &&
             bigAir.phase==="idle" && airHeight===0 && verticalSpeed===0
@@ -5230,7 +5319,8 @@ export function createWorld(
           SHRINE_GALLERY.floorY:
           caveLayer==="surface"?
           airborneSupportHeight(playerY,supportHeight(p),
-            terrainHeight(p.x,p.z)):supportHeight(p);
+            winterTerrain?winterWorldFloorHeight(p.x,p.z):
+              terrainHeight(p.x,p.z)):supportHeight(p);
         const bikeContact = mode==="bike"&&airHeight<=.001&&!climb&&!grind
           ? bikeTerrainPose(player,travel.heading,rigSupport):null;
         const footprint = mode === "bike"
@@ -6016,7 +6106,8 @@ export function createWorld(
           skiFocus.y+.2,skiFocus.z+travel.heading.z*lookAhead);
         targetCamera.set(player.x+Math.sin(skiCameraYaw)*followDistance,
           explorer.position.y+elevation,player.z+Math.cos(skiCameraYaw)*followDistance);
-        constrainSkiCamera(targetLook,targetCamera,p=>worldFloorHeight(p.x,p.z));
+        constrainSkiCamera(targetLook,targetCamera,p=>
+          winterTerrain?winterWorldFloorHeight(p.x,p.z):worldFloorHeight(p.x,p.z));
       } else {
         skiCameraActive=false;
         targetCamera.set(
@@ -7052,7 +7143,8 @@ export function createWorld(
     if(skiCameraActive){
       // Clear the actual ski contact, not only a lagging look target.
       skiFootFocus.copy(explorer.position);skiFootFocus.y+=.12;
-      constrainSkiCamera(skiFootFocus,camera.position,p=>worldFloorHeight(p.x,p.z));
+      constrainSkiCamera(skiFootFocus,camera.position,p=>
+        winterTerrain?winterWorldFloorHeight(p.x,p.z):worldFloorHeight(p.x,p.z));
       look.lerp(targetLook,1-Math.exp(-dt*12));
     }
     if(galleryPhase!==lastGalleryCameraPhase){
@@ -7258,25 +7350,12 @@ export function createWorld(
         underwater ? (currentWaterZone === "lagoon" ? 70 : 58) : 270;
     }
 
-    // Snow particles follow the *material*, not merely the selected sport.
-    // Legacy and V3 visual behavior is unchanged by this experimental gate.
-    snowfall.visible = state.activity === "ski" && aquatic !== "dive" &&
-      (!skiV4Enabled || (ride instanceof SkiV4Simulation ?
-        ride.v4.telemetry.snowCoverage>.35 :
-        (rideSnow?.snowCoverage(player.x,player.z)??0)>.35));
-    canvas.dataset.snowing = String(snowfall.visible);
+    // Winter particle state is controlled by the single optional weather
+    // system. Snowflakes remain cosmetic and do not grant ski traction.
+    canvas.dataset.snowing=String(!!winterSnowfall&&winterBlend.value>.05&&
+      aquatic==="land"&&caveLayer==="surface"&&galleryPhase==="outside");
     canvas.dataset.reef = String(reefRoot.visible || tropicalReefRoot.visible);
     canvas.dataset.reefZone = currentWaterZone ?? "";
-    if (snowfall.visible) {
-      snowfall.position.set(player.x, playerY - 4, player.z);
-      const snowAttribute = snowGeo.attributes.position as THREE.BufferAttribute;
-      for (let i = 0; i < snowAttribute.count; i++) {
-        let y = snowAttribute.getY(i) - dt * (3.8 + (i % 7) * 0.42);
-        if (y < 0) y += 25;
-        snowAttribute.setY(i, y);
-      }
-      snowAttribute.needsUpdate = true;
-    }
 
     // Reef animals move on simple deterministic paths so the coast feels alive.
     // Skip all aquatic animation work while the reef group is hidden on land.
@@ -7569,6 +7648,24 @@ export function createWorld(
     if(galleryPhase==="inside")hiddenShrineGallery.updateNearPhotos(player);
     canvas.dataset.hiddenGalleryHD=String(hiddenShrineGallery.highResolutionPhotos());
     hiddenShrineGallery.interior.visible=galleryPhase!=="outside";
+    // Atmospheric transition is visual only. Physics contacts never depend
+    // on flake density, fog or the interpolated winter pigment.
+    const winterVisibility=winterState.blend;
+    const skySnowAllowed=aquatic==="land"&&caveLayer==="surface"&&
+      galleryPhase==="outside"&&!underwater;
+    // Existing scene logic has already resolved museum and underwater colors.
+    // Only outdoor land may receive a winter atmosphere override.
+    if(skySnowAllowed&&winterVisibility>0){
+      if(scene.background instanceof THREE.Color)
+        scene.background.lerp(winterSkyColor,winterVisibility*.76);
+      if(scene.fog instanceof THREE.Fog)
+        scene.fog.color.lerp(winterFogColor,winterVisibility*.64);
+    }
+    const weatherLight=skySnowAllowed?winterVisibility:0;
+    sun.color.copy(standardSunColor).lerp(winterSunColor,weatherLight);
+    sun.intensity=standardSunIntensity-.45*weatherLight;
+    winterSnowfall?.update(dt,camera,
+      skySnowAllowed&&!reducedFlightMotion?winterVisibility:0);
     renderer.render(scene, camera);
     // This per-mode diagnostic is sampled from the *current underwater
     // render*, not a stale land-mode FPS window.
@@ -7667,6 +7764,12 @@ export function createWorld(
         }
       }
       state = next;
+      if(next.entered&&next.activity==="ski"){
+        // Prepare before the first physics tick and do not make the normal
+        // world pay the triangle-refinement cost on initial page load.
+        prepareWinterTerrain();
+        requestWinterSnowfall();
+      }
       if(next.sessionExitSerial!==lastSessionExit){
         lastSessionExit=next.sessionExitSerial;leaveWorldGames();
       }
@@ -8054,6 +8157,18 @@ export function createWorld(
       } else schedule();
     },
     dispose() {
+      // Invalidate an in-flight dynamic import before disposing shared scene.
+      winterSnowfallGeneration++;
+      winterSnowfall?.dispose();winterSnowfall=null;
+      // If still winter, restore base pointers before disposing owned buffers.
+      if(winterTerrain){
+        ground.geometry=terrain;ground.material=ordinaryGroundMaterial;
+        geometries.delete(winterTerrain);winterTerrain.dispose();winterTerrain=null;
+      }
+      if(winterGroundMaterial){
+        materials.delete(winterGroundMaterial);winterGroundMaterial.dispose();
+        winterGroundMaterial=null;
+      }
       skiTrickNotice.remove();
       skiV4Notice.remove();
       tracks?.dispose();
