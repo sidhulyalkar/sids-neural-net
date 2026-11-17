@@ -27,8 +27,8 @@ export function FrontierWheelRating({ title, savedScore, onSave }: Props) {
     const onWheel = (event: WheelEvent) => {
       // Only an explicitly opened knob owns its wheel events. Every other
       // pixel of the article and page retains native scrolling.
+      if (event.ctrlKey) return; // Preserve browser/trackpad pinch zoom.
       event.preventDefault();
-      if (event.ctrlKey) return; // Browser/trackpad pinch gesture.
       const units = event.deltaY * (event.deltaMode === 1 ? 32 : event.deltaMode === 2 ? 450 : 1);
       if (!Number.isFinite(units)) return;
       accumulation.current += units;

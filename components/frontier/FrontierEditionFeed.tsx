@@ -212,7 +212,7 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
       </div>
       <div className={styles.editionMeta}>
         <span>{filtered.length} {filtered.length === 1 ? 'story' : 'stories'} in this view</span>
-        <span>Source evidence + personal relevance · updated continuously</span>
+        <span>Source evidence + personal relevance · refreshed each edition</span>
       </div>
       {status ? <p role="status" className={styles.status}>{status}</p> : null}
       {filtered.length ? (

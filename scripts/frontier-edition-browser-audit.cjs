@@ -61,7 +61,7 @@ async function audit(width,height) {
     await page.evaluate(() => window.scrollTo({top:0,behavior:'instant'}));
     await page.mouse.move(width-8,Math.min(height-12,650));
     await page.mouse.wheel(0,480);
-    await page.waitForFunction(() => window.scrollY > 15,{timeout:4000});
+    await page.waitForFunction(() => window.scrollY > 15, null, {timeout:4000});
     const saved=page.locator(`article[data-frontier-story="${firstId}"] [data-frontier-wheel-rating]`);
     assert((await saved.textContent()).includes(selected+'/10'),
       'Normal scroll must not modify the saved rating');
