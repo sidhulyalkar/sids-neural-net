@@ -11,6 +11,8 @@ import {
   distance,
   isWater,
   terrainHeight,
+  winterTerrainHeight,
+  winterWorldFloorHeight,
   worldFloorHeight,
   type Obstacle,
   type Point,
@@ -365,10 +367,11 @@ export type GrindStyle = "fifty-fifty" | "boardslide";
 export type GrindRail = SkateRail | (typeof FALLEN_LOGS)[number];
 export const SWIM_SPEED = 4.6;
 
-export function groundHeight(p: Point) {
+export function groundHeight(p: Point,
+  terrainSurface: (x:number,z:number)=>number = worldFloorHeight) {
   const pier=jetSkiPierHeight(p);
   if(pier!==null)return pier;
-  let height = Math.max(worldFloorHeight(p.x, p.z),timberSupport(p));
+  let height = Math.max(terrainSurface(p.x, p.z),timberSupport(p));
   if (isWater(p)) return height;
   for (const ramp of RIDE_RAMPS){
     // Older timber kickers occupying the newly carved snow corridor must
@@ -377,14 +380,17 @@ export function groundHeight(p: Point) {
     height = Math.max(height, rampSurface(ramp, p) ?? -Infinity);
   }
   height = Math.max(height, skateParkSurface(p) ?? -Infinity);
-  const beam = beamSupportHeight(p, terrainHeight(p.x,p.z));
+  const beam = beamSupportHeight(p, terrainSurface(p.x,p.z));
   if (beam !== null) height = Math.max(height, beam);
   for (const hold of BOULDER_HOLDS) {
     if (distance(p, hold) <= hold.radius)
-      height = Math.max(height, terrainHeight(hold.x, hold.z) + hold.height);
+      height = Math.max(height, terrainSurface(hold.x, hold.z) + hold.height);
   }
   return height;
 }
+
+/** A non-global, explicit contact height for Skiing and seasonal handoffs. */
+export const winterGroundHeight=(p:Point)=>groundHeight(p,winterWorldFloorHeight);
 
 export function nextHold(p: Point) {
   return BOULDER_HOLDS.find(
@@ -449,13 +455,16 @@ export function stepTravel(
   // A ski jump can be exited into Run in midair. Airborne contact must
   // remain geometrically consistent across that activity transition.
   const aboveShortProp=airborne>.2&&Number.isFinite(riderY);
-  // The same contact rule must control both speed-grade and climb blocking.
-  // Otherwise a high beam "above" the airborne rider can still brake them
-  // to a dead stop even though their trunk collision was correctly skipped.
+  // The same contact rule must control both grade and climb blocking.
+  // Only an explicitly equipped skier receives the winter sculpt; no
+  // process-global mutable terrain mode is consulted.
+  const seasonalSupport=mode==="ski"&&supportHeight===groundHeight
+    ?winterGroundHeight:supportHeight;
+  const terrainForTravel=mode==="ski"?winterTerrainHeight:terrainHeight;
   const contactSupport=(p:Point)=>{
-    const y=supportHeight(p);
+    const y=seasonalSupport(p);
     return aboveShortProp?airborneSupportHeight(riderY,y,
-      terrainHeight(p.x,p.z)):y;
+      terrainForTravel(p.x,p.z)):y;
   };
   const slope =
     contactSupport({ x: current.point.x + heading.x, z: current.point.z + heading.z }) -
@@ -503,8 +512,8 @@ export function stepTravel(
     (!isWater(point)||jetSkiPierHeight(point)!==null) &&
     !(mode === "ski" && mountainHalfpipeApproachClearance(point) &&
       mountainHalfpipeApproachClearance(current.point) &&
-      Math.abs(contactSupport(point)-terrainHeight(point.x,point.z))<.01 &&
-      Math.abs(contactSupport(current.point)-terrainHeight(current.point.x,current.point.z))<.01) &&
+      Math.abs(contactSupport(point)-terrainForTravel(point.x,point.z))<.01 &&
+      Math.abs(contactSupport(current.point)-terrainForTravel(current.point.x,current.point.z))<.01) &&
     contactSupport(point) > contactSupport(current.point) + Math.max(0.6, airborne)
   )
     return { ...current, speed: 0 };
