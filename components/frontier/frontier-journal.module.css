@@ -1216,3 +1216,391 @@
   .reader .investigationDetail, .reader .investigationAction { grid-column: 1; }
   .reader .contentsInvestigation strong { font-size: clamp(22px, 5.6vw, 29px); }
 }
+/* FRONTIER V3.4: THE LIVING EDITION ATLAS
+ * The edition index is its own reading surface, not an accordion stacked
+ * above a hidden article. The visual map expresses only source inventories. */
+.reader[data-cover-open='true'] .realmRibbon,
+.reader[data-cover-open='true'] .progressTrack,
+.reader[data-cover-open='true'] .stage { display: none; }
+
+.reader[data-cover-open='true'] .contentsPanel {
+  width: 100%;
+  max-width: 1550px;
+  max-height: none;
+  min-height: calc(100svh - 175px);
+  overflow: visible;
+  margin: 0 auto;
+  border: 0;
+  background: transparent;
+  padding: clamp(30px, 4vw, 62px) clamp(20px, 5vw, 76px) clamp(65px, 7vw, 110px);
+}
+.reader[data-cover-open='true'] {
+  background:
+    radial-gradient(ellipse 54% 25% at 100% 20%, #c7cec046, transparent 88%),
+    var(--paper);
+}
+.reader .contentsHeading {
+  margin-bottom: clamp(26px, 3.6vw, 49px);
+  padding-bottom: clamp(17px, 2.4vw, 31px);
+  border-color: var(--line);
+}
+.reader .contentsHeading h2 {
+  max-width: 17ch;
+  font-size: clamp(32px, 3.7vw, 49px);
+  letter-spacing: -.045em;
+}
+.reader .contentsHeading .overline {
+  color: var(--accent);
+  letter-spacing: .15em;
+  font-size: 10px;
+  margin-bottom: 12px;
+}
+.reader .contentsDeck {
+  max-width: 48ch;
+  margin: clamp(10px,1.4vw,17px) 0 0;
+  color: var(--subink);
+  font: italic 400 clamp(15px, 1.5vw, 19px)/1.55 var(--serif);
+}
+.reader .contentsHeading button {
+  border: 1px solid var(--line);
+  padding: 0 17px;
+  min-height: 44px;
+  color: var(--ink);
+  text-decoration: none;
+  background: #ffffff40;
+}
+.reader .contentsHeading button:hover { background: var(--paper-soft); }
+
+/* The feature is a genuine publication path, not a generated or unlicensed
+ * science image. Its right-hand folio art is deliberately non-data-bearing. */
+.reader .contentsInvestigation {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(250px, .75fr);
+  align-items: stretch;
+  column-gap: 0;
+  padding: 0;
+  margin: 0 0 clamp(28px, 4vw, 52px);
+  border: 1px solid #b5b6a6;
+  background: #fbf8f0;
+  overflow: hidden;
+  color: var(--ink);
+  transition: border-color 150ms ease;
+}
+.reader .contentsInvestigation:hover { border-color: #516c5d; background: #fbf8f0; }
+.reader .investigationCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: clamp(29px, 4vw, 57px) clamp(24px, 4.2vw, 59px);
+}
+.reader .contentsInvestigation .investigationEyebrow {
+  font: 700 10px/1.45 var(--font-geist-mono), monospace;
+  color: #6d6a51;
+  letter-spacing: .14em;
+}
+.reader .contentsInvestigation .investigationCopy strong {
+  display: block;
+  margin: clamp(19px, 3vw, 42px) 0 18px;
+  max-width: 26ch;
+  font: 400 clamp(27px, 3.4vw, 45px)/1.12 var(--serif);
+  letter-spacing: -.043em;
+  text-wrap: balance;
+}
+.reader .contentsInvestigation .investigationDetail {
+  display: block;
+  max-width: 44ch;
+  font: 400 clamp(13px, 1.2vw, 15px)/1.7 var(--font-geist-sans),system-ui,sans-serif;
+  color: #506059;
+}
+.reader .contentsInvestigation .investigationAction {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: auto;
+  padding-top: clamp(22px,2.6vw,33px);
+  border-bottom: 1px solid #637969;
+  color: #305544;
+  white-space: normal;
+  font-size: 12px;
+}
+.reader .investigationArtwork {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  isolation: isolate;
+  min-height: 335px;
+  overflow: hidden;
+  padding: clamp(20px,3vw,40px);
+  background: #253a33;
+  color: #e7e7d9;
+}
+.reader .investigationArtwork::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  opacity: .72;
+  background:
+    radial-gradient(circle at 69% 42%, transparent 0 47px, #9bb6a248 48px 49px, transparent 50px),
+    radial-gradient(circle at 69% 42%, transparent 0 109px, #b2c6af30 110px 111px, transparent 112px),
+    radial-gradient(circle at 69% 42%, transparent 0 170px, #b2c6af24 171px 172px, transparent 173px),
+    linear-gradient(90deg, transparent calc(50% - .5px), #c7d9c61a 50%, transparent calc(50% + .5px)),
+    linear-gradient(0deg, transparent calc(50% - .5px), #c7d9c61a 50%, transparent calc(50% + .5px));
+}
+.reader .investigationArtworkOverline,
+.reader .investigationArtworkFooter {
+  font: 650 10px/1.5 var(--font-geist-mono), monospace;
+  letter-spacing: .14em;
+  color: #d1e0cd;
+}
+.reader .investigationArtworkNumber {
+  align-self: center;
+  font: 400 clamp(100px, 13.5vw, 187px)/.9 var(--serif);
+  letter-spacing: -.095em;
+  color: #e7eee0;
+}
+.reader .investigationArtworkFooter { max-width: 22ch; font-size: 9px; line-height: 1.7; }
+
+/* A content-density map, not a synthetic scientific chart. Each independently
+ * sized bar is a count in that lens; categories may overlap. */
+.reader .issueAtlas {
+  display: grid;
+  grid-template-columns: minmax(220px, .75fr) minmax(0, 2.25fr);
+  background: #263931;
+  color: #f0efe3;
+  overflow: hidden;
+  margin: 0 0 clamp(32px,5vw,67px);
+  border: 1px solid #263931;
+}
+.reader .issueAtlasIntro {
+  min-width: 0;
+  padding: clamp(27px, 3vw, 44px);
+  border-right: 1px solid #e0ead039;
+}
+.reader .issueAtlasEyebrow {
+  display: block;
+  color: #b5c9b5;
+  font: 700 9px/1.5 var(--font-geist-mono),monospace;
+  letter-spacing: .135em;
+}
+.reader .issueAtlasIntro h3 {
+  margin: clamp(17px,2vw,25px) 0 20px;
+  color: #f3f0e8;
+  font: 400 clamp(25px, 2.5vw, 37px)/1.16 var(--serif);
+  letter-spacing: -.042em;
+  text-wrap: balance;
+}
+.reader .issueAtlasIntro p {
+  max-width: 38ch;
+  margin: 0;
+  color: #ccd6ca;
+  font: 400 12px/1.77 var(--font-geist-sans),system-ui,sans-serif;
+}
+.reader .issueAtlasLenses {
+  display: grid;
+  grid-template-columns: repeat(5,minmax(0,1fr));
+  min-width: 0;
+}
+.reader .issueAtlasLens {
+  --lens-accent: #a6c5b2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  gap: 12px;
+  padding: clamp(18px,2vw,31px) clamp(12px,1.5vw,24px);
+  border: 0;
+  border-right: 1px solid #e0ead031;
+  color: #f3f0e8;
+  background: transparent;
+  transition: background-color 150ms ease;
+}
+.reader .issueAtlasLens:last-child { border-right: 0; }
+.reader .issueAtlasLens:hover:not(:disabled),
+.reader .issueAtlasLens[aria-pressed='true'] { background: #ffffff13; }
+.reader .issueAtlasLens:disabled { opacity: .55; cursor: not-allowed; }
+.reader .issueAtlasLens[data-issue-lens='research'] { --lens-accent: #b5d9b9; }
+.reader .issueAtlasLens[data-issue-lens='engineering'] { --lens-accent: #a3cbdc; }
+.reader .issueAtlasLens[data-issue-lens='sports'] { --lens-accent: #e1c49a; }
+.reader .issueAtlasLens[data-issue-lens='entertainment'] { --lens-accent: #d6b6d2; }
+.reader .issueAtlasLens[data-issue-lens='nature'] { --lens-accent: #a9cdb4; }
+.reader .issueAtlasLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-height: 34px;
+  font: 650 10px/1.35 var(--font-geist-sans),system-ui,sans-serif;
+  overflow-wrap: anywhere;
+}
+.reader .issueAtlasLabel span:first-child {
+  color: var(--lens-accent);
+  font: 600 9px/1 var(--font-geist-mono),monospace;
+}
+.reader .issueAtlasCount {
+  margin: auto 0 0;
+  padding-top: 24px;
+  font: 400 clamp(29px,3vw,48px)/.97 var(--serif);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.055em;
+}
+.reader .issueAtlasMeter {
+  display: block;
+  width: 100%;
+  height: 3px;
+  background: #d0e2cc39;
+}
+.reader .issueAtlasMeter > span {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  max-width: 100%;
+  background: var(--lens-accent);
+}
+.reader .issueAtlasOpen {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #d9e6d6;
+  font: 550 10px/1.4 var(--font-geist-sans),system-ui,sans-serif;
+}
+.reader .issueAtlasLens:disabled .issueAtlasOpen { color: #bbc5b8; }
+.reader .issueAtlasLens:focus-visible { outline: 3px solid #d7eed3; outline-offset: -4px; }
+.reader .contentsListHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 0 0 16px;
+  border-bottom: 2px solid var(--ink);
+  color: var(--ink);
+  font: 680 10px/1.4 var(--font-geist-mono),monospace;
+  letter-spacing: .12em;
+}
+.reader .contentsListHeading > span:last-child { color: var(--muted); font-size: 9px; }
+.reader .contentsGrid { column-gap: clamp(28px, 4vw, 55px); }
+.reader .contentsEntry {
+  --entry-ink: #777f6e;
+  padding: 25px 10px 27px 0;
+  border-top-color: var(--line);
+  transition: background-color 150ms ease;
+}
+.reader .contentsEntry[data-realm='neural'],
+.reader .contentsEntry[data-realm='research'] { --entry-ink: #558169; }
+.reader .contentsEntry[data-realm='systems'] { --entry-ink: #4e8195; }
+.reader .contentsEntry[data-realm='motion'] { --entry-ink: #b07945; }
+.reader .contentsEntry[data-realm='culture'] { --entry-ink: #916d8e; }
+.reader .contentsEntry[data-realm='nature'] { --entry-ink: #618f72; }
+.reader .contentsOrdinal::before {
+  content: '';
+  display: block;
+  width: 15px;
+  height: 3px;
+  margin: 1px 0 11px;
+  background: var(--entry-ink);
+}
+.reader .contentsEntryBody strong {
+  font-size: clamp(19px,1.85vw,26px);
+  line-height: 1.27;
+  letter-spacing: -.02em;
+  text-wrap: pretty;
+}
+.reader .contentsEntry .overline { color: #52635b; }
+.reader .contentsEntry:first-child {
+  grid-column: 1 / -1;
+  background: transparent;
+  border-top: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 26px 7px 29px 0;
+  margin: 0;
+}
+.reader .contentsEntry:first-child:hover { background: var(--journal-hover); }
+.reader .contentsEntry:first-child .contentsEntryBody strong {
+  font-size: clamp(23px,2.5vw,34px);
+  max-width: 37ch;
+}
+
+@media (max-width: 1110px) {
+  .reader .issueAtlas { grid-template-columns: 1fr; }
+  .reader .issueAtlasIntro {
+    border-right: 0;
+    border-bottom: 1px solid #e0ead039;
+    display: grid;
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+    gap: 8px 20px;
+  }
+  .reader .issueAtlasEyebrow { grid-column: 1/-1; }
+  .reader .issueAtlasIntro h3 { margin: 5px 0; }
+  .reader .issueAtlasIntro p { align-self: end; }
+}
+@media (max-width: 780px) {
+  .reader .contentsInvestigation { grid-template-columns: minmax(0,1fr) minmax(180px,.66fr); }
+  .reader .investigationArtwork { min-height: 300px; padding: 23px; }
+  .reader .contentsInvestigation .investigationCopy strong { font-size: clamp(25px,4vw,34px); }
+}
+@media (max-width: 620px) {
+  .reader[data-cover-open='true'] .contentsPanel {
+    padding: 28px 17px 70px;
+    min-height: calc(100svh - 120px);
+  }
+  .reader .contentsHeading { gap: 10px; }
+  .reader .contentsHeading h2 { font-size: clamp(32px,7.8vw,39px); }
+  .reader .contentsDeck { font-size: 15px; }
+  .reader .contentsHeading button { padding: 0 11px; white-space: nowrap; }
+  .reader .contentsInvestigation { grid-template-columns: minmax(0,1fr); gap: 0; }
+  .reader .investigationCopy { padding: 26px 24px 22px; }
+  .reader .contentsInvestigation .investigationCopy strong {
+    margin: 17px 0 15px;
+    font-size: clamp(27px,7.2vw,35px);
+  }
+  .reader .contentsInvestigation .investigationAction { margin-top: 8px; padding-top: 14px; }
+  .reader .investigationArtwork {
+    min-height: 115px;
+    max-height: 115px;
+    flex-direction: row;
+    align-items: center;
+    padding: 16px 24px;
+  }
+  .reader .investigationArtworkNumber {
+    font-size: 75px;
+    line-height: .9;
+    margin: 0;
+  }
+  .reader .investigationArtworkFooter { max-width: 15ch; font-size: 8px; }
+  .reader .issueAtlasIntro {
+    padding: 26px 23px 22px;
+    display: block;
+  }
+  .reader .issueAtlasIntro h3 { margin: 15px 0 12px; font-size: 29px; }
+  .reader .issueAtlasIntro p { font-size: 11px; max-width: 44ch; }
+  .reader .issueAtlasLenses { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .reader .issueAtlasLens {
+    padding: 17px 12px 14px;
+    min-height: 150px;
+    border-top: 1px solid #e0ead031;
+  }
+  .reader .issueAtlasLens:nth-child(3) { border-right: 0; }
+  .reader .issueAtlasCount { font-size: 32px; padding-top: 8px; }
+  .reader .issueAtlasOpen { font-size: 9px; }
+  .reader .contentsListHeading { padding-bottom: 15px; }
+  .reader .contentsListHeading > span:last-child { font-size: 8px; }
+  .reader .contentsEntry:first-child {
+    grid-template-columns: 28px minmax(0,1fr) 18px;
+    gap: 10px;
+    padding: 19px 2px 23px;
+  }
+  .reader .contentsEntry:first-child .contentsEntryBody strong { font-size: 25px; }
+}
+@media (max-width: 365px) {
+  .reader .issueAtlasLenses { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .reader .issueAtlasLens:nth-child(3) { border-right: 1px solid #e0ead031; }
+  .reader .issueAtlasLens:nth-child(2n) { border-right: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reader .contentsInvestigation,
+  .reader .issueAtlasLens,
+  .reader .contentsEntry { transition: none; }
+}
