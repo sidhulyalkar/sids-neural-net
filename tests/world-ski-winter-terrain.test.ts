@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {Float32BufferAttribute,PlaneGeometry} from "three/src/Three.Core.js";
 import {refineMountainSnow} from "../components/world/worldMountainHalfpipe";
-import {worldFloorHeight} from "../lib/world/model";
+import {worldFloorHeight,winterWorldFloorHeight} from "../lib/world/model";
 import {MOUNTAIN_HALFPIPE} from "../lib/world/mountainHalfpipe";
 
 function makeBaseTerrain(){
@@ -19,15 +19,25 @@ function makeBaseTerrain(){
   return mesh;
 }
 
+function makeWinterTerrain(ordinary:ReturnType<typeof makeBaseTerrain>){
+  const winter=ordinary.clone();
+  const points=winter.getAttribute("position");
+  for(let i=0;i<points.count;i++){
+    const x=points.getX(i),z=points.getZ(i);
+    points.setY(i,winterWorldFloorHeight(x,z));
+  }
+  refineMountainSnow(winter);
+  return winter;
+}
+
 test("ordinary mountain mesh remains byte-identical when winter is prepared from a clone",()=>{
   const ordinary=makeBaseTerrain();
   const count=ordinary.getAttribute("position").count;
   const source=Array.from(ordinary.getAttribute("position").array);
   const sourceColor=Array.from(ordinary.getAttribute("color").array);
   const indices=Array.from(ordinary.getIndex()!.array);
-  const winter=ordinary.clone();
-  const triangles=refineMountainSnow(winter);
-  assert.ok(triangles>0);
+  const winter=makeWinterTerrain(ordinary);
+  assert.ok(winter.getIndex()!.count>ordinary.getIndex()!.count);
   assert.ok(winter.getAttribute("position").count>count,"winter should refine only the playable patch");
   assert.equal(ordinary.getAttribute("position").count,count);
   assert.deepEqual(Array.from(ordinary.getAttribute("position").array),source);
@@ -45,8 +55,7 @@ test("ordinary mountain mesh remains byte-identical when winter is prepared from
 
 test("winter mesh exposes snow contact attributes on the same triangle surface",()=>{
   const base=makeBaseTerrain();
-  const winter=base.clone();
-  refineMountainSnow(winter);
+  const winter=makeWinterTerrain(base);
   const snow=winter.getAttribute("snowCoverage");
   const strata=winter.getAttribute("snowLayers");
   assert.equal(snow.count,winter.getAttribute("position").count);
