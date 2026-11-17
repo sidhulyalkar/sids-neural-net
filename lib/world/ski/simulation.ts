@@ -245,7 +245,7 @@ export class SkiSimulation {
     let alignment=Math.abs(this.velocity.dot(this.forward))/Math.max(.01,this.velocity.length());
     // Load proxy combines normal gravity and turning demand; squat unloads the edge.
     this.pressure=Math.max(0,this.normal.y)+Math.min(1,Math.abs(this.turn)*speed/tuning.gravity);
-    if(this.dynamics.carveAlignment>0 && this.phase!=="air" &&
+    if(this.dynamics.carveAlignment>0 &&
        this.contact.some(Boolean) && Math.abs(this.edge)>.05 &&
        this.velocity.lengthSq()>1e-8){
       // Carving is a traction-limited change in *velocity direction*,
