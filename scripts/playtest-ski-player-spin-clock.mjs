@@ -85,6 +85,60 @@ async function attempt(degrees){
   });
   return d;
  };
+ // QA-only closed-loop KEYBOARD input, not an in-game stabilization
+ // controller: compare the rider's actual world-space up vector against
+ // the sampled landing slope; press W/S or Q/E as a human player could.
+ // The renderer and ski solver receive no direct state manipulation.
+ const attitudeHeld=new Set();
+ const cross=(a,b)=>[
+   a[1]*b[2]-a[2]*b[1],
+   a[2]*b[0]-a[0]*b[2],
+   a[0]*b[1]-a[1]*b[0]
+ ];
+ const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+ const clamp=(v)=>Math.max(-1,Math.min(1,v));
+ const orient=(d)=>{
+   const q=d.skiRotation?.split(",").map(Number)??[];
+   const [x,y,z,w]=q;
+   const n=[Number(d.skiNormalX),Number(d.skiNormalY),Number(d.skiNormalZ)];
+   if(q.length!==4||![...q,...n].every(Number.isFinite))return null;
+   const rotate=v=>{
+     const uv=cross([x,y,z],v);
+     const uuv=cross([x,y,z],uv);
+     return v.map((a,i)=>a+2*(w*uv[i]+uuv[i]));
+   };
+   const up=rotate([0,1,0]);
+   const error=cross(up,n);
+   const p=dot(error,rotate([1,0,0]));
+   const r=dot(error,rotate([0,0,1]));
+   return {upright:dot(up,n),pitch:p,roll:r};
+ };
+ const updateAttitude=async d=>{
+   const o=orient(d);
+   if(!o)return;
+   trace[trace.length-1].uprightInFlight=o.upright;
+   trace[trace.length-1].targetPitch=o.pitch;
+   trace[trace.length-1].targetRoll=o.roll;
+   const want=new Set();
+   if(d.skiRidePhase==="air"){
+     const pitchCmd=clamp(3.0*o.pitch-.70*Number(d.skiAngularX));
+     const rollCmd=clamp(3.0*o.roll-.70*Number(d.skiAngularZ));
+     if(pitchCmd>.12)want.add("w");
+     if(pitchCmd<-.12)want.add("s");
+     if(rollCmd>.12)want.add("q");
+     if(rollCmd<-.12)want.add("e");
+   }
+   for(const key of [...attitudeHeld])if(!want.has(key)){
+     await page.keyboard.up(key);
+     inputs.push({key,type:"up",tick:Number(d.skiTick),attitude:true});
+     attitudeHeld.delete(key);
+   }
+   for(const key of want)if(!attitudeHeld.has(key)){
+     await page.keyboard.down(key);
+     inputs.push({key,type:"down",tick:Number(d.skiTick),attitude:true});
+     attitudeHeld.add(key);
+   }
+ };
  const screenshot=async(stage)=>{
   const d=await state();
   const buffer=await page.locator('canvas[role="application"]').first()
@@ -123,6 +177,7 @@ async function attempt(degrees){
       await screenshot("takeoff");
     }
     if(d.skiRidePhase!=="air"){
+      await updateAttitude(d);
       if(airObserved&&d.skiLanding!=="none"){
         await screenshot("touchdown");
         result={
@@ -141,6 +196,7 @@ async function attempt(degrees){
       }
       continue;
     }
+    await updateAttitude(d);
     if(mode==="accelerate"){
       // Controlled countersteer has a ~0.4rad braking arc at full speed.
       // Keyboard timing comes from *observed* player physics, not from
@@ -166,6 +222,7 @@ async function attempt(degrees){
   result.reason=String(e?.message??e);
   err.push({degrees,reason:result.reason});
  }finally{
+  for(const key of attitudeHeld)await page.keyboard.up(key).catch(()=>{});
   await page.keyboard.up("a").catch(()=>{});
   await page.keyboard.up("d").catch(()=>{});
   await page.keyboard.up("Space").catch(()=>{});
@@ -173,6 +230,7 @@ async function attempt(degrees){
    schema:"iland-browser-player-spin-controlled-raf-v1",
    fixedRenderCadenceHz:60,solverHz:120,
    driver:"production RAF callback at controlled test timestamps",
+   attitudeControls:"real W/S and Q/E keyboard events from read-only snow normals",
    hardwareTimingClaim:false,
    usesTrustedKeyboardEvents:true,
    inGameAssists:false,
