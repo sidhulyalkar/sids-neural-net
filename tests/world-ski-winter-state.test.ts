@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {advanceWinter,INITIAL_WINTER_STATE,winterNeedsResources} from "../lib/world/ski/winterState";
+import {advanceWinter,INITIAL_WINTER_STATE,winterNeedsResources,type WinterState} from "../lib/world/ski/winterState";
 
 test("normal world requires no winter resources",()=>{
   assert.equal(INITIAL_WINTER_STATE.blend,0);
@@ -31,7 +31,7 @@ test("midair exit retains winter support until landing",()=>{
   assert.ok(landed.blend<1&&landed.blend>0);
 });
 test("winter never leaks after safe restoration",()=>{
-  let state={phase:"winter" as const,blend:1};
+  let state:WinterState={phase:"winter",blend:1};
   for(let i=0;i<30;i++)state=advanceWinter(state,.1,false,true);
   assert.equal(state.phase,"normal");
   assert.equal(state.blend,0);
