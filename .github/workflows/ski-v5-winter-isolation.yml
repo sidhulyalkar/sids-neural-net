@@ -37,7 +37,9 @@ jobs:
           cd /tmp/ski-v5-playwright
           npm init -y >/dev/null
           npm install --no-audit --no-fund playwright@1.56.1
-          # GitHub's ubuntu26.04 runner is newer than this pinned Playwright\n          # dependency installer supports. Download Chromium directly and\n          # rely on the hosted runner's preinstalled browser libraries.\n          npx playwright install chromium
+          # This runner version is newer than the pinned dependency helper.
+          # Install Chromium without the unsupported with-deps flag.
+          npx playwright install chromium
       - name: Serve exact built commit
         run: |
           PORT=3000 npm run start > /tmp/ski-v5-next.log 2>&1 &
