@@ -257,7 +257,7 @@ export function FrontierFocusReader({ initialItems, generatedAt, publishedInvest
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      if (contentsOpen || event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, button, a, [contenteditable="true"]')) return;
       if (event.key === 'ArrowRight') { event.preventDefault(); move(1); }
@@ -265,10 +265,12 @@ export function FrontierFocusReader({ initialItems, generatedAt, publishedInvest
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [move]);
+  }, [move, contentsOpen]);
 
   useEffect(() => {
-    if (!item || !hydrated) return;
+    // An open issue atlas is discovery, not proof that the hidden article was
+    // read. Stop seen timers and count dwell only until cover activation.
+    if (!item || !hydrated || contentsOpen) return;
     let visibleAt: number | null = document.visibilityState === 'visible' ? performance.now() : null;
     let accumulated = 0;
     let registered = false;
@@ -293,7 +295,7 @@ export function FrontierFocusReader({ initialItems, generatedAt, publishedInvest
       if (visibleAt !== null) accumulated += performance.now() - visibleAt;
       if (accumulated >= 1000) recordDwell(item, Math.min(120_000, Math.round(accumulated)));
     };
-  }, [item, hydrated, markSeen, recordDwell]);
+  }, [item, hydrated, contentsOpen, markSeen, recordDwell]);
 
   useEffect(() => () => {
     requestRef.current?.abort();
