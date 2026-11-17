@@ -85,12 +85,15 @@ export class SkiSimulation {
   interpolate(out:Vector3){
     return out.lerpVectors(this.previous,this.position,this.remainder/tuning.dt);
   }
-  private sample(){
+  private sample(useIndependentInAir=false){
     const {x,z}=this.position;
     const d=.05;
     this.normal.set(this.height(x-d,z)-this.height(x+d,z),2*d,
       this.height(x,z-d)-this.height(x,z+d)).normalize();
-    if(this.footprint==="independent"&&this.phase!=="air"){
+    // Takeoff and touchdown resolve against the same two ski footprints as
+    // grounded travel. During an airborne step this is requested explicitly
+    // at the collision point, never used to clamp the flying body to snow.
+    if(this.footprint==="independent"&&(this.phase!=="air"||useIndependentInAir)){
       const heading=this.solePoint.set(0,0,1).applyQuaternion(this.rotation);
       for(let i=0;i<2;i++){
         const pose=fitSkiContact(this.position,heading,2*i-1,this.sampleHeight,this.soles[i],true,this.pitchOffset[i],this.pivotStation[i]);
@@ -191,7 +194,10 @@ export class SkiSimulation {
       if(rate>0)this.rotation.multiply(this.delta.setFromAxisAngle(this.axis.copy(this.angular).normalize(),rate*dt)).normalize();
       this.velocity.y-=tuning.gravity*dt;
       this.move();
-      const support=this.sample();
+      // The legacy single-point midair probe can falsely report a one-ski
+      // impact on even a modest bank. Resolve support, normals and contacts
+      // from the actual independent left/right ski footprints on touchdown.
+      const support=this.sample(this.footprint==="independent");
       if(this.position.y<=support && this.velocity.dot(this.normal)<=0){
         this.impact=-this.velocity.dot(this.normal);
         this.forward.set(0,0,1).applyQuaternion(this.rotation);
