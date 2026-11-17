@@ -195,6 +195,11 @@ async function audit(width, height) {
         + JSON.stringify(coverGeometry));
     assert(/Research: [0-9]+ available stories/.test(coverGeometry.researchLabel || ''),
       'Subject lens labels should report real accessible source counts');
+    const positionBeforeCoverKey = await page.locator('[aria-label="Article progress"]').getAttribute('aria-valuenow');
+    await page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await page.locator('[aria-label="Article progress"]').getAttribute('aria-valuenow'),
+      positionBeforeCoverKey, 'The hidden article must not advance behind the issue atlas');
 
     const entries = page.locator('#frontier-contents button[aria-current], #frontier-contents button[aria-current="true"]');
     assert((await entries.count()) >= 1, 'The current article should be marked in the edition index');
@@ -214,6 +219,8 @@ async function audit(width, height) {
     assert((await issueButtons.count()) >= 2, 'Contents should permit direct article navigation');
     await issueButtons.nth(1).click();
     await page.waitForFunction((prior) => document.querySelector('article h1')?.textContent !== prior, heading);
+    assert((await page.evaluate(() => window.scrollY)) < 8,
+      'Selecting a story from the full-page atlas should restore the article viewport');
     await page.locator('[data-frontier-previous="true"]').click();
     assert.equal(await page.locator('article h1').first().textContent(), heading,
       'Edition index navigation must preserve the standard back path');
