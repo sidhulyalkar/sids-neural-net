@@ -10,12 +10,12 @@ export const tuning = Object.freeze({
 export type SkiCarveSettings={
  maxTurn:number;edgeResponse:number;flatGrip:number;
  engagedGrip:number;contactForceScale:number;drag:number;
- surfaceTransport:number;carveRedirect:number;
+ surfaceTransport:number;carveRedirect:number;carveAlignment:number;
 };
 export const SKI_CARVE_BASELINE:Readonly<SkiCarveSettings>=Object.freeze({
  maxTurn:tuning.maxTurn,edgeResponse:tuning.edgeResponse,
  flatGrip:tuning.flatGrip,engagedGrip:tuning.engagedGrip,
- contactForceScale:1,drag:tuning.drag,surfaceTransport:0,carveRedirect:0
+ contactForceScale:1,drag:tuning.drag,surfaceTransport:0,carveRedirect:0,carveAlignment:0
 });
 export type SkiInput = { steer:number; pitch:number; roll:number; tuck:boolean; brake:boolean; jump:boolean; grab:boolean };
 export const neutral:SkiInput = {steer:0,pitch:0,roll:0,tuck:false,brake:false,jump:false,grab:false};
@@ -72,7 +72,8 @@ export class SkiSimulation {
       if(!Number.isFinite(value)||value<0||
         (name==="contactForceScale"&&value>3)||
         (name==="surfaceTransport"&&value>1)||
-        (name==="carveRedirect"&&value>1))
+        (name==="carveRedirect"&&value>1)||
+        (name==="carveAlignment"&&value>1))
         throw Error("Invalid experimental ski dynamics: "+name);
     this.position.set(x,height(x,z),z);
     if(footprint)this.position.y=this.sample();
@@ -240,10 +241,33 @@ export class SkiSimulation {
     this.velocity.addScaledVector(this.axis.set(0,-tuning.gravity,0).projectOnPlane(this.normal),dt);
     // Signed edge passes through flat during a direction change.
     this.edge+=((impaired?0:clamp(input.steer))-this.edge)*(1-Math.exp(-this.dynamics.edgeResponse*dt));
-    const lateral=this.velocity.dot(this.side);
-    const alignment=Math.abs(this.velocity.dot(this.forward))/Math.max(.01,this.velocity.length());
+    let lateral=this.velocity.dot(this.side);
+    let alignment=Math.abs(this.velocity.dot(this.forward))/Math.max(.01,this.velocity.length());
     // Load proxy combines normal gravity and turning demand; squat unloads the edge.
     this.pressure=Math.max(0,this.normal.y)+Math.min(1,Math.abs(this.turn)*speed/tuning.gravity);
+    if(this.dynamics.carveAlignment>0 && this.phase!=="air" &&
+       this.contact.some(Boolean) && Math.abs(this.edge)>.05 &&
+       this.velocity.lengthSq()>1e-8){
+      // Carving is a traction-limited change in *velocity direction*,
+      // not a side-velocity brake. Rotate within the tangent plane:
+      // energy stays unchanged until ordinary drag and residual skid.
+      const slipAngle=Math.atan2(lateral,this.velocity.dot(this.forward));
+      const angleToHeading=-slipAngle;
+      // Only a loaded edge on the appropriate side can engage; flat
+      // skis and an edge transitioning to its new side are not rails.
+      if(angleToHeading*this.edge>.005){
+        const maxAngular=tuning.gravity*this.pressure/
+          Math.max(.5,this.velocity.length());
+        const delta=Math.sign(angleToHeading)*Math.min(
+          Math.abs(angleToHeading),
+          Math.min(this.dynamics.maxTurn,maxAngular)*tuning.dt*
+            this.dynamics.carveAlignment*Math.abs(this.edge));
+        this.velocity.applyAxisAngle(this.normal,delta);
+        lateral=this.velocity.dot(this.side);
+        alignment=Math.abs(this.velocity.dot(this.forward))/
+          Math.max(.01,this.velocity.length());
+      }
+    }
     this.grip=this.dynamics.flatGrip+this.dynamics.engagedGrip*Math.abs(this.edge)*this.pressure*
       (.25+.75*alignment)*(1-.45*this.charge/tuning.maxCharge);
     const slipImpulse=lateral*(1-Math.exp(-this.grip*dt));
