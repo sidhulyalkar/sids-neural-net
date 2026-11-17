@@ -435,6 +435,13 @@ export function createWorld(
   sun.shadow.normalBias = 0.1;
   sun.shadow.bias = -0.0003;
   scene.add(sun);
+  // Cached palette samples avoid per-frame Color allocation and must not
+  // override the authoritative gallery/underwater background and fog.
+  const winterSkyColor=new THREE.Color("#819eae");
+  const winterFogColor=new THREE.Color("#b8ccd6");
+  const winterSunColor=new THREE.Color("#e6f1ff");
+  const standardSunColor=sun.color.clone();
+  const standardSunIntensity=sun.intensity;
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
   const geo = <T extends THREE.BufferGeometry>(g: T): T => {
@@ -7645,16 +7652,21 @@ export function createWorld(
     // Atmospheric transition is visual only. Physics contacts never depend
     // on flake density, fog or the interpolated winter pigment.
     const winterVisibility=winterState.blend;
-    (scene.background as THREE.Color).set("#67b7ef")
-      .lerp(new THREE.Color("#819eae"),winterVisibility*.76);
-    if(scene.fog instanceof THREE.Fog)
-      scene.fog.color.lerp(new THREE.Color("#b8ccd6"),
-        winterVisibility*.64);
-    sun.color.set("#fff0cf").lerp(new THREE.Color("#e6f1ff"),winterVisibility);
-    sun.intensity=2.8-.45*winterVisibility;
     const skySnowAllowed=aquatic==="land"&&caveLayer==="surface"&&
       galleryPhase==="outside"&&!underwater;
-    winterSnowfall?.update(dt,camera,skySnowAllowed?winterVisibility:0);
+    // Existing scene logic has already resolved museum and underwater colors.
+    // Only outdoor land may receive a winter atmosphere override.
+    if(skySnowAllowed&&winterVisibility>0){
+      if(scene.background instanceof THREE.Color)
+        scene.background.lerp(winterSkyColor,winterVisibility*.76);
+      if(scene.fog instanceof THREE.Fog)
+        scene.fog.color.lerp(winterFogColor,winterVisibility*.64);
+    }
+    const weatherLight=skySnowAllowed?winterVisibility:0;
+    sun.color.copy(standardSunColor).lerp(winterSunColor,weatherLight);
+    sun.intensity=standardSunIntensity-.45*weatherLight;
+    winterSnowfall?.update(dt,camera,
+      skySnowAllowed&&!reducedFlightMotion?winterVisibility:0);
     renderer.render(scene, camera);
     // This per-mode diagnostic is sampled from the *current underwater
     // render*, not a stale land-mode FPS window.
