@@ -55,6 +55,19 @@ test("rigid same-grid reference includes BOTH ski edges on steep cross-slope",()
   assert.ok(result.max<=result.rigidMax+.11);
   ribbon.dispose();
 });
+test("steep curved-bank ribbon does not add a second upturned tip",()=>{
+  const height=(x:number,z:number)=>1.3*x+.2*Math.sin(2*z);
+  const pose=fitSkiContact({x:0,z:0},{x:0,z:1},1,
+    p=>height(p.x,p.z),createSkiContact(),true);
+  const ribbon=new SkiVisualSole();
+  const result=ribbon.update(pose,height,.9,true);
+  const positions=ribbon.geometry.getAttribute("position");
+  assert.ok(Math.abs(positions.getY(32*4)-SKI_SOLE_Y)<1e-9,
+    "running sole must meet the authored separate tip without double lift");
+  assert.ok(result.max<=result.rigidMax+.11,
+    "a bank cannot induce extra airborne clearance from decorative tip lift");
+  ribbon.dispose();
+});
 test("visual bend is disabled without load and never changes solver pose",()=>{
   const h=(_x:number,z:number)=>-.2*z*z;
   const pose=fitSkiContact({x:0,z:0},{x:0,z:1},1,
