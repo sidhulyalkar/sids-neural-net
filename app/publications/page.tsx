@@ -1,4 +1,6 @@
 import { Metadata } from 'next';
+import Link from 'next/link';
+import {galleryWorldHref} from '@/lib/world/galleryLinks';
 import graphData from '@/data/generated/neural-graph.json';
 import { NeuralGraphSchema } from '@/lib/data/schemas';
 import { ComicSectionLayout } from '@/components/neural-atlas/ComicSectionLayout';
@@ -39,6 +41,9 @@ export default async function PublicationsPage() {
       title="paper archive"
     >
       <div className="max-w-6xl">
+        <p className="mb-6 text-sm"><Link href={galleryWorldHref("papers")} className="text-cyan hover:underline">
+          Visit the waterfall research museum in Sid’s iLand
+        </Link></p>
         {/* Publications List */}
         {publications.length > 0 ? (
           <PublicationFocusArchive publications={publications} enhancements={enhancements} />
