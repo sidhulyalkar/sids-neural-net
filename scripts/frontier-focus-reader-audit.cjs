@@ -184,6 +184,21 @@ async function audit(width, height) {
         coverWidth: cover?.getBoundingClientRect().width ?? -1,
         atlasWidth: atlas?.getBoundingClientRect().width ?? -1,
         researchLabel: atlasTrack?.getAttribute('aria-label'),
+        offenders: Array.from(document.querySelectorAll('[data-frontier-journal] *'))
+          .map((element) => {
+            const box = element.getBoundingClientRect();
+            return {
+              tag: element.tagName.toLowerCase(),
+              className: typeof element.className === 'string' ? element.className.slice(0, 75) : '',
+              left: Math.round(box.left),
+              right: Math.round(box.right),
+              scrollWidth: element.scrollWidth,
+              clientWidth: element.clientWidth,
+            };
+          })
+          .filter((entry) => entry.right > window.innerWidth + 2 || entry.left < -2)
+          .sort((a, b) => b.right - a.right)
+          .slice(0, 12),
       };
     });
     assert.equal(coverGeometry.mode, 'true', 'Contents should switch into a real editorial cover mode');
