@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { FrontierEditionFeed } from '@/components/frontier/FrontierEditionFeed';
 import { getFrontierColdSnapshotFeed } from '@/lib/frontier/snapshotFeed';
+import { buildFrontierEditionCandidates } from '@/lib/frontier/editionCandidates';
 
 export const metadata: Metadata = {
   title: 'FRONTIER · Living Edition',
@@ -18,6 +19,12 @@ export const metadata: Metadata = {
  * radar at /frontier/advanced. Cold navigation never starts the live mesh.
  */
 export default function FrontierPage() {
-  const feed = getFrontierColdSnapshotFeed();
+  const snapshot = getFrontierColdSnapshotFeed();
+  // A 36-item first-paint payload, sampled from the full verified archive.
+  // This prevents source-ordered RSS/GitHub blocks from hiding later papers.
+  const feed = {
+    generatedAt: snapshot.generatedAt,
+    items: buildFrontierEditionCandidates(snapshot.items, 36),
+  };
   return <FrontierEditionFeed initialItems={feed.items.slice(0, 36)} generatedAt={feed.generatedAt} />;
 }
