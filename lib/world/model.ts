@@ -365,9 +365,19 @@ export function terrainHeightBeforeHalfpipe(x: number, z: number): number {
   base += (paperCaveFloorHeight({ x, z }) - base) * paperMask;
   return base;
 }
-/** The untouched, previously verified mountain/stream/waterfall geometry
- * remains authoritative. A small +Z-facing ski patch is the sole overlay. */
+/** Base iLand geology is immutable across activities. Run, bike, skate,
+ * gallery navigation, vegetation and non-ski collision sample this height.
+ * Ski sculpting is explicitly owned by the winter variant below.
+ */
 export function terrainHeight(x:number,z:number):number {
+  return terrainHeightBeforeHalfpipe(x,z);
+}
+
+/** The winter ski surface, including the locally authored bank and contained
+ * summit lift. Its edit is mathematically zero beyond the protected ski
+ * footprint, so all other island landmarks keep the same coordinates.
+ */
+export function winterTerrainHeight(x:number,z:number):number {
   const original=terrainHeightBeforeHalfpipe(x,z);
   const delta=mountainFaceEditDelta({x,z},original,
     faceZ=>terrainHeightBeforeHalfpipe(MOUNTAIN_HALFPIPE.centerX,faceZ));
@@ -422,6 +432,12 @@ export function seaFloorHeight(x: number, z: number): number {
 
 export function worldFloorHeight(x: number, z: number): number {
   return isWater({ x, z }) ? seaFloorHeight(x, z) : terrainHeight(x, z);
+}
+
+/** Explicit winter sampler. Never mutate a module-global season switch:
+ * concurrent world scenes and test suites must not share terrain state. */
+export function winterWorldFloorHeight(x: number, z: number): number {
+  return isWater({ x, z }) ? seaFloorHeight(x, z) : winterTerrainHeight(x, z);
 }
 
 export function maxDiveDepth(point: Point): number {
