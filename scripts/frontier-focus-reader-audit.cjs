@@ -203,7 +203,7 @@ async function audit(width, height) {
 
     const entries = page.locator('#frontier-contents button[aria-current], #frontier-contents button[aria-current="true"]');
     assert((await entries.count()) >= 1, 'The current article should be marked in the edition index');
-    const featuredIndexEntry = page.locator('#frontier-contents button').filter({ has: page.locator('strong') }).first();
+    const featuredIndexEntry = page.locator('#frontier-contents button[data-realm]').first();
     const featuredIndexGeometry = await featuredIndexEntry.evaluate((element) => ({
       gridColumn: getComputedStyle(element).gridColumnEnd,
       width: element.getBoundingClientRect().width,
@@ -215,7 +215,7 @@ async function audit(width, height) {
       path: path.join(screenshotDir, 'journal-index-' + width + '.png'),
       fullPage: true, animations: 'disabled',
     });
-    const issueButtons = page.locator('#frontier-contents button').filter({ has: page.locator('strong') });
+    const issueButtons = page.locator('#frontier-contents button[data-realm]');
     assert((await issueButtons.count()) >= 2, 'Contents should permit direct article navigation');
     await issueButtons.nth(1).click();
     await page.waitForFunction((prior) => document.querySelector('article h1')?.textContent !== prior, heading);
