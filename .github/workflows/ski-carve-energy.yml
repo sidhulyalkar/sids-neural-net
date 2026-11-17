@@ -5,6 +5,7 @@ on:
       - ".github/workflows/ski-carve-energy.yml"
       - "scripts/ski-carve-energy-experiment.ts"
       - "scripts/ski-control-envelope.ts"
+      - "scripts/ski-coupled-turns.ts"
       - "tests/world-ski-carve-physics.test.ts"
       - "lib/world/ski/simulation.ts"
   workflow_dispatch:
@@ -34,6 +35,16 @@ jobs:
         run: |
           node --import tsx scripts/ski-control-envelope.ts
           git rev-parse HEAD > artifacts/ski-control-envelope/tested-sha.txt
+      - name: Coupled control and edge-force experiment on real snow
+        run: |
+          node --import tsx scripts/ski-coupled-turns.ts
+          git rev-parse HEAD > artifacts/ski-coupled-turns/tested-sha.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ski-coupled-turns-${{ github.sha }}
+          path: artifacts/ski-coupled-turns/
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         if: always()
         with:
