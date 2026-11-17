@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUpRight, Bookmark, RefreshCw, Search } from 'lucide-react';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
 import { frontierInformationValue, rerankFrontierForInformation } from '@/lib/frontier/informativeEdition';
+import { featureFrontierEditionStory, frontierEditionChannel } from '@/lib/frontier/editionCandidates';
+import { frontierReadableText } from '@/lib/frontier/readableText';
 import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { buildFrontierSourceBrief, frontierSourceFigures } from '@/lib/frontier/sourceBrief';
 import { useFrontierStore } from '@/lib/frontier/store';
@@ -27,16 +29,17 @@ const SUBJECTS: readonly { id: Subject; name: string }[] = [
 
 function belongsTo(item: FrontierItem, subject: Subject): boolean {
   if (subject === 'all') return true;
-  if (subject === 'sports') return Boolean(item.sportsState) ||
-    ['premier_league', 'world_soccer', 'team_pulse', 'sports'].includes(item.lane);
-  if (subject === 'nature') return item.sourceKind === 'nasa' || item.lane === 'life'
-    || item.tags.some((tag) => /ecology|wildlife|marine|ocean|biodiversity|earth observation|conservation/i.test(tag));
-  if (subject === 'building') return item.sourceKind === 'github'
-    || ['builder_signal', 'creative_tech', 'competitions'].includes(item.lane);
-  if (subject === 'culture') return FRONTIER_LANE_MAP[item.lane].realm === 'play'
-    && !belongsTo(item, 'sports');
-  return ['arxiv', 'biorxiv', 'medrxiv', 'openreview', 'openalex', 'paperswithcode'].includes(item.sourceKind)
-    || ['neuro_frontier', 'ai_frontier', 'ml_data', 'methods', 'broad_science'].includes(item.lane);
+  const channel = frontierEditionChannel(item);
+  if (subject === 'sports') return channel === 'sports' ||
+    (item.sourceKind === 'rss' && item.tags.some((tag) => /football|soccer|premier league|nfl|nba/i.test(tag)));
+  if (subject === 'nature') return channel === 'nature';
+  if (subject === 'building') return channel === 'building';
+  if (subject === 'culture') return channel === 'culture';
+  // Do not classify general football reporting as science merely because
+  // an upstream generic source tag called it 'broad_science'.
+  return channel === 'papers' ||
+    (['neuro_frontier','ai_frontier','ml_data','methods','broad_science'].includes(item.lane) &&
+    !['github','rss','sports_state','steam'].includes(item.sourceKind));
 }
 
 function dateLabel(input: string): string {
@@ -46,7 +49,9 @@ function dateLabel(input: string): string {
 }
 
 function editionOrder(items: FrontierItem[], history: Record<string, never> = {}): FrontierItem[] {
-  return selectDailyRun(rerankFrontierForInformation(items), history, EDITION_LIMIT);
+  return featureFrontierEditionStory(
+    selectDailyRun(rerankFrontierForInformation(items), history, EDITION_LIMIT)
+  );
 }
 
 function LeadFigure({ item }: { item: FrontierItem }) {
@@ -58,7 +63,7 @@ function LeadFigure({ item }: { item: FrontierItem }) {
       <Image unoptimized src={first.url} alt={first.alt || item.title} width={1000} height={680}
         sizes="(max-width: 760px) 100vw, 34vw" loading="lazy"
         onError={() => setFailed(true)}/>
-      {first.caption ? <figcaption>{first.caption.slice(0, 185)}</figcaption> : null}
+      {first.caption ? <figcaption>{frontierReadableText(first.caption).slice(0, 185)}</figcaption> : null}
     </figure>
   );
 }
@@ -72,6 +77,7 @@ function EditionArticle({ item, ordinal, lead }: { item: FrontierItem; ordinal: 
   const recordOpen = useFrontierStore((s) => s.recordOpen);
   const brief = useMemo(() => buildFrontierSourceBrief(item.summary, item.sourceKind), [item.summary, item.sourceKind]);
   const context = frontierInformationValue(item);
+  const evidenceReasons = context.reasons.filter((reason) => reason !== 'Detailed context');
   const rating = history[item.id]?.interestScore;
 
   return (
@@ -86,15 +92,15 @@ function EditionArticle({ item, ordinal, lead }: { item: FrontierItem; ordinal: 
         <div className={styles.storyText}>
           <span className={styles.lane}>{FRONTIER_LANE_MAP[item.lane].shortLabel}</span>
           <h2><a href={item.url} target="_blank" rel="noopener noreferrer" onClick={() => recordOpen(item)}>
-            {item.title}<ArrowUpRight size={16} aria-hidden="true"/>
+            {frontierReadableText(item.title)}<ArrowUpRight size={16} aria-hidden="true"/>
           </a></h2>
-          <p className={styles.summary}>{brief.lead || 'Open the original source for a complete description.'}</p>
+          <p className={styles.summary}>{frontierReadableText(brief.lead || 'Original source available; detailed context not supplied.')}</p>
           {brief.hasFullerContext ? <details className={styles.more}>
             <summary>More context</summary>
-            {brief.details.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+            {brief.details.map((paragraph, index) => <p key={index}>{frontierReadableText(paragraph)}</p>)}
           </details> : null}
-          {context.reasons.length ? <p className={styles.reason}>
-            <span>In the source</span> {context.reasons.join(' · ')}
+          {evidenceReasons.length ? <p className={styles.reason}>
+            <span>In the source</span> {evidenceReasons.join(' · ')}
           </p> : null}
         </div>
         {lead ? <LeadFigure item={item}/> : null}
@@ -102,7 +108,7 @@ function EditionArticle({ item, ordinal, lead }: { item: FrontierItem; ordinal: 
       <div className={styles.storyActions}>
         <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={() => recordOpen(item)}
           className={styles.sourceLink}>Read original <ArrowUpRight size={13} aria-hidden="true"/></a>
-        <FrontierWheelRating key={item.id} title={item.title} savedScore={rating}
+        <FrontierWheelRating key={item.id} title={frontierReadableText(item.title)} savedScore={rating}
           onSave={(score, method) => rateInterest(item, score, method)}/>
         <button type="button" className={styles.bookmark} disabled={!hydrated}
           aria-pressed={Boolean(saved[item.id])}
