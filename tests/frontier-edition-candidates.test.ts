@@ -12,7 +12,7 @@ function fixture(id: string, lane: FrontierItem['lane'] = 'sports',
   sourceKind: FrontierItem['sourceKind'] = 'rss', summary = 'An article with some details.',
 ): FrontierItem {
   return {
-    id, title:id, summary, url:'https://example.org/items/'+id,
+    id, title:id, summary, url:sourceKind === 'github' ? 'https://github.com/'+id+'/demo' : 'https://'+id+'.example.org/items/'+id,
     source:'fixture', sourceLabel:'Fixture',
     sourceKind, publishedAt:'2026-11-17T10:00:00Z', lane,
     tags:[], baseScore:.8, quality:.7, importance:.7, novelty:.7, momentum:.5,
