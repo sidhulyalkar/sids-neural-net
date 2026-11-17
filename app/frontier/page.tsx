@@ -1,25 +1,23 @@
 import type { Metadata } from 'next';
-import { FrontierFocusReader } from '@/components/frontier/FrontierFocusReader';
+import { FrontierEditionFeed } from '@/components/frontier/FrontierEditionFeed';
 import { getFrontierColdSnapshotFeed } from '@/lib/frontier/snapshotFeed';
 
 export const metadata: Metadata = {
-  title: 'FRONTIER · Focus Reader',
-  description: 'One story at a time. A faster daily reader for research, code, sports, games, and discoveries worth understanding.',
+  title: 'FRONTIER · Living Edition',
+  description: 'A continuously evolving, source-grounded edition of research, engineering, sport, media and meaningful discoveries.',
   alternates: { canonical: '/frontier' },
   openGraph: {
-    title: 'FRONTIER · Focus Reader',
-    description: 'A calmer, focused personal discovery reader.',
-    url: '/frontier',
-    type: 'website',
+    title: 'FRONTIER · Living Edition',
+    description: 'A field guide to ideas worth understanding, with source-rich discovery and personal interest signals.',
+    url: '/frontier', type: 'website',
   },
 };
 
-/**
- * Do not import the animated radar, streaming daemon, canvas, WebGL media, or
- * client-side live source mesh into the default route. A validated snapshot is
- * already available locally at build time, so the first story server-renders.
+/** Default experience: multiple independently navigable source articles.
+ * Preserve the single-story reader at /frontier/read and the full advanced
+ * radar at /frontier/advanced. Cold navigation never starts the live mesh.
  */
 export default function FrontierPage() {
   const feed = getFrontierColdSnapshotFeed();
-  return <FrontierFocusReader initialItems={feed.items.slice(0, 36)} generatedAt={feed.generatedAt} />;
+  return <FrontierEditionFeed initialItems={feed.items.slice(0, 96)} generatedAt={feed.generatedAt} />;
 }
