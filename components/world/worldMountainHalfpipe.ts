@@ -1,9 +1,10 @@
 import * as THREE from "three/src/Three.Core.js";
-import {worldFloorHeight} from "@/lib/world/model";
+import {winterWorldFloorHeight} from "@/lib/world/model";
 import {MOUNTAIN_HALFPIPE as pipe, mountainHalfpipeInfluence} from "@/lib/world/mountainHalfpipe";
 import {authorSnowpack} from "@/lib/world/ski/snowpack";
 
-/** Refine the island mesh itself so there is only one visible ski surface. */
+/** Refine only the optional winter clone. Midpoints follow the winter sculpt,
+ * while the shared ordinary mountain stays independent and unchanged. */
 export function refineMountainSnow(terrain: THREE.BufferGeometry) {
   const index = terrain.getIndex()!;
   const positions = Array.from(terrain.getAttribute("position").array);
@@ -32,7 +33,7 @@ export function refineMountainSnow(terrain: THREE.BufferGeometry) {
       pipe.startZ-z, z-pipe.endZ);
     // The outer row meets the untouched triangles along their straight edges.
     const blend = THREE.MathUtils.clamp(1-distance, 0, 1);
-    const y = THREE.MathUtils.lerp((positions[3*a+1]+positions[3*b+1])/2, worldFloorHeight(x,z), blend);
+    const y = THREE.MathUtils.lerp((positions[3*a+1]+positions[3*b+1])/2, winterWorldFloorHeight(x,z), blend);
     positions.push(x,y,z);
     for (let k=0;k<3;k++) {
       colors.push((colors[3*a+k]+colors[3*b+k])/2);
