@@ -138,6 +138,7 @@ import {
   terrainHeight,
   waterZone,
   worldFloorHeight,
+  winterWorldFloorHeight,
   WORLD_BOUNDS,
   type CaveLayer,
   type Obstacle,
@@ -642,6 +643,13 @@ export function createWorld(
   function prepareWinterTerrain(){
     if(winterTerrain)return;
     const refined=geo(terrain.clone());
+    // The shared base terrain is always unmodified geology. Author winter
+    // shape only on its clone, using the explicit winter surface provider.
+    const winterPoints=refined.getAttribute("position");
+    for(let i=0;i<winterPoints.count;i++){
+      const x=winterPoints.getX(i),z=winterPoints.getZ(i);
+      winterPoints.setY(i,winterWorldFloorHeight(x,z));
+    }
     snowTriangles=refineMountainSnow(refined);
     winterGroundMaterial=applySnowpackMaterial(
       mat("#ffffff",{vertexColors:true,flatShading:false,roughness:.92}),winterBlend);
@@ -3322,17 +3330,8 @@ export function createWorld(
   scene.add(bubbles);
   bubbles.visible = false;
 
-  // One draw call of local snowfall follows the player whenever ski mode is equipped.
-  const snowPositions = new Float32Array(220 * 3);
-  for (let i = 0; i < 220; i++)
-    snowPositions.set([(random() - 0.5) * 46, random() * 25, (random() - 0.5) * 46], i * 3);
-  const snowGeo = geo(new THREE.BufferGeometry());
-  snowGeo.setAttribute("position", new THREE.BufferAttribute(snowPositions, 3));
-  const snowMat = new THREE.PointsMaterial({ color: "#ffffff", size: 0.16, transparent: true, opacity: 0.82 });
-  materials.add(snowMat);
-  const snowfall = new THREE.Points(snowGeo, snowMat);
-  snowfall.visible = false;
-  scene.add(snowfall);
+  // Snowfall is now dynamically imported only for Skiing. There is no
+  // permanently allocated legacy snow particle system in the base world.
 
   let state: State = {
     entered: false,
@@ -4820,7 +4819,7 @@ export function createWorld(
         if(!rideSnow){
           const started=performance.now();
           if(!winterTerrain)prepareWinterTerrain();
-          rideSnow=renderedSnowHeight(winterTerrain!,worldFloorHeight);
+          rideSnow=renderedSnowHeight(winterTerrain!,winterWorldFloorHeight);
           canvas.dataset.skiIndexMs=(performance.now()-started).toFixed(2);
         }
         if (!ride) {
@@ -6096,7 +6095,8 @@ export function createWorld(
           skiFocus.y+.2,skiFocus.z+travel.heading.z*lookAhead);
         targetCamera.set(player.x+Math.sin(skiCameraYaw)*followDistance,
           explorer.position.y+elevation,player.z+Math.cos(skiCameraYaw)*followDistance);
-        constrainSkiCamera(targetLook,targetCamera,p=>worldFloorHeight(p.x,p.z));
+        constrainSkiCamera(targetLook,targetCamera,p=>
+          winterTerrain?winterWorldFloorHeight(p.x,p.z):worldFloorHeight(p.x,p.z));
       } else {
         skiCameraActive=false;
         targetCamera.set(
@@ -7132,7 +7132,8 @@ export function createWorld(
     if(skiCameraActive){
       // Clear the actual ski contact, not only a lagging look target.
       skiFootFocus.copy(explorer.position);skiFootFocus.y+=.12;
-      constrainSkiCamera(skiFootFocus,camera.position,p=>worldFloorHeight(p.x,p.z));
+      constrainSkiCamera(skiFootFocus,camera.position,p=>
+        winterTerrain?winterWorldFloorHeight(p.x,p.z):worldFloorHeight(p.x,p.z));
       look.lerp(targetLook,1-Math.exp(-dt*12));
     }
     if(galleryPhase!==lastGalleryCameraPhase){
@@ -7338,25 +7339,12 @@ export function createWorld(
         underwater ? (currentWaterZone === "lagoon" ? 70 : 58) : 270;
     }
 
-    // Snow particles follow the *material*, not merely the selected sport.
-    // Legacy and V3 visual behavior is unchanged by this experimental gate.
-    snowfall.visible = state.activity === "ski" && aquatic !== "dive" &&
-      (!skiV4Enabled || (ride instanceof SkiV4Simulation ?
-        ride.v4.telemetry.snowCoverage>.35 :
-        (rideSnow?.snowCoverage(player.x,player.z)??0)>.35));
-    canvas.dataset.snowing = String(snowfall.visible);
+    // Winter particle state is controlled by the single optional weather
+    // system. Snowflakes remain cosmetic and do not grant ski traction.
+    canvas.dataset.snowing=String(!!winterSnowfall&&winterBlend.value>.05&&
+      aquatic==="land"&&caveLayer==="surface"&&galleryPhase==="outside");
     canvas.dataset.reef = String(reefRoot.visible || tropicalReefRoot.visible);
     canvas.dataset.reefZone = currentWaterZone ?? "";
-    if (snowfall.visible) {
-      snowfall.position.set(player.x, playerY - 4, player.z);
-      const snowAttribute = snowGeo.attributes.position as THREE.BufferAttribute;
-      for (let i = 0; i < snowAttribute.count; i++) {
-        let y = snowAttribute.getY(i) - dt * (3.8 + (i % 7) * 0.42);
-        if (y < 0) y += 25;
-        snowAttribute.setY(i, y);
-      }
-      snowAttribute.needsUpdate = true;
-    }
 
     // Reef animals move on simple deterministic paths so the coast feels alive.
     // Skip all aquatic animation work while the reef group is hidden on land.
