@@ -18,6 +18,45 @@ async function attempt(degrees){
  const page=await browser.newPage({viewport:{width:850,height:610},deviceScaleFactor:.5});
  const trace=[],inputs=[],pageErrors=[];
  page.on("pageerror",e=>pageErrors.push(e.message));
+ // Playwright fake-clock RAF sometimes stalls on full WebGL pages.
+ // After world entry, only scheduling is intercepted. The production
+ // frame callback and the 120 Hz physics execute without modification.
+ await page.addInitScript(()=>{
+  const nativeRAF=window.requestAnimationFrame.bind(window);
+  const nativeCancel=window.cancelAnimationFrame.bind(window);
+  const queue=new Map();
+  let manual=false,stepping=false,clock=performance.now(),nextId=1000000000;
+  window.requestAnimationFrame=callback=>{
+   if(!manual)return nativeRAF(callback);
+   if(!stepping)clock=performance.now();
+   const id=nextId++;
+   queue.set(id,callback);
+   return id;
+  };
+  window.cancelAnimationFrame=id=>{
+   if(id>=1000000000)queue.delete(id);
+   else nativeCancel(id);
+  };
+  window.__skiFrameDriver={
+   begin(){manual=true;},
+   queued(){return queue.size;},
+   step(count){
+    if(!Number.isInteger(count)||count<1||count>60)
+     throw Error("Invalid controlled frame count");
+    for(let i=0;i<count;i++){
+     if(queue.size===0)throw Error("World RAF stopped at controlled frame "+i);
+     const batch=[...queue.values()];
+     queue.clear();
+     clock+=1000/60;
+     stepping=true;
+     try{for(const callback of batch)callback(clock);}
+     finally{stepping=false;}
+    }
+    return {queue:queue.size,at:clock};
+   }
+  };
+ });
+ const advance=async(frames)=>page.evaluate(n=>window.__skiFrameDriver.step(n),frames);
  let result={degrees,qualified:false,reason:"not started"};
  let state=()=>page.locator('canvas[role="application"]').first().evaluate(c=>({...c.dataset}));
  const press=async(key)=>{
@@ -54,22 +93,21 @@ async function attempt(degrees){
   fs.writeFileSync(path.join(dir,stage+".json"),JSON.stringify(d,null,2));
  };
  try{
-  // Browser time control runs the *unmodified* production frame and 120 Hz
-  // physics at predictable 60 FPS. Playwright's keyboard dispatches normal
-  // user input events. No time-skipping, state mutation, automatic score,
-  // in-game controller, or synthetic trick award is used.
-  await page.clock.install();
+  // The exact production RAF callback is pumped at simulated 60 Hz.
+  // Playwright delivers real keyboard events between physics frames.
+  // This measures correctness, not physical GPU frame pacing.
   await page.goto(base,{timeout:120000});
   await page.getByRole("button",{name:"Explore world",exact:true}).click({timeout:120000});
   await page.getByRole("button",{name:"Skiing",exact:true}).click({timeout:60000});
   await page.waitForFunction(()=>document.querySelector('canvas[role="application"]')?.dataset.skiRidePhase==="riding",null,{timeout:60000});
-  await page.clock.pauseAt(new Date(Date.now()+100));
+  await page.evaluate(()=>window.__skiFrameDriver.begin());
+  await page.waitForFunction(()=>window.__skiFrameDriver.queued()>0,
+    null,{polling:200,timeout:120000});
   const start=await record();
   assert.equal(start.bigAirPhase,"idle");
   await press("Space");
-  // Playwright clock runs 60 Hz RAF callbacks. The world still executes
-  // independent 120 Hz fixed solver steps with no jumps in simulated time.
-  await page.clock.runFor(650);
+  // 40 production frames = 2/3 simulated seconds, 80 fixed ski ticks.
+  await advance(40);
   const charge=await record();
   assert.equal(charge.skiRidePhase,"charging");
   await screenshot("charge");
@@ -78,7 +116,7 @@ async function attempt(degrees){
   let mode="accelerate",airObserved=false;
   const goal=degrees*Math.PI/180;
   for(let i=0;i<160;i++){
-    await page.clock.runFor(17);
+    await advance(1);
     const d=await record();
     if(d.skiRidePhase==="air"&&!airObserved){
       airObserved=true;
@@ -132,8 +170,9 @@ async function attempt(degrees){
   await page.keyboard.up("d").catch(()=>{});
   await page.keyboard.up("Space").catch(()=>{});
   fs.writeFileSync(path.join(dir,"trace.json"),JSON.stringify({
-   schema:"iland-browser-player-spin-fixed-clock-v1",
+   schema:"iland-browser-player-spin-controlled-raf-v1",
    fixedRenderCadenceHz:60,solverHz:120,
+   driver:"production RAF callback at controlled test timestamps",
    hardwareTimingClaim:false,
    usesTrustedKeyboardEvents:true,
    inGameAssists:false,
@@ -149,7 +188,7 @@ try{
 }finally{
  await browser.close();
  fs.writeFileSync(path.join(out,"summary.json"),JSON.stringify({
-  schema:"iland-browser-player-spin-fixed-clock-v1",
+  schema:"iland-browser-player-spin-controlled-raf-v1",
   productionPhysicsUnmodified:true,
   hardwareGpuTimingMeasured:false,
   success:results.length===2&&results.every(x=>x.qualified),
