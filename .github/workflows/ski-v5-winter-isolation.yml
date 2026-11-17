@@ -29,7 +29,7 @@ jobs:
       - name: Typecheck exact head
         run: npm run typecheck
       - name: Exercise deterministic winter-state and geometry invariants
-        run: node --import tsx --test tests/world-ski-winter-state.test.ts tests/world-ski-winter-terrain.test.ts
+        run: node --import tsx --test tests/world-ski-winter-state.test.ts tests/world-ski-winter-terrain.test.ts tests/world-ski-seasonal-authority.test.ts
       - name: Build deploy-equivalent website without deployment
         run: npm run build
       - name: Install isolated Playwright Chromium
