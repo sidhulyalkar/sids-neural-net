@@ -167,6 +167,35 @@ async function audit(width, height) {
     const issueToggle = page.getByRole('button', { name: /Contents/i }).first();
     await issueToggle.click();
     await page.locator('#frontier-contents').waitFor();
+    const atlas = page.getByRole('region', { name: 'Explore current stories by subject' });
+    assert.equal(await atlas.count(), 1, 'An issue cover needs a genuine source-based subject atlas');
+    const lensButtons = atlas.getByRole('button');
+    assert.equal(await lensButtons.count(), 5, 'Only the five real editorial subject lenses are exposed');
+    const coverGeometry = await page.evaluate(() => {
+      const stage = document.getElementById('frontier-reader-stage');
+      const cover = document.getElementById('frontier-contents');
+      const atlas = document.querySelector('[aria-label="Explore current stories by subject"]');
+      const atlasTrack = atlas?.querySelector('[data-issue-lens="research"]');
+      return {
+        mode: document.querySelector('[data-frontier-journal]')?.getAttribute('data-cover-open'),
+        stageDisplay: stage ? getComputedStyle(stage).display : 'missing',
+        scrollWidth: document.documentElement.scrollWidth,
+        viewport: window.innerWidth,
+        coverWidth: cover?.getBoundingClientRect().width ?? -1,
+        atlasWidth: atlas?.getBoundingClientRect().width ?? -1,
+        researchLabel: atlasTrack?.getAttribute('aria-label'),
+      };
+    });
+    assert.equal(coverGeometry.mode, 'true', 'Contents should switch into a real editorial cover mode');
+    assert.equal(coverGeometry.stageDisplay, 'none',
+      'The live article cannot compete visually or acoustically with the open issue index');
+    assert(coverGeometry.scrollWidth <= coverGeometry.viewport + 2
+      && coverGeometry.atlasWidth > 0 && coverGeometry.coverWidth <= coverGeometry.viewport + 2,
+      'The full cover, including the five-lens atlas, cannot overflow horizontally: '
+        + JSON.stringify(coverGeometry));
+    assert(/Research: [0-9]+ available stories/.test(coverGeometry.researchLabel || ''),
+      'Subject lens labels should report real accessible source counts');
+
     const entries = page.locator('#frontier-contents button[aria-current], #frontier-contents button[aria-current="true"]');
     assert((await entries.count()) >= 1, 'The current article should be marked in the edition index');
     const featuredIndexEntry = page.locator('#frontier-contents button').filter({ has: page.locator('strong') }).first();
@@ -411,6 +440,15 @@ async function auditDeepResearchJourney() {
   try {
     await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
     await page.locator('article h1').waitFor();
+    await page.locator('[aria-controls="frontier-contents"]').click();
+    const researchLens = page.locator('[data-issue-lens="research"]');
+    assert.equal(await researchLens.count(), 1, 'The journal exposes the research discovery lens');
+    assert.equal(await researchLens.isDisabled(), false, 'Actual published research must be discoverable');
+    await researchLens.click();
+    assert.equal(await page.locator('[data-journal-section="research"]').getAttribute('aria-selected'), 'true',
+      'A lens must navigate, not merely animate decorative information');
+    assert.equal(await page.locator('[data-frontier-journal]').getAttribute('data-cover-open'), 'false',
+      'Selecting a subject returns to the focused reader');
     await page.locator('[aria-controls="frontier-contents"]').click();
     const sourceLink = page.locator('[data-frontier-deep-link="true"]');
     await sourceLink.waitFor();
