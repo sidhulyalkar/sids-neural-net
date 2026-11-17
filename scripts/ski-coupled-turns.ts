@@ -32,6 +32,9 @@ const profiles:{id:string;settings:Partial<SkiCarveSettings>}[]=[
  {id:"edge-full",settings:{carveAlignment:1,engagedGrip:9,contactForceScale:1.5,maxTurn:3.4}},
  {id:"edge-balanced",settings:{carveAlignment:.7,engagedGrip:6,contactForceScale:1,maxTurn:2.6}},
  {id:"edge-with-drag",settings:{carveAlignment:.5,engagedGrip:9,contactForceScale:1.5,maxTurn:3.4,drag:.04}},
+ {id:"snow-resistance-04",settings:{carveAlignment:.5,engagedGrip:9,contactForceScale:1.5,maxTurn:3.4,snowContactDrag:.04}},
+ {id:"snow-resistance-07",settings:{carveAlignment:.5,engagedGrip:9,contactForceScale:1.5,maxTurn:3.4,snowContactDrag:.07}},
+ {id:"snow-resistance-10",settings:{carveAlignment:.5,engagedGrip:9,contactForceScale:1.5,maxTurn:3.4,snowContactDrag:.10}},
 ];
 const variants:Config[]=[];
 for(const startZ of [-60,-58])
@@ -104,7 +107,7 @@ best.slice(0,10).forEach((v,i)=>writeFileSync(join(out,"rank-"+(i+1)+".csv"),
 const summary=trials.map(({trace,...v})=>v);
 writeFileSync(join(out,"summary.json"),JSON.stringify({
  schema:"iland-ski-joint-physics-control-v1",
- source:"same refined actual island snow, 120Hz, 6 A/B physics profiles x 192 input schedules",
+ source:"same refined actual island snow, 120Hz, 9 A/B physics profiles x 192 input schedules",
  criterion:"five opposite-bank grounded crossings, zero unintended flight",
  note:"Research-only input replay. No dynamic coefficients or steering automation is wired into the production game.",
  total:summary.length,qualifiedCount:summary.filter(v=>v.qualified).length,
