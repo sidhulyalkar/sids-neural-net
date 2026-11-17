@@ -8,6 +8,9 @@ export function refineMountainSnow(terrain: THREE.BufferGeometry) {
   const index = terrain.getIndex()!;
   const positions = Array.from(terrain.getAttribute("position").array);
   const colors = Array.from(terrain.getAttribute("color").array);
+  // Preserve the original alpine pigment for a shader-only winter arrival.
+  // Both variants share the same indexed triangles after refinement.
+  const baseColors=[...colors];
   // Geometry-only audit fixtures may supply vertices without world pigment.
   // Default those to non-snow; only the explicitly painted halfpipe gets snow.
   const authoredSnow=terrain.getAttribute("snowCoverage");
@@ -31,7 +34,10 @@ export function refineMountainSnow(terrain: THREE.BufferGeometry) {
     const blend = THREE.MathUtils.clamp(1-distance, 0, 1);
     const y = THREE.MathUtils.lerp((positions[3*a+1]+positions[3*b+1])/2, worldFloorHeight(x,z), blend);
     positions.push(x,y,z);
-    for (let k=0;k<3;k++) colors.push((colors[3*a+k]+colors[3*b+k])/2);
+    for (let k=0;k<3;k++) {
+      colors.push((colors[3*a+k]+colors[3*b+k])/2);
+      baseColors.push((baseColors[3*a+k]+baseColors[3*b+k])/2);
+    }
     snowCoverage.push((snowCoverage[a]+snowCoverage[b])/2);
     edges.set(key, vertex);
     return vertex;
@@ -77,6 +83,7 @@ export function refineMountainSnow(terrain: THREE.BufferGeometry) {
   terrain.deleteAttribute("uv"); // Ground uses vertex pigment only.
   terrain.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
   terrain.setAttribute("color",new THREE.Float32BufferAttribute(colors,3));
+  terrain.setAttribute("baseColor",new THREE.Float32BufferAttribute(baseColors,3));
   terrain.setAttribute("snowCoverage",new THREE.Float32BufferAttribute(snowCoverage,1));
   terrain.setAttribute("snowLayers",new THREE.Float32BufferAttribute(snowLayers,4));
   terrain.setIndex(indices);
