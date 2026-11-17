@@ -518,13 +518,14 @@ export function FrontierFocusReader({ initialItems, generatedAt, publishedInvest
             onSelect={(section) => {
               if (section === activeSection) setContentsOpen(false);
               else selectSection(section);
+              window.scrollTo({ top: 0, behavior: 'instant' });
             }} />
           <div className={styles.contentsListHeading}>
             <span>THE READING LIST</span>
             <span>{String(items.length).padStart(2, '0')} STORIES IN THIS EDITION</span>
           </div>
           <div className={styles.contentsGrid}>{items.map((entry, index) => (
-            <button type="button" key={entry.id} className={styles.contentsEntry} data-realm={journalRealm(entry)} aria-current={position === index ? 'true' : undefined} onClick={() => { move(index - position); setContentsOpen(false); }}>
+            <button type="button" key={entry.id} className={styles.contentsEntry} data-realm={journalRealm(entry)} aria-current={position === index ? 'true' : undefined} onClick={() => { move(index - position); setContentsOpen(false); window.scrollTo({ top: 0, behavior: 'instant' }); }}>
               <span className={styles.contentsOrdinal}>{String(index + 1).padStart(2, '0')}</span>
               <span className={styles.contentsEntryBody}><span className={styles.overline}>{entry.lane.replace(/_/g, ' ')} · {entry.sourceLabel}</span><strong>{entry.title}</strong></span>
               <ArrowRight size={16} aria-hidden="true" />
