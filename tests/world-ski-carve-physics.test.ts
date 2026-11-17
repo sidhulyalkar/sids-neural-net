@@ -40,7 +40,8 @@ test("invalid experimental force and turn parameters fail closed",()=>{
   {contactForceScale:4},{maxTurn:NaN},{drag:-.05},
   {surfaceTransport:-.1},{surfaceTransport:1.1},{surfaceTransport:Infinity},
   {carveRedirect:-.1},{carveRedirect:1.01},{carveRedirect:NaN},
-  {carveAlignment:-.01},{carveAlignment:1.01},{carveAlignment:Infinity}])
+  {carveAlignment:-.01},{carveAlignment:1.01},{carveAlignment:Infinity},
+  {snowContactDrag:-.01},{snowContactDrag:.31},{snowContactDrag:Infinity}])
   assert.throws(()=>new SkiSimulation(()=>0,0,0,false,false,undefined,bad));
 });
 
@@ -105,5 +106,26 @@ test("traction-limited edge steering changes trajectory without inventing energy
   }
   assert.equal(energyAdded,0);
   assert.ok(hasBanked,"a loaded ski must be able to change travel direction");
+ }
+});
+
+test("snow-specific resistance only dissipates motion on loaded ski contact",()=>{
+ const flat=()=>0;
+ for(const extra of [.04,.07,.12]){
+  const baseline=new SkiSimulation(flat,0,0,"independent");
+  const skiing=new SkiSimulation(flat,0,0,"independent",false,undefined,
+    {snowContactDrag:extra});
+  baseline.velocity.set(3,0,6);
+  skiing.velocity.copy(baseline.velocity);
+  for(let i=0;i<180;i++){
+   const input={...neutral,steer:i<90?1:-1};
+   const before=skiing.velocity.length();
+   baseline.advance(tuning.dt,()=>input);
+   skiing.advance(tuning.dt,()=>input);
+   assert.ok(skiing.velocity.length()<=before+1e-8,
+     "loaded snow friction must not create kinetic energy");
+  }
+  assert.ok(skiing.velocity.length()<baseline.velocity.length(),
+    "snow plowing should dissipate speed compared with unchanged baseline");
  }
 });
