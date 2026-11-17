@@ -15,7 +15,8 @@ on:
 jobs:
   winter-isolation:
     name: Winter geometry, state and actual browser
-    runs-on: ubuntu-latest
+    # Playwright 1.56 supports Ubuntu 24.04 but not the latest 26.04 image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -37,9 +38,7 @@ jobs:
           cd /tmp/ski-v5-playwright
           npm init -y >/dev/null
           npm install --no-audit --no-fund playwright@1.56.1
-          # This runner version is newer than the pinned dependency helper.
-          # Install Chromium without the unsupported with-deps flag.
-          npx playwright install chromium
+          npx playwright install --with-deps chromium
       - name: Serve exact built commit
         run: |
           PORT=3000 npm run start > /tmp/ski-v5-next.log 2>&1 &
