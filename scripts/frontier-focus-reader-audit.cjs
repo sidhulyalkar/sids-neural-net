@@ -167,9 +167,58 @@ async function audit(width, height) {
     const issueToggle = page.getByRole('button', { name: /Contents/i }).first();
     await issueToggle.click();
     await page.locator('#frontier-contents').waitFor();
+    const atlas = page.getByRole('region', { name: 'Explore current stories by subject' });
+    assert.equal(await atlas.count(), 1, 'An issue cover needs a genuine source-based subject atlas');
+    const lensButtons = atlas.getByRole('button');
+    assert.equal(await lensButtons.count(), 5, 'Only the five real editorial subject lenses are exposed');
+    const coverGeometry = await page.evaluate(() => {
+      const stage = document.getElementById('frontier-reader-stage');
+      const cover = document.getElementById('frontier-contents');
+      const atlas = document.querySelector('[aria-label="Explore current stories by subject"]');
+      const atlasTrack = atlas?.querySelector('[data-issue-lens="research"]');
+      return {
+        mode: document.querySelector('[data-frontier-journal]')?.getAttribute('data-cover-open'),
+        stageDisplay: stage ? getComputedStyle(stage).display : 'missing',
+        scrollWidth: document.documentElement.scrollWidth,
+        viewport: window.innerWidth,
+        coverWidth: cover?.getBoundingClientRect().width ?? -1,
+        atlasWidth: atlas?.getBoundingClientRect().width ?? -1,
+        researchLabel: atlasTrack?.getAttribute('aria-label'),
+        offenders: Array.from(document.querySelectorAll('[data-frontier-journal] *'))
+          .map((element) => {
+            const box = element.getBoundingClientRect();
+            return {
+              tag: element.tagName.toLowerCase(),
+              className: typeof element.className === 'string' ? element.className.slice(0, 75) : '',
+              left: Math.round(box.left),
+              right: Math.round(box.right),
+              scrollWidth: element.scrollWidth,
+              clientWidth: element.clientWidth,
+            };
+          })
+          .filter((entry) => entry.right > window.innerWidth + 2 || entry.left < -2)
+          .sort((a, b) => b.right - a.right)
+          .slice(0, 12),
+      };
+    });
+    assert.equal(coverGeometry.mode, 'true', 'Contents should switch into a real editorial cover mode');
+    assert.equal(coverGeometry.stageDisplay, 'none',
+      'The live article cannot compete visually or acoustically with the open issue index');
+    assert(coverGeometry.scrollWidth <= coverGeometry.viewport + 2
+      && coverGeometry.atlasWidth > 0 && coverGeometry.coverWidth <= coverGeometry.viewport + 2,
+      'The full cover, including the five-lens atlas, cannot overflow horizontally: '
+        + JSON.stringify(coverGeometry));
+    assert(/Research: [0-9]+ available stories/.test(coverGeometry.researchLabel || ''),
+      'Subject lens labels should report real accessible source counts');
+    const positionBeforeCoverKey = await page.locator('[aria-label="Article progress"]').getAttribute('aria-valuenow');
+    await page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await page.locator('[aria-label="Article progress"]').getAttribute('aria-valuenow'),
+      positionBeforeCoverKey, 'The hidden article must not advance behind the issue atlas');
+
     const entries = page.locator('#frontier-contents button[aria-current], #frontier-contents button[aria-current="true"]');
     assert((await entries.count()) >= 1, 'The current article should be marked in the edition index');
-    const featuredIndexEntry = page.locator('#frontier-contents button').filter({ has: page.locator('strong') }).first();
+    const featuredIndexEntry = page.locator('#frontier-contents button[data-realm]').first();
     const featuredIndexGeometry = await featuredIndexEntry.evaluate((element) => ({
       gridColumn: getComputedStyle(element).gridColumnEnd,
       width: element.getBoundingClientRect().width,
@@ -181,10 +230,12 @@ async function audit(width, height) {
       path: path.join(screenshotDir, 'journal-index-' + width + '.png'),
       fullPage: true, animations: 'disabled',
     });
-    const issueButtons = page.locator('#frontier-contents button').filter({ has: page.locator('strong') });
+    const issueButtons = page.locator('#frontier-contents button[data-realm]');
     assert((await issueButtons.count()) >= 2, 'Contents should permit direct article navigation');
     await issueButtons.nth(1).click();
     await page.waitForFunction((prior) => document.querySelector('article h1')?.textContent !== prior, heading);
+    assert((await page.evaluate(() => window.scrollY)) < 8,
+      'Selecting a story from the full-page atlas should restore the article viewport');
     await page.locator('[data-frontier-previous="true"]').click();
     assert.equal(await page.locator('article h1').first().textContent(), heading,
       'Edition index navigation must preserve the standard back path');
@@ -411,6 +462,15 @@ async function auditDeepResearchJourney() {
   try {
     await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
     await page.locator('article h1').waitFor();
+    await page.locator('[aria-controls="frontier-contents"]').click();
+    const researchLens = page.locator('[data-issue-lens="research"]');
+    assert.equal(await researchLens.count(), 1, 'The journal exposes the research discovery lens');
+    assert.equal(await researchLens.isDisabled(), false, 'Actual published research must be discoverable');
+    await researchLens.click();
+    assert.equal(await page.locator('[data-journal-section="research"]').getAttribute('aria-selected'), 'true',
+      'A lens must navigate, not merely animate decorative information');
+    assert.equal(await page.locator('[data-frontier-journal]').getAttribute('data-cover-open'), 'false',
+      'Selecting a subject returns to the focused reader');
     await page.locator('[aria-controls="frontier-contents"]').click();
     const sourceLink = page.locator('[data-frontier-deep-link="true"]');
     await sourceLink.waitFor();
