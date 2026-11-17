@@ -73,6 +73,23 @@ for(const startZ of [-58,-56]){
   }
  }
 }
+// Edge-to-trajectory turning: torque-limited tangent-space velocity rotation.
+// Unlike pure yaw or stronger skid braking, this directly tests how the
+// ski's loaded edge turns its PATH while respecting the traction limit.
+for(const startZ of [-58,-56]){
+ for(const initialVx of [4.5,6]){
+  for(const carveAlignment of [.35,.7,1]){
+   for(const maxTurn of [2.6,3.4]){
+    for(const engagedGrip of [6,9]){
+     for(const contactForceScale of [1,1.5]){
+      variants.push({id:"edge-trajectory-carve",startZ,initialVx,
+       settings:{carveAlignment,maxTurn,engagedGrip,contactForceScale}});
+     }
+    }
+   }
+  }
+ }
+}
 function run(v:Variant){
  const sim=new SkiSimulation(height,pipe.centerX,v.startZ,"independent",
    false,undefined,v.settings);
@@ -143,7 +160,7 @@ writeFileSync(join(out,"summary.json"),JSON.stringify({
  results:summary
 },null,2)+"\n");
 console.table(ranked.slice(0,16).map(r=>({
-  turn:r.settings.maxTurn,transport:r.settings.surfaceTransport,redirect:r.settings.carveRedirect,force:r.settings.contactForceScale,
+  turn:r.settings.maxTurn,transport:r.settings.surfaceTransport,redirect:r.settings.carveRedirect,alignment:r.settings.carveAlignment,force:r.settings.contactForceScale,
   grip:r.settings.engagedGrip,z:r.startZ,vx:r.initialVx,
   traversals:r.crossings,visits:r.visits,exit:r.exit,
   ticks:r.ticks,air:r.airTicks,minSpeed:r.minSpeed.toFixed(2),
