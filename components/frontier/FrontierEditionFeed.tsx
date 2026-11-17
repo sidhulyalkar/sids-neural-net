@@ -129,9 +129,6 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
   const [status, setStatus] = useState('');
   const didPersonalize = useRef(false);
   const hydrated = useFrontierStore((s) => s.hydrated);
-  const profile = useFrontierStore((s) => s.profile);
-  const history = useFrontierStore((s) => s.history);
-  const behavior = useFrontierStore((s) => s.behavior);
 
   // Use the verified server snapshot on first paint. Apply existing local taste
   // once after hydration; NEVER shuffle an open feed beneath a rating action.
