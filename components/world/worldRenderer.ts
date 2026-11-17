@@ -5340,6 +5340,16 @@ export function createWorld(
         if(ride){
           canvas.dataset.skiTick=String(ride.tick);
           canvas.dataset.skiAngularY=String(ride.angular.y);
+          canvas.dataset.skiAngularX=String(ride.angular.x);
+          canvas.dataset.skiAngularZ=String(ride.angular.z);
+          // Read-only contact-normal and position evidence lets browser QA
+          // distinguish a badly tilted landing from a flawed spin classifier.
+          // Flight normals are sampled from the same V3 ski footprints.
+          canvas.dataset.skiNormalX=ride.normal.x.toFixed(5);
+          canvas.dataset.skiNormalY=ride.normal.y.toFixed(5);
+          canvas.dataset.skiNormalZ=ride.normal.z.toFixed(5);
+          canvas.dataset.skiPositionX=ride.position.x.toFixed(4);
+          canvas.dataset.skiPositionZ=ride.position.z.toFixed(4);
           canvas.dataset.skiAirSpinRadians=String(ride.airSpinRadians);
           canvas.dataset.skiTrickSerial=String(skiTricks.serial);
           canvas.dataset.skiTrickName=skiTricks.latest?.name??"";
