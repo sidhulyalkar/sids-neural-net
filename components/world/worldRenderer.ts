@@ -1,5 +1,5 @@
 import {worldFrameDelta} from "@/lib/world/frameTiming";
-import { SkiSimulation, neutral as neutralSkiInput } from "@/lib/world/ski/simulation";
+import { SkiSimulation, SKI_SNOW_EXPERIMENT, neutral as neutralSkiInput } from "@/lib/world/ski/simulation";
 import { renderedSnowHeight } from "@/lib/world/ski/renderedSnow";
 import { SnowTracks } from "./skiSnowTracks";
 import {createSkiContact,fitSkiContact,skiFollowYaw,constrainSkiCamera} from "./worldSkiContact";
@@ -1949,6 +1949,10 @@ export function createWorld(
   const skiKnees=legs.map(()=>mesh(boxGeo,dark,[0,0,0],[.19,.36,.23],bodyRoot));
   skiKnees.forEach(k=>{k.visible=false});
   const skiV3Enabled = skiPresentation && process.env.NEXT_PUBLIC_SKI_V3 === "1";
+  // Opt-in experimental snow contact: never changes default V3, legacy,
+  // unrelated sports, world geography or the Ski Jump menu authorization.
+  const skiSnowExperimentEnabled=skiV3Enabled &&
+    process.env.NEXT_PUBLIC_SKI_SNOW_CARVE_EXPERIMENT==="1";
   let ride: SkiSimulation | null = null;
   let skiHalfpipe=new SkiHalfpipeQualification();
   let skiTricks=new SkiTrickQualification();
@@ -4685,7 +4689,10 @@ export function createWorld(
           canvas.dataset.skiIndexMs=(performance.now()-started).toFixed(2);
         }
         if (!ride) {
-          ride = new SkiSimulation(rideSnow, player.x, player.z, "independent",false,skiCollision);
+          ride = new SkiSimulation(rideSnow, player.x, player.z, "independent",
+            false,skiCollision,skiSnowExperimentEnabled?SKI_SNOW_EXPERIMENT:undefined);
+          canvas.dataset.skiPhysicsProfile=skiSnowExperimentEnabled?
+            "snow-contact-prototype":"v3-baseline";
           skiHalfpipe=new SkiHalfpipeQualification();
           skiTricks=new SkiTrickQualification();
           skiTrickNotice.style.display="none";
