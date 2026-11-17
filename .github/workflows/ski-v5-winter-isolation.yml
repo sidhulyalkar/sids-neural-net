@@ -1,0 +1,65 @@
+name: Ski V5 Winter Isolation Draft Qualification
+on:
+  pull_request:
+    paths:
+      - 'lib/world/ski/winterState.ts'
+      - 'components/world/worldSnowfall.ts'
+      - 'components/world/worldRenderer.ts'
+      - 'components/world/worldMountainHalfpipe.ts'
+      - 'components/world/worldSnowpackSurface.ts'
+      - 'tests/world-ski-winter-*.test.ts'
+      - 'scripts/playtest-ski-v5-winter.mjs'
+      - '.github/workflows/ski-v5-winter-isolation.yml'
+  workflow_dispatch:
+
+jobs:
+  winter-isolation:
+    name: Winter geometry, state and actual browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Typecheck exact head
+        run: npm run typecheck
+      - name: Exercise deterministic winter-state and geometry invariants
+        run: node --import tsx --test tests/world-ski-winter-state.test.ts tests/world-ski-winter-terrain.test.ts
+      - name: Build deploy-equivalent website without deployment
+        run: npm run build
+      - name: Install isolated Playwright Chromium
+        run: |
+          mkdir -p /tmp/ski-v5-playwright
+          cd /tmp/ski-v5-playwright
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Serve exact built commit
+        run: |
+          PORT=3000 npm run start > /tmp/ski-v5-next.log 2>&1 &
+          echo $! > /tmp/ski-v5-server.pid
+          for attempt in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3000/world > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/ski-v5-next.log
+          exit 1
+      - name: Verify normal-to-winter-to-normal scene in WebGL
+        env:
+          PLAYWRIGHT_MODULE_ROOT: /tmp/ski-v5-playwright
+          WORLD_BASE_URL: http://127.0.0.1:3000/world
+          WORLD_AUDIT_DIR: artifacts/ski-v5/winter-browser
+        run: node scripts/playtest-ski-v5-winter.mjs
+      - name: Preserve screenshots and diagnostics on failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ski-v5-winter-browser
+          path: |
+            artifacts/ski-v5/winter-browser/
+            /tmp/ski-v5-next.log
+          if-no-files-found: warn
