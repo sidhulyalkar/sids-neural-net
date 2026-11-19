@@ -152,7 +152,7 @@ function StoryVisual({ item, lead, ordinal }: { item: FrontierItem; lead: boolea
       <strong>{frontierReadableText(item.sourceLabel)}</strong>
       <span className={styles.sourceKind}>{item.sourceKind.replace(/_/g, ' ')}</span>
       <div className={styles.sourceTopics}>
-        {item.tags.slice(0, 3).map((tag) => <span key={tag}>{frontierReadableText(tag).slice(0, 38)}</span>)}
+        {item.tags.slice(0, 3).map((tag, index) => <span key={tag + index}>{frontierReadableText(tag).slice(0, 38)}</span>)}
       </div>
     </aside>
   );

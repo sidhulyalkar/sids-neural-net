@@ -7,7 +7,7 @@ import { buildFrontierSourceBrief } from './sourceBrief';
  * remain authoritative; this can only perturb nearby items in their order.
  */
 const PRIMARY_SOURCE_KINDS = new Set(['arxiv', 'biorxiv', 'medrxiv', 'openreview', 'github', 'nasa']);
-const POPULARITY_METRIC = /^(?:hf\s*)?(?:stars?|forks?|points?|comments?|upvotes?|downvotes?|likes?|favorites?|watchers?|followers?|subscribers?|views?|citations?|downloads?|live|final|upcoming)$/i;
+const POPULARITY_METRIC = /^(?:(?:hf|github|youtube|reddit|hackernews)\s*)?(?:stars?|forks?|points?|comments?|upvotes?|downvotes?|likes?|favorites?|watchers?|followers?|subscribers?|views?|citations?|downloads?|live|final|upcoming)$/i;
 const INFORMATION_WEIGHT = 4;
 
 function bounded01(value: number): number {
