@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { frontierInformationValue, rerankFrontierForInformation } from '../lib/frontier/informativeEdition';
+import { frontierInformationValue, frontierReportedMetrics, rerankFrontierForInformation } from '../lib/frontier/informativeEdition';
 import { boundInterestScore, interestScoreLabel, nextWheelInterestScore } from '../lib/frontier/wheelRating';
 import type { FrontierItem } from '../lib/frontier/types';
 
@@ -60,4 +60,16 @@ test('the information pass only reorders near neighbors and never drops stories'
   assert.equal(new Set(ranked.map(x=>x.id)).size,input.length);
   assert(ranked.indexOf(strong)<ranked.indexOf(low));
   assert(ranked.indexOf(strong)<=4,'information rerank cannot leap across unrelated slate segments');
+});
+
+test('source measurement panels omit engagement and preserve reported numbers', () => {
+  const candidate = item('viz', { metrics: [
+    { label:'views', value:'50k' },
+    { label:'github-stars', value:'1200' },
+    { label:'Accuracy on held-out trials', value:'82%' },
+    { label:'Latency', value:'11 ms' },
+  ]});
+  assert.deepEqual(frontierReportedMetrics(candidate).map((metric) => metric.label), [
+    'Accuracy on held-out trials', 'Latency',
+  ]);
 });

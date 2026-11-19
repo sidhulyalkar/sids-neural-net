@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUpRight, Bookmark, RefreshCw, Search } from 'lucide-react';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
-import { frontierInformationValue, rerankFrontierForInformation } from '@/lib/frontier/informativeEdition';
+import { frontierInformationValue, frontierReportedMetrics, rerankFrontierForInformation } from '@/lib/frontier/informativeEdition';
 import { featureFrontierEditionStory, frontierEditionChannel } from '@/lib/frontier/editionCandidates';
 import { frontierReadableText } from '@/lib/frontier/readableText';
 import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
@@ -54,17 +54,107 @@ function editionOrder(items: FrontierItem[], history: Record<string, never> = {}
   );
 }
 
-function LeadFigure({ item }: { item: FrontierItem }) {
+
+/** Visual surfaces only render material supplied by the actual source.
+ * No invented results, inferred charts or remotely generated placeholder art.
+ */
+function SourceImage({ item }: { item: FrontierItem }) {
   const first = frontierSourceFigures(item)[0];
   const [failed, setFailed] = useState(false);
   if (!first || failed) return null;
   return (
-    <figure className={styles.leadFigure}>
+    <figure className={styles.sourceVisual}>
       <Image unoptimized src={first.url} alt={first.alt || item.title} width={1000} height={680}
-        sizes="(max-width: 760px) 100vw, 34vw" loading="lazy"
+        sizes="(max-width: 640px) 100vw, (max-width: 1100px) 32vw, 360px" loading="lazy"
         onError={() => setFailed(true)}/>
-      {first.caption ? <figcaption>{frontierReadableText(first.caption).slice(0, 185)}</figcaption> : null}
+      <figcaption><span>Original source</span> {frontierReadableText(first.caption || first.credit || item.sourceLabel).slice(0, 140)}</figcaption>
     </figure>
+  );
+}
+
+function StoryVisual({ item, lead, ordinal }: { item: FrontierItem; lead: boolean; ordinal: number }) {
+  // The first few stories receive richer supporting context, while deeper
+  // articles stay quiet, readable, and fast to scan.
+  if (!lead && ordinal > 4) return null;
+  const figure = frontierSourceFigures(item)[0];
+  if (lead && figure) return <SourceImage item={item}/>;
+
+  const sports = item.sportsState;
+  if (sports?.kind === 'scoreboard') {
+    const game = sports.games.find((entry) => entry.competitors.length >= 2);
+    if (game) return (
+      <aside className={styles.sourceVisual} aria-label="Sports source snapshot">
+        <span className={styles.visualEyebrow}>As published · {frontierReadableText(sports.leagueLabel)}</span>
+        <div className={styles.scoreSnapshot}>
+          {game.competitors.slice(0, 2).map((competitor, index) => (
+            <div className={styles.scoreLine} key={competitor.id || index}>
+              <span>{frontierReadableText(competitor.shortName || competitor.name)}</span>
+              <strong>{competitor.score ?? '–'}</strong>
+            </div>
+          ))}
+        </div>
+        <p className={styles.visualNote}>{frontierReadableText(game.status)} · {dateLabel(item.publishedAt)} snapshot</p>
+      </aside>
+    );
+  }
+  if (sports?.kind === 'standings' && sports.standings.length) return (
+    <aside className={styles.sourceVisual} aria-label="Sports standings snapshot">
+      <span className={styles.visualEyebrow}>As published · {frontierReadableText(sports.leagueLabel)}</span>
+      <div className={styles.standingSnapshot}>
+        {sports.standings.slice(0, 3).map((team) => (
+          <div className={styles.standingLine} key={team.rank + team.abbreviation}>
+            <span>{team.rank.toString().padStart(2, '0')}</span>
+            <strong>{frontierReadableText(team.team)}</strong>
+            <span>{frontierReadableText(team.points || team.record || '')}</span>
+          </div>
+        ))}
+      </div>
+      <p className={styles.visualNote}>Snapshot · {dateLabel(item.publishedAt)}</p>
+    </aside>
+  );
+
+  const metrics = frontierReportedMetrics(item).slice(0, 2);
+  if (metrics.length) return (
+    <aside className={styles.sourceVisual} aria-label="Reported source measurements">
+      <span className={styles.visualEyebrow}>Reported in the source</span>
+      <div className={styles.metricSnapshot}>
+        {metrics.map((metric, index) => (
+          <div className={styles.metricRow} key={metric.label + index}>
+            <strong>{frontierReadableText(metric.value).slice(0, 50)}</strong>
+            <span>{frontierReadableText(metric.label).slice(0, 95)}</span>
+          </div>
+        ))}
+      </div>
+      <p className={styles.visualNote}>Source values, not independently verified</p>
+    </aside>
+  );
+
+  if (figure) return <SourceImage item={item}/>;
+  const artifacts = (item.artifacts ?? []).filter((artifact) =>
+    ['repository','benchmark','formula','release'].includes(artifact.kind) && artifact.label.trim()).slice(0, 2);
+  if (artifacts.length) return (
+    <aside className={styles.sourceVisual} aria-label="Source references">
+      <span className={styles.visualEyebrow}>Primary source material</span>
+      <div className={styles.artifactSnapshot}>
+        {artifacts.map((artifact, index) => (
+          <div key={artifact.kind + index}>
+            <small>{artifact.kind}</small>
+            <strong>{frontierReadableText(artifact.label).slice(0, 100)}</strong>
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+  if (!lead) return null;
+  return (
+    <aside className={`${styles.sourceVisual} ${styles.sourcePlate}`} aria-label="Story source context">
+      <span className={styles.visualEyebrow}>From the source</span>
+      <strong>{frontierReadableText(item.sourceLabel)}</strong>
+      <span className={styles.sourceKind}>{item.sourceKind.replace(/_/g, ' ')}</span>
+      <div className={styles.sourceTopics}>
+        {item.tags.slice(0, 3).map((tag) => <span key={tag}>{frontierReadableText(tag).slice(0, 38)}</span>)}
+      </div>
+    </aside>
   );
 }
 
@@ -103,7 +193,7 @@ function EditionArticle({ item, ordinal, lead }: { item: FrontierItem; ordinal: 
             <span>In the source</span> {evidenceReasons.join(' · ')}
           </p> : null}
         </div>
-        {lead ? <LeadFigure item={item}/> : null}
+        <StoryVisual item={item} lead={lead} ordinal={ordinal}/>
       </div>
       <div className={styles.storyActions}>
         <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={() => recordOpen(item)}
@@ -152,6 +242,10 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
       (!q || [item.title, item.summary, item.sourceLabel, ...item.tags].join(' ').toLocaleLowerCase().includes(q)));
   }, [items, subject, query]);
   const shown = filtered.slice(0, visible);
+  const subjectCounts = useMemo(() => SUBJECTS.reduce((counts, entry) => {
+    counts[entry.id] = entry.id === 'all' ? items.length : items.filter((item) => belongsTo(item, entry.id)).length;
+    return counts;
+  }, {} as Record<Subject, number>), [items]);
 
   const checkForNew = async () => {
     if (checking) return;
@@ -203,9 +297,14 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
       <div className={styles.discover}>
         <nav className={styles.categories} aria-label="Filter Frontier stories">
           {SUBJECTS.map(({id,name}) => (
-            <button type="button" key={id} aria-pressed={subject === id} onClick={() => {
+            <button type="button" key={id} aria-label={name} aria-pressed={subject === id} onClick={() => {
               setSubject(id); setVisible(PAGE_SIZE);
-            }}>{name}</button>
+            }}>
+              <span className={styles.categoryName}>{name}</span>
+              <span className={styles.categoryCount} aria-hidden="true">{subjectCounts[id]}</span>
+              <span className={styles.categoryMeter} aria-hidden="true"><span
+                style={{ width: `${id === 'all' ? 100 : Math.max(7, subjectCounts[id] / Math.max(1, items.length) * 100)}%` }}/></span>
+            </button>
           ))}
         </nav>
         <label className={styles.search}>
