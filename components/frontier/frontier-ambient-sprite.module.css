@@ -1,0 +1,54 @@
+/* Decorative scene never captures scrolling. Only the little button itself
+ * accepts clicks. No canvas, image requests, animation loops or wheel hooks. */
+.scene { position:absolute; inset:0; z-index:3; overflow:hidden; pointer-events:none; }
+.sprite {
+  --sprite-ink:#526e62; --sprite-paper:rgba(220,232,216,.62);
+  position:absolute; top:var(--fly-top); left:0; width:44px; height:44px;
+  display:grid; place-items:center; padding:6px;
+  border:0; border-radius:50%; background:transparent;
+  color:var(--sprite-ink); cursor:pointer; pointer-events:auto; touch-action:manipulation;
+  opacity:.85; will-change:transform,opacity;
+}
+.sprite[data-frontier-sprite='soccer'] { --sprite-ink:#49735f; --sprite-paper:rgba(231,242,227,.66); }
+.sprite[data-frontier-sprite='snow'] { --sprite-ink:#64909a; --sprite-paper:rgba(232,245,247,.67); }
+.sprite[data-frontier-sprite='neuron'] { --sprite-ink:#6b7395; --sprite-paper:rgba(231,233,243,.65); }
+.sprite[data-frontier-sprite='code'] { --sprite-ink:#607582; --sprite-paper:rgba(225,238,242,.65); }
+.sprite[data-frontier-sprite='game'] { --sprite-ink:#806685; --sprite-paper:rgba(240,230,239,.65); }
+.sprite[data-frontier-sprite='music'] { --sprite-ink:#826d88; --sprite-paper:rgba(239,232,243,.65); }
+.sprite[data-frontier-sprite='leaf'] { --sprite-ink:#638465; --sprite-paper:rgba(231,242,226,.65); }
+.body { width:34px; height:34px; display:grid; place-items:center; border-radius:50%;
+  background:var(--sprite-paper); box-shadow:0 1px 7px rgba(56,75,60,.09);
+  animation:tinyWobble 1.8s ease-in-out infinite alternate; }
+.body svg { width:27px; height:27px; display:block; }
+.fromLeft { animation:floatAcross 9s linear forwards; }
+.fromRight { animation:floatBack 9s linear forwards; }
+.sprite:focus-visible { outline:2px solid #426b54; outline-offset:2px; }
+.sprite:hover:not(.popped),.sprite:focus-visible:not(.popped) { animation-play-state:paused; }
+.sprite:hover .body { box-shadow:0 0 0 3px rgba(100,140,111,.18),0 2px 10px rgba(56,75,60,.16); }
+.popped,.fromLeft.popped,.fromRight.popped { animation:popOut 340ms cubic-bezier(.22,.9,.28,1) forwards; }
+.popped .body { animation:none; }
+.burst { position:absolute; inset:0; opacity:0; pointer-events:none; }
+.burst i { position:absolute; left:50%; top:50%; width:4px; height:4px; background:var(--sprite-ink);
+  border-radius:50%; transform:rotate(var(--angle)) translateY(0); }
+.burst i:nth-child(1){--angle:0deg}.burst i:nth-child(2){--angle:60deg}
+.burst i:nth-child(3){--angle:120deg}.burst i:nth-child(4){--angle:180deg}
+.burst i:nth-child(5){--angle:240deg}.burst i:nth-child(6){--angle:300deg}
+.popped .burst { opacity:1; }
+.popped .burst i { animation:burstOut 340ms ease-out forwards; }
+@keyframes floatAcross {
+  0% { transform:translate3d(-50px,2px,0) rotate(-17deg); opacity:0; }
+  9% { opacity:.82; } 30% { transform:translate3d(calc(var(--fly-width) * .3),-13px,0) rotate(7deg); }
+  65% { transform:translate3d(calc(var(--fly-width) * .66),8px,0) rotate(-6deg); opacity:.85; }
+  92% { opacity:.76; } 100% { transform:translate3d(calc(var(--fly-width) + 50px),-17px,0) rotate(14deg);opacity:0; }
+}
+@keyframes floatBack {
+  0% { transform:translate3d(calc(var(--fly-width) + 50px),-9px,0) rotate(16deg);opacity:0; }
+  9% { opacity:.82; } 35% { transform:translate3d(calc(var(--fly-width) * .65),12px,0) rotate(-8deg); }
+  70% { transform:translate3d(calc(var(--fly-width) * .29),-13px,0) rotate(6deg);opacity:.85; }
+  92% { opacity:.76; } 100% { transform:translate3d(-50px,9px,0) rotate(-18deg);opacity:0; }
+}
+@keyframes tinyWobble { from{transform:translateY(-2px) rotate(-5deg)}to{transform:translateY(3px) rotate(6deg)} }
+@keyframes popOut { 0%{opacity:1;scale:1} 32%{opacity:1;scale:1.26} 100%{opacity:0;scale:.05} }
+@keyframes burstOut { from{opacity:1; transform:rotate(var(--angle)) translateY(1px) scale(1)} to{opacity:0; transform:rotate(var(--angle)) translateY(-27px) scale(.35)} }
+@media(max-width:640px) { .sprite{width:42px;height:42px;} .body{width:31px;height:31px;} .body svg{width:25px;height:25px;} }
+@media(prefers-reduced-motion:reduce) { .scene { display:none; } .sprite,.body,.burst i{ animation:none!important; } }

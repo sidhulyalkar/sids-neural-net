@@ -34,54 +34,20 @@ async function audit(width,height) {
     const widthInfo = await page.evaluate(() => ({viewport:innerWidth,content:document.documentElement.scrollWidth}));
     assert(widthInfo.content <= widthInfo.viewport + 2, 'Default edition overflows horizontally: '+JSON.stringify(widthInfo));
 
-    const firstRating=cards.first().locator('[data-frontier-wheel-rating="true"]');
-    const button=firstRating.getByRole('button',{name:/Rate interest in/});
-    await button.click();
-    const knob=firstRating.getByRole('slider',{name:/Interest level for/});
-    const starting=Number(await knob.getAttribute('aria-valuenow'));
-    assert(starting >= 1 && starting <= 10,'Wheel needs a bounded explicit draft');
-    await knob.scrollIntoViewIfNeeded();
-    await page.waitForFunction(() =>
-      document.querySelector('[data-frontier-wheel-rating] [role="slider"]')?.dataset.wheelReady === 'true'
-    ,null,{timeout:4000});
-    const bounds=await knob.boundingBox();
-    assert(bounds,'Wheel should have on-screen geometry');
-    await page.mouse.move(bounds.x + bounds.width/2,bounds.y + bounds.height/2);
-    await page.mouse.wheel(0,-120);
-    await page.waitForFunction(([start])=>{
-      const el=document.querySelector('[data-frontier-wheel-rating] [role="slider"]');
-      return el && Number(el.getAttribute('aria-valuenow')) > start;
-    },[starting],{timeout:4000}).catch(async (cause) => {
-      const diagnostic = await page.evaluate(() => {
-        const el=document.querySelector('[data-frontier-wheel-rating] [role="slider"]');
-        const box=el?.getBoundingClientRect();
-        return {
-          ready:el?.dataset.wheelReady, value:el?.getAttribute('aria-valuenow'),
-          scrollY:scrollY, viewport:[innerWidth,innerHeight],
-          bounds:box ? {x:box.x,y:box.y,width:box.width,height:box.height} : null,
-          wheelTarget:document.elementFromPoint(box ? box.x+box.width/2 : 0, box ? box.y+box.height/2 : 0)?.tagName,
-        };
-      });
-      throw new Error('Wheel input was not accepted: '+JSON.stringify(diagnostic)+'; '+cause.message);
-    });
-    assert.equal(Number(await knob.getAttribute('aria-valuenow')),Math.min(starting+1,10),
-      'One deliberate wheel step should tune interest by one');
-    const selected=Number(await knob.getAttribute('aria-valuenow'));
-    await firstRating.getByRole('button',{name:new RegExp('Save '+selected+'/10')}).click();
-    assert((await button.textContent()).includes(selected+'/10'),
-      'An explicit confirmation must save the selected interest value');
+    assert.equal(await page.locator('[data-frontier-wheel-rating]').count(),0,
+      'The explicit numeric interest dial must be removed from the edition');
+    assert.equal(await page.locator('[data-frontier-sprite]').count(),0,
+      'Reduced-motion preference must suppress autonomous floating ornaments');
+    const initialScroll=await page.evaluate(()=>window.scrollY);
+    await page.mouse.move(width-8,Math.min(height-12,650));
+    await page.mouse.wheel(0,420);
+    await page.waitForFunction(([before])=>window.scrollY > before + 12,[initialScroll],{timeout:4000});
     const firstId=await cards.first().getAttribute('data-frontier-story');
 
-    // Wheel can only affect the intentionally opened dial. It must never
-    // steal native scroll when the user is reading the edition.
     await page.evaluate(() => window.scrollTo({top:0,behavior:'instant'}));
     await page.mouse.move(width-8,Math.min(height-12,650));
     await page.mouse.wheel(0,480);
     await page.waitForFunction(() => window.scrollY > 15, null, {timeout:4000});
-    const saved=page.locator(`article[data-frontier-story="${firstId}"] [data-frontier-wheel-rating]`);
-    assert((await saved.textContent()).includes(selected+'/10'),
-      'Normal scroll must not modify the saved rating');
-
     await page.evaluate(() => window.scrollTo({top:0,behavior:'instant'}));
     fs.mkdirSync(path.resolve('artifacts/frontier/edition'),{recursive:true});
     await page.screenshot({path:path.resolve(`artifacts/frontier/edition/edition-${width}.png`),
@@ -95,21 +61,50 @@ async function audit(width,height) {
 
     await page.reload({waitUntil:'domcontentloaded'});
     await page.locator(`article[data-frontier-story="${firstId}"]`).waitFor({timeout:8000});
-    const restored=page.locator(`article[data-frontier-story="${firstId}"] [data-frontier-wheel-rating]`);
-    await page.waitForFunction(([id,score])=>{
-      const e=document.querySelector(`article[data-frontier-story="${id}"] [data-frontier-wheel-rating]`);
-      return Boolean(e && e.textContent.includes(score+'/10'));
-    },[firstId,selected],{timeout:5000});
-    assert((await restored.textContent()).includes(selected+'/10'),
-      'Rating must persist through the existing local preference history');
+    assert.equal(await page.locator('[data-frontier-wheel-rating]').count(),0,
+      'Reload must not resurrect the old numeric rating panel');
     assert.equal(errors.length,0,'No browser runtime exceptions: '+errors.join(' / '));
-    return {width,stories:await cards.count(),savedScore:selected,overflow:widthInfo.content-widthInfo.viewport};
+    return {width,stories:await cards.count(),ambientSuppressed:true,overflow:widthInfo.content-widthInfo.viewport};
+  } finally { await browser.close(); }
+}
+
+async function auditActiveMotif() {
+  const browser=await chromium.launch({headless:true});
+  const page=await browser.newPage({viewport:{width:1440,height:900},reducedMotion:'no-preference'});
+  try {
+    const response=await page.goto(TARGET,{waitUntil:'domcontentloaded',timeout:20000});
+    assert(response?.ok(),'Animated edition must load');
+    const critter=page.locator('[data-frontier-sprite]').first();
+    await critter.waitFor({timeout:14000});
+    const articleId=await critter.locator('xpath=ancestor::article').getAttribute('data-frontier-story');
+    assert(articleId,'Motif must be linked to a real article');
+    await page.waitForTimeout(1100);
+    // Freeze the moving target only for deterministic browser input coverage.
+    await critter.evaluate((node)=>{ node.style.animationPlayState='paused'; });
+    await critter.click({timeout:3500});
+    assert.equal(await critter.getAttribute('data-popped'),'true','Click must start the satisfying pop animation');
+    await page.waitForFunction(([id])=>{
+      const json=localStorage.getItem('frontier-personal-radar-v1');
+      const history=json ? JSON.parse(json).state?.history : {};
+      return (history?.[id]?.ambientPops ?? 0) >= 1
+        && (history?.[id]?.ambientAppearances ?? 0) >= 1;
+    },[articleId],{timeout:4000});
+    await critter.waitFor({state:'detached',timeout:4000});
+    const off=page.getByRole('button',{name:'Turn off floating newspaper creatures'});
+    await off.click();
+    assert.equal(await page.locator('[data-frontier-sprite]').count(),0,
+      'Opt-out removes the floating motif');
+    await page.reload({waitUntil:'domcontentloaded'});
+    assert(await page.getByRole('button',{name:'Turn on floating newspaper creatures'}).count() === 1,
+      'Floating creature opt-out must persist');
+    return {clickedArticle:articleId,popSaved:true,optOutPersisted:true};
   } finally { await browser.close(); }
 }
 
 async function main() {
   const results=[];
   for(const size of [[1440,900],[390,844],[320,740]]) results.push(await audit(...size));
-  console.log('FRONTIER multi-article edition QA PASS',JSON.stringify(results));
+  const interaction=await auditActiveMotif();
+  console.log('FRONTIER multi-article edition QA PASS',JSON.stringify({viewports:results,interaction}));
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
