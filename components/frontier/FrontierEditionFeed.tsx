@@ -3,8 +3,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUpRight, Bookmark, RefreshCw, Search } from 'lucide-react';
+import { ArrowUpRight, Bookmark, Bug, BugOff, RefreshCw, Search } from 'lucide-react';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
+import { frontierMotifForItem } from '@/lib/frontier/ambientSprites';
 import { frontierInformationValue, frontierReportedMetrics, rerankFrontierForInformation } from '@/lib/frontier/informativeEdition';
 import { featureFrontierEditionStory, frontierEditionChannel } from '@/lib/frontier/editionCandidates';
 import { frontierReadableText } from '@/lib/frontier/readableText';
@@ -12,7 +13,7 @@ import { rankFrontierItems, selectDailyRun } from '@/lib/frontier/scoring';
 import { buildFrontierSourceBrief, frontierSourceFigures } from '@/lib/frontier/sourceBrief';
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierFeedResponse, FrontierItem } from '@/lib/frontier/types';
-import { FrontierWheelRating } from './FrontierWheelRating';
+import { FrontierAmbientSprite } from './FrontierAmbientSprite';
 import styles from './frontier-edition-feed.module.css';
 
 const EDITION_LIMIT = 48;
@@ -158,17 +159,18 @@ function StoryVisual({ item, lead, ordinal }: { item: FrontierItem; lead: boolea
   );
 }
 
-function EditionArticle({ item, ordinal, lead }: { item: FrontierItem; ordinal: number; lead: boolean }) {
-  const history = useFrontierStore((s) => s.history);
+type ActiveCritter = { itemId: string; token: number; fromRight: boolean; width: number; top: number };
+function EditionArticle({ item, ordinal, lead, critter, onCritterPop, onCritterExit }: {
+  item: FrontierItem; ordinal: number; lead: boolean; critter: ActiveCritter | null;
+  onCritterPop: (item: FrontierItem) => void; onCritterExit: (token: number) => void;
+}) {
   const saved = useFrontierStore((s) => s.saved);
   const hydrated = useFrontierStore((s) => s.hydrated);
-  const rateInterest = useFrontierStore((s) => s.rateInterest);
   const toggleSave = useFrontierStore((s) => s.toggleSave);
   const recordOpen = useFrontierStore((s) => s.recordOpen);
   const brief = useMemo(() => buildFrontierSourceBrief(item.summary, item.sourceKind), [item.summary, item.sourceKind]);
   const context = frontierInformationValue(item);
   const evidenceReasons = context.reasons.filter((reason) => reason !== 'Detailed context');
-  const rating = history[item.id]?.interestScore;
 
   return (
     <article className={`${styles.story} ${lead ? styles.leadStory : ''}`} data-frontier-story={item.id}>
@@ -185,7 +187,9 @@ function EditionArticle({ item, ordinal, lead }: { item: FrontierItem; ordinal: 
             {frontierReadableText(item.title)}<ArrowUpRight size={16} aria-hidden="true"/>
           </a></h2>
           <p className={styles.summary}>{frontierReadableText(brief.lead || 'Original source available; detailed context not supplied.')}</p>
-          {brief.hasFullerContext ? <details className={styles.more}>
+          {brief.hasFullerContext ? <details className={styles.more} onToggle={(event) => {
+            if (event.currentTarget.open) useFrontierStore.getState().recordExpand(item);
+          }}>
             <summary>More context</summary>
             {brief.details.map((paragraph, index) => <p key={index}>{frontierReadableText(paragraph)}</p>)}
           </details> : null}
@@ -198,8 +202,6 @@ function EditionArticle({ item, ordinal, lead }: { item: FrontierItem; ordinal: 
       <div className={styles.storyActions}>
         <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={() => recordOpen(item)}
           className={styles.sourceLink}>Read original <ArrowUpRight size={13} aria-hidden="true"/></a>
-        <FrontierWheelRating key={item.id} title={frontierReadableText(item.title)} savedScore={rating}
-          onSave={(score, method) => rateInterest(item, score, method)}/>
         <button type="button" className={styles.bookmark} disabled={!hydrated}
           aria-pressed={Boolean(saved[item.id])}
           aria-label={saved[item.id] ? 'Remove saved article' : 'Save article'}
@@ -208,6 +210,12 @@ function EditionArticle({ item, ordinal, lead }: { item: FrontierItem; ordinal: 
           <span>{saved[item.id] ? 'Saved' : 'Save'}</span>
         </button>
       </div>
+      {critter && critter.itemId === item.id ? (
+        <FrontierAmbientSprite key={critter.token} motif={frontierMotifForItem(item)}
+          articleTitle={frontierReadableText(item.title).slice(0, 90)}
+          fromRight={critter.fromRight} width={critter.width} top={critter.top}
+          onPop={() => onCritterPop(item)} onExit={() => onCritterExit(critter.token)}/>
+      ) : null}
     </article>
   );
 }
@@ -241,7 +249,77 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
     return items.filter((item) => belongsTo(item, subject) &&
       (!q || [item.title, item.summary, item.sourceLabel, ...item.tags].join(' ').toLocaleLowerCase().includes(q)));
   }, [items, subject, query]);
-  const shown = filtered.slice(0, visible);
+  const shown = useMemo(() => filtered.slice(0, visible), [filtered, visible]);
+
+  const [ambientEnabled, setAmbientEnabled] = useState(true);
+  const [motionAllowed, setMotionAllowed] = useState(false);
+  const [pageVisible, setPageVisible] = useState(true);
+  const [activeCritter, setActiveCritter] = useState<ActiveCritter | null>(null);
+  const spawnedRef = useRef(0);
+  const perStoryRef = useRef(new Map<string, number>());
+
+  useEffect(() => {
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const syncMotion = () => setMotionAllowed(!motion.matches);
+    syncMotion();
+    motion.addEventListener('change', syncMotion);
+    const syncVisibility = () => setPageVisible(document.visibilityState === 'visible');
+    syncVisibility();
+    document.addEventListener('visibilitychange', syncVisibility);
+    try { setAmbientEnabled(localStorage.getItem('frontier-ambient-sprites') !== 'off'); } catch { /* storage disabled */ }
+    return () => { motion.removeEventListener('change', syncMotion); document.removeEventListener('visibilitychange', syncVisibility); };
+  }, []);
+
+  // One tiny motif at a time, only on a currently visible article. The moving
+  // layer is pointer-transparent except for the motif itself. This is never
+  // tied to scroll/wheel handlers and stops when tab is hidden.
+  useEffect(() => {
+    if (!ambientEnabled || !motionAllowed || !pageVisible || !hydrated || activeCritter) return;
+    const maxSpawns = window.innerWidth <= 640 ? 3 : 6;
+    if (spawnedRef.current >= maxSpawns) return;
+    const timeout = window.setTimeout(() => {
+      const visibleIds = new Set(shown.map((item) => item.id));
+      const eligible = Array.from(document.querySelectorAll<HTMLElement>('[data-frontier-story]'))
+        .map((node) => {
+          const rect = node.getBoundingClientRect();
+          const overlap = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+          return { node, rect, overlap };
+        })
+        .filter(({node,rect,overlap}) => {
+          const id = node.dataset.frontierStory ?? '';
+          return visibleIds.has(id) && rect.width >= 200 && overlap >= Math.min(rect.height * .2, 135)
+            && (perStoryRef.current.get(id) ?? 0) < (window.innerWidth <= 640 ? 1 : 2);
+        }).sort((a,b) => b.overlap - a.overlap);
+      if (!eligible.length || document.visibilityState !== 'visible') return;
+      const selected = eligible[spawnedRef.current % Math.min(2,eligible.length)];
+      const itemId = selected.node.dataset.frontierStory ?? '';
+      const item = shown.find((entry) => entry.id === itemId);
+      if (!item) return;
+      spawnedRef.current += 1;
+      perStoryRef.current.set(itemId, (perStoryRef.current.get(itemId) ?? 0) + 1);
+      useFrontierStore.getState().recordAmbientAppearance(item);
+      setActiveCritter({
+        itemId, token: spawnedRef.current,
+        fromRight: spawnedRef.current % 2 === 0,
+        width: selected.node.clientWidth,
+        top: Math.min(118, Math.max(42, selected.node.clientHeight * .22)),
+      });
+    }, spawnedRef.current ? 7400 : 2400);
+    return () => window.clearTimeout(timeout);
+  }, [ambientEnabled, motionAllowed, pageVisible, hydrated, activeCritter, shown]);
+
+  useEffect(() => {
+    if (!ambientEnabled || !motionAllowed) setActiveCritter(null);
+  }, [ambientEnabled, motionAllowed]);
+
+  const toggleAmbient = () => {
+    const enabled = !ambientEnabled;
+    setAmbientEnabled(enabled);
+    try { localStorage.setItem('frontier-ambient-sprites', enabled ? 'on' : 'off'); } catch { /* optional preference */ }
+  };
+  const recordCritterPop = (item: FrontierItem) => useFrontierStore.getState().recordAmbientPop(item);
+  const exitCritter = (token: number) =>
+    setActiveCritter((current) => current?.token === token ? null : current);
   const subjectCounts = useMemo(() => SUBJECTS.reduce((counts, entry) => {
     counts[entry.id] = entry.id === 'all' ? items.length : items.filter((item) => belongsTo(item, entry.id)).length;
     return counts;
@@ -283,6 +361,12 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
         <div className={styles.mastActions}>
           <Link href="/frontier/read">Focus reader</Link>
           <Link href="/frontier/advanced">Full radar</Link>
+          <button type="button" onClick={toggleAmbient} className={styles.ambientToggle}
+            aria-label={ambientEnabled ? 'Turn off floating newspaper creatures' : 'Turn on floating newspaper creatures'}
+            aria-pressed={ambientEnabled}
+            title={ambientEnabled ? 'Turn off floating creatures' : 'Turn on floating creatures'}>
+            {ambientEnabled ? <Bug size={17} aria-hidden="true"/> : <BugOff size={17} aria-hidden="true"/>}
+          </button>
           <button type="button" onClick={checkForNew} disabled={checking}
             aria-label="Check for a newer Frontier edition"><RefreshCw size={15} aria-hidden="true"/> <span>Update</span></button>
         </div>
@@ -324,7 +408,8 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
         <>
           <section className={styles.grid} id="frontier-stories" aria-label="Stories in this edition">
             {shown.map((item,index) => <EditionArticle key={item.id} item={item} ordinal={index+1}
-              lead={subject === 'all' && index === 0}/>)}
+              lead={subject === 'all' && index === 0} critter={activeCritter?.itemId === item.id ? activeCritter : null}
+              onCritterPop={recordCritterPop} onCritterExit={exitCritter}/>)}
           </section>
           {filtered.length > visible ? <div className={styles.moreStories}>
             <button type="button" onClick={() => setVisible((n) => Math.min(filtered.length,n+PAGE_SIZE))}>

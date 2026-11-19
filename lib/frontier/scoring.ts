@@ -1,4 +1,5 @@
 import { selectAdaptiveDailyAllocation } from './adaptiveSlate';
+import { ambientEngagementAdjustment } from './ambientSprites';
 import { interestScoreReaction, validInterestScore } from './interestRating';
 import { behavioralAdjustment, behavioralExplorationBonus, formatForItem, aggregatePreference, timeBucket } from './behavior';
 import { buildConnectionExposureIndex, connectionPortfolioAdjustment } from './connectionPortfolio';
@@ -446,7 +447,7 @@ export function rankFrontierItems(
         pairEvidence,
         sessionIntent,
         directPreferenceEvidence,
-      ).score,
+      ).score + ambientEngagementAdjustment(history[item.id]),
     }))
     .sort((a, b) => b.score - a.score)
     .map(({ item }) => item);

@@ -296,6 +296,11 @@ export type FrontierHistoryEntry = {
   interestRatedAt?: string;
   interestRatingMethod?: 'hold' | 'slider' | 'wheel';
   interestRatingDurationMs?: number;
+  /** Ambient ornamental interactions: exposure denominator and observed pops.
+   * Neither is an explicit article rating. */
+  ambientAppearances?: number;
+  ambientPops?: number;
+  ambientLastPoppedAt?: string;
   resurfacedCount: number;
   rewarded: boolean;
 };

@@ -94,6 +94,8 @@ export type FrontierStore = FrontierPersistedState & {
   recordDwell: (item: FrontierItem, dwellMs: number) => void;
   recordExpand: (item: FrontierItem) => void;
   recordOpen: (item: FrontierItem) => void;
+  recordAmbientAppearance: (item: FrontierItem) => void;
+  recordAmbientPop: (item: FrontierItem) => void;
   react: (item: FrontierItem, reaction: FrontierReaction) => void;
   rateInterest: (item: FrontierItem, score: number, method: 'hold' | 'slider' | 'wheel', holdMs?: number) => void;
   toggleSave: (item: FrontierItem) => void;
@@ -215,6 +217,30 @@ export const useFrontierStore = create<FrontierStore>()(
           game: updateStreak(current.game),
         });
         if (current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'open', item });
+      },
+
+      recordAmbientAppearance: (item) => {
+        const current = get();
+        const previous = current.history[item.id] ?? historyEntry(item);
+        if ((previous.ambientAppearances ?? 0) >= 40) return;
+        set({ history: {
+          ...current.history,
+          [item.id]: { ...previous, item, ambientAppearances: (previous.ambientAppearances ?? 0) + 1 },
+        } });
+      },
+
+      recordAmbientPop: (item) => {
+        const current = get();
+        const previous = current.history[item.id];
+        if (!previous) return;
+        const appearances = Math.max(0, previous.ambientAppearances ?? 0);
+        if (!appearances || (previous.ambientPops ?? 0) >= Math.min(appearances, 40)) return;
+        set({ history: {
+          ...current.history,
+          [item.id]: { ...previous, item, ambientPops: (previous.ambientPops ?? 0) + 1,
+            ambientLastPoppedAt: new Date().toISOString() },
+        } });
+        // Deliberately no reaction(), XP reward or explicit taste update.
       },
 
       react: (item, reaction) => {

@@ -49,7 +49,7 @@
 .status,.empty { width:min(100% - 40px,1250px); margin:0 auto 18px; color:#42664f; font-size:13px; }
 .grid { width:min(100% - 40px,1250px); margin:0 auto; display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:clamp(24px,4vw,64px); align-items:start; }
-.story { min-width:0; display:flex; flex-direction:column; padding:21px 0 30px;
+.story { position:relative; isolation:isolate; min-width:0; display:flex; flex-direction:column; padding:21px 0 30px;
   border-top:1px solid var(--line); border-bottom:1px solid var(--line); margin-bottom:clamp(18px,3vw,35px); }
 .leadStory { grid-column:1/-1; padding:26px 0 36px; border-top:1px solid #718a77; border-bottom:1px solid #718a77;
   margin-bottom:clamp(25px,4vw,55px); }
@@ -155,3 +155,11 @@
 }
 @media(max-width:380px){ .categories button{min-width:75px;padding:8px 9px 10px;} .mastActions a,.mastActions button{font-size:10px;} .categories button{padding:9px 10px;} }
 @media(prefers-reduced-motion:reduce){ .page *{scroll-behavior:auto!important;transition:none!important;} }
+
+/* One quiet, icon-only opt-out without introducing another rating widget. */
+.mastActions .ambientToggle { min-width:36px; width:36px; min-height:36px; border-radius:50%;
+  justify-content:center; padding:0; color:#6b8170; transition:background .15s ease; }
+.mastActions .ambientToggle:hover { background:#e6eee3; }
+.mastActions .ambientToggle[aria-pressed='false'] { color:#a0a9a0; }
+@media(max-width:640px) { .mastActions{gap:8px;} .mastActions .ambientToggle{width:31px;min-width:31px;} }
+@media(prefers-reduced-motion:reduce){.mastActions .ambientToggle{transition:none;}}
