@@ -260,14 +260,26 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
 
   useEffect(() => {
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const syncMotion = () => setMotionAllowed(!motion.matches);
-    syncMotion();
-    motion.addEventListener('change', syncMotion);
+    const syncMotion = () => {
+      const allowed = !motion.matches;
+      setMotionAllowed(allowed);
+      if (!allowed) setActiveCritter(null);
+    };
     const syncVisibility = () => setPageVisible(document.visibilityState === 'visible');
-    syncVisibility();
+    motion.addEventListener('change', syncMotion);
     document.addEventListener('visibilitychange', syncVisibility);
-    try { setAmbientEnabled(localStorage.getItem('frontier-ambient-sprites') !== 'off'); } catch { /* storage disabled */ }
-    return () => { motion.removeEventListener('change', syncMotion); document.removeEventListener('visibilitychange', syncVisibility); };
+    // Schedule initial browser-only settings after hydration. Synchronous state
+    // writes inside mount effects otherwise create React compiler lint warnings.
+    const frame = window.requestAnimationFrame(() => {
+      syncMotion();
+      syncVisibility();
+      try { setAmbientEnabled(localStorage.getItem('frontier-ambient-sprites') !== 'off'); } catch { /* storage disabled */ }
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      motion.removeEventListener('change', syncMotion);
+      document.removeEventListener('visibilitychange', syncVisibility);
+    };
   }, []);
 
   // One tiny motif at a time, only on a currently visible article. The moving
@@ -308,13 +320,10 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
     return () => window.clearTimeout(timeout);
   }, [ambientEnabled, motionAllowed, pageVisible, hydrated, activeCritter, shown]);
 
-  useEffect(() => {
-    if (!ambientEnabled || !motionAllowed) setActiveCritter(null);
-  }, [ambientEnabled, motionAllowed]);
-
   const toggleAmbient = () => {
     const enabled = !ambientEnabled;
     setAmbientEnabled(enabled);
+    if (!enabled) setActiveCritter(null);
     try { localStorage.setItem('frontier-ambient-sprites', enabled ? 'on' : 'off'); } catch { /* optional preference */ }
   };
   const recordCritterPop = (item: FrontierItem) => useFrontierStore.getState().recordAmbientPop(item);

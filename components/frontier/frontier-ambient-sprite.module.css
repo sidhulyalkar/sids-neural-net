@@ -23,6 +23,7 @@
 .fromLeft { animation:floatAcross 9s linear forwards; }
 .fromRight { animation:floatBack 9s linear forwards; }
 .sprite:focus-visible { outline:2px solid #426b54; outline-offset:2px; }
+.sprite:hover:not(.popped),.sprite:focus-visible:not(.popped) { animation-play-state:paused; }
 .sprite:hover .body { box-shadow:0 0 0 3px rgba(100,140,111,.18),0 2px 10px rgba(56,75,60,.16); }
 .popped,.fromLeft.popped,.fromRight.popped { animation:popOut 340ms cubic-bezier(.22,.9,.28,1) forwards; }
 .popped .body { animation:none; }

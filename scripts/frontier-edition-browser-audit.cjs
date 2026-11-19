@@ -78,6 +78,9 @@ async function auditActiveMotif() {
     await critter.waitFor({timeout:14000});
     const articleId=await critter.locator('xpath=ancestor::article').getAttribute('data-frontier-story');
     assert(articleId,'Motif must be linked to a real article');
+    await page.waitForTimeout(1100);
+    // Freeze the moving target only for deterministic browser input coverage.
+    await critter.evaluate((node)=>{ node.style.animationPlayState='paused'; });
     await critter.click({timeout:3500});
     assert.equal(await critter.getAttribute('data-popped'),'true','Click must start the satisfying pop animation');
     await page.waitForFunction(([id])=>{
