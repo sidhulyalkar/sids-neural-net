@@ -7,11 +7,18 @@ import { buildFrontierSourceBrief } from './sourceBrief';
  * remain authoritative; this can only perturb nearby items in their order.
  */
 const PRIMARY_SOURCE_KINDS = new Set(['arxiv', 'biorxiv', 'medrxiv', 'openreview', 'github', 'nasa']);
-const POPULARITY_METRIC = /^(?:hf\s*)?(?:stars?|forks?|points?|comments?|upvotes?|downvotes?|likes?|favorites?|watchers?|followers?|subscribers?|views?|citations?|downloads?|live|final|upcoming)$/i;
+const POPULARITY_METRIC = /^(?:(?:hf|github|youtube|reddit|hackernews)\s*)?(?:stars?|forks?|points?|comments?|upvotes?|downvotes?|likes?|favorites?|watchers?|followers?|subscribers?|views?|citations?|downloads?|live|final|upcoming)$/i;
 const INFORMATION_WEIGHT = 4;
 
 function bounded01(value: number): number {
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+}
+
+/** Only source-reported, non-popularity measurements are eligible for editorial display. */
+export function frontierReportedMetrics(item: FrontierItem) {
+  return (item.metrics ?? []).filter((metric) =>
+    Boolean(metric.label.trim() && metric.value.trim()) &&
+    !POPULARITY_METRIC.test(metric.label.replace(/[_-]/g, ' ').trim()));
 }
 
 export type FrontierInformationValue = {
@@ -24,9 +31,7 @@ export function frontierInformationValue(item: FrontierItem): FrontierInformatio
   const lead = buildFrontierSourceBrief(item.summary, item.sourceKind).lead;
   // Source context length is capped: boilerplate cannot accrue endless value.
   const contextualDetail = bounded01(Math.max(0, lead.trim().length - 65) / 260);
-  const measurements = (item.metrics ?? []).filter((metric) =>
-    Boolean(metric.label.trim() && metric.value.trim()) &&
-    !POPULARITY_METRIC.test(metric.label.replace(/[_-]/g, ' ').trim()));
+  const measurements = frontierReportedMetrics(item);
   const primaryArtifacts = (item.artifacts ?? []).filter((artifact) =>
     Boolean(artifact.label.trim()) &&
     ['repository', 'benchmark', 'formula', 'release'].includes(artifact.kind));
