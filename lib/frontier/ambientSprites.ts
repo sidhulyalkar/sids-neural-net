@@ -21,16 +21,48 @@ export function frontierMotifForItem(item: FrontierItem): FrontierMotif {
   return 'newsprint';
 }
 
-/** A sprite pop is an opportunity-normalized micro-engagement signal, not an
- * explicit like or a dislike. The majority of preference authority remains
- * article-opening and saving; clearing an ornament alone must not masquerade
- * as genuine scientific interest. */
+/** Individual pops are intentionally expressive, but evidence strength grows
+ * with the number of distinct catches and the fraction of opportunities used.
+ * The clear-all oval is a separate explicit strong preference. */
 export function ambientEngagementAdjustment(entry?: FrontierHistoryEntry): number {
   if (!entry) return 0;
   const appearances = Math.max(0, Math.floor(entry.ambientAppearances ?? 0));
   const pops = Math.max(0, Math.floor(entry.ambientPops ?? 0));
-  if (!appearances || !pops) return 0;
-  const clickRate = Math.min(pops, appearances) / appearances;
-  const hasSubstantiveAction = Boolean(entry.openedAt) || (entry.dwellMs ?? 0) >= 12000;
-  return Math.min(0.018, clickRate * (hasSubstantiveAction ? 0.018 : 0.002));
+  const caught = Math.min(appearances, pops);
+  const popSignal = appearances > 0 ? 0.24 * (caught / appearances) * Math.min(1, caught / 3) : 0;
+  return Math.min(0.24, popSignal) + (entry.ambientClearedAt ? 0.62 : 0);
+}
+
+export type FrontierFlightPattern = 'hover' | 'patrol' | 'orbit' | 'zigzag' | 'cross';
+
+export type FrontierSwarmSprite = {
+  id: number;
+  pattern: FrontierFlightPattern;
+  x: number;
+  y: number;
+  duration: number;
+  delay: number;
+  size: number;
+};
+
+/** Deterministic, jittered distribution. No random layout changes during
+ * hydration, and sprites do not all fly on identical phase or trajectories. */
+export function frontierSwarmSprites(articleId: string, compact = false): FrontierSwarmSprite[] {
+  let seed = 2166136261;
+  for (let i = 0; i < articleId.length; i++) seed = Math.imul(seed ^ articleId.charCodeAt(i), 16777619) >>> 0;
+  const random = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 0x100000000;
+  };
+  const count = compact ? 5 : 9;
+  const patterns: FrontierFlightPattern[] = ['hover', 'patrol', 'orbit', 'zigzag', 'cross'];
+  return Array.from({ length: count }, (_, id) => ({
+    id,
+    pattern: patterns[id % patterns.length],
+    x: Math.round(17 + ((id * 37) % 66) + random() * 9),
+    y: Math.round(12 + ((id * 23) % 60) + random() * 6),
+    duration: Math.round((3.8 + random() * 5.8) * 100) / 100,
+    delay: -Math.round(random() * 580) / 100,
+    size: Math.round(30 + random() * 11),
+  }));
 }

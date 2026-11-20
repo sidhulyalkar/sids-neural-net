@@ -1,19 +1,18 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Atom, Code2, Gamepad2, Leaf, Music2, Snowflake } from 'lucide-react';
-import type { FrontierMotif } from '@/lib/frontier/ambientSprites';
+import type { FrontierMotif, FrontierSwarmSprite } from '@/lib/frontier/ambientSprites';
 import styles from './frontier-ambient-sprite.module.css';
 
 type Props = {
   motif: FrontierMotif;
   articleTitle: string;
-  fromRight: boolean;
-  width: number;
-  top: number;
+  spec: FrontierSwarmSprite;
+  clear: boolean;
   onPop: () => void;
-  onExit: () => void;
+  onExit: (id: number) => void;
 };
 
 function SoccerBall() {
@@ -56,20 +55,34 @@ const MOTIF_LABEL: Record<FrontierMotif, string> = {
   music: 'music note', leaf: 'leaf',
 };
 
-export function FrontierAmbientSprite({ motif, articleTitle, fromRight, width, top, onPop, onExit }: Props) {
+export function FrontierAmbientSprite({ motif, articleTitle, spec, clear, onPop, onExit }: Props) {
   const [popped, setPopped] = useState(false);
   const poppedRef = useRef(false);
   const style = {
-    '--fly-width': `${Math.max(200, Math.round(width))}px`,
-    '--fly-top': `${Math.max(24, Math.round(top))}px`,
+    '--x': `${spec.x}%`,
+    '--y': `${spec.y}%`,
+    '--speed': `${spec.duration}s`,
+    '--phase': `${spec.delay}s`,
+    '--size': `${spec.size}px`,
   } as CSSProperties;
 
-  return <div className={styles.scene} data-frontier-ambient-layer="true">
-    <button type="button" data-frontier-sprite={motif} data-popped={popped ? 'true' : 'false'}
-      className={`${styles.sprite} ${fromRight ? styles.fromRight : styles.fromLeft} ${popped ? styles.popped : ''}`}
+  useEffect(() => {
+    if (!clear || poppedRef.current) return;
+    // A clear-all gesture produces a little cascading constellation of pops.
+    const timeout = window.setTimeout(() => {
+      if (poppedRef.current) return;
+      poppedRef.current = true;
+      setPopped(true);
+    }, spec.id * 42);
+    return () => window.clearTimeout(timeout);
+  }, [clear, spec.id]);
+
+  return (
+    <button type="button" data-frontier-sprite={motif} data-flight-pattern={spec.pattern}
+      data-popped={popped ? 'true' : 'false'}
+      className={`${styles.sprite} ${styles[spec.pattern]} ${popped ? styles.popped : ''}`}
       style={style}
       aria-label={`Pop ${MOTIF_LABEL[motif]} near ${articleTitle}`}
-      title={`Pop ${MOTIF_LABEL[motif]}`}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -78,9 +91,12 @@ export function FrontierAmbientSprite({ motif, articleTitle, fromRight, width, t
         setPopped(true);
         onPop();
       }}
-      onAnimationEnd={(event) => { if (event.target === event.currentTarget) onExit(); }}>
+      onAnimationEnd={(event) => {
+        if (event.target === event.currentTarget && poppedRef.current && event.animationName.includes('popOut'))
+          onExit(spec.id);
+      }}>
       <span className={styles.body}><MotifGlyph motif={motif}/></span>
       <span className={styles.burst} aria-hidden="true"><i/><i/><i/><i/><i/><i/></span>
     </button>
-  </div>;
+  );
 }
