@@ -43,6 +43,8 @@ export type FrontierSwarmSprite = {
   duration: number;
   delay: number;
   size: number;
+  /** One of six alternating hue families for controlled chromatic variation. */
+  colorStep: number;
 };
 
 /** Deterministic, jittered distribution. No random layout changes during
@@ -54,7 +56,7 @@ export function frontierSwarmSprites(articleId: string, compact = false): Fronti
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
     return seed / 0x100000000;
   };
-  const count = compact ? 5 : 9;
+  const count = compact ? 10 : 18;
   const patterns: FrontierFlightPattern[] = ['hover', 'patrol', 'orbit', 'zigzag', 'cross'];
   return Array.from({ length: count }, (_, id) => ({
     id,
@@ -64,5 +66,6 @@ export function frontierSwarmSprites(articleId: string, compact = false): Fronti
     duration: Math.round((3.8 + random() * 5.8) * 100) / 100,
     delay: -Math.round(random() * 580) / 100,
     size: Math.round(30 + random() * 11),
+    colorStep: (id + Math.floor(random() * 3)) % 7,
   }));
 }

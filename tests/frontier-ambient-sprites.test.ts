@@ -31,8 +31,9 @@ test('swarm layout is deterministic, varied, bounded, and independently article-
   const repeat = frontierSwarmSprites('article-1');
   const mobile = frontierSwarmSprites('article-1', true);
   assert.deepEqual(desktop, repeat);
-  assert.equal(desktop.length, 9);
-  assert.equal(mobile.length, 5);
+  assert.equal(desktop.length, 18);
+  assert.equal(mobile.length, 10);
+  assert.equal(new Set(desktop.map((sprite) => sprite.colorStep)).size >= 5, true);
   assert.notDeepEqual(desktop, frontierSwarmSprites('article-2'));
   assert.equal(new Set(desktop.map((sprite) => sprite.pattern)).size, 5);
   assert.deepEqual(desktop.slice(0, 5).map((sprite) => sprite.pattern),
@@ -43,6 +44,7 @@ test('swarm layout is deterministic, varied, bounded, and independently article-
     assert(sprite.duration >= 3 && sprite.duration <= 10);
     assert(sprite.delay <= 0);
     assert(sprite.size >= 30 && sprite.size <= 42);
+    assert(Number.isInteger(sprite.colorStep) && sprite.colorStep >= 0 && sprite.colorStep <= 6);
   }
 });
 

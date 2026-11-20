@@ -85,18 +85,30 @@ async function auditActiveSwarm() {
     assert(firstId,'A real article must own its swarm');
     await first.locator('[data-frontier-ambient-layer="swarm"]').waitFor({timeout:13000});
     await page.waitForFunction(()=>
-      document.querySelectorAll('#frontier-stories article:first-child [data-frontier-sprite]').length >= 9,
+      document.querySelectorAll('#frontier-stories article:first-child [data-frontier-sprite]').length >= 18,
       undefined,{timeout:6000});
     const count=await first.locator('[data-frontier-sprite]').count();
-    assert.equal(count,9,'Desktop article must have a real nine-object swarm');
+    assert.equal(count,18,'Desktop article must have eighteen independent sprites');
     const patterns=await first.locator('[data-flight-pattern]').evaluateAll(
       (nodes)=>nodes.map((node)=>node.getAttribute('data-flight-pattern')));
     assert(new Set(patterns).size >= 4,'Different physics paths must be visible together');
+    const colorSteps = await first.locator('[data-color-step]').evaluateAll(
+      nodes => nodes.map(node => node.getAttribute('data-color-step')));
+    assert(new Set(colorSteps).size >= 5,'Swarm must have varied bright color families');
+    assert.equal(await page.locator('[data-frontier-whip-cursor]').count(),1,
+      'The Frontier cursor overlay must be route-scoped and mounted once');
 
     const firstSprite=first.locator('[data-frontier-sprite]').first();
     await firstSprite.evaluate((node)=>{node.style.animationPlayState='paused';});
     await firstSprite.click({timeout:4000});
     assert.equal(await firstSprite.getAttribute('data-popped'),'true','Click triggers the local burst');
+    await page.waitForFunction(() =>
+      document.querySelector('[data-frontier-whip-cursor] [data-active="true"]') !== null,
+      undefined,{timeout:1500});
+    const whipTarget=await page.locator('[data-frontier-whip-cursor] [data-active="true"]')
+      .evaluate(el=>({left:el.getBoundingClientRect().left,top:el.getBoundingClientRect().top}));
+    assert(Number.isFinite(whipTarget.left) && Number.isFinite(whipTarget.top),
+      'A real pointer click launches a visible, positioned curved whip');
     // Unpause the short exit animation after the deterministic click.
     await firstSprite.evaluate((node)=>{node.style.removeProperty('animation-play-state');});
     await firstSprite.waitFor({state:'detached',timeout:5000});
@@ -104,7 +116,7 @@ async function auditActiveSwarm() {
       const state=JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state;
       return {seen:state.history[id]?.ambientAppearances,pops:state.history[id]?.ambientPops};
     },firstId);
-    assert(recorded.seen>=9 && recorded.pops===1,
+    assert(recorded.seen>=18 && recorded.pops===1,
       'Individual clicks must record both opportunity count and successful pop: '+JSON.stringify(recorded));
 
     const clear=first.locator('[data-frontier-clear-article]');
@@ -147,15 +159,15 @@ async function auditCompactSwarm() {
     await page.goto(TARGET,{waitUntil:'domcontentloaded',timeout:20000});
     const first=page.locator('#frontier-stories article').first();
     await first.locator('[data-frontier-ambient-layer="swarm"]').waitFor({timeout:13000});
-    assert.equal(await first.locator('[data-frontier-sprite]').count(),5,
-      'Mobile must have five moving sprites per visible article');
+    assert.equal(await first.locator('[data-frontier-sprite]').count(),10,
+      'Mobile must have ten moving sprites per visible article');
     assert.equal(await page.locator('[data-frontier-wheel-rating]').count(),0);
     const viewport=await page.evaluate(()=>({
       width:innerWidth,scrollWidth:document.documentElement.scrollWidth
     }));
     assert(viewport.scrollWidth <= viewport.width+2,
       'Swarm sprites must not create horizontal scrolling: '+JSON.stringify(viewport));
-    return {mobileSwarm:5,overflow:viewport.scrollWidth-viewport.width};
+    return {mobileSwarm:10,overflow:viewport.scrollWidth-viewport.width};
   } finally { await browser.close(); }
 }
 

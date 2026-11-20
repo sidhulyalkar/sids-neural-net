@@ -8,7 +8,7 @@
   display:grid; place-items:center; padding:5px;
   border:0; border-radius:50%; background:transparent;
   color:var(--sprite-ink); cursor:crosshair; pointer-events:auto; touch-action:manipulation;
-  opacity:.92; will-change:transform,opacity;
+  opacity:.96;
   animation-duration:var(--speed); animation-delay:var(--phase);
   animation-timing-function:ease-in-out; animation-iteration-count:infinite;
   animation-direction:alternate;
@@ -20,10 +20,19 @@
 .sprite[data-frontier-sprite='game'] { --sprite-ink:#edabf0; --sprite-paper:rgba(232,164,247,.09); }
 .sprite[data-frontier-sprite='music'] { --sprite-ink:#f0b3dc; --sprite-paper:rgba(243,176,222,.09); }
 .sprite[data-frontier-sprite='leaf'] { --sprite-ink:#a7eb9e; --sprite-paper:rgba(168,235,147,.10); }
+/* Thematic color is the baseline (step 0); neighboring creatures introduce
+ * alternating coral, yellow, violet, azure and lime punctures against ink. */
+.sprite[data-color-step='1']{--sprite-ink:#ff95c2;--sprite-paper:rgba(255,90,155,.24)}
+.sprite[data-color-step='2']{--sprite-ink:#ffd36b;--sprite-paper:rgba(255,198,68,.21)}
+.sprite[data-color-step='3']{--sprite-ink:#c7a0ff;--sprite-paper:rgba(175,111,247,.23)}
+.sprite[data-color-step='4']{--sprite-ink:#73eafa;--sprite-paper:rgba(61,206,249,.22)}
+.sprite[data-color-step='5']{--sprite-ink:#ddfa78;--sprite-paper:rgba(186,241,58,.20)}
+.sprite[data-color-step='6']{--sprite-ink:#ff997e;--sprite-paper:rgba(255,118,91,.23)}
+
 .body { width:var(--size); height:var(--size); display:grid; place-items:center; border-radius:50%;
-  border:1px solid color-mix(in srgb,var(--sprite-ink) 26%,transparent);
-  background:var(--sprite-paper); backdrop-filter:blur(3px);
-  box-shadow:0 0 19px color-mix(in srgb,var(--sprite-ink) 15%,transparent);
+  border:1px solid color-mix(in srgb,var(--sprite-ink) 58%,transparent);
+  background:var(--sprite-paper);
+  box-shadow:0 0 14px color-mix(in srgb,var(--sprite-ink) 29%,transparent);
 }
 .body svg { width:75%; height:75%; display:block; }
 .hover { animation-name:floatHover; }

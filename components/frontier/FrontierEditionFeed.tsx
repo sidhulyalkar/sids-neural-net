@@ -14,6 +14,7 @@ import { buildFrontierSourceBrief, frontierSourceFigures } from '@/lib/frontier/
 import { useFrontierStore } from '@/lib/frontier/store';
 import type { FrontierFeedResponse, FrontierItem } from '@/lib/frontier/types';
 import { FrontierArticleSwarm } from './FrontierArticleSwarm';
+import { FrontierWhipCursor } from './FrontierWhipCursor';
 import styles from './frontier-edition-feed.module.css';
 
 const EDITION_LIMIT = 48;
@@ -340,6 +341,7 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
 
   return (
     <div className={styles.page} data-frontier-edition="multi-article">
+      <FrontierWhipCursor/>
       <header className={styles.masthead}>
         <Link href="/" className={styles.brand}>FRONTIER<span>.</span></Link>
         <div className={styles.mastActions}>

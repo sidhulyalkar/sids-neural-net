@@ -225,7 +225,7 @@ export const useFrontierStore = create<FrontierStore>()(
         const current = get();
         const previous = current.history[item.id] ?? historyEntry(item);
         if (previous.ambientClearedAt) return;
-        const appearances = Math.min(160, (previous.ambientAppearances ?? 0) + Math.min(12, Math.floor(count)));
+        const appearances = Math.min(160, (previous.ambientAppearances ?? 0) + Math.min(24, Math.floor(count)));
         if (appearances === previous.ambientAppearances) return;
         set({ history: {
           ...current.history,

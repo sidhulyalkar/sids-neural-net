@@ -79,7 +79,7 @@ export function FrontierAmbientSprite({ motif, articleTitle, spec, clear, onPop,
 
   return (
     <button type="button" data-frontier-sprite={motif} data-flight-pattern={spec.pattern}
-      data-popped={popped ? 'true' : 'false'}
+      data-popped={popped ? 'true' : 'false'} data-color-step={spec.colorStep}
       className={`${styles.sprite} ${styles[spec.pattern]} ${popped ? styles.popped : ''}`}
       style={style}
       aria-label={`Pop ${MOTIF_LABEL[motif]} near ${articleTitle}`}
