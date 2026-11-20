@@ -95,20 +95,32 @@ async function auditActiveSwarm() {
     const colorSteps = await first.locator('[data-color-step]').evaluateAll(
       nodes => nodes.map(node => node.getAttribute('data-color-step')));
     assert(new Set(colorSteps).size >= 5,'Swarm must have varied bright color families');
-    assert.equal(await page.locator('[data-frontier-whip-cursor]').count(),1,
-      'The Frontier cursor overlay must be route-scoped and mounted once');
+    assert.equal(await page.locator('[data-frontier-lightning-cursor]').count(),1,
+      'The Frontier lightning cursor must be mounted exactly once');
+    assert.equal(await page.locator('[data-frontier-whip-cursor]').count(),0,
+      'The old rainbow whip must no longer be present');
 
     const firstSprite=first.locator('[data-frontier-sprite]').first();
     await firstSprite.evaluate((node)=>{node.style.animationPlayState='paused';});
     await firstSprite.click({timeout:4000});
-    assert.equal(await firstSprite.getAttribute('data-popped'),'true','Click triggers the local burst');
-    await page.waitForFunction(() =>
-      document.querySelector('[data-frontier-whip-cursor] [data-active="true"]') !== null,
-      undefined,{timeout:1500});
-    const whipTarget=await page.locator('[data-frontier-whip-cursor] [data-active="true"]')
-      .evaluate(el=>({left:el.getBoundingClientRect().left,top:el.getBoundingClientRect().top}));
-    assert(Number.isFinite(whipTarget.left) && Number.isFinite(whipTarget.top),
-      'A real pointer click launches a visible, positioned curved whip');
+    const bolt = page.locator('[data-frontier-lightning-strike]').first();
+    await bolt.waitFor({timeout:3500});
+    assert.equal(await bolt.getAttribute('data-lightning-hit'),'true',
+      'The click must produce a real target-directed electrical discharge');
+    const end = await bolt.evaluate((element) => ({
+      x:Number(element.getAttribute('data-lightning-end-x')),
+      y:Number(element.getAttribute('data-lightning-end-y'))
+    }));
+    const targetBounds=await firstSprite.boundingBox();
+    assert(targetBounds && Math.abs(end.x-(targetBounds.x+targetBounds.width/2))<4
+      && Math.abs(end.y-(targetBounds.y+targetBounds.height/2))<4,
+      'Lightning must terminate at the sprite center, not next to the pointer');
+    await page.waitForFunction(() => {
+      const target = document.querySelector('#frontier-stories article:first-child [data-frontier-sprite][data-color-step]');
+      return !target || target.getAttribute('data-popped') === 'true';
+    },undefined,{timeout:2000});
+    assert.equal(await firstSprite.getAttribute('data-popped'),'true',
+      'The creature pops only when lightning reaches it');
     // Unpause the short exit animation after the deterministic click.
     await firstSprite.evaluate((node)=>{node.style.removeProperty('animation-play-state');});
     await firstSprite.waitFor({state:'detached',timeout:5000});

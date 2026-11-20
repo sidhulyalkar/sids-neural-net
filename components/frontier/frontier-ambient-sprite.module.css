@@ -41,7 +41,7 @@
 .zigzag { animation-name:floatZigzag; }
 .cross { animation-name:floatCross; animation-direction:normal; }
 .sprite:focus-visible { outline:2px solid #c0ffdf; outline-offset:1px; }
-.sprite:hover:not(.popped),.sprite:focus-visible:not(.popped) { animation-play-state:paused; }
+.sprite:hover:not(.popped),.sprite:focus-visible:not(.popped),.sprite[data-frontier-lightning-reserved='true'] { animation-play-state:paused; }
 .sprite:hover .body { box-shadow:0 0 0 4px rgba(127,233,197,.14),0 0 22px rgba(133,225,192,.38); }
 .popped,.hover.popped,.patrol.popped,.orbit.popped,.zigzag.popped,.cross.popped {
   animation:popOut 350ms cubic-bezier(.2,.85,.22,1) forwards;

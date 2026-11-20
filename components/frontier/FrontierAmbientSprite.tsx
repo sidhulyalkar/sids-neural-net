@@ -58,6 +58,8 @@ const MOTIF_LABEL: Record<FrontierMotif, string> = {
 export function FrontierAmbientSprite({ motif, articleTitle, spec, clear, onPop, onExit }: Props) {
   const [popped, setPopped] = useState(false);
   const poppedRef = useRef(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const onPopRef = useRef(onPop);
   const style = {
     '--x': `${spec.x}%`,
     '--y': `${spec.y}%`,
@@ -65,6 +67,22 @@ export function FrontierAmbientSprite({ motif, articleTitle, spec, clear, onPop,
     '--phase': `${spec.delay}s`,
     '--size': `${spec.size}px`,
   } as CSSProperties;
+
+  useEffect(() => { onPopRef.current = onPop; }, [onPop]);
+
+  useEffect(() => {
+    const button = buttonRef.current;
+    if (!button) return;
+    const impact = () => {
+      if (poppedRef.current || !button.isConnected) return;
+      if (button.closest('article')?.querySelector('[data-frontier-clear-article][data-cleared="true"]')) return;
+      poppedRef.current = true;
+      setPopped(true);
+      onPopRef.current();
+    };
+    button.addEventListener('frontier-lightning-impact', impact);
+    return () => button.removeEventListener('frontier-lightning-impact', impact);
+  }, []);
 
   useEffect(() => {
     if (!clear || poppedRef.current) return;
@@ -78,7 +96,7 @@ export function FrontierAmbientSprite({ motif, articleTitle, spec, clear, onPop,
   }, [clear, spec.id]);
 
   return (
-    <button type="button" data-frontier-sprite={motif} data-flight-pattern={spec.pattern}
+    <button ref={buttonRef} type="button" data-frontier-sprite={motif} data-flight-pattern={spec.pattern}
       data-popped={popped ? 'true' : 'false'} data-color-step={spec.colorStep}
       className={`${styles.sprite} ${styles[spec.pattern]} ${popped ? styles.popped : ''}`}
       style={style}
@@ -86,7 +104,10 @@ export function FrontierAmbientSprite({ motif, articleTitle, spec, clear, onPop,
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        if (poppedRef.current) return;
+        if (poppedRef.current || event.currentTarget.dataset.frontierLightningReserved === 'true') return;
+        // Keyboard, touch, reduced-motion and coarse-pointer activation has
+        // an immediate accessible fallback. Fine-pointer mouse activation is
+        // reserved by the route cursor until its lightning endpoint arrives.
         poppedRef.current = true;
         setPopped(true);
         onPop();

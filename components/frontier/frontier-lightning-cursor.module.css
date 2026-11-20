@@ -1,0 +1,51 @@
+/* Fixed pointer-transparent lightning overlay. Aiming tracks via one RAF;
+ * bolt traces appear only on intentional creature hits. */
+.root { position:fixed; inset:0; z-index:130; pointer-events:none; overflow:hidden;
+  contain:layout style paint; }
+.overlay { position:absolute; inset:0; overflow:visible; pointer-events:none; }
+.aim { position:absolute; top:0; left:0; width:34px; height:34px; opacity:0;
+  transform:translate3d(-100px,-100px,0); pointer-events:none; }
+.aimRing { position:absolute; inset:3px; border-radius:50%; border:1.5px solid rgba(139,229,255,.65);
+  box-shadow:0 0 13px rgba(80,215,255,.22); }
+.aimRing::before,.aimRing::after { content:''; position:absolute; left:50%; top:50%; background:#b9f7ff; }
+.aimRing::before { width:1px; height:36px; transform:translate(-50%,-50%); opacity:.7; }
+.aimRing::after { height:1px; width:36px; transform:translate(-50%,-50%); opacity:.7; }
+.aimDot { position:absolute; left:50%; top:50%; width:4px; height:4px; border-radius:50%;
+  transform:translate(-50%,-50%); background:#e6ffff; }
+.aim[data-hot='true'] .aimRing { border-color:#f5f5ff; box-shadow:0 0 20px #7acbff99,0 0 7px #c5aaffaa; }
+.overlay path { fill:none; stroke-linecap:round; stroke-linejoin:round; }
+.halo,.arc,.core { stroke-dasharray:100; stroke-dashoffset:100;
+  animation:boltTrace 236ms cubic-bezier(.17,.85,.24,1) both; }
+.halo { stroke:#58b4ff; stroke-width:12; opacity:.25; }
+.arc { stroke:#8b8dff; stroke-width:5; filter:drop-shadow(0 0 4px rgba(159,172,255,.55)); }
+.core { stroke:#f0ffff; stroke-width:2.1; }
+.fork { stroke:#a5dcff; stroke-width:1.7; stroke-dasharray:100; stroke-dashoffset:100;
+  animation:branchFlash 270ms ease-out 75ms both; }
+.impact,.flash { transform-box:fill-box; transform-origin:center; opacity:0; }
+.impact { fill:none; stroke:#aff2ff; stroke-width:2.6;
+  animation:impactRing 270ms cubic-bezier(.12,.85,.26,1) 160ms both; }
+.flash { fill:#ffffff; filter:drop-shadow(0 0 8px #a6dfff);
+  animation:impactFlash 250ms ease-out 160ms both; }
+@keyframes boltTrace {
+  0% { stroke-dashoffset:100; opacity:0; }
+  9% { opacity:1; }
+  70% { stroke-dashoffset:0; opacity:1; }
+  100% { stroke-dashoffset:0; opacity:0; }
+}
+@keyframes branchFlash {
+  0% { stroke-dashoffset:100; opacity:0; }
+  32% { opacity:.85; }
+  65% { stroke-dashoffset:0; opacity:1; }
+  100% { stroke-dashoffset:0; opacity:0; }
+}
+@keyframes impactRing {
+  0% { transform:scale(.15); opacity:0; }
+  17% { opacity:1; }
+  100% { transform:scale(4); opacity:0; }
+}
+@keyframes impactFlash {
+  0% { transform:scale(.7); opacity:0; }
+  17% { transform:scale(2.3); opacity:1; }
+  100% { transform:scale(.1); opacity:0; }
+}
+@media(pointer:coarse),(hover:none),(prefers-reduced-motion:reduce) { .root { display:none!important; } }
