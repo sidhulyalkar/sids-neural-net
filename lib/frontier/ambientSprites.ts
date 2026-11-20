@@ -57,6 +57,7 @@ export function frontierSwarmSprites(articleId: string, compact = false): Fronti
     return seed / 0x100000000;
   };
   const count = compact ? 10 : 18;
+  const hueOffset = seed % 7;
   const patterns: FrontierFlightPattern[] = ['hover', 'patrol', 'orbit', 'zigzag', 'cross'];
   return Array.from({ length: count }, (_, id) => ({
     id,
@@ -66,6 +67,6 @@ export function frontierSwarmSprites(articleId: string, compact = false): Fronti
     duration: Math.round((3.8 + random() * 5.8) * 100) / 100,
     delay: -Math.round(random() * 580) / 100,
     size: Math.round(30 + random() * 11),
-    colorStep: (id + Math.floor(random() * 3)) % 7,
+    colorStep: (id * 3 + hueOffset) % 7,
   }));
 }
