@@ -101,7 +101,16 @@ async function auditActiveSwarm() {
       'The old rainbow whip must no longer be present');
 
     const firstSprite=first.locator('[data-frontier-sprite]').first();
-    await firstSprite.evaluate((node)=>{node.style.animationPlayState='paused';});
+    await firstSprite.evaluate((node)=>{
+      node.style.animationPlayState='paused';
+      const capture = {clickedAt:0, impactedAt:0};
+      Object.assign(window, { __frontierLightningAudit:capture });
+      node.addEventListener('click',()=>{ capture.clickedAt=performance.now(); },{once:true});
+      node.addEventListener('frontier-lightning-impact',()=>{
+        capture.impactedAt=performance.now();
+      },{once:true});
+    });
+    const targetBounds=await firstSprite.boundingBox();
     await firstSprite.click({timeout:4000});
     const bolt = page.locator('[data-frontier-lightning-strike]').first();
     await bolt.waitFor({timeout:3500});
@@ -111,7 +120,6 @@ async function auditActiveSwarm() {
       x:Number(element.getAttribute('data-lightning-end-x')),
       y:Number(element.getAttribute('data-lightning-end-y'))
     }));
-    const targetBounds=await firstSprite.boundingBox();
     assert(targetBounds && Math.abs(end.x-(targetBounds.x+targetBounds.width/2))<4
       && Math.abs(end.y-(targetBounds.y+targetBounds.height/2))<4,
       'Lightning must terminate at the sprite center, not next to the pointer');
@@ -121,6 +129,9 @@ async function auditActiveSwarm() {
     },undefined,{timeout:2000});
     assert.equal(await firstSprite.getAttribute('data-popped'),'true',
       'The creature pops only when lightning reaches it');
+    const timing=await page.evaluate(()=>window.__frontierLightningAudit);
+    assert(timing && timing.clickedAt>0 && timing.impactedAt>=timing.clickedAt+100,
+      'The bolt must travel before its impact, rather than popping on initial click: '+JSON.stringify(timing));
     // Unpause the short exit animation after the deterministic click.
     await firstSprite.evaluate((node)=>{node.style.removeProperty('animation-play-state');});
     await firstSprite.waitFor({state:'detached',timeout:5000});

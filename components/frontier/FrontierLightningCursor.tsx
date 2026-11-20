@@ -17,7 +17,7 @@ const AIM_ASSIST_RADIUS = 58;
 
 function closestCreature(article: Element, x: number, y: number, direct: Element | null) {
   if (direct instanceof HTMLButtonElement &&
-      direct.dataset.frontierPopped !== 'true' &&
+      direct.dataset.popped !== 'true' &&
       direct.dataset.frontierLightningReserved !== 'true') return direct;
   let nearest: HTMLButtonElement | null = null;
   let bestDistance = AIM_ASSIST_RADIUS;
