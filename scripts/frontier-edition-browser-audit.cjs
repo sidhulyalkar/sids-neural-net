@@ -94,9 +94,11 @@ async function auditActiveSwarm() {
     assert(new Set(patterns).size >= 4,'Different physics paths must be visible together');
 
     const firstSprite=first.locator('[data-frontier-sprite]').first();
-    await firstSprite.evaluate((node)=>{node.style.animation='none';});
+    await firstSprite.evaluate((node)=>{node.style.animationPlayState='paused';});
     await firstSprite.click({timeout:4000});
     assert.equal(await firstSprite.getAttribute('data-popped'),'true','Click triggers the local burst');
+    // Unpause the short exit animation after the deterministic click.
+    await firstSprite.evaluate((node)=>{node.style.removeProperty('animation-play-state');});
     await firstSprite.waitFor({state:'detached',timeout:5000});
     const recorded=await page.evaluate((id)=>{
       const state=JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state;
