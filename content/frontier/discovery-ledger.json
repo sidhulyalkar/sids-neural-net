@@ -1,15 +1,1475 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-19T22:12:40.805Z",
+  "generatedAt": "2026-11-21T20:34:23.960Z",
   "entries": {
+    "00830eab26e1ff01ab2a7ba8decfdde8": {
+      "sourceKind": "arxiv",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T18:46:50.000Z",
+      "lastPublishedAt": "2026-11-19T18:46:50.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "ba93d91515465ddbc20ab1da6fc536f1",
+      "editorial": true
+    },
+    "019126f16d3938a2934a99e137777c02": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T15:12:36.000Z",
+      "lastPublishedAt": "2026-11-21T15:12:36.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "11c07482e6e388c8b71c0d9e3dc52db2",
+      "editorial": true
+    },
+    "0230509edf031f761cf3a87789dc6fd0": {
+      "sourceKind": "huggingface",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T00:00:00.000Z",
+      "lastPublishedAt": "2026-11-19T00:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "6b66a7a359e0d0e109d47c523949d654",
+      "editorial": true
+    },
     "025cd569323aaf7a27eb6b4d47ac8fd7": {
       "sourceKind": "youtube",
       "firstSeenAt": "2026-11-08T18:52:01.447Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
       "firstPublishedAt": "2026-11-08T11:27:49.000Z",
       "lastPublishedAt": "2026-11-08T11:27:49.000Z",
       "lastContentChangedAt": "2026-11-08T18:52:01.447Z",
       "contentDigest": "4fa0b2cf2a4db52cdd0f2a07fe501c77",
+      "editorial": true
+    },
+    "041eb87c084cae9cf94d2dc76225d492": {
+      "sourceKind": "youtube",
+      "firstSeenAt": "2026-11-09T23:28:43.123Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-09T02:10:21.000Z",
+      "lastPublishedAt": "2026-11-09T02:10:21.000Z",
+      "lastContentChangedAt": "2026-11-09T23:28:43.123Z",
+      "contentDigest": "b8adc58e9f6f7fb9e8d85398811d1108",
+      "editorial": true
+    },
+    "0437d165c27bddcdf7234f27b6b99d59": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-02T22:48:58.861Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-02T19:54:18.000Z",
+      "lastPublishedAt": "2026-11-02T19:54:18.000Z",
+      "lastContentChangedAt": "2026-11-02T22:48:58.861Z",
+      "contentDigest": "787e0c25a6a7a06729e222e197140442",
+      "editorial": true
+    },
+    "065247677bc97614dd791e36f7a5c1a6": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T20:09:17.000Z",
+      "lastPublishedAt": "2026-11-21T20:09:17.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "dbcb5d19361d5624e122d31c71d10aec",
+      "editorial": true
+    },
+    "06d0abbc37d63f9444146e24a2d00952": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T20:17:48.000Z",
+      "lastPublishedAt": "2026-11-21T20:17:48.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "7563caebfd488d95e9f2aab1e002ab66",
+      "editorial": true
+    },
+    "0a649dd7f99b677556bb17ac349dcc33": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T06:00:52.000Z",
+      "lastPublishedAt": "2026-11-21T06:00:52.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "ff65446bf8796b8eaf92de4dd9a70749",
+      "editorial": true
+    },
+    "0d89ad6e2358950c03e603ab097f3f85": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-02T22:48:58.861Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-02T21:12:45.000Z",
+      "lastPublishedAt": "2026-11-02T21:12:45.000Z",
+      "lastContentChangedAt": "2026-11-02T22:48:58.861Z",
+      "contentDigest": "a4b67c783f1bef29822c83a371d3bd5c",
+      "editorial": true
+    },
+    "10954f0ed334ac099e2220bec91af4de": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-10-21T16:24:15.000Z",
+      "lastPublishedAt": "2026-10-21T16:24:15.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "dee1553fa3088ac88b7a3364163ad8dd",
+      "editorial": true
+    },
+    "125c4a9fe2bcfc1f7247d7bbf777363a": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T17:09:02.000Z",
+      "lastPublishedAt": "2026-11-21T17:09:02.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "38409baa4dba6072014c525eb93e2110",
+      "editorial": true
+    },
+    "128d85857a2a73569c6ae75886f54f08": {
+      "sourceKind": "lobsters",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T04:31:29.960Z",
+      "lastPublishedAt": "2026-11-21T04:31:29.960Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "607af8d4bdf8112b4aa4166fe926046a",
+      "editorial": true
+    },
+    "1362c75a7c6306ff0751bd208d487686": {
+      "sourceKind": "lobsters",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T04:14:02.531Z",
+      "lastPublishedAt": "2026-11-21T04:14:02.531Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "b05c700160b7113538fcbcbc7437ca90",
+      "editorial": true
+    },
+    "15dbebe992f7896b47c660fb4f7b1543": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2022-03-22T16:57:35.000Z",
+      "lastPublishedAt": "2022-03-22T16:57:35.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "0e5ec94aaef7ab7d36f3d9967b1ddb0c",
+      "editorial": true
+    },
+    "16d04e824bcba566990c99e101aca4d0": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-09-11T16:34:07.000Z",
+      "lastPublishedAt": "2026-09-11T16:34:07.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "c22b2fb98ef14389d7fc7ca45f55d702",
+      "editorial": true
+    },
+    "1997ff2b703c08678d09b67129a35341": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-06T20:28:35.803Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-05T22:23:44.000Z",
+      "lastPublishedAt": "2026-11-05T22:23:44.000Z",
+      "lastContentChangedAt": "2026-11-06T20:28:35.803Z",
+      "contentDigest": "b1c2e1903fafea01358bc6c2852ae8c9",
+      "editorial": true
+    },
+    "1e8239de3b0bb65982fb2b89721d2d0a": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T17:32:34.000Z",
+      "lastPublishedAt": "2026-11-21T17:32:34.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "7f46545602fee85ed446bad9dd01cdb5",
+      "editorial": true
+    },
+    "1edc6db72eedfeaac0c1f0ce25446344": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T16:32:00.000Z",
+      "lastPublishedAt": "2026-11-21T16:32:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "3668528163112bfd991acceaf2b90fd4",
+      "editorial": true
+    },
+    "1f82269ee35fccd5038ddd2a6d3737d0": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-09T23:28:43.123Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-09T21:16:57.000Z",
+      "lastPublishedAt": "2026-11-21T18:04:04.000Z",
+      "lastContentChangedAt": "2026-11-09T23:28:43.123Z",
+      "contentDigest": "b14712879cd62fe23033913ccfc9b8c9",
+      "editorial": true
+    },
+    "20e046854998f7ccfbd47f7226d7fd05": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-20T17:27:24.000Z",
+      "lastPublishedAt": "2026-11-20T17:27:24.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "494a2bc2d4b321aaf6a7574064788fd3",
+      "editorial": true
+    },
+    "24517cadb8be50da7e7a05d5892d69d1": {
+      "sourceKind": "huggingface",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-11T00:00:00.000Z",
+      "lastPublishedAt": "2026-11-11T00:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "f513b456da5d52854a17f92d7ecfe74a",
+      "editorial": true
+    },
+    "25d889ab7f62302d7fdbdbe3d16b889b": {
+      "sourceKind": "arxiv",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T18:56:25.000Z",
+      "lastPublishedAt": "2026-11-19T18:56:25.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "c5226cdb6a54f6ab9bbb04282965d60d",
+      "editorial": true
+    },
+    "26f46b54f38f36d1bdc7be7916e33eb9": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T16:21:00.000Z",
+      "lastPublishedAt": "2026-11-21T16:21:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "585ea614bd2a6267fdb877d4e3d8dda7",
+      "editorial": true
+    },
+    "274367598bc30e02b586bd40762b909f": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-20T17:25:24.000Z",
+      "lastPublishedAt": "2026-11-20T17:25:24.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "d900bdbb9031fbf15ec1a8c31c1fb04a",
+      "editorial": true
+    },
+    "29c168822cd0320753d052ee21aba933": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-06T20:28:35.803Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-06T20:08:36.000Z",
+      "lastPublishedAt": "2026-11-20T21:06:50.000Z",
+      "lastContentChangedAt": "2026-11-06T20:28:35.803Z",
+      "contentDigest": "f7a06dbb9d0825f0464572436667de8f",
+      "editorial": true
+    },
+    "2c6bc279f9a391c12ec48993152b347c": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-20T13:41:35.000Z",
+      "lastPublishedAt": "2026-11-20T13:41:35.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "4f63c9efb0fbff5bddeb0585e7f24ed1",
+      "editorial": true
+    },
+    "2d67480a5290dabe79e3a76970c3be07": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T20:24:42.000Z",
+      "lastPublishedAt": "2026-11-21T20:24:42.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "c3380580ae306d951b59246606cd019e",
+      "editorial": true
+    },
+    "312324520679159fbf227139b6d5a4da": {
+      "sourceKind": "hackernews",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-20T21:03:12.000Z",
+      "lastPublishedAt": "2026-11-20T21:03:12.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "10e73b25cb9ba8b0d27b72449c506301",
+      "editorial": true
+    },
+    "32e451944bcad43136af46d2e1a9eec9": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-19T22:12:40.805Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T15:00:47.000Z",
+      "lastPublishedAt": "2026-11-21T12:15:47.000Z",
+      "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
+      "contentDigest": "98d5195623067b8e52b6ced3b8fc7e7d",
+      "editorial": true
+    },
+    "35baf244b02ba00b25c939dc2612936e": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T17:10:24.000Z",
+      "lastPublishedAt": "2026-11-21T17:10:24.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "6aa0956b7093cb7a5cbb7f47088347bf",
+      "editorial": true
+    },
+    "35f6a270ea924b5e678065a228ecc80d": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T20:16:37.000Z",
+      "lastPublishedAt": "2026-11-21T20:16:37.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "102658d6574d007c52c681916dbbf0d1",
+      "editorial": true
+    },
+    "386aa0860176449a51041306dc824aec": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-10-30T20:19:59.000Z",
+      "lastPublishedAt": "2026-10-30T20:19:59.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "4d44f03eddca623bafbdafadf872abf0",
+      "editorial": true
+    },
+    "395744b44d5c2b78e2f1c6007300146d": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-20T22:00:00.000Z",
+      "lastPublishedAt": "2026-11-20T22:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "efe443f687120e12f7a7a5537b309b79",
+      "editorial": true
+    },
+    "3a3ad0f6a354e94691edb9eaeb27e029": {
+      "sourceKind": "arxiv",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T18:55:41.000Z",
+      "lastPublishedAt": "2026-11-19T18:55:41.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "059618e1af05ae5725f94eddcb2b555b",
+      "editorial": true
+    },
+    "3c6deb4d77b8c9685c946e1ea7f66558": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-16T23:25:52.057Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-16T01:06:30.000Z",
+      "lastPublishedAt": "2026-11-16T01:06:30.000Z",
+      "lastContentChangedAt": "2026-11-16T23:25:52.057Z",
+      "contentDigest": "68ceaf5ea03e34ef8e5a27d70c0629d8",
+      "editorial": true
+    },
+    "42b9be1a57541ab48241ff97aea963da": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-12T21:29:46.398Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-12T19:57:31.000Z",
+      "lastPublishedAt": "2026-11-12T19:57:31.000Z",
+      "lastContentChangedAt": "2026-11-12T21:29:46.398Z",
+      "contentDigest": "6df9d43f0876d1100237cfd43289cc3c",
+      "editorial": true
+    },
+    "43aeb33a133ea8bef8fe66a5d2af0b22": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-09-11T15:35:36.000Z",
+      "lastPublishedAt": "2026-09-11T15:35:36.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "598235f1345327b5d7d552cfd97b4859",
+      "editorial": true
+    },
+    "460ad2f2fec001d72308532cafa675e4": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2022-11-14T09:05:50.000Z",
+      "lastPublishedAt": "2022-11-14T09:05:50.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "04dec22398cf1c55cc45bb5dc447d51a",
+      "editorial": true
+    },
+    "47a1418f4c50238b56903caf8f6c574a": {
+      "sourceKind": "lobsters",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T11:41:23.942Z",
+      "lastPublishedAt": "2026-11-21T11:41:23.942Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "560576e66f1edea05933643a2b1e603a",
+      "editorial": true
+    },
+    "49a3cc638a9b748cd6d378700b8d9fcd": {
+      "sourceKind": "sports_state",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-01T18:58:26.042Z",
+      "lastPublishedAt": "2026-11-21T20:34:18.004Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "d00c31723f7c815e6d50a075e2673a18",
+      "editorial": false
+    },
+    "4a19c289624805f528c47c3aff343f05": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-20T12:03:32.000Z",
+      "lastPublishedAt": "2026-11-20T12:03:32.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "fc1e0b9359184f04f49af5e2e110c187",
+      "editorial": true
+    },
+    "4abf565e847b68516e59c9bb3d9cd582": {
+      "sourceKind": "sports_state",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-20T04:16:14.000Z",
+      "lastPublishedAt": "2026-11-20T04:16:14.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "6e6e3065e993854d08cefc7597dcaff4",
+      "editorial": false
+    },
+    "4c2b728de3407b676e255f52bfbfa6f5": {
+      "sourceKind": "nasa",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-16T12:00:00.000Z",
+      "lastPublishedAt": "2026-11-16T12:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "c454a74bb19886428fd646eca0875a02",
+      "editorial": true
+    },
+    "4f5074fabe74c921c49afd2ba571e6ce": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-15T19:49:39.165Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-13T14:33:08.000Z",
+      "lastPublishedAt": "2026-11-20T08:48:26.000Z",
+      "lastContentChangedAt": "2026-11-15T19:49:39.165Z",
+      "contentDigest": "39530f2714bffaf8be38af4bc38b8b34",
+      "editorial": true
+    },
+    "52586a3c1da9dd72f7a916927e7179bd": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-18T22:02:02.043Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-18T21:09:57.000Z",
+      "lastPublishedAt": "2026-11-21T20:11:17.000Z",
+      "lastContentChangedAt": "2026-11-18T22:02:02.043Z",
+      "contentDigest": "19152d63eb600167cb3289fb43334026",
+      "editorial": true
+    },
+    "5366b80c8b29288ae66e25b523ef2733": {
+      "sourceKind": "lobsters",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T13:57:53.737Z",
+      "lastPublishedAt": "2026-11-21T13:57:53.737Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "252427325c59aa3522605b9efc911260",
+      "editorial": true
+    },
+    "5d33979d87de0c01bc05c0fcaa999351": {
+      "sourceKind": "steam",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-10-30T12:12:57.000Z",
+      "lastPublishedAt": "2026-10-30T12:12:57.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "04b58ab239ce1d61bdfd8423194a790d",
+      "editorial": true
+    },
+    "6100a45d00808ec6887489005ffc0de7": {
+      "sourceKind": "arxiv",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T18:54:19.000Z",
+      "lastPublishedAt": "2026-11-19T18:54:19.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "a5236c6e32d4731675607da0f5682524",
+      "editorial": true
+    },
+    "620eb3f4dad74266b1fe8e317386d26c": {
+      "sourceKind": "huggingface",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-18T00:00:00.000Z",
+      "lastPublishedAt": "2026-11-18T00:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "5693f67320902bcc62ac24e3673c4338",
+      "editorial": true
+    },
+    "6235f72c5bcee57f519b59094746f402": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T20:05:28.000Z",
+      "lastPublishedAt": "2026-11-21T20:05:28.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "c848f1be9a565258c605471d40c8ada8",
+      "editorial": true
+    },
+    "649bdecb4b3b61b179f3150be9a57d17": {
+      "sourceKind": "arxiv",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T18:58:14.000Z",
+      "lastPublishedAt": "2026-11-19T18:58:14.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "2193d56c5f5264dce48d690bf6f08613",
+      "editorial": true
+    },
+    "65d51b04eda6d76abac946137425bbf0": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-09-23T10:46:26.000Z",
+      "lastPublishedAt": "2026-09-23T10:46:26.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "c2f3cb7efcfa50652e4be07ba555ef52",
+      "editorial": true
+    },
+    "67813dc25808b41bf712ec6f7cabe7ab": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-18T22:02:02.043Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-17T02:00:13.000Z",
+      "lastPublishedAt": "2026-11-17T02:00:13.000Z",
+      "lastContentChangedAt": "2026-11-18T22:02:02.043Z",
+      "contentDigest": "c29a6dbdf2478b485284738d21219b99",
+      "editorial": true
+    },
+    "67c78e228746ae2cde46ad0ae4be6453": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T20:00:06.000Z",
+      "lastPublishedAt": "2026-11-21T20:00:06.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "4b41e48470809b9d535386cd2f8261a5",
+      "editorial": true
+    },
+    "6c69e97c5257c80c3d037c34e7f68f6f": {
+      "sourceKind": "hackernews",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T18:02:19.000Z",
+      "lastPublishedAt": "2026-11-21T18:02:19.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "afa7142d623c4d2c4348c99d4ff6a0a8",
+      "editorial": true
+    },
+    "73ac765672644d67712ffe8446dc035a": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T00:14:14.000Z",
+      "lastPublishedAt": "2026-11-21T00:14:14.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "61451206245a0972c6cac5e5dd5e0b27",
+      "editorial": true
+    },
+    "73c1ba7709386d09f879dd5d69df0720": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T16:58:31.000Z",
+      "lastPublishedAt": "2026-11-21T16:58:31.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "4cc3c1cd40b8c20023b1b7dde804b89d",
+      "editorial": true
+    },
+    "73c42d2b096742f441ae269947093263": {
+      "sourceKind": "hackernews",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T15:54:34.000Z",
+      "lastPublishedAt": "2026-11-21T15:54:34.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "35432b7e015c95bada6afdaee6cebde5",
+      "editorial": true
+    },
+    "748514f40160ee147dbaf890fcb856ff": {
+      "sourceKind": "huggingface",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-18T00:00:00.000Z",
+      "lastPublishedAt": "2026-11-18T00:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "940bfc05addcebf20ac24a2f40a1a4c0",
+      "editorial": true
+    },
+    "75342d8e21f8bf8311330e41f9ff4708": {
+      "sourceKind": "hackernews",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T20:18:50.000Z",
+      "lastPublishedAt": "2026-11-21T20:18:50.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "5d1e689b1183228f97ecc132ef25444a",
+      "editorial": true
+    },
+    "75f422f37ae9874a592602a8e8e682e7": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-14T19:13:13.373Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-14T19:04:40.000Z",
+      "lastPublishedAt": "2026-11-21T19:53:47.000Z",
+      "lastContentChangedAt": "2026-11-14T19:13:13.373Z",
+      "contentDigest": "6aa6336392a4a5d008e520d7db7c0330",
+      "editorial": true
+    },
+    "7641c949e20330815991add3f8dd4940": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T20:31:47.000Z",
+      "lastPublishedAt": "2026-11-21T20:31:47.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "4af45f9b7be415ba4160edfdffc1d528",
+      "editorial": true
+    },
+    "76adb0100ef3dea125264720215ad5d7": {
+      "sourceKind": "steam",
+      "firstSeenAt": "2026-11-02T22:48:58.861Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-10-29T17:49:39.000Z",
+      "lastPublishedAt": "2026-10-29T17:49:39.000Z",
+      "lastContentChangedAt": "2026-11-02T22:48:58.861Z",
+      "contentDigest": "a88762442d5b9cbd926e6147cec988a2",
+      "editorial": true
+    },
+    "772848921d60d08d08d167168365a68b": {
+      "sourceKind": "lobsters",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T15:03:28.370Z",
+      "lastPublishedAt": "2026-11-21T15:03:28.370Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "ad1758d204418886f325e58a8dff0a0c",
+      "editorial": true
+    },
+    "77bbfa7c778d59cf844ed828a56d8a6a": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T14:20:05.000Z",
+      "lastPublishedAt": "2026-11-21T14:20:05.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "135e3bc1d274acde5cecfa3aae249e2e",
+      "editorial": true
+    },
+    "78507462520b10a2c012944284c1236d": {
+      "sourceKind": "sports_state",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-01T18:58:24.630Z",
+      "lastPublishedAt": "2026-11-21T20:34:16.015Z",
+      "lastContentChangedAt": "2026-11-18T22:02:02.043Z",
+      "contentDigest": "22fdc12e0cb04eb7f39e39ffda2f0695",
+      "editorial": false
+    },
+    "7c100c8e4b364376c37ea86fd5720db0": {
+      "sourceKind": "arxiv",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T18:58:31.000Z",
+      "lastPublishedAt": "2026-11-19T18:58:31.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "4381c5e0f1f07e87a11cab103eb13330",
+      "editorial": true
+    },
+    "7c1c8a6c66d3ea7d99772e9d5a8fbc2a": {
+      "sourceKind": "huggingface",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T00:00:00.000Z",
+      "lastPublishedAt": "2026-11-19T00:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "cb5e8a2f5e082eb16f0a97a81571133c",
+      "editorial": true
+    },
+    "82e13d3afebb0cb6fc39d72fd371bd2f": {
+      "sourceKind": "hackernews",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T20:33:59.000Z",
+      "lastPublishedAt": "2026-11-21T20:33:59.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "a6040714443b8c490ba361b6919ea450",
+      "editorial": true
+    },
+    "863dc9a835015634285ddd5d7f3df23e": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-17T22:27:42.672Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-17T12:50:31.000Z",
+      "lastPublishedAt": "2026-11-17T12:50:31.000Z",
+      "lastContentChangedAt": "2026-11-17T22:27:42.672Z",
+      "contentDigest": "d6b2251938816c3de0b099047877f562",
+      "editorial": true
+    },
+    "86e6cf88983c7ded8c34cd651ee150f7": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T19:20:51.000Z",
+      "lastPublishedAt": "2026-11-21T19:20:51.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "be300daf986bca97c1643b939a4de1ec",
+      "editorial": true
+    },
+    "885ff93f3b8f2107170981c1bc18f38a": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-10T08:00:00.000Z",
+      "lastPublishedAt": "2026-11-10T08:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "9cb6cc089c5bd496c1fa8ed727f3d1fb",
+      "editorial": true
+    },
+    "89fcec4eca09559da6f6aa47ec9be5e7": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T16:50:00.000Z",
+      "lastPublishedAt": "2026-11-21T16:50:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "1c2f20da0215b55fd07b57c33f78ddef",
+      "editorial": true
+    },
+    "8ad3346eaff12956d7f2f8cd8b79fcfc": {
+      "sourceKind": "openalex",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T12:00:00.000Z",
+      "lastPublishedAt": "2026-11-19T12:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "65d46beeb370d609d3c1e22b9efb94e5",
+      "editorial": true
+    },
+    "8af63eb3052564efd61f6451c5275774": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T16:30:00.000Z",
+      "lastPublishedAt": "2026-11-21T16:30:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "e0e546b92a5f937d7af8ce1ef9e1fa2f",
+      "editorial": true
+    },
+    "8cad1749403111ee1c12fc1f11f3adec": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-10-10T02:58:00.000Z",
+      "lastPublishedAt": "2026-10-10T02:58:00.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "470e46396eceed0ec66083b8c3ff0f3c",
+      "editorial": true
+    },
+    "8cadd1df5aea27780c8afe3eff8b2f3e": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T17:00:00.000Z",
+      "lastPublishedAt": "2026-11-21T17:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "1516e6ac7ae7754fe0eaa93afb093dd0",
+      "editorial": true
+    },
+    "8ceff54784060fd7dc7aa3563600e734": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T17:37:09.000Z",
+      "lastPublishedAt": "2026-11-21T17:37:09.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "985f1aedb7e6b62e4573bf13ad93d3fd",
+      "editorial": true
+    },
+    "8f097cb5af380e6bf10501b72d22dfee": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T20:12:17.000Z",
+      "lastPublishedAt": "2026-11-21T20:12:17.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "e70192431bae9cd55d04910295f11e52",
+      "editorial": true
+    },
+    "9350205b9d3281fbf23aa5cd6fb1f115": {
+      "sourceKind": "arxiv",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T18:57:25.000Z",
+      "lastPublishedAt": "2026-11-19T18:57:25.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "8e2c043f975ffa5c8a30aa780ba5792b",
+      "editorial": true
+    },
+    "947d78e30e0a63f074aca825c9cacc27": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-15T19:49:39.165Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-15T16:31:15.000Z",
+      "lastPublishedAt": "2026-11-15T16:31:15.000Z",
+      "lastContentChangedAt": "2026-11-15T19:49:39.165Z",
+      "contentDigest": "0ee588f6d1dd2901f0eed0e50d00fdf5",
+      "editorial": true
+    },
+    "96b222f2c193642a0abca3f3b93ad10b": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-09-30T20:52:42.000Z",
+      "lastPublishedAt": "2026-09-30T20:52:42.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "7f067a8f47e591cb91af84ffbab030f4",
+      "editorial": true
+    },
+    "99dfd1f1347b6a55e5f7872fe55c8415": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-06T20:28:35.803Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-06T10:38:51.000Z",
+      "lastPublishedAt": "2026-11-16T15:31:24.000Z",
+      "lastContentChangedAt": "2026-11-06T20:28:35.803Z",
+      "contentDigest": "e712b992c5743da9d6db14a9cb035bbe",
+      "editorial": true
+    },
+    "9ba2eb3371f17e8b05dade5f6cc6f8fb": {
+      "sourceKind": "lobsters",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T16:57:15.685Z",
+      "lastPublishedAt": "2026-11-21T16:57:15.685Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "1fcff7316f9cd73e3b9b9290d80661db",
+      "editorial": true
+    },
+    "9dd9abc56e2105505d716b03d17426cc": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T12:15:00.000Z",
+      "lastPublishedAt": "2026-11-21T12:15:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "121ad4a7d30bb0d840c6957c14ec87bf",
+      "editorial": true
+    },
+    "9ebc034dbfddcf81f726751ac6ad5c2c": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-20T01:02:00.000Z",
+      "lastPublishedAt": "2026-11-20T01:02:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "af93707cad5c00a98d7830e3df5acf51",
+      "editorial": true
+    },
+    "9f439e4809d9e88ac1888ba40c3f12fd": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-14T17:41:33.000Z",
+      "lastPublishedAt": "2026-11-14T17:41:33.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "9e2433b69667a90e1b352c6c8876d601",
+      "editorial": true
+    },
+    "a016e1388864344fd6479a0e5b568494": {
+      "sourceKind": "huggingface",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T00:00:00.000Z",
+      "lastPublishedAt": "2026-11-19T00:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "6631510567606dedb8f1ceec4a053e6c",
+      "editorial": true
+    },
+    "a0b566764d2f1a1400bbb08a38dcbf6f": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-03T20:32:15.329Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-03T19:44:28.000Z",
+      "lastPublishedAt": "2026-11-03T19:44:28.000Z",
+      "lastContentChangedAt": "2026-11-03T20:32:15.329Z",
+      "contentDigest": "0c1ebe69c620fc45b8a437939cae1a80",
+      "editorial": true
+    },
+    "a26efa8a9b88babbe1f98789995f34e3": {
+      "sourceKind": "lobsters",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T12:22:47.193Z",
+      "lastPublishedAt": "2026-11-21T12:22:47.193Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "33b10dee9d375454ff858dee45648e9c",
+      "editorial": true
+    },
+    "a3bff3414a3a67f0eaeefdc01dcf26d3": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-20T12:12:50.000Z",
+      "lastPublishedAt": "2026-11-20T12:12:50.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "a5a1a8f45a7add55e2d851714a296437",
+      "editorial": true
+    },
+    "a43e604647c7103950f1219092eb609c": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T14:34:03.000Z",
+      "lastPublishedAt": "2026-11-21T14:34:03.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "a9633f1b384d488246595a864261d7db",
+      "editorial": true
+    },
+    "a4a89f4fb4fa24f3b8226304daf39996": {
+      "sourceKind": "arxiv",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T18:52:57.000Z",
+      "lastPublishedAt": "2026-11-19T18:52:57.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "f9e01dafbfc61d9123192db40dd81a82",
+      "editorial": true
+    },
+    "a6873f513a2de362ece52425a8f660fc": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T15:03:50.000Z",
+      "lastPublishedAt": "2026-11-21T15:03:50.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "ca3d860edbb542277f93c582440653e4",
+      "editorial": true
+    },
+    "a7952e29073758db92795f52e6f0fb6b": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-05T21:07:04.359Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-05T14:03:18.000Z",
+      "lastPublishedAt": "2026-11-21T16:50:11.000Z",
+      "lastContentChangedAt": "2026-11-05T21:07:04.359Z",
+      "contentDigest": "33eb10b1f52a118e09b8f20bc1c9715c",
+      "editorial": true
+    },
+    "a7cc3c1758ec2f97fae17c8af7ae1b06": {
+      "sourceKind": "steam",
+      "firstSeenAt": "2026-11-02T22:48:58.861Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-10-31T18:57:47.000Z",
+      "lastPublishedAt": "2026-10-31T18:57:47.000Z",
+      "lastContentChangedAt": "2026-11-02T22:48:58.861Z",
+      "contentDigest": "6bebb8718012c3ed7090a65250692465",
+      "editorial": true
+    },
+    "a81b6bf6ef42c97d5ffa31dbaad3e74a": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-20T16:29:12.000Z",
+      "lastPublishedAt": "2026-11-20T16:29:12.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "0e1508ebc47e9061f7a143e390e8b2a9",
+      "editorial": true
+    },
+    "ac99bd8f68146436db793ea6c3a78627": {
+      "sourceKind": "lobsters",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T13:18:02.362Z",
+      "lastPublishedAt": "2026-11-21T13:18:02.362Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "ce4a49ed51bd52c2b98f6af177745a11",
+      "editorial": true
+    },
+    "adea0199fcfe2edc8117d47b951e6564": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-03T20:32:15.329Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-03T19:59:32.000Z",
+      "lastPublishedAt": "2026-11-20T19:15:54.000Z",
+      "lastContentChangedAt": "2026-11-03T20:32:15.329Z",
+      "contentDigest": "ed8fc416a3b59e2061ee95c04460b7f9",
+      "editorial": true
+    },
+    "b09fb233d16f50bb1a790727d036b167": {
+      "sourceKind": "lobsters",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T15:17:18.956Z",
+      "lastPublishedAt": "2026-11-21T15:17:18.956Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "04ae8312a8f88aaad3684ec12c34969c",
+      "editorial": true
+    },
+    "b1272dfc7c2fd56470e231327638f920": {
+      "sourceKind": "hackernews",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T20:19:53.000Z",
+      "lastPublishedAt": "2026-11-21T20:19:53.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "ea8fda7fea2907e89ce47ed241c20206",
+      "editorial": true
+    },
+    "b130bc63cdc59ab69b502e5439d09add": {
+      "sourceKind": "arxiv",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T18:59:34.000Z",
+      "lastPublishedAt": "2026-11-19T18:59:34.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "81e15849c05bb7a232400ee83faaac84",
+      "editorial": true
+    },
+    "b3972186990d3492b9042ee17f191a80": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-18T22:02:02.043Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-18T20:58:28.000Z",
+      "lastPublishedAt": "2026-11-21T20:10:51.000Z",
+      "lastContentChangedAt": "2026-11-18T22:02:02.043Z",
+      "contentDigest": "4dfb5476c78c03340edc399c342cc745",
+      "editorial": true
+    },
+    "b4da8ed1687b294aad92faed570dea4f": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-02T22:48:58.861Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-02T19:35:39.000Z",
+      "lastPublishedAt": "2026-11-19T23:54:48.000Z",
+      "lastContentChangedAt": "2026-11-02T22:48:58.861Z",
+      "contentDigest": "d986c7965a419413859b234a725f568d",
+      "editorial": true
+    },
+    "b4f7eee1a7784feff9835bd79d415530": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-18T22:02:02.043Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-18T21:35:47.000Z",
+      "lastPublishedAt": "2026-11-21T20:31:20.000Z",
+      "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
+      "contentDigest": "2c5b19de7a1c2cc55e86a4b1c4121d7c",
+      "editorial": true
+    },
+    "b62ce9f89fc9f8d27763282ea10aa149": {
+      "sourceKind": "huggingface",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-16T00:00:00.000Z",
+      "lastPublishedAt": "2026-11-16T00:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "b2fe049eb41611edc0dc1fddbb929804",
+      "editorial": true
+    },
+    "b6a07fb48f1e2873ec45c4d7623ea0d2": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-20T14:01:44.000Z",
+      "lastPublishedAt": "2026-11-20T14:01:44.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "ea753259ba928cccebaa385756cfed55",
+      "editorial": true
+    },
+    "b81c002fac651dbc3a23752751cc3ea5": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T19:47:11.000Z",
+      "lastPublishedAt": "2026-11-21T19:47:11.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "aeb9ddda5b22e7ea67da71343ce3e16a",
+      "editorial": true
+    },
+    "b8606c68272e2ff2bb29ab501378e45d": {
+      "sourceKind": "lobsters",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T10:09:19.732Z",
+      "lastPublishedAt": "2026-11-21T10:09:19.732Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "3b87c61175078a657109ad6374927fff",
+      "editorial": true
+    },
+    "b8d925f5f101a1e88eb187c83590da71": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-20T13:00:29.000Z",
+      "lastPublishedAt": "2026-11-20T13:00:29.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "32f853fa612936b60b54cd9f9b4d5229",
+      "editorial": true
+    },
+    "bb815e15d95026d2c67e6f739533ae92": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T17:47:21.000Z",
+      "lastPublishedAt": "2026-11-21T17:47:21.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "eded7d474138c9210f86f305ce0e68ad",
+      "editorial": true
+    },
+    "bdb685079dcd6473d42bb0ec24af9dac": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-01T01:57:12.000Z",
+      "lastPublishedAt": "2026-11-21T04:25:30.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "f96a3e7df547b86704bf6152f523cdde",
+      "editorial": true
+    },
+    "be650e8ad1c779471af0db2163a769f5": {
+      "sourceKind": "lobsters",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T00:46:40.624Z",
+      "lastPublishedAt": "2026-11-21T00:46:40.624Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "71b2d82127893184f8550e9e7b3ae345",
+      "editorial": true
+    },
+    "bfad959d86864040818fecb4dae5e791": {
+      "sourceKind": "huggingface",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T00:00:00.000Z",
+      "lastPublishedAt": "2026-11-19T00:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "20d20b99a14f33c8aece4ebd749cd1f3",
+      "editorial": true
+    },
+    "c22098bec368328769aaaf357ce67f3d": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-18T22:02:02.043Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-17T00:20:54.000Z",
+      "lastPublishedAt": "2026-11-19T12:40:35.000Z",
+      "lastContentChangedAt": "2026-11-18T22:02:02.043Z",
+      "contentDigest": "bb4cc10b36736cb4173ed54bb48a9f1d",
+      "editorial": true
+    },
+    "c3cd61324aafe9b961c725bf93fdccb5": {
+      "sourceKind": "sports_state",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-01T18:58:25.306Z",
+      "lastPublishedAt": "2026-11-21T20:34:16.418Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "4536d584ca636fae160af06b849825ea",
+      "editorial": false
+    },
+    "c4d11d7910491361b83e1f711a8d2c06": {
+      "sourceKind": "lobsters",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T19:32:22.642Z",
+      "lastPublishedAt": "2026-11-21T19:32:22.642Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "32ad327b29cd0ebe796a82b1da6977d0",
+      "editorial": true
+    },
+    "c4fe5fe770c350f606a7053472a8a849": {
+      "sourceKind": "huggingface",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T00:00:00.000Z",
+      "lastPublishedAt": "2026-11-19T00:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "add5e69a180b2c23baa812aca2b8f72e",
+      "editorial": true
+    },
+    "c72b5b5aa5b8d87c3c577194a6e44ef3": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-09-16T20:15:41.000Z",
+      "lastPublishedAt": "2026-09-16T20:15:41.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "6e4fe37ce82e6d0668a6f9f62bcf293e",
+      "editorial": true
+    },
+    "c72bba6ed1806cad97e7be670a25a3f8": {
+      "sourceKind": "huggingface",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-16T00:00:00.000Z",
+      "lastPublishedAt": "2026-11-16T00:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "e4f1567e770d26a5fd6480c3c7bf22c9",
+      "editorial": true
+    },
+    "c806354f3a7f6ee51510a2bb964a9bec": {
+      "sourceKind": "arxiv",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T18:52:18.000Z",
+      "lastPublishedAt": "2026-11-19T18:52:18.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "54d52327077f99b0a4329cc4b8c8689b",
+      "editorial": true
+    },
+    "c9e4efdf2f9a9ea0edade302164e3d47": {
+      "sourceKind": "arxiv",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T18:59:53.000Z",
+      "lastPublishedAt": "2026-11-19T18:59:53.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "b449e2cfaba590663765d2d63f2b5035",
+      "editorial": true
+    },
+    "cb5e6e91712c9ca41bd5cad3adcee576": {
+      "sourceKind": "hackernews",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-20T18:33:14.000Z",
+      "lastPublishedAt": "2026-11-20T18:33:14.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "83c91f718ff6219e08df88901872abda",
+      "editorial": true
+    },
+    "cf608358c9497b3f9985c1b25e920919": {
+      "sourceKind": "steam",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-10-30T09:39:00.000Z",
+      "lastPublishedAt": "2026-10-30T09:39:00.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "cd0d62d79f4ed1b3cdd20b2678995e3f",
+      "editorial": true
+    },
+    "cf85127411206c4ec73b9cf55633912f": {
+      "sourceKind": "hackernews",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T13:23:14.000Z",
+      "lastPublishedAt": "2026-11-21T13:23:14.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "ec9bc8b07e3aa48bf435f2b1a79a6f68",
+      "editorial": true
+    },
+    "d29777df64a2974270dc8518f5594df5": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-09T23:28:43.123Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-09T13:44:09.000Z",
+      "lastPublishedAt": "2026-11-21T18:04:01.000Z",
+      "lastContentChangedAt": "2026-11-09T23:28:43.123Z",
+      "contentDigest": "a5d35e5fac298f679c841173f6975a70",
+      "editorial": true
+    },
+    "dc37108811e913e8bd9a08593651437e": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T08:33:19.000Z",
+      "lastPublishedAt": "2026-11-21T08:33:19.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "3b103af17de46c45413eb3fca7ce0f47",
+      "editorial": true
+    },
+    "ddb2df8b33dca0b8699945203a903382": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-09-02T22:53:57.000Z",
+      "lastPublishedAt": "2026-09-02T22:53:57.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "1a0cf95b3bcd38b20f6b5be67e9835d3",
+      "editorial": true
+    },
+    "e04ae8fe9d6e5377566bcfe51c8148db": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-10-29T22:14:56.000Z",
+      "lastPublishedAt": "2026-11-20T17:19:05.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "90227656cf4b527b3669d4430b8fd202",
+      "editorial": true
+    },
+    "e0b38db54552b9e07db4da283708a179": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-16T23:25:52.057Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-16T16:12:20.000Z",
+      "lastPublishedAt": "2026-11-16T23:35:05.000Z",
+      "lastContentChangedAt": "2026-11-16T23:25:52.057Z",
+      "contentDigest": "edbc3d1c7452da2154e8f629a2f6e95b",
+      "editorial": true
+    },
+    "e20aa6fe1500107e43bf5f075f19e063": {
+      "sourceKind": "lobsters",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T00:16:57.556Z",
+      "lastPublishedAt": "2026-11-21T00:16:57.556Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "cacd4e41beac55e4f8b55651806a91f1",
+      "editorial": true
+    },
+    "e2ad3a07d1392e3422f09ab9cbc6e7b7": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-13T20:55:58.223Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-13T17:24:52.000Z",
+      "lastPublishedAt": "2026-11-16T02:02:29.000Z",
+      "lastContentChangedAt": "2026-11-13T20:55:58.223Z",
+      "contentDigest": "ffa4361f79795a5f5322c2536d13b08f",
+      "editorial": true
+    },
+    "e40297c9b5a8aa9019bb2c0af4d13920": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-19T22:12:40.805Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T22:02:41.000Z",
+      "lastPublishedAt": "2026-11-21T20:34:08.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "0909c60eec6ae14c1dab70020e11ff74",
+      "editorial": true
+    },
+    "e43c9c47f08328e61dc5571d47ea6f00": {
+      "sourceKind": "huggingface",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T00:00:00.000Z",
+      "lastPublishedAt": "2026-11-19T00:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "4408c8674f204fa9e7b702e454e23168",
+      "editorial": true
+    },
+    "e464b5538b5ed5b2eec4384cd2cece28": {
+      "sourceKind": "steam",
+      "firstSeenAt": "2026-11-02T22:48:58.861Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-10-18T16:19:26.000Z",
+      "lastPublishedAt": "2026-10-18T16:19:26.000Z",
+      "lastContentChangedAt": "2026-11-02T22:48:58.861Z",
+      "contentDigest": "e4846b3b0c42a9c72634669aafb30e8b",
+      "editorial": true
+    },
+    "e6fe16e6ba0c01ee10d240dd3f0c6266": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T15:30:00.000Z",
+      "lastPublishedAt": "2026-11-21T15:30:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "10ed37974ebb7f64fa76229b2d3ad324",
+      "editorial": true
+    },
+    "ebfed3dda6e743b26cb41ffffcd6c940": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-19T22:12:40.805Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T10:28:05.000Z",
+      "lastPublishedAt": "2026-11-19T10:28:05.000Z",
+      "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
+      "contentDigest": "6dd7bdc7b5060a18c4326063b9b1afbf",
+      "editorial": true
+    },
+    "eca06aa08717bcaba279f6a97c294314": {
+      "sourceKind": "rss",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T12:19:17.000Z",
+      "lastPublishedAt": "2026-11-21T12:19:17.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "c0a73f52b7d362609ca15ab775a7e050",
+      "editorial": true
+    },
+    "f1976a164093da92d4554abb879e055d": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-01T18:58:31.087Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-09-10T06:21:41.000Z",
+      "lastPublishedAt": "2026-09-10T06:21:41.000Z",
+      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
+      "contentDigest": "6f5b892da8363ff181a7277b6c15fafa",
+      "editorial": true
+    },
+    "f277a7bf12fe44d819921b81528e6f7e": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T20:16:48.000Z",
+      "lastPublishedAt": "2026-11-21T20:16:48.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "94c6c26faacd2a8f59d61301c0832097",
+      "editorial": true
+    },
+    "f3309c404839f8cfe7ffbd708a56c30f": {
+      "sourceKind": "youtube",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T02:35:51.000Z",
+      "lastPublishedAt": "2026-11-21T02:35:51.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "c5c67c4f09d97a7caed4a5c5109a3e0f",
+      "editorial": true
+    },
+    "f3afc65c18e34ebfacdd94a52e1ff861": {
+      "sourceKind": "openalex",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T12:00:00.000Z",
+      "lastPublishedAt": "2026-11-19T12:00:00.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "23489394fcdc1fefaf217f1a17a29a48",
+      "editorial": true
+    },
+    "f5b3d940312d1aa39e6f1b7dba7b9f09": {
+      "sourceKind": "arxiv",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-19T18:47:51.000Z",
+      "lastPublishedAt": "2026-11-19T18:47:51.000Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "6309b4f4f1f39a1a44a82a9a8f5ed615",
+      "editorial": true
+    },
+    "f6ad79954c22a37af42be2d306a0e064": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-18T22:02:02.043Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-18T16:54:21.000Z",
+      "lastPublishedAt": "2026-11-18T16:54:21.000Z",
+      "lastContentChangedAt": "2026-11-18T22:02:02.043Z",
+      "contentDigest": "8c83893ebeb5754afbe45cfc377ce387",
+      "editorial": true
+    },
+    "f7d89ca1ee3ba411d8fb058a5702f931": {
+      "sourceKind": "github",
+      "firstSeenAt": "2026-11-06T20:28:35.803Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-05T22:27:53.000Z",
+      "lastPublishedAt": "2026-11-05T22:27:53.000Z",
+      "lastContentChangedAt": "2026-11-06T20:28:35.803Z",
+      "contentDigest": "5559fa16ef4167d974aea61810246ac2",
+      "editorial": true
+    },
+    "ff772f090165aaaeca613b84b35c8eec": {
+      "sourceKind": "lobsters",
+      "firstSeenAt": "2026-11-21T20:34:23.960Z",
+      "lastSeenAt": "2026-11-21T20:34:23.960Z",
+      "firstPublishedAt": "2026-11-21T15:48:50.336Z",
+      "lastPublishedAt": "2026-11-21T15:48:50.336Z",
+      "lastContentChangedAt": "2026-11-21T20:34:23.960Z",
+      "contentDigest": "e95b812b6355c154d13c0849a04f1040",
       "editorial": true
     },
     "030f4ed52a67352e4a06f5352e79d447": {
@@ -22,26 +1482,6 @@
       "contentDigest": "478724215da6f66c284722e3f82facd5",
       "editorial": true
     },
-    "041eb87c084cae9cf94d2dc76225d492": {
-      "sourceKind": "youtube",
-      "firstSeenAt": "2026-11-09T23:28:43.123Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-09T02:10:21.000Z",
-      "lastPublishedAt": "2026-11-09T02:10:21.000Z",
-      "lastContentChangedAt": "2026-11-09T23:28:43.123Z",
-      "contentDigest": "b8adc58e9f6f7fb9e8d85398811d1108",
-      "editorial": true
-    },
-    "0437d165c27bddcdf7234f27b6b99d59": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-02T22:48:58.861Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-02T19:54:18.000Z",
-      "lastPublishedAt": "2026-11-02T19:54:18.000Z",
-      "lastContentChangedAt": "2026-11-02T22:48:58.861Z",
-      "contentDigest": "787e0c25a6a7a06729e222e197140442",
-      "editorial": true
-    },
     "0d5e2f8ad4d337197d7da26b5b942a5f": {
       "sourceKind": "huggingface",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -52,16 +1492,6 @@
       "contentDigest": "b0def027cd6b0ecd973f17ffaf8ab22d",
       "editorial": true
     },
-    "0d89ad6e2358950c03e603ab097f3f85": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-02T22:48:58.861Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-02T21:12:45.000Z",
-      "lastPublishedAt": "2026-11-02T21:12:45.000Z",
-      "lastContentChangedAt": "2026-11-02T22:48:58.861Z",
-      "contentDigest": "a4b67c783f1bef29822c83a371d3bd5c",
-      "editorial": true
-    },
     "0dc225be8975166a1222c4e98724513a": {
       "sourceKind": "rss",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -70,16 +1500,6 @@
       "lastPublishedAt": "2026-11-19T21:00:00.000Z",
       "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
       "contentDigest": "8c484cc38287bcc6c2f9de206f75af43",
-      "editorial": true
-    },
-    "10954f0ed334ac099e2220bec91af4de": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-10-21T16:24:15.000Z",
-      "lastPublishedAt": "2026-10-21T16:24:15.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "dee1553fa3088ac88b7a3364163ad8dd",
       "editorial": true
     },
     "10bb631f397038d79566110dcfe4b0c6": {
@@ -120,36 +1540,6 @@
       "lastPublishedAt": "2026-11-19T17:02:40.000Z",
       "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
       "contentDigest": "32232d67e27ff227901905ea271e8f6f",
-      "editorial": true
-    },
-    "15dbebe992f7896b47c660fb4f7b1543": {
-      "sourceKind": "rss",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2022-03-22T16:57:35.000Z",
-      "lastPublishedAt": "2022-03-22T16:57:35.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "0e5ec94aaef7ab7d36f3d9967b1ddb0c",
-      "editorial": true
-    },
-    "16d04e824bcba566990c99e101aca4d0": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-09-11T16:34:07.000Z",
-      "lastPublishedAt": "2026-09-11T16:34:07.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "c22b2fb98ef14389d7fc7ca45f55d702",
-      "editorial": true
-    },
-    "1997ff2b703c08678d09b67129a35341": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-06T20:28:35.803Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-05T22:23:44.000Z",
-      "lastPublishedAt": "2026-11-05T22:23:44.000Z",
-      "lastContentChangedAt": "2026-11-06T20:28:35.803Z",
-      "contentDigest": "b1c2e1903fafea01358bc6c2852ae8c9",
       "editorial": true
     },
     "1c7528274895e068372e9956f50122c5": {
@@ -202,16 +1592,6 @@
       "contentDigest": "23abb19b98fbddc506b79727e410a8ba",
       "editorial": true
     },
-    "1f82269ee35fccd5038ddd2a6d3737d0": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-09T23:28:43.123Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-09T21:16:57.000Z",
-      "lastPublishedAt": "2026-11-19T13:41:41.000Z",
-      "lastContentChangedAt": "2026-11-09T23:28:43.123Z",
-      "contentDigest": "b14712879cd62fe23033913ccfc9b8c9",
-      "editorial": true
-    },
     "1fdf08b0e4d5217b9c5eeb6c26467d6a": {
       "sourceKind": "github",
       "firstSeenAt": "2026-11-01T18:58:31.087Z",
@@ -240,16 +1620,6 @@
       "lastPublishedAt": "2026-11-18T00:00:00.000Z",
       "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
       "contentDigest": "12160ffd6021b729f64af1959c99f498",
-      "editorial": true
-    },
-    "29c168822cd0320753d052ee21aba933": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-06T20:28:35.803Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-06T20:08:36.000Z",
-      "lastPublishedAt": "2026-11-19T09:49:59.000Z",
-      "lastContentChangedAt": "2026-11-06T20:28:35.803Z",
-      "contentDigest": "f7a06dbb9d0825f0464572436667de8f",
       "editorial": true
     },
     "2a42107d6e6ac16ff62b0db42edc3eff": {
@@ -282,16 +1652,6 @@
       "contentDigest": "5ede495e5738711244f38cd5d2cfa977",
       "editorial": true
     },
-    "32e451944bcad43136af46d2e1a9eec9": {
-      "sourceKind": "rss",
-      "firstSeenAt": "2026-11-19T22:12:40.805Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-19T15:00:47.000Z",
-      "lastPublishedAt": "2026-11-19T15:00:47.000Z",
-      "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
-      "contentDigest": "98d5195623067b8e52b6ced3b8fc7e7d",
-      "editorial": true
-    },
     "33cbdbd671384bf21e789bd428071325": {
       "sourceKind": "rss",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -302,16 +1662,6 @@
       "contentDigest": "3e3df6d5d434cba724390923054a397e",
       "editorial": true
     },
-    "386aa0860176449a51041306dc824aec": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-10-30T20:19:59.000Z",
-      "lastPublishedAt": "2026-10-30T20:19:59.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "4d44f03eddca623bafbdafadf872abf0",
-      "editorial": true
-    },
     "39d123348573aa01069bf2e9c40e6165": {
       "sourceKind": "openalex",
       "firstSeenAt": "2026-11-14T19:13:13.373Z",
@@ -320,16 +1670,6 @@
       "lastPublishedAt": "2026-11-12T12:00:00.000Z",
       "lastContentChangedAt": "2026-11-14T19:13:13.373Z",
       "contentDigest": "55501a5a5516bdb4e734d0dd7bf32630",
-      "editorial": true
-    },
-    "3c6deb4d77b8c9685c946e1ea7f66558": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-16T23:25:52.057Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-16T01:06:30.000Z",
-      "lastPublishedAt": "2026-11-16T01:06:30.000Z",
-      "lastContentChangedAt": "2026-11-16T23:25:52.057Z",
-      "contentDigest": "68ceaf5ea03e34ef8e5a27d70c0629d8",
       "editorial": true
     },
     "3e9986a440e089ccf5fca78d62ef7861": {
@@ -372,26 +1712,6 @@
       "contentDigest": "b80ccd9ac7cbd05e19e9c4d533b4ecaa",
       "editorial": true
     },
-    "42b9be1a57541ab48241ff97aea963da": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-12T21:29:46.398Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-12T19:57:31.000Z",
-      "lastPublishedAt": "2026-11-12T19:57:31.000Z",
-      "lastContentChangedAt": "2026-11-12T21:29:46.398Z",
-      "contentDigest": "6df9d43f0876d1100237cfd43289cc3c",
-      "editorial": true
-    },
-    "43aeb33a133ea8bef8fe66a5d2af0b22": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-09-11T15:35:36.000Z",
-      "lastPublishedAt": "2026-09-11T15:35:36.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "598235f1345327b5d7d552cfd97b4859",
-      "editorial": true
-    },
     "44f05cd4693f7cddaf58fc4ec2cf5943": {
       "sourceKind": "huggingface",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -410,16 +1730,6 @@
       "lastPublishedAt": "2026-11-19T13:37:00.000Z",
       "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
       "contentDigest": "ef31648412fa5481a9fafb130033ffed",
-      "editorial": true
-    },
-    "460ad2f2fec001d72308532cafa675e4": {
-      "sourceKind": "rss",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2022-11-14T09:05:50.000Z",
-      "lastPublishedAt": "2022-11-14T09:05:50.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "04dec22398cf1c55cc45bb5dc447d51a",
       "editorial": true
     },
     "46d0a4d68c0501e8587edc8df40e6db8": {
@@ -462,16 +1772,6 @@
       "contentDigest": "422fac49df30c0316a4bc8e65bbc8c44",
       "editorial": true
     },
-    "49a3cc638a9b748cd6d378700b8d9fcd": {
-      "sourceKind": "sports_state",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-01T18:58:26.042Z",
-      "lastPublishedAt": "2026-11-19T22:12:31.888Z",
-      "lastContentChangedAt": "2026-11-15T19:49:39.165Z",
-      "contentDigest": "53b687a6f6eeb823e29e57f659f11f21",
-      "editorial": false
-    },
     "49c289281591a192fbfbcd572181e27d": {
       "sourceKind": "rss",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -512,16 +1812,6 @@
       "contentDigest": "7ed62db63701967787d19dcad1838aed",
       "editorial": true
     },
-    "4f5074fabe74c921c49afd2ba571e6ce": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-15T19:49:39.165Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-13T14:33:08.000Z",
-      "lastPublishedAt": "2026-11-19T04:42:36.000Z",
-      "lastContentChangedAt": "2026-11-15T19:49:39.165Z",
-      "contentDigest": "39530f2714bffaf8be38af4bc38b8b34",
-      "editorial": true
-    },
     "519de22d67ea32a39f521b85387cccdc": {
       "sourceKind": "hackernews",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -540,16 +1830,6 @@
       "lastPublishedAt": "2026-11-19T16:00:06.000Z",
       "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
       "contentDigest": "50b16b6fbfd6ce7b0cabeace96905454",
-      "editorial": true
-    },
-    "52586a3c1da9dd72f7a916927e7179bd": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-18T22:02:02.043Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-18T21:09:57.000Z",
-      "lastPublishedAt": "2026-11-19T15:03:23.000Z",
-      "lastContentChangedAt": "2026-11-18T22:02:02.043Z",
-      "contentDigest": "19152d63eb600167cb3289fb43334026",
       "editorial": true
     },
     "526149b232bedc323b86e86bea9caca0": {
@@ -622,26 +1902,6 @@
       "contentDigest": "a20c2acb7508e0103864dd3f67b594d9",
       "editorial": true
     },
-    "65d51b04eda6d76abac946137425bbf0": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-09-23T10:46:26.000Z",
-      "lastPublishedAt": "2026-09-23T10:46:26.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "c2f3cb7efcfa50652e4be07ba555ef52",
-      "editorial": true
-    },
-    "67813dc25808b41bf712ec6f7cabe7ab": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-18T22:02:02.043Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-17T02:00:13.000Z",
-      "lastPublishedAt": "2026-11-17T02:00:13.000Z",
-      "lastContentChangedAt": "2026-11-18T22:02:02.043Z",
-      "contentDigest": "c29a6dbdf2478b485284738d21219b99",
-      "editorial": true
-    },
     "68e2ae2a24d58ba5905a2b3fbb9bd43c": {
       "sourceKind": "arxiv",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -702,16 +1962,6 @@
       "contentDigest": "84a28abdd6d91a7bcc5159397f78a1ec",
       "editorial": true
     },
-    "78507462520b10a2c012944284c1236d": {
-      "sourceKind": "sports_state",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-01T18:58:24.630Z",
-      "lastPublishedAt": "2026-11-19T22:12:30.428Z",
-      "lastContentChangedAt": "2026-11-18T22:02:02.043Z",
-      "contentDigest": "22fdc12e0cb04eb7f39e39ffda2f0695",
-      "editorial": false
-    },
     "7aa636191d1691ff31da74f9d5568d08": {
       "sourceKind": "hackernews",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -762,16 +2012,6 @@
       "contentDigest": "99120f84002f6fa8d1bf8fbc5e89031b",
       "editorial": true
     },
-    "863dc9a835015634285ddd5d7f3df23e": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-17T22:27:42.672Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-17T12:50:31.000Z",
-      "lastPublishedAt": "2026-11-17T12:50:31.000Z",
-      "lastContentChangedAt": "2026-11-17T22:27:42.672Z",
-      "contentDigest": "d6b2251938816c3de0b099047877f562",
-      "editorial": true
-    },
     "87d10f92995ecde58b351c3d9c261d8c": {
       "sourceKind": "arxiv",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -780,16 +2020,6 @@
       "lastPublishedAt": "2026-11-18T18:53:58.000Z",
       "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
       "contentDigest": "78e86d7b1cc000f64cd2544a1cd3c522",
-      "editorial": true
-    },
-    "8cad1749403111ee1c12fc1f11f3adec": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-10-10T02:58:00.000Z",
-      "lastPublishedAt": "2026-10-10T02:58:00.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "470e46396eceed0ec66083b8c3ff0f3c",
       "editorial": true
     },
     "9010d14ca7048baf8a2b5e9e750649a1": {
@@ -832,16 +2062,6 @@
       "contentDigest": "f5d098f11b7d7d756463997086e51509",
       "editorial": true
     },
-    "947d78e30e0a63f074aca825c9cacc27": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-15T19:49:39.165Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-15T16:31:15.000Z",
-      "lastPublishedAt": "2026-11-15T16:31:15.000Z",
-      "lastContentChangedAt": "2026-11-15T19:49:39.165Z",
-      "contentDigest": "0ee588f6d1dd2901f0eed0e50d00fdf5",
-      "editorial": true
-    },
     "954a22a5889f0185507f5e5ce24a51a3": {
       "sourceKind": "rss",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -850,16 +2070,6 @@
       "lastPublishedAt": "2026-11-19T19:50:10.000Z",
       "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
       "contentDigest": "dba4feae4afbe6fcef7e3a473e0fa3bb",
-      "editorial": true
-    },
-    "96b222f2c193642a0abca3f3b93ad10b": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-09-30T20:52:42.000Z",
-      "lastPublishedAt": "2026-09-30T20:52:42.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "7f067a8f47e591cb91af84ffbab030f4",
       "editorial": true
     },
     "97f532c10185b1d67f7fbeb100eafbf9": {
@@ -882,16 +2092,6 @@
       "contentDigest": "75635967571f344f3ce6faec5d160b86",
       "editorial": true
     },
-    "99dfd1f1347b6a55e5f7872fe55c8415": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-06T20:28:35.803Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-06T10:38:51.000Z",
-      "lastPublishedAt": "2026-11-16T15:31:24.000Z",
-      "lastContentChangedAt": "2026-11-06T20:28:35.803Z",
-      "contentDigest": "e712b992c5743da9d6db14a9cb035bbe",
-      "editorial": true
-    },
     "9e1a551ed68c4720342e42b8a1b7fd0c": {
       "sourceKind": "huggingface",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -900,16 +2100,6 @@
       "lastPublishedAt": "2026-11-17T00:00:00.000Z",
       "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
       "contentDigest": "0e83dce4f27264bf53f651ae94e3fa1e",
-      "editorial": true
-    },
-    "a0b566764d2f1a1400bbb08a38dcbf6f": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-03T20:32:15.329Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-03T19:44:28.000Z",
-      "lastPublishedAt": "2026-11-03T19:44:28.000Z",
-      "lastContentChangedAt": "2026-11-03T20:32:15.329Z",
-      "contentDigest": "0c1ebe69c620fc45b8a437939cae1a80",
       "editorial": true
     },
     "a1e1469dbae05f305810b2c7ba9afee9": {
@@ -1012,16 +2202,6 @@
       "contentDigest": "7aee1edae37353ee0291f8dd38d0f0a8",
       "editorial": true
     },
-    "b3972186990d3492b9042ee17f191a80": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-18T22:02:02.043Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-18T20:58:28.000Z",
-      "lastPublishedAt": "2026-11-19T22:00:36.000Z",
-      "lastContentChangedAt": "2026-11-18T22:02:02.043Z",
-      "contentDigest": "4dfb5476c78c03340edc399c342cc745",
-      "editorial": true
-    },
     "b493779321aa0ff1505fac1a262afb08": {
       "sourceKind": "openalex",
       "firstSeenAt": "2026-11-15T19:49:39.165Z",
@@ -1030,26 +2210,6 @@
       "lastPublishedAt": "2026-11-13T12:00:00.000Z",
       "lastContentChangedAt": "2026-11-15T19:49:39.165Z",
       "contentDigest": "1da7f4ca69ed4b1af858a5a684974ab9",
-      "editorial": true
-    },
-    "b4da8ed1687b294aad92faed570dea4f": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-02T22:48:58.861Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-02T19:35:39.000Z",
-      "lastPublishedAt": "2026-11-19T02:41:02.000Z",
-      "lastContentChangedAt": "2026-11-02T22:48:58.861Z",
-      "contentDigest": "d986c7965a419413859b234a725f568d",
-      "editorial": true
-    },
-    "b4f7eee1a7784feff9835bd79d415530": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-18T22:02:02.043Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-18T21:35:47.000Z",
-      "lastPublishedAt": "2026-11-19T16:28:11.000Z",
-      "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
-      "contentDigest": "2c5b19de7a1c2cc55e86a4b1c4121d7c",
       "editorial": true
     },
     "b58021094c01e44df04e790b1ffad2b1": {
@@ -1112,16 +2272,6 @@
       "contentDigest": "d1447df60c8a243ccd9fb28d58d574ec",
       "editorial": true
     },
-    "bdb685079dcd6473d42bb0ec24af9dac": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-01T01:57:12.000Z",
-      "lastPublishedAt": "2026-11-19T04:22:44.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "f96a3e7df547b86704bf6152f523cdde",
-      "editorial": true
-    },
     "bde2d79cfc3151b991aaeb6684f642bf": {
       "sourceKind": "lobsters",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -1142,16 +2292,6 @@
       "contentDigest": "9916c10eef01854fd4a37c0fef8f3ce9",
       "editorial": true
     },
-    "c22098bec368328769aaaf357ce67f3d": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-18T22:02:02.043Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-17T00:20:54.000Z",
-      "lastPublishedAt": "2026-11-19T12:40:35.000Z",
-      "lastContentChangedAt": "2026-11-18T22:02:02.043Z",
-      "contentDigest": "bb4cc10b36736cb4173ed54bb48a9f1d",
-      "editorial": true
-    },
     "c2845eacd97eb3d4bba7176d391221d1": {
       "sourceKind": "lobsters",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -1161,16 +2301,6 @@
       "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
       "contentDigest": "c29a1dd5a79da31c2a277b21e08031c6",
       "editorial": true
-    },
-    "c3cd61324aafe9b961c725bf93fdccb5": {
-      "sourceKind": "sports_state",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-01T18:58:25.306Z",
-      "lastPublishedAt": "2026-11-19T22:12:31.153Z",
-      "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
-      "contentDigest": "b9dad2ef382ecd207b7242cf7c1e4583",
-      "editorial": false
     },
     "c51551cd2d791f85c79f7b4cb0f26577": {
       "sourceKind": "hackernews",
@@ -1182,16 +2312,6 @@
       "contentDigest": "d9881df28f4acaa019e5202f7c7809db",
       "editorial": true
     },
-    "c72b5b5aa5b8d87c3c577194a6e44ef3": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-09-16T20:15:41.000Z",
-      "lastPublishedAt": "2026-09-16T20:15:41.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "6e4fe37ce82e6d0668a6f9f62bcf293e",
-      "editorial": true
-    },
     "cedb3872f85dd348e2d268fdd0db0adf": {
       "sourceKind": "arxiv",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -1200,16 +2320,6 @@
       "lastPublishedAt": "2026-11-18T18:27:52.000Z",
       "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
       "contentDigest": "56a24b8de2798a0cd898b4ca4993738b",
-      "editorial": true
-    },
-    "cf608358c9497b3f9985c1b25e920919": {
-      "sourceKind": "steam",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-10-30T09:39:00.000Z",
-      "lastPublishedAt": "2026-10-30T09:39:00.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "cd0d62d79f4ed1b3cdd20b2678995e3f",
       "editorial": true
     },
     "d0142b0943b1863a12f812b8b3216ce6": {
@@ -1282,56 +2392,6 @@
       "contentDigest": "4aa3f484f9bad9f7ff86d4089d6d0563",
       "editorial": true
     },
-    "ddb2df8b33dca0b8699945203a903382": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-09-02T22:53:57.000Z",
-      "lastPublishedAt": "2026-09-02T22:53:57.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "1a0cf95b3bcd38b20f6b5be67e9835d3",
-      "editorial": true
-    },
-    "e04ae8fe9d6e5377566bcfe51c8148db": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-10-29T22:14:56.000Z",
-      "lastPublishedAt": "2026-11-17T01:20:15.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "90227656cf4b527b3669d4430b8fd202",
-      "editorial": true
-    },
-    "e0b38db54552b9e07db4da283708a179": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-16T23:25:52.057Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-16T16:12:20.000Z",
-      "lastPublishedAt": "2026-11-16T23:35:05.000Z",
-      "lastContentChangedAt": "2026-11-16T23:25:52.057Z",
-      "contentDigest": "edbc3d1c7452da2154e8f629a2f6e95b",
-      "editorial": true
-    },
-    "e2ad3a07d1392e3422f09ab9cbc6e7b7": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-13T20:55:58.223Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-13T17:24:52.000Z",
-      "lastPublishedAt": "2026-11-16T02:02:29.000Z",
-      "lastContentChangedAt": "2026-11-13T20:55:58.223Z",
-      "contentDigest": "ffa4361f79795a5f5322c2536d13b08f",
-      "editorial": true
-    },
-    "e40297c9b5a8aa9019bb2c0af4d13920": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-19T22:12:40.805Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-19T22:02:41.000Z",
-      "lastPublishedAt": "2026-11-19T22:02:41.000Z",
-      "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
-      "contentDigest": "7678774817f53496c23c5cd1b6eea77b",
-      "editorial": true
-    },
     "e4fd5368b59c674ee0df6ffd9b26b090": {
       "sourceKind": "rss",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -1372,16 +2432,6 @@
       "contentDigest": "2a5703bbda2bd1cef0faaeb2492d2a34",
       "editorial": true
     },
-    "ebfed3dda6e743b26cb41ffffcd6c940": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-19T22:12:40.805Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-19T10:28:05.000Z",
-      "lastPublishedAt": "2026-11-19T10:28:05.000Z",
-      "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
-      "contentDigest": "6dd7bdc7b5060a18c4326063b9b1afbf",
-      "editorial": true
-    },
     "ecca5e2e0c83c6c217ce588acb9d33af": {
       "sourceKind": "rss",
       "firstSeenAt": "2026-11-19T22:12:40.805Z",
@@ -1390,16 +2440,6 @@
       "lastPublishedAt": "2026-11-19T17:50:14.000Z",
       "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
       "contentDigest": "a50d0bd56958418a01e7d9ec30ba8973",
-      "editorial": true
-    },
-    "f1976a164093da92d4554abb879e055d": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-09-10T06:21:41.000Z",
-      "lastPublishedAt": "2026-09-10T06:21:41.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "6f5b892da8363ff181a7277b6c15fafa",
       "editorial": true
     },
     "f51b9352e203da6ab5dcb8bdd24a2507": {
@@ -1420,26 +2460,6 @@
       "lastPublishedAt": "2026-11-19T19:00:00.000Z",
       "lastContentChangedAt": "2026-11-19T22:12:40.805Z",
       "contentDigest": "d1d0a13686ece8a407d77cbd879b5fda",
-      "editorial": true
-    },
-    "f6ad79954c22a37af42be2d306a0e064": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-18T22:02:02.043Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-18T16:54:21.000Z",
-      "lastPublishedAt": "2026-11-18T16:54:21.000Z",
-      "lastContentChangedAt": "2026-11-18T22:02:02.043Z",
-      "contentDigest": "8c83893ebeb5754afbe45cfc377ce387",
-      "editorial": true
-    },
-    "f7d89ca1ee3ba411d8fb058a5702f931": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-06T20:28:35.803Z",
-      "lastSeenAt": "2026-11-19T22:12:40.805Z",
-      "firstPublishedAt": "2026-11-05T22:27:53.000Z",
-      "lastPublishedAt": "2026-11-05T22:27:53.000Z",
-      "lastContentChangedAt": "2026-11-06T20:28:35.803Z",
-      "contentDigest": "5559fa16ef4167d974aea61810246ac2",
       "editorial": true
     },
     "f82c00f7865501b31148c3334b3c53ea": {
@@ -1772,16 +2792,6 @@
       "contentDigest": "e545eeaf033b6e071e303d8c6b625005",
       "editorial": true
     },
-    "5d33979d87de0c01bc05c0fcaa999351": {
-      "sourceKind": "steam",
-      "firstSeenAt": "2026-11-01T18:58:31.087Z",
-      "lastSeenAt": "2026-11-18T22:02:02.043Z",
-      "firstPublishedAt": "2026-10-30T12:12:57.000Z",
-      "lastPublishedAt": "2026-10-30T12:12:57.000Z",
-      "lastContentChangedAt": "2026-11-01T18:58:31.087Z",
-      "contentDigest": "04b58ab239ce1d61bdfd8423194a790d",
-      "editorial": true
-    },
     "632f32a78804a05dbfa38d3b36f26b70": {
       "sourceKind": "github",
       "firstSeenAt": "2026-11-18T22:02:02.043Z",
@@ -1810,16 +2820,6 @@
       "lastPublishedAt": "2026-11-18T17:57:17.000Z",
       "lastContentChangedAt": "2026-11-18T22:02:02.043Z",
       "contentDigest": "7174eaa544c85a9191b84c1296fa3d3a",
-      "editorial": true
-    },
-    "76adb0100ef3dea125264720215ad5d7": {
-      "sourceKind": "steam",
-      "firstSeenAt": "2026-11-02T22:48:58.861Z",
-      "lastSeenAt": "2026-11-18T22:02:02.043Z",
-      "firstPublishedAt": "2026-10-29T17:49:39.000Z",
-      "lastPublishedAt": "2026-10-29T17:49:39.000Z",
-      "lastContentChangedAt": "2026-11-02T22:48:58.861Z",
-      "contentDigest": "a88762442d5b9cbd926e6147cec988a2",
       "editorial": true
     },
     "779450fd38a2c97b6da4869288ab04a1": {
@@ -1962,16 +2962,6 @@
       "contentDigest": "1b99533a2e5bd6c9312abaf6d9049b18",
       "editorial": true
     },
-    "a7cc3c1758ec2f97fae17c8af7ae1b06": {
-      "sourceKind": "steam",
-      "firstSeenAt": "2026-11-02T22:48:58.861Z",
-      "lastSeenAt": "2026-11-18T22:02:02.043Z",
-      "firstPublishedAt": "2026-10-31T18:57:47.000Z",
-      "lastPublishedAt": "2026-10-31T18:57:47.000Z",
-      "lastContentChangedAt": "2026-11-02T22:48:58.861Z",
-      "contentDigest": "6bebb8718012c3ed7090a65250692465",
-      "editorial": true
-    },
     "aaa5a99beb8edd8d286c823f3d371bcb": {
       "sourceKind": "huggingface",
       "firstSeenAt": "2026-11-18T22:02:02.043Z",
@@ -2100,16 +3090,6 @@
       "lastPublishedAt": "2026-11-18T05:43:21.000Z",
       "lastContentChangedAt": "2026-11-18T22:02:02.043Z",
       "contentDigest": "9ea86ce482ccfb998d5a36db47672fc0",
-      "editorial": true
-    },
-    "d29777df64a2974270dc8518f5594df5": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-09T23:28:43.123Z",
-      "lastSeenAt": "2026-11-18T22:02:02.043Z",
-      "firstPublishedAt": "2026-11-09T13:44:09.000Z",
-      "lastPublishedAt": "2026-11-18T11:35:32.000Z",
-      "lastContentChangedAt": "2026-11-09T23:28:43.123Z",
-      "contentDigest": "a5d35e5fac298f679c841173f6975a70",
       "editorial": true
     },
     "d38b5fac115025a1e4218b87c840d7e7": {
@@ -3752,16 +4732,6 @@
       "contentDigest": "4c8f59d28adbbefef74100257fa3ad9e",
       "editorial": true
     },
-    "75f422f37ae9874a592602a8e8e682e7": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-14T19:13:13.373Z",
-      "lastSeenAt": "2026-11-16T23:25:52.057Z",
-      "firstPublishedAt": "2026-11-14T19:04:40.000Z",
-      "lastPublishedAt": "2026-11-16T22:59:50.000Z",
-      "lastContentChangedAt": "2026-11-14T19:13:13.373Z",
-      "contentDigest": "6aa6336392a4a5d008e520d7db7c0330",
-      "editorial": true
-    },
     "86eacae998fa37ee3b70e977e1fb7670": {
       "sourceKind": "hackernews",
       "firstSeenAt": "2026-11-16T23:25:52.057Z",
@@ -4780,16 +5750,6 @@
       "lastPublishedAt": "2026-11-12T18:59:06.000Z",
       "lastContentChangedAt": "2026-11-13T20:55:58.223Z",
       "contentDigest": "2ef8ef5d02499e937505728a5112f7c2",
-      "editorial": true
-    },
-    "adea0199fcfe2edc8117d47b951e6564": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-03T20:32:15.329Z",
-      "lastSeenAt": "2026-11-15T19:49:39.165Z",
-      "firstPublishedAt": "2026-11-03T19:59:32.000Z",
-      "lastPublishedAt": "2026-11-13T02:08:12.000Z",
-      "lastContentChangedAt": "2026-11-03T20:32:15.329Z",
-      "contentDigest": "ed8fc416a3b59e2061ee95c04460b7f9",
       "editorial": true
     },
     "ae047be4ffe06f81676d7860c0883649": {
@@ -6070,16 +7030,6 @@
       "lastPublishedAt": "2026-11-13T19:00:23.000Z",
       "lastContentChangedAt": "2026-11-13T20:55:58.223Z",
       "contentDigest": "2da8c85c3861c3bb8dee0eb5b7e46fdf",
-      "editorial": true
-    },
-    "e464b5538b5ed5b2eec4384cd2cece28": {
-      "sourceKind": "steam",
-      "firstSeenAt": "2026-11-02T22:48:58.861Z",
-      "lastSeenAt": "2026-11-13T20:55:58.223Z",
-      "firstPublishedAt": "2026-10-18T16:19:26.000Z",
-      "lastPublishedAt": "2026-10-18T16:19:26.000Z",
-      "lastContentChangedAt": "2026-11-02T22:48:58.861Z",
-      "contentDigest": "e4846b3b0c42a9c72634669aafb30e8b",
       "editorial": true
     },
     "e4dd85212e7d161b0b2d80fda14acef3": {
@@ -9890,16 +10840,6 @@
       "lastPublishedAt": "2026-11-08T08:10:08.714Z",
       "lastContentChangedAt": "2026-11-08T18:52:01.447Z",
       "contentDigest": "af1f0f972df7ef207a03398c29d6ce20",
-      "editorial": true
-    },
-    "a7952e29073758db92795f52e6f0fb6b": {
-      "sourceKind": "github",
-      "firstSeenAt": "2026-11-05T21:07:04.359Z",
-      "lastSeenAt": "2026-11-08T18:52:01.447Z",
-      "firstPublishedAt": "2026-11-05T14:03:18.000Z",
-      "lastPublishedAt": "2026-11-05T14:03:18.000Z",
-      "lastContentChangedAt": "2026-11-05T21:07:04.359Z",
-      "contentDigest": "33eb10b1f52a118e09b8f20bc1c9715c",
       "editorial": true
     },
     "ac2a3f1578447027475fa273b708382d": {
@@ -15985,62 +16925,62 @@
   },
   "sources": {
     "github": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "lastSuccessAt": "2026-11-19T22:12:40.805Z",
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "lastSuccessAt": "2026-11-21T20:34:23.960Z",
       "consecutiveFailures": 0,
-      "lastReportedCount": 51,
-      "newlyObserved": 7,
+      "lastReportedCount": 53,
+      "newlyObserved": 12,
       "revised": 1,
-      "editorialNew": 7
+      "editorialNew": 12
     },
     "sports_state": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "lastSuccessAt": "2026-11-19T22:12:40.805Z",
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "lastSuccessAt": "2026-11-21T20:34:23.960Z",
       "consecutiveFailures": 0,
-      "lastReportedCount": 3,
-      "newlyObserved": 0,
-      "revised": 1,
+      "lastReportedCount": 4,
+      "newlyObserved": 1,
+      "revised": 2,
       "editorialNew": 0
     },
     "rss": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "lastSuccessAt": "2026-11-19T22:12:40.805Z",
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "lastSuccessAt": "2026-11-21T20:34:23.960Z",
       "consecutiveFailures": 0,
       "lastReportedCount": 50,
-      "newlyObserved": 30,
-      "revised": 2,
-      "editorialNew": 30
+      "newlyObserved": 32,
+      "revised": 0,
+      "editorialNew": 32
     },
     "hackernews": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "lastSuccessAt": "2026-11-19T22:12:40.805Z",
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "lastSuccessAt": "2026-11-21T20:34:23.960Z",
       "consecutiveFailures": 0,
       "lastReportedCount": 24,
+      "newlyObserved": 8,
+      "revised": 0,
+      "editorialNew": 8
+    },
+    "lobsters": {
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "lastSuccessAt": "2026-11-21T20:34:23.960Z",
+      "consecutiveFailures": 0,
+      "lastReportedCount": 14,
       "newlyObserved": 14,
       "revised": 0,
       "editorialNew": 14
     },
-    "lobsters": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "lastSuccessAt": "2026-11-19T22:12:40.805Z",
-      "consecutiveFailures": 0,
-      "lastReportedCount": 14,
-      "newlyObserved": 11,
-      "revised": 0,
-      "editorialNew": 11
-    },
     "youtube": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "lastSuccessAt": "2026-11-19T22:12:40.805Z",
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "lastSuccessAt": "2026-11-21T20:34:23.960Z",
       "consecutiveFailures": 0,
-      "lastReportedCount": 2,
-      "newlyObserved": 0,
+      "lastReportedCount": 3,
+      "newlyObserved": 1,
       "revised": 0,
-      "editorialNew": 0
+      "editorialNew": 1
     },
     "arxiv": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "lastSuccessAt": "2026-11-19T22:12:40.805Z",
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "lastSuccessAt": "2026-11-21T20:34:23.960Z",
       "consecutiveFailures": 0,
       "lastReportedCount": 12,
       "newlyObserved": 12,
@@ -16048,17 +16988,17 @@
       "editorialNew": 12
     },
     "openalex": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "lastSuccessAt": "2026-11-19T22:12:40.805Z",
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "lastSuccessAt": "2026-11-21T20:34:23.960Z",
       "consecutiveFailures": 0,
-      "lastReportedCount": 16,
-      "newlyObserved": 0,
+      "lastReportedCount": 18,
+      "newlyObserved": 2,
       "revised": 0,
-      "editorialNew": 0
+      "editorialNew": 2
     },
     "nasa": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "lastSuccessAt": "2026-11-19T22:12:40.805Z",
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "lastSuccessAt": "2026-11-21T20:34:23.960Z",
       "consecutiveFailures": 0,
       "lastReportedCount": 6,
       "newlyObserved": 1,
@@ -16066,42 +17006,42 @@
       "editorialNew": 1
     },
     "huggingface": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "lastSuccessAt": "2026-11-19T22:12:40.805Z",
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "lastSuccessAt": "2026-11-21T20:34:23.960Z",
       "consecutiveFailures": 0,
       "lastReportedCount": 12,
-      "newlyObserved": 12,
+      "newlyObserved": 11,
       "revised": 0,
-      "editorialNew": 12
+      "editorialNew": 11
     },
     "steam": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "lastSuccessAt": "2026-11-19T22:12:40.805Z",
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "lastSuccessAt": "2026-11-21T20:34:23.960Z",
       "consecutiveFailures": 0,
-      "lastReportedCount": 6,
-      "newlyObserved": 1,
+      "lastReportedCount": 5,
+      "newlyObserved": 0,
       "revised": 0,
-      "editorialNew": 1
+      "editorialNew": 0
     },
     "social": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "consecutiveFailures": 19,
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "consecutiveFailures": 20,
       "lastReportedCount": 0,
       "newlyObserved": 0,
       "revised": 0,
       "editorialNew": 0
     },
     "paperswithcode": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "consecutiveFailures": 19,
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "consecutiveFailures": 20,
       "lastReportedCount": 0,
       "newlyObserved": 0,
       "revised": 0,
       "editorialNew": 0
     },
     "biorxiv": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "lastSuccessAt": "2026-11-19T22:12:40.805Z",
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "lastSuccessAt": "2026-11-21T20:34:23.960Z",
       "consecutiveFailures": 0,
       "lastReportedCount": 0,
       "newlyObserved": 0,
@@ -16109,8 +17049,8 @@
       "editorialNew": 0
     },
     "medrxiv": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "lastSuccessAt": "2026-11-19T22:12:40.805Z",
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "lastSuccessAt": "2026-11-21T20:34:23.960Z",
       "consecutiveFailures": 0,
       "lastReportedCount": 0,
       "newlyObserved": 0,
@@ -16118,32 +17058,32 @@
       "editorialNew": 0
     },
     "openreview": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "consecutiveFailures": 19,
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "consecutiveFailures": 20,
       "lastReportedCount": 0,
       "newlyObserved": 0,
       "revised": 0,
       "editorialNew": 0
     },
     "brave_web": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "consecutiveFailures": 19,
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "consecutiveFailures": 20,
       "lastReportedCount": 0,
       "newlyObserved": 0,
       "revised": 0,
       "editorialNew": 0
     },
     "football_data": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "consecutiveFailures": 19,
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "consecutiveFailures": 20,
       "lastReportedCount": 0,
       "newlyObserved": 0,
       "revised": 0,
       "editorialNew": 0
     },
     "reddit": {
-      "lastAttemptAt": "2026-11-19T22:12:40.805Z",
-      "lastSuccessAt": "2026-11-19T22:12:40.805Z",
+      "lastAttemptAt": "2026-11-21T20:34:23.960Z",
+      "lastSuccessAt": "2026-11-21T20:34:23.960Z",
       "consecutiveFailures": 0,
       "lastReportedCount": 0,
       "newlyObserved": 0,
@@ -16152,11 +17092,11 @@
     }
   },
   "latest": {
-    "discovered": 88,
-    "revised": 4,
-    "unchanged": 57,
-    "editorialNew": 88,
-    "retained": 1598,
+    "discovered": 94,
+    "revised": 3,
+    "unchanged": 50,
+    "editorialNew": 93,
+    "retained": 1692,
     "sourceFailures": 5
   }
 }
