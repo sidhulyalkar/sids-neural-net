@@ -19,6 +19,16 @@ async function audit(width,height) {
     assert(result?.ok(), 'The default Frontier edition must load');
     const edition = page.locator('[data-frontier-edition="multi-article"]');
     await edition.waitFor();
+    const palette=await edition.evaluate(node=>{
+      const style=getComputedStyle(node);
+      return {paper:style.getPropertyValue('--paper').trim(),
+        ink:style.getPropertyValue('--ink').trim(),
+        accent:style.getPropertyValue('--accent').trim(),
+        colorScheme:style.colorScheme};
+    });
+    assert.deepEqual(palette,{paper:'#f7f3ea',ink:'#243247',
+      accent:'#783b4b',colorScheme:'light'},
+      'Warm eggshell, ink navy and restrained maroon are required: '+JSON.stringify(palette));
     const cards = page.locator('#frontier-stories article');
     assert((await cards.count()) >= 2, 'The default Frontier must show multiple independently navigable stories');
     assert.equal(await page.locator('canvas').count(),0, 'Cold edition cannot start WebGL');
@@ -259,11 +269,36 @@ async function auditCompactSwarm() {
   } finally { await browser.close(); }
 }
 
+async function auditFocusPalette() {
+  const browser=await chromium.launch({headless:true});
+  const page=await browser.newPage({viewport:{width:1280,height:840},reducedMotion:'reduce'});
+  try {
+    const url=new URL(TARGET);
+    url.pathname='/frontier/read';
+    const response=await page.goto(url.href,{waitUntil:'domcontentloaded',timeout:20000});
+    assert(response?.ok(),'Single-article Focus reader must load');
+    const reader=page.locator('[data-frontier-reader="true"]');
+    await reader.waitFor();
+    const palette=await reader.evaluate(node=>{
+      const style=getComputedStyle(node);
+      return {ink:style.getPropertyValue('--ink').trim(),
+        accent:style.getPropertyValue('--accent').trim(),
+        colorScheme:style.colorScheme};
+    });
+    assert.deepEqual(palette,{ink:'#243247',accent:'#783b4b',colorScheme:'light'},
+      'Focus and the edition must share the same accessible paper/ink identity');
+    assert((await page.locator('h1').count())>=1,'Focus reader retains its readable article');
+    assert(await page.locator('main').count()>=1,'Focus reader retains main page structure');
+    return {palette,reachable:true};
+  } finally { await browser.close(); }
+}
+
 async function main() {
   const results=[];
   for(const size of [[1440,900],[390,844],[320,740]]) results.push(await audit(...size));
   const interaction=await auditActiveSwarm();
   const mobile=await auditCompactSwarm();
-  console.log('FRONTIER multi-article edition QA PASS',JSON.stringify({viewports:results,interaction,mobile}));
+  const focus=await auditFocusPalette();
+  console.log('FRONTIER multi-article edition QA PASS',JSON.stringify({viewports:results,interaction,mobile,focus}));
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

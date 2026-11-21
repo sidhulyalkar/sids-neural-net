@@ -23,16 +23,16 @@
 .halo,.arc,.core { stroke-dasharray:100; stroke-dashoffset:100;
   animation:galvanicTrace 235ms cubic-bezier(.17,.85,.24,1) both; }
 .halo { stroke:#298bcb; stroke-width:8.8; opacity:.25; filter:drop-shadow(0 0 3px #4ab4e7); }
-.arc { stroke:#80c8ee; stroke-width:3.5; filter:none; }
+.arc { stroke:#4c86ad; stroke-width:3.5; filter:none; }
 .core { stroke:#fcffff; stroke-width:1.5; filter:drop-shadow(0 0 1px #a2deff); }
-.filament { stroke:#bee7f9; stroke-width:.82; stroke-dasharray:100; stroke-dashoffset:100;
+.filament { stroke:#6e9dbd; stroke-width:.82; stroke-dasharray:100; stroke-dashoffset:100;
   animation:coronaTrace 252ms ease-out 21ms both; }
-.fork { stroke:#b7e0f9; stroke-width:1.1; stroke-dasharray:100; stroke-dashoffset:100;
+.fork { stroke:#5488ad; stroke-width:1.1; stroke-dasharray:100; stroke-dashoffset:100;
   animation:coronaTrace 268ms ease-out 42ms both; }
 .dendrite,.microDendrite { stroke-dasharray:100; stroke-dashoffset:100;
   animation:coronaTrace 248ms ease-out both; }
-.dendrite { stroke:#b3d7ec; stroke-width:.76; animation-delay:71ms; }
-.microDendrite { stroke:#d6eaf7; stroke-width:.49; animation-delay:94ms; }
+.dendrite { stroke:#628eab; stroke-width:.76; animation-delay:71ms; }
+.microDendrite { stroke:#91adbe; stroke-width:.49; animation-delay:94ms; }
 .emitter,.impact,.flash { transform-box:fill-box; transform-origin:center; opacity:0; }
 .emitter { fill:#eaffff; filter:drop-shadow(0 0 4px #8bdafa);
   animation:sourcePulse 265ms ease-out both; }

@@ -118,3 +118,14 @@
   border-radius:50%; background:rgba(116,239,199,.2); }
 .clearAll:disabled:not([data-cleared='true']) { cursor:default;opacity:.25; }
 @media(prefers-reduced-motion:reduce){.clearAll{transition:none;}}
+
+/* The invisible editorial interest action belongs to the paper/ink palette. */
+.clearAll { border-color:rgba(147,122,91,.35); background:rgba(164,141,106,.035); backdrop-filter:none; }
+.clearAll>span { background:rgba(119,79,73,.39); }
+.clearAll:hover { border-color:#9d695b; background:rgba(141,91,83,.10);
+  box-shadow:0 0 0 3px rgba(149,108,88,.07); }
+.clearAll:focus-visible { outline:2px solid #783b4b; }
+.clearAll[data-cleared='true'] { background:#eee1d6; border-color:#c6a9a1; }
+.clearAll[data-cleared='true']>span { border-color:#783b4b; background:#d4b4aa; }
+.sprite:focus-visible { outline:2px solid #783b4b; }
+.sprite:hover .body { box-shadow:0 0 0 3px rgba(112,73,88,.12),0 0 13px color-mix(in srgb,var(--sprite-ink) 32%,transparent); }

@@ -60,6 +60,8 @@ export function FrontierAmbientSprite({ motif, articleTitle, spec, clear, onPop,
   const poppedRef = useRef(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const onPopRef = useRef(onPop);
+  const onExitRef = useRef(onExit);
+  const exitReported = useRef(false);
   const lastPointerType = useRef('');
   const style = {
     '--x': `${spec.x}%`,
@@ -70,6 +72,20 @@ export function FrontierAmbientSprite({ motif, articleTitle, spec, clear, onPop,
   } as CSSProperties;
 
   useEffect(() => { onPopRef.current = onPop; }, [onPop]);
+  useEffect(() => { onExitRef.current = onExit; }, [onExit]);
+
+  // CSS animationend can be lost under input-driven pause/resume, browser
+  // throttling or immediate layout changes. A bounded fallback guarantees
+  // popped creatures never linger as invisible, untargetable DOM nodes.
+  useEffect(() => {
+    if (!popped) return;
+    const timeout=window.setTimeout(() => {
+      if (exitReported.current) return;
+      exitReported.current=true;
+      onExitRef.current(spec.id);
+    }, 520);
+    return () => window.clearTimeout(timeout);
+  }, [popped, spec.id]);
 
   useEffect(() => {
     const button = buttonRef.current;
@@ -121,8 +137,11 @@ export function FrontierAmbientSprite({ motif, articleTitle, spec, clear, onPop,
         onPop();
       }}
       onAnimationEnd={(event) => {
-        if (event.target === event.currentTarget && poppedRef.current && event.animationName.includes('popOut'))
-          onExit(spec.id);
+        if (event.target === event.currentTarget && poppedRef.current &&
+            event.animationName.includes('popOut') && !exitReported.current) {
+          exitReported.current = true;
+          onExitRef.current(spec.id);
+        }
       }}>
       <span className={styles.body} data-frontier-sprite-body="true"><MotifGlyph motif={motif}/></span>
       <span className={styles.burst} aria-hidden="true"><i/><i/><i/><i/><i/><i/></span>
