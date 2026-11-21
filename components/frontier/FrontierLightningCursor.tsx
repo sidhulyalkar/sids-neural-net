@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { frontierLightningGeometry } from '@/lib/frontier/lightningGeometry';
+import { frontierLightningFarTip, frontierLightningGeometry } from '@/lib/frontier/lightningGeometry';
 import type { LightningGeometry, LightningPoint } from '@/lib/frontier/lightningGeometry';
 import { lightningTipTouchesBubble } from '@/lib/frontier/lightningImpact';
 import styles from './frontier-lightning-cursor.module.css';
@@ -18,7 +18,7 @@ function bubbleBody(button: HTMLButtonElement): Element | null {
   return button.querySelector('[data-frontier-sprite-body]');
 }
 
-function strikeImpact(point: LightningPoint): boolean {
+function creatureAtTip(point: LightningPoint): HTMLButtonElement | null {
   let target: HTMLButtonElement | null = null;
   let bestDistance = Number.POSITIVE_INFINITY;
   // A shot can land on any visible article. The closest overlapping glyph
@@ -42,18 +42,22 @@ function strikeImpact(point: LightningPoint): boolean {
     const distance = Math.hypot(point.x - rect.left - rect.width / 2, point.y - rect.top - rect.height / 2);
     if (distance < bestDistance) { bestDistance = distance; target = button; }
   }
+  return target;
+}
+
+function strikeImpact(point: LightningPoint): boolean {
+  const target = creatureAtTip(point);
   if (!target) return false;
-  // A cancelable handshake tells the animation whether a live creature
-  // actually accepted the impact, preventing duplicate-shot false positives.
+  // Only an actually accepted impact produces a hit.
   const impact = new CustomEvent('frontier-lightning-impact', { cancelable: true });
   target.dispatchEvent(impact);
   return impact.defaultPrevented;
 }
 
-/** Shoot at the *actual click coordinate*, anywhere on this Frontier route.
- * A creature pops only when the fixed endpoint intersects its visible body
- * at the end of the 165ms lightning travel. Misses still get electric effects.
- * Native navigation, touch scrolling and keyboard actions are undisturbed.
+/** Lightning launches FROM the click position. A strong, branching curved
+ * discharge extends toward a visible offset aim reticle. Only its FAR tip can
+ * pop a creature at 165ms impact, never the cursor or an intermediate fork.
+ * Misses do not change article interest. Native clicks and scroll are intact.
  */
 export function FrontierLightningCursor() {
   const aimRef = useRef<HTMLDivElement>(null);
@@ -70,17 +74,20 @@ export function FrontierLightningCursor() {
     const timers = new Set<number>();
     const onMove = (event: PointerEvent) => {
       if (!fine.matches || reduced.matches || event.pointerType === 'touch') return;
-      const target = event.target instanceof Element ? event.target : null;
+      const endpoint = frontierLightningFarTip(
+        { x: event.clientX, y: event.clientY },
+        { width: window.innerWidth, height: window.innerHeight },
+      );
       pending = {
-        x: event.clientX, y: event.clientY,
+        x: endpoint.x, y: endpoint.y,
         visible: Boolean(document.querySelector('[data-frontier-edition="multi-article"]')),
-        hot: Boolean(target?.closest('[data-frontier-sprite]')),
+        hot: Boolean(creatureAtTip(endpoint)),
       };
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         frame = 0;
         if (!pending) return;
-        aim.style.transform = `translate3d(${Math.round(pending.x - 17)}px,${Math.round(pending.y - 42)}px,0)`;
+        aim.style.transform = `translate3d(${Math.round(pending.x - 17)}px,${Math.round(pending.y - 17)}px,0)`;
         aim.style.opacity = pending.visible ? '1' : '0';
         aim.dataset.hot = pending.hot ? 'true' : 'false';
       });
@@ -91,23 +98,18 @@ export function FrontierLightningCursor() {
       if (reduced.matches || event.detail === 0 || event.button !== 0) return;
       if (!document.querySelector('[data-frontier-edition="multi-article"]')) return;
       if (!Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return;
-      const endpoint = { x: event.clientX, y: event.clientY };
-      const from = {
-        x: Math.max(14, Math.min(window.innerWidth - 14, endpoint.x - 105)),
-        y: Math.max(14, Math.min(window.innerHeight - 14, endpoint.y - 84)),
-      };
+      const from = { x: event.clientX, y: event.clientY };
+      // The far tip, not the click, is the collision point. No auto-targeting.
+      const endpoint = frontierLightningFarTip(from, {
+        width: window.innerWidth, height: window.innerHeight,
+      });
       const id = ++nextId.current;
       const geometry = frontierLightningGeometry(from, endpoint, id * 37);
 
-      // Pause the directly clicked bubble at its REAL glyph position, not a
-      // 44px square, while lightning travels. A click on empty button padding
-      // is therefore a true miss. Other bubbles keep flying and may wander
-      // into or out of the endpoint before impact.
-      const clicked = event.target instanceof Element ? event.target : null;
-      const direct = clicked?.closest<HTMLButtonElement>('[data-frontier-sprite]');
-      const glyph = direct && direct.dataset.popped !== 'true' ? bubbleBody(direct) : null;
-      const reserved = glyph && lightningTipTouchesBubble(geometry.end, glyph.getBoundingClientRect())
-        ? direct : null;
+      // A real tip overlap temporarily freezes its target so the user sees
+      // the electricity visibly reach the bubble. It does not magnetize the
+      // bolt toward nearby creatures: the fixed far endpoint never moves.
+      const reserved = creatureAtTip(geometry.end);
       if (reserved) reserved.dataset.frontierLightningReserved = 'true';
 
       setStrikes((current) => [...current.slice(-5), { id, geometry, hit: false }]);
@@ -154,12 +156,16 @@ export function FrontierLightningCursor() {
       <svg className={styles.overlay} width="100%" height="100%" focusable="false">
         {strikes.map(({ id, geometry, hit }) => (
           <g key={id} data-frontier-lightning-strike="true" data-lightning-hit={hit ? 'true' : 'false'}
+            data-lightning-start-x={geometry.start.x} data-lightning-start-y={geometry.start.y}
             data-lightning-end-x={geometry.end.x} data-lightning-end-y={geometry.end.y}>
             <path d={geometry.main} pathLength={100} className={styles.halo}/>
             <path d={geometry.main} pathLength={100} className={styles.arc}/>
             <path d={geometry.main} pathLength={100} className={styles.core}/>
+            {geometry.filaments.map((path, index) =>
+              <path key={`filament-${index}`} d={path} pathLength={100} className={styles.filament}/>)}
             {geometry.forks.map((path, index) =>
               <path key={index} d={path} pathLength={100} className={styles.fork}/>)}
+            <circle cx={geometry.start.x} cy={geometry.start.y} r={3.4} className={styles.emitter}/>
             <circle cx={geometry.end.x} cy={geometry.end.y} r={5} className={styles.impact}/>
             <circle cx={geometry.end.x} cy={geometry.end.y} r={2.3} className={styles.flash}/>
           </g>
