@@ -14,6 +14,10 @@ test('the jagged curved lightning terminates exactly on its target, at any offse
     assert(result.main.endsWith(`L ${to.x} ${to.y}`));
     assert.deepEqual(result.start, from);
     assert.equal(result.forks.length,5);
+    assert.equal(result.dendrites.length,16);
+    assert.equal(result.microDendrites.length,24);
+    assert(result.dendrites.every(path=>/^M -?\d+ -?\d+ L -?\d+ -?\d+ L -?\d+ -?\d+$/.test(path)));
+    assert(result.microDendrites.every(path=>/^M -?\d+ -?\d+ L -?\d+ -?\d+ L -?\d+ -?\d+$/.test(path)));
     assert.equal(result.filaments.length,2);
     assert(result.filaments.every((line)=>line.startsWith('M ') && line.includes(' L ')));
     assert(result.forks.every((path)=>/^M -?\d+ -?\d+ L -?\d+ -?\d+ L -?\d+ -?\d+$/.test(path)));
@@ -25,6 +29,8 @@ test('each strike is deterministic but changes electric shape between shots', ()
   const from={x:120,y:40},to={x:240,y:175};
   assert.deepEqual(frontierLightningGeometry(from,to,7),frontierLightningGeometry(from,to,7));
   assert.notEqual(frontierLightningGeometry(from,to,7).main,frontierLightningGeometry(from,to,8).main);
+  assert.notDeepEqual(frontierLightningGeometry(from,to,7).microDendrites,
+    frontierLightningGeometry(from,to,8).microDendrites);
   assert.notEqual(frontierLightningGeometry(from,to,7).main,
     `M ${from.x} ${from.y} L ${to.x} ${to.y}`, 'Electrical arc must curve and fork');
 });

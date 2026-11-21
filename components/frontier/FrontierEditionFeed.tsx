@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUpRight, Bookmark, Bug, BugOff, RefreshCw, Search } from 'lucide-react';
+import { ArrowUpRight, Bookmark, Bug, BugOff, Crosshair, RefreshCw, Search } from 'lucide-react';
 import { FRONTIER_LANE_MAP } from '@/lib/frontier/config';
 import { frontierMotifForItem } from '@/lib/frontier/ambientSprites';
 import { frontierInformationValue, frontierReportedMetrics, rerankFrontierForInformation } from '@/lib/frontier/informativeEdition';
@@ -248,6 +248,8 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
   const shown = useMemo(() => filtered.slice(0, visible), [filtered, visible]);
 
   const [ambientEnabled, setAmbientEnabled] = useState(true);
+  // Hidden until the reader explicitly enables this optional aiming aid.
+  const [aimReticleEnabled, setAimReticleEnabled] = useState(false);
   const [motionAllowed, setMotionAllowed] = useState(false);
   const [pageVisible, setPageVisible] = useState(true);
   const [compact, setCompact] = useState(false);
@@ -266,8 +268,10 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
     document.addEventListener('visibilitychange', syncEnvironment);
     const frame = window.requestAnimationFrame(() => {
       syncEnvironment();
-      try { setAmbientEnabled(localStorage.getItem('frontier-ambient-sprites') !== 'off'); }
-      catch { /* available without storage */ }
+      try {
+        setAmbientEnabled(localStorage.getItem('frontier-ambient-sprites') !== 'off');
+        setAimReticleEnabled(localStorage.getItem('frontier-lightning-aim-reticle') === 'on');
+      } catch { /* safe defaults when storage is unavailable */ }
     });
     return () => {
       window.cancelAnimationFrame(frame);
@@ -305,6 +309,12 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
     try { localStorage.setItem('frontier-ambient-sprites', enabled ? 'on' : 'off'); }
     catch { /* user can still toggle in this session */ }
   };
+  const toggleAimReticle = () => {
+    const enabled = !aimReticleEnabled;
+    setAimReticleEnabled(enabled);
+    try { localStorage.setItem('frontier-lightning-aim-reticle', enabled ? 'on' : 'off'); }
+    catch { /* still usable during the current visit */ }
+  };
   const subjectCounts = useMemo(() => SUBJECTS.reduce((counts, entry) => {
     counts[entry.id] = entry.id === 'all' ? items.length : items.filter((item) => belongsTo(item, entry.id)).length;
     return counts;
@@ -341,12 +351,17 @@ export function FrontierEditionFeed({ initialItems, generatedAt }: {
 
   return (
     <div className={styles.page} data-frontier-edition="multi-article">
-      <FrontierLightningCursor/>
+      <FrontierLightningCursor showAimReticle={aimReticleEnabled}/>
       <header className={styles.masthead}>
         <Link href="/" className={styles.brand}>FRONTIER<span>.</span></Link>
         <div className={styles.mastActions}>
           <Link href="/frontier/read">FOCUS</Link>
           <Link href="/frontier/advanced">RADAR</Link>
+          <button type="button" onClick={toggleAimReticle} className={styles.aimToggle}
+            aria-label="Show lightning aim reticle" aria-pressed={aimReticleEnabled}
+            title={aimReticleEnabled ? 'Hide lightning target' : 'Show lightning target'}>
+            <Crosshair size={17} aria-hidden="true"/>
+          </button>
           <button type="button" onClick={toggleAmbient} className={styles.ambientToggle}
             aria-label={ambientEnabled ? 'Turn off floating newspaper creatures' : 'Turn on floating newspaper creatures'}
             aria-pressed={ambientEnabled}

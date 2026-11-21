@@ -55,14 +55,20 @@ function strikeImpact(point: LightningPoint): boolean {
 }
 
 /** Lightning launches FROM the click position. A strong, branching curved
- * discharge extends toward a visible offset aim reticle. Only its FAR tip can
+ * discharge extends toward a normally hidden offset endpoint. Only its FAR tip can
  * pop a creature at 165ms impact, never the cursor or an intermediate fork.
  * Misses do not change article interest. Native clicks and scroll are intact.
  */
-export function FrontierLightningCursor() {
+export function FrontierLightningCursor({ showAimReticle = false }: { showAimReticle?: boolean }) {
   const aimRef = useRef<HTMLDivElement>(null);
+  const aimEnabledRef = useRef(showAimReticle);
   const [strikes, setStrikes] = useState<Strike[]>([]);
   const nextId = useRef(0);
+
+  useEffect(() => {
+    aimEnabledRef.current = showAimReticle;
+    if (!showAimReticle && aimRef.current) aimRef.current.style.opacity = '0';
+  }, [showAimReticle]);
 
   useEffect(() => {
     const aim = aimRef.current;
@@ -73,7 +79,7 @@ export function FrontierLightningCursor() {
     let pending: { x: number; y: number; visible: boolean } | null = null;
     const timers = new Set<number>();
     const onMove = (event: PointerEvent) => {
-      if (!fine.matches || reduced.matches || event.pointerType === 'touch') return;
+      if (!aimEnabledRef.current || !fine.matches || reduced.matches || event.pointerType === 'touch') return;
       const endpoint = frontierLightningFarTip(
         { x: event.clientX, y: event.clientY },
         { width: window.innerWidth, height: window.innerHeight },
@@ -152,8 +158,9 @@ export function FrontierLightningCursor() {
   }, []);
 
   return (
-    <div aria-hidden="true" className={styles.root} data-frontier-lightning-cursor="true">
-      <div ref={aimRef} className={styles.aim}><span className={styles.aimRing}/><span className={styles.aimDot}/></div>
+    <div aria-hidden="true" className={styles.root} data-frontier-lightning-cursor="true"
+      data-aim-enabled={showAimReticle ? 'true' : 'false'}>
+      <div ref={aimRef} className={styles.aim} data-frontier-lightning-reticle="true"><span className={styles.aimRing}/><span className={styles.aimDot}/></div>
       <svg className={styles.overlay} width="100%" height="100%" focusable="false">
         {strikes.map(({ id, geometry, hit }) => (
           <g key={id} data-frontier-lightning-strike="true" data-lightning-hit={hit ? 'true' : 'false'}
@@ -165,7 +172,11 @@ export function FrontierLightningCursor() {
             {geometry.filaments.map((path, index) =>
               <path key={`filament-${index}`} d={path} pathLength={100} className={styles.filament}/>)}
             {geometry.forks.map((path, index) =>
-              <path key={index} d={path} pathLength={100} className={styles.fork}/>)}
+              <path key={`fork-${index}`} d={path} pathLength={100} className={styles.fork}/>)}
+            {geometry.dendrites.map((path, index) =>
+              <path key={`dendrite-${index}`} d={path} pathLength={100} className={styles.dendrite}/>)}
+            {geometry.microDendrites.map((path, index) =>
+              <path key={`micro-${index}`} d={path} pathLength={100} className={styles.microDendrite}/>)}
             <circle cx={geometry.start.x} cy={geometry.start.y} r={3.4} className={styles.emitter}/>
             <circle cx={geometry.end.x} cy={geometry.end.y} r={5} className={styles.impact}/>
             <circle cx={geometry.end.x} cy={geometry.end.y} r={2.3} className={styles.flash}/>

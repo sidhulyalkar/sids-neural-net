@@ -6,6 +6,8 @@ export type LightningGeometry = {
   main: string;
   filaments: string[];
   forks: string[];
+  dendrites: string[];
+  microDendrites: string[];
   start: LightningPoint;
   end: LightningPoint;
 };
@@ -80,7 +82,10 @@ export function frontierLightningGeometry(
     });
     return draw(filament);
   });
-  const forks = [0.18, 0.31, 0.48, 0.64, 0.82].map((fraction, i) => {
+  // Branch structure is deterministic per shot. Five heavier secondary
+  // channels sprout from the trunk, while dozens of narrower dendrites
+  // fork off both trunk and secondary channels like natural lightning.
+  const forkNodes = [0.18, 0.31, 0.48, 0.64, 0.82].map((fraction, i) => {
     const p = points[Math.floor(steps * fraction)];
     const sign = i % 2 ? -1 : 1;
     const reach = 23 + random() * 31;
@@ -89,10 +94,41 @@ export function frontierLightningGeometry(
       x: Math.round(p.x + nx * sign * reach + dx / distance * along),
       y: Math.round(p.y + ny * sign * reach + dy / distance * along),
     };
-    return draw([p, {
+    return [p, {
       x: Math.round((p.x + branch.x) / 2 + (random() - 0.5) * 16),
       y: Math.round((p.y + branch.y) / 2 + (random() - 0.5) * 16),
-    }, branch]);
+    }, branch];
   });
-  return { main: draw(points), filaments, forks, start: { ...points[0] }, end: { ...points[steps] } };
+  const forks = forkNodes.map(draw);
+
+  const createBranch = (stem: LightningPoint, sign: number, length: number) => {
+    const along = (random() - 0.35) * length * 0.72;
+    const end = {
+      x: Math.round(stem.x + nx * sign * length + (dx / distance) * along),
+      y: Math.round(stem.y + ny * sign * length + (dy / distance) * along),
+    };
+    return [stem, {
+      x: Math.round((stem.x + end.x) / 2 + (random() - .5) * 7),
+      y: Math.round((stem.y + end.y) / 2 + (random() - .5) * 7),
+    }, end];
+  };
+
+  const dendriteNodes = Array.from({ length: 16 }, (_, i) => {
+    const fraction = .06 + i * .055;
+    const stem = points[Math.max(1, Math.min(steps - 1, Math.floor(steps * fraction)))];
+    return createBranch(stem, i % 3 ? -1 : 1, 11 + random() * 17);
+  });
+  const dendrites = dendriteNodes.map(draw);
+
+  // Tertiary hairline spurs alternate between major forks and fresh
+  // dendrites. Their side tips are expressly NOT collision candidates.
+  const microDendrites = Array.from({ length: 24 }, (_, i) => {
+    const source = i % 3 === 0
+      ? forkNodes[i % forkNodes.length]
+      : dendriteNodes[i % dendriteNodes.length];
+    const stem = source[i % 2 ? 1 : 2];
+    return draw(createBranch(stem, i % 4 < 2 ? 1 : -1, 4 + random() * 11));
+  });
+  return { main: draw(points), filaments, forks, dendrites, microDendrites,
+    start: { ...points[0] }, end: { ...points[steps] } };
 }

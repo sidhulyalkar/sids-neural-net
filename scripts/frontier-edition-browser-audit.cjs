@@ -100,6 +100,29 @@ async function auditActiveSwarm() {
     assert.equal(await page.locator('[data-frontier-whip-cursor]').count(),0,
       'The old rainbow whip must no longer be present');
 
+    const reticleToggle=page.getByRole('button',{name:'Show lightning aim reticle'});
+    const reticle=page.locator('[data-frontier-lightning-reticle]');
+    assert.equal(await reticleToggle.getAttribute('aria-pressed'),'false',
+      'Default mode hides the aim guide and keeps lightning skill-based');
+    assert.equal(await page.locator('[data-frontier-lightning-cursor]').getAttribute('data-aim-enabled'),
+      'false','The reticle must not render visibly by default');
+    await reticleToggle.click();
+    assert.equal(await reticleToggle.getAttribute('aria-pressed'),'true',
+      'The user can explicitly enable an aiming guide');
+    assert.equal(await page.locator('[data-frontier-lightning-cursor]').getAttribute('data-aim-enabled'),'true');
+    await page.mouse.move(720,410);
+    await page.waitForFunction(() => {
+      const target=document.querySelector('[data-frontier-lightning-reticle]');
+      return Boolean(target && getComputedStyle(target).opacity==='1' &&
+        getComputedStyle(target).display!=='none');
+    },undefined,{timeout:2000});
+    await reticleToggle.click();
+    assert.equal(await reticleToggle.getAttribute('aria-pressed'),'false');
+    assert.equal(await reticle.evaluate(el=>getComputedStyle(el).display),'none',
+      'Disabled reticle is fully hidden, not merely faded');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('frontier-lightning-aim-reticle')),'off',
+      'The hidden default is stored after a user choice');
+
     // Every click emits lightning at its true cursor origin; the far tip
     // determines hit or miss. Nothing may snap to a nearby bubble.
     const missBox=await page.locator('[data-frontier-edition] header').first().boundingBox();
@@ -157,6 +180,9 @@ async function auditActiveSwarm() {
     await page.mouse.click(fireAt.x,fireAt.y);
     const bolt=page.locator('[data-frontier-lightning-strike]').last();
     await bolt.waitFor({timeout:2000});
+    const branchCount=await bolt.locator('path').count();
+    assert(branchCount>=48,
+      'A true galvanic strike must carry trunk, forks and thin dendritic arbor');
     const tip=await bolt.evaluate(el=>({
       startX:Number(el.getAttribute('data-lightning-start-x')),
       startY:Number(el.getAttribute('data-lightning-start-y')),
