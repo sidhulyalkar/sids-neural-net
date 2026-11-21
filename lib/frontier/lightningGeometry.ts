@@ -41,7 +41,7 @@ export function frontierLightningGeometry(
   const ny = dx / distance;
   // A deliberately bowed discharge, not an almost-straight zigzag.
   // Extra curvature gives the shot the feeling of an electric lash.
-  const curve = Math.min(106, Math.max(42, distance * 0.49)) * (seed % 2 ? -1 : 1);
+  const curve = Math.min(112, Math.max(42, distance * 0.62)) * (seed % 2 ? -1 : 1);
   const control = {
     x: (from.x + to.x) / 2 + nx * curve,
     y: (from.y + to.y) / 2 + ny * curve,

@@ -70,7 +70,7 @@ export function FrontierLightningCursor() {
     const fine = window.matchMedia('(hover: hover) and (pointer: fine)');
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
     let frame = 0;
-    let pending: { x: number; y: number; visible: boolean; hot: boolean } | null = null;
+    let pending: { x: number; y: number; visible: boolean } | null = null;
     const timers = new Set<number>();
     const onMove = (event: PointerEvent) => {
       if (!fine.matches || reduced.matches || event.pointerType === 'touch') return;
@@ -81,7 +81,6 @@ export function FrontierLightningCursor() {
       pending = {
         x: endpoint.x, y: endpoint.y,
         visible: Boolean(document.querySelector('[data-frontier-edition="multi-article"]')),
-        hot: Boolean(creatureAtTip(endpoint)),
       };
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
@@ -89,7 +88,9 @@ export function FrontierLightningCursor() {
         if (!pending) return;
         aim.style.transform = `translate3d(${Math.round(pending.x - 17)}px,${Math.round(pending.y - 17)}px,0)`;
         aim.style.opacity = pending.visible ? '1' : '0';
-        aim.dataset.hot = pending.hot ? 'true' : 'false';
+        // Only inspect sprite geometry once per animation frame, not once
+        // per high-frequency pointer event, while the swarm is in motion.
+        aim.dataset.hot = creatureAtTip({ x: pending.x, y: pending.y }) ? 'true' : 'false';
       });
     };
     const onClick = (event: MouseEvent) => {

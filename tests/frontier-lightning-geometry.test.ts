@@ -16,7 +16,7 @@ test('the jagged curved lightning terminates exactly on its target, at any offse
     assert.equal(result.forks.length,5);
     assert.equal(result.filaments.length,2);
     assert(result.filaments.every((line)=>line.startsWith('M ') && line.includes(' L ')));
-    assert(result.forks.every((path)=>/^M \d+ \d+ L \d+ \d+ L \d+ \d+$/.test(path)));
+    assert(result.forks.every((path)=>/^M -?\d+ -?\d+ L -?\d+ -?\d+ L -?\d+ -?\d+$/.test(path)));
     assert(result.main.match(/ L /g)?.length && (result.main.match(/ L /g)?.length ?? 0) >= 9);
   }
 });
