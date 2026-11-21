@@ -301,6 +301,8 @@ export type FrontierHistoryEntry = {
   ambientAppearances?: number;
   ambientPops?: number;
   ambientLastPoppedAt?: string;
+  /** An explicit strong preference expressed by the unlabelled clear-all oval. */
+  ambientClearedAt?: string;
   resurfacedCount: number;
   rewarded: boolean;
 };

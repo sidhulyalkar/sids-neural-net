@@ -68,43 +68,176 @@ async function audit(width,height) {
   } finally { await browser.close(); }
 }
 
-async function auditActiveMotif() {
-  const browser=await chromium.launch({headless:true});
-  const page=await browser.newPage({viewport:{width:1440,height:900},reducedMotion:'no-preference'});
+async function auditActiveSwarm() {
+  const browser = await chromium.launch({headless:true});
+  const page = await browser.newPage({viewport:{width:1440,height:900},reducedMotion:'no-preference'});
+  const errors=[];
+  page.on('pageerror',(error)=>errors.push(error.message));
   try {
     const response=await page.goto(TARGET,{waitUntil:'domcontentloaded',timeout:20000});
-    assert(response?.ok(),'Animated edition must load');
-    const critter=page.locator('[data-frontier-sprite]').first();
-    await critter.waitFor({timeout:14000});
-    const articleId=await critter.locator('xpath=ancestor::article').getAttribute('data-frontier-story');
-    assert(articleId,'Motif must be linked to a real article');
-    await page.waitForTimeout(1100);
-    // Freeze the moving target only for deterministic browser input coverage.
-    await critter.evaluate((node)=>{ node.style.animationPlayState='paused'; });
-    await critter.click({timeout:3500});
-    assert.equal(await critter.getAttribute('data-popped'),'true','Click must start the satisfying pop animation');
-    await page.waitForFunction(([id])=>{
-      const json=localStorage.getItem('frontier-personal-radar-v1');
-      const history=json ? JSON.parse(json).state?.history : {};
-      return (history?.[id]?.ambientPops ?? 0) >= 1
-        && (history?.[id]?.ambientAppearances ?? 0) >= 1;
-    },[articleId],{timeout:4000});
-    await critter.waitFor({state:'detached',timeout:4000});
+    assert(response?.ok(),'Animated signal edition must load');
+    const oldHero=page.getByText('The frontier, in context.');
+    assert.equal(await oldHero.count(),0,'Remove the oversized editorial introduction');
+    assert.equal(await page.getByText(/AN EDITION OF THINGS WORTH UNDERSTANDING/i).count(),0,
+      'No marketing kicker may remain');
+    const first=page.locator('#frontier-stories article').first();
+    const firstId=await first.getAttribute('data-frontier-story');
+    assert(firstId,'A real article must own its swarm');
+    await first.locator('[data-frontier-ambient-layer="swarm"]').waitFor({timeout:13000});
+    await page.waitForFunction(()=>
+      document.querySelectorAll('#frontier-stories article:first-child [data-frontier-sprite]').length >= 18,
+      undefined,{timeout:6000});
+    const count=await first.locator('[data-frontier-sprite]').count();
+    assert.equal(count,18,'Desktop article must have eighteen independent sprites');
+    const patterns=await first.locator('[data-flight-pattern]').evaluateAll(
+      (nodes)=>nodes.map((node)=>node.getAttribute('data-flight-pattern')));
+    assert(new Set(patterns).size >= 4,'Different physics paths must be visible together');
+    const colorSteps = await first.locator('[data-color-step]').evaluateAll(
+      nodes => nodes.map(node => node.getAttribute('data-color-step')));
+    assert(new Set(colorSteps).size >= 5,'Swarm must have varied bright color families');
+    assert.equal(await page.locator('[data-frontier-lightning-cursor]').count(),1,
+      'The Frontier lightning cursor must be mounted exactly once');
+    assert.equal(await page.locator('[data-frontier-whip-cursor]').count(),0,
+      'The old rainbow whip must no longer be present');
+
+    // Every click emits lightning at its true cursor origin; the far tip
+    // determines hit or miss. Nothing may snap to a nearby bubble.
+    const missBox=await page.locator('[data-frontier-edition] header').first().boundingBox();
+    assert(missBox,'Masthead must offer an empty-space test');
+    const miss={x:Math.round(missBox.x+missBox.width/2),y:Math.round(missBox.y+missBox.height/2)};
+    await page.mouse.click(miss.x,miss.y);
+    const missedBolt=page.locator('[data-frontier-lightning-strike]').last();
+    await missedBolt.waitFor({timeout:2000});
+    assert.equal(await missedBolt.getAttribute('data-lightning-start-x'),String(miss.x));
+    assert.equal(await missedBolt.getAttribute('data-lightning-start-y'),String(miss.y));
+    const missTip=await missedBolt.evaluate(el=>({
+      x:Number(el.getAttribute('data-lightning-end-x')),
+      y:Number(el.getAttribute('data-lightning-end-y'))
+    }));
+    assert(Math.hypot(missTip.x-miss.x,missTip.y-miss.y)>110,
+      'The far tip must extend visibly away from the cursor');
+    await page.waitForTimeout(225);
+    assert.equal(await missedBolt.getAttribute('data-lightning-hit'),'false',
+      'An empty-space shot must not claim an impact');
+    const initialPops=await page.evaluate(id=>{
+      const state=JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state;
+      return state.history[id]?.ambientPops??0;
+    },firstId);
+    assert.equal(initialPops,0,'A miss must never count as article interest');
+
+    // Freeze the first swarm for deterministic hit geometry. Pick a bubble
+    // with a clear, clickable EMITTER position down/right from its body.
+    await first.locator('[data-frontier-sprite]').evaluateAll(nodes=>{
+      for (const node of nodes) node.style.animationPlayState='paused';
+    });
+    const targetIndex=await first.locator('[data-frontier-sprite]').evaluateAll(nodes=>{
+      return nodes.findIndex(node=>{
+        const body=node.querySelector('[data-frontier-sprite-body]');
+        if(!body) return false;
+        const b=body.getBoundingClientRect();
+        const from={x:Math.round(b.left+b.width/2+116),y:Math.round(b.top+b.height/2+92)};
+        if(from.x>=innerWidth-16||from.y>=innerHeight-16||from.x<130||from.y<106)return false;
+        const under=document.elementFromPoint(from.x,from.y);
+        return !under?.closest('a,button,input,select,textarea,summary,[role="button"]');
+      });
+    });
+    assert(targetIndex>=0,'At least one visible sprite must have a safe offset firing origin');
+    const target=first.locator('[data-frontier-sprite]').nth(targetIndex);
+    const bodyBounds=await target.locator('[data-frontier-sprite-body]').boundingBox();
+    assert(bodyBounds,'Bubble glyph must have a visible body');
+    const aimTip={x:Math.round(bodyBounds.x+bodyBounds.width/2),y:Math.round(bodyBounds.y+bodyBounds.height/2)};
+    const fireAt={x:aimTip.x+116,y:aimTip.y+92};
+    await target.evaluate(node=>{
+      const capture={clickedAt:0,impactedAt:0,poppedAtClick:false};
+      Object.assign(window,{__frontierLightningAudit:capture});
+      node.addEventListener('frontier-lightning-impact',()=>{
+        capture.impactedAt=performance.now();
+      },{once:true});
+    });
+    await page.mouse.click(fireAt.x,fireAt.y);
+    const bolt=page.locator('[data-frontier-lightning-strike]').last();
+    await bolt.waitFor({timeout:2000});
+    const tip=await bolt.evaluate(el=>({
+      startX:Number(el.getAttribute('data-lightning-start-x')),
+      startY:Number(el.getAttribute('data-lightning-start-y')),
+      endX:Number(el.getAttribute('data-lightning-end-x')),
+      endY:Number(el.getAttribute('data-lightning-end-y'))
+    }));
+    assert.equal(tip.startX,fireAt.x,'The lightning emitter begins at the cursor');
+    assert.equal(tip.startY,fireAt.y,'The lightning emitter begins at the cursor');
+    assert(Math.abs(tip.endX-aimTip.x)<=1&&Math.abs(tip.endY-aimTip.y)<=1,
+      'Only the distant tip should reach the target bubble');
+    await page.waitForFunction(()=>Boolean(window.__frontierLightningAudit?.impactedAt),
+      undefined,{timeout:2000});
+    assert.equal(await target.getAttribute('data-popped'),'true',
+      'A real far-tip collision must pop the bubble');
+    assert.equal(await bolt.getAttribute('data-lightning-hit'),'true');
+    await target.evaluate(node=>{node.style.removeProperty('animation-play-state');});
+    await target.waitFor({state:'detached',timeout:5000});
+    const recorded=await page.evaluate(id=>{
+      const state=JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state;
+      return {seen:state.history[id]?.ambientAppearances,pops:state.history[id]?.ambientPops};
+    },firstId);
+    assert(recorded.seen>=18&&recorded.pops===1,
+      'Only a far-tip hit, not the cursor or electric forks, may increment a pop: '+JSON.stringify(recorded));
+
+    const clear=first.locator('[data-frontier-clear-article]');
+    assert.equal(await clear.textContent(),'','Clear oval must have no visible text');
+    await clear.click({timeout:4000});
+    assert.equal(await clear.getAttribute('data-cleared'),'true','Clear oval is a one-time explicit preference');
+    await page.waitForTimeout(1150);
+    assert.equal(await first.locator('[data-frontier-sprite]').count(),0,
+      'Clear all must remove the entire article swarm, including moving bugs');
+    const cleared=await page.evaluate((id)=>{
+      const state=JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state;
+      const entry=state.history[id];
+      return {cleared:entry?.ambientClearedAt,reaction:entry?.reaction,
+        meaningfulInteractions:state.profile.meaningfulInteractions};
+    },firstId);
+    assert(cleared.cleared && cleared.reaction==='love',
+      'Clear-all must explicitly prioritize that article: '+JSON.stringify(cleared));
+
+    await page.reload({waitUntil:'domcontentloaded'});
+    const savedOval=page.locator(`article[data-frontier-story="${firstId}"] [data-frontier-clear-article]`);
+    await savedOval.waitFor();
+    assert.equal(await savedOval.getAttribute('data-cleared'),'true',
+      'Strong preference persists without bringing back the swarm');
+
     const off=page.getByRole('button',{name:'Turn off floating newspaper creatures'});
     await off.click();
-    assert.equal(await page.locator('[data-frontier-sprite]').count(),0,
-      'Opt-out removes the floating motif');
+    assert.equal(await page.locator('[data-frontier-sprite]').count(),0,'Opt-out removes active swarms');
     await page.reload({waitUntil:'domcontentloaded'});
-    assert(await page.getByRole('button',{name:'Turn on floating newspaper creatures'}).count() === 1,
-      'Floating creature opt-out must persist');
-    return {clickedArticle:articleId,popSaved:true,optOutPersisted:true};
+    assert.equal(await page.getByRole('button',{name:'Turn on floating newspaper creatures'}).count(),1,
+      'Preference to suppress swarms must persist');
+    assert.deepEqual(errors,[],'No browser runtime failures');
+    return {initialSwarm:count,uniquePaths:new Set(patterns).size,clearPersists:true,optOutPersists:true};
+  } finally { await browser.close(); }
+}
+
+async function auditCompactSwarm() {
+  const browser=await chromium.launch({headless:true});
+  const page=await browser.newPage({viewport:{width:390,height:844},reducedMotion:'no-preference'});
+  try {
+    await page.goto(TARGET,{waitUntil:'domcontentloaded',timeout:20000});
+    const first=page.locator('#frontier-stories article').first();
+    await first.locator('[data-frontier-ambient-layer="swarm"]').waitFor({timeout:13000});
+    assert.equal(await first.locator('[data-frontier-sprite]').count(),10,
+      'Mobile must have ten moving sprites per visible article');
+    assert.equal(await page.locator('[data-frontier-wheel-rating]').count(),0);
+    const viewport=await page.evaluate(()=>({
+      width:innerWidth,scrollWidth:document.documentElement.scrollWidth
+    }));
+    assert(viewport.scrollWidth <= viewport.width+2,
+      'Swarm sprites must not create horizontal scrolling: '+JSON.stringify(viewport));
+    return {mobileSwarm:10,overflow:viewport.scrollWidth-viewport.width};
   } finally { await browser.close(); }
 }
 
 async function main() {
   const results=[];
   for(const size of [[1440,900],[390,844],[320,740]]) results.push(await audit(...size));
-  const interaction=await auditActiveMotif();
-  console.log('FRONTIER multi-article edition QA PASS',JSON.stringify({viewports:results,interaction}));
+  const interaction=await auditActiveSwarm();
+  const mobile=await auditCompactSwarm();
+  console.log('FRONTIER multi-article edition QA PASS',JSON.stringify({viewports:results,interaction,mobile}));
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

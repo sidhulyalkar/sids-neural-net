@@ -1,0 +1,73 @@
+/* Frontier: pointer-transparent, viewport-fixed SVG discharge layer.
+ * The true click point is the EMITTER. The visible offset reticle marks
+ * the distant tip. Only that endpoint is eligible for collision.
+ */
+.root { position:fixed; inset:0; z-index:130; pointer-events:none; overflow:hidden;
+  contain:layout style paint; }
+.overlay { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+.aim { position:absolute; top:0; left:0; width:34px; height:34px; opacity:0;
+  transform:translate3d(-100px,-100px,0); pointer-events:none;
+  transition:opacity 80ms ease; }
+.aimRing { position:absolute; inset:3px; border-radius:50%;
+  border:1.5px solid rgba(149,228,255,.80);
+  box-shadow:0 0 13px rgba(73,200,255,.32), inset 0 0 8px rgba(192,243,255,.18); }
+.aimRing::before,.aimRing::after { content:''; position:absolute; left:50%; top:50%; background:#c6f9ff; }
+.aimRing::before { width:1px; height:36px; transform:translate(-50%,-50%); opacity:.8; }
+.aimRing::after { height:1px; width:36px; transform:translate(-50%,-50%); opacity:.8; }
+.aimDot { position:absolute; left:50%; top:50%; width:3.5px; height:3.5px; border-radius:50%;
+  transform:translate(-50%,-50%); background:#f8ffff; box-shadow:0 0 6px #70e7ff; }
+.aim[data-hot='true'] .aimRing { border-color:#f5faff;
+  box-shadow:0 0 23px rgba(75,201,255,.85),0 0 10px rgba(207,129,255,.80); }
+.overlay path { fill:none; stroke-linecap:round; stroke-linejoin:round; }
+.halo,.arc,.core { stroke-dasharray:100; stroke-dashoffset:100;
+  animation:galvanicTrace 235ms cubic-bezier(.17,.85,.24,1) both; }
+.halo { stroke:#31a6ff; stroke-width:16; opacity:.27; }
+.arc { stroke:#8a94ff; stroke-width:6.2;
+  filter:drop-shadow(0 0 5px rgba(120,191,255,.72)); }
+.core { stroke:#f6ffff; stroke-width:2.15; filter:drop-shadow(0 0 2.5px #dcfaff); }
+.filament { stroke:#8af4ff; stroke-width:1.4; stroke-dasharray:100; stroke-dashoffset:100;
+  filter:drop-shadow(0 0 3px #94d4ff);
+  animation:coronaTrace 252ms ease-out 21ms both; }
+.fork { stroke:#b1d7ff; stroke-width:1.8; stroke-dasharray:100; stroke-dashoffset:100;
+  animation:coronaTrace 270ms ease-out 54ms both; }
+.fork:nth-of-type(even) { stroke:#b7a3ff; animation-delay:93ms; }
+.emitter,.impact,.flash { transform-box:fill-box; transform-origin:center; opacity:0; }
+.emitter { fill:#d9faff; filter:drop-shadow(0 0 12px #70caff);
+  animation:sourcePulse 265ms ease-out both; }
+.impact { fill:none; stroke:#a1f4ff; stroke-width:2.7;
+  animation:impactRing 275ms cubic-bezier(.12,.85,.26,1) 158ms both; }
+.flash { fill:#ffffff; filter:drop-shadow(0 0 10px #8addff);
+  animation:impactFlash 252ms ease-out 158ms both; }
+@keyframes galvanicTrace {
+  0% { stroke-dashoffset:100; opacity:0; }
+  10% { opacity:1; }
+  42% { opacity:.73; }
+  60% { opacity:1; }
+  70% { stroke-dashoffset:0; opacity:1; }
+  84% { opacity:.38; }
+  100% { stroke-dashoffset:0; opacity:0; }
+}
+@keyframes coronaTrace {
+  0% { stroke-dashoffset:100; opacity:0; }
+  25% { opacity:.94; }
+  48% { opacity:.38; }
+  65% { stroke-dashoffset:0; opacity:1; }
+  100% { stroke-dashoffset:0; opacity:0; }
+}
+@keyframes sourcePulse {
+  0% { transform:scale(.4); opacity:0; }
+  12% { transform:scale(2.1); opacity:1; }
+  100% { transform:scale(.1); opacity:0; }
+}
+@keyframes impactRing {
+  0% { transform:scale(.15); opacity:0; }
+  17% { opacity:1; }
+  100% { transform:scale(4); opacity:0; }
+}
+@keyframes impactFlash {
+  0% { transform:scale(.7); opacity:0; }
+  17% { transform:scale(2.3); opacity:1; }
+  100% { transform:scale(.1); opacity:0; }
+}
+@media(pointer:coarse),(hover:none) { .aim { display:none!important; } }
+@media(prefers-reduced-motion:reduce) { .root { display:none!important; } }

@@ -94,8 +94,9 @@ export type FrontierStore = FrontierPersistedState & {
   recordDwell: (item: FrontierItem, dwellMs: number) => void;
   recordExpand: (item: FrontierItem) => void;
   recordOpen: (item: FrontierItem) => void;
-  recordAmbientAppearance: (item: FrontierItem) => void;
+  recordAmbientAppearances: (item: FrontierItem, count: number) => void;
   recordAmbientPop: (item: FrontierItem) => void;
+  recordAmbientClear: (item: FrontierItem) => void;
   react: (item: FrontierItem, reaction: FrontierReaction) => void;
   rateInterest: (item: FrontierItem, score: number, method: 'hold' | 'slider' | 'wheel', holdMs?: number) => void;
   toggleSave: (item: FrontierItem) => void;
@@ -219,28 +220,51 @@ export const useFrontierStore = create<FrontierStore>()(
         if (current.behavior.implicitLearning) emitFrontierSemanticTelemetry({ kind: 'open', item });
       },
 
-      recordAmbientAppearance: (item) => {
+      recordAmbientAppearances: (item, count) => {
+        if (!Number.isFinite(count) || count <= 0) return;
         const current = get();
         const previous = current.history[item.id] ?? historyEntry(item);
-        if ((previous.ambientAppearances ?? 0) >= 40) return;
+        if (previous.ambientClearedAt) return;
+        const appearances = Math.min(160, (previous.ambientAppearances ?? 0) + Math.min(24, Math.floor(count)));
+        if (appearances === previous.ambientAppearances) return;
         set({ history: {
           ...current.history,
-          [item.id]: { ...previous, item, ambientAppearances: (previous.ambientAppearances ?? 0) + 1 },
+          [item.id]: { ...previous, item, ambientAppearances: appearances },
         } });
       },
 
       recordAmbientPop: (item) => {
         const current = get();
         const previous = current.history[item.id];
-        if (!previous) return;
+        if (!previous || previous.ambientClearedAt) return;
         const appearances = Math.max(0, previous.ambientAppearances ?? 0);
-        if (!appearances || (previous.ambientPops ?? 0) >= Math.min(appearances, 40)) return;
+        const nextPops = (previous.ambientPops ?? 0) + 1;
+        if (!appearances || nextPops > appearances || nextPops > 160) return;
+        set({
+          profile: current.behavior.implicitLearning && (nextPops === 2 || nextPops === 4)
+            ? applyImplicitTasteSignal(current.profile, item, 'expand')
+            : current.profile,
+          history: {
+            ...current.history,
+            [item.id]: { ...previous, item, ambientPops: nextPops,
+              ambientLastPoppedAt: new Date().toISOString() },
+          },
+        });
+      },
+
+      recordAmbientClear: (item) => {
+        const previous = get().history[item.id];
+        if (previous?.ambientClearedAt) return;
+        // The user knows the oval explicitly means "strongly prioritize".
+        // Preserve the established explicit preference machinery, including
+        // first-vote reward idempotency and transferable topic affinities.
+        if (previous?.reaction !== 'love') get().react(item, 'love');
+        const current = get();
+        const entry = current.history[item.id] ?? historyEntry(item);
         set({ history: {
           ...current.history,
-          [item.id]: { ...previous, item, ambientPops: (previous.ambientPops ?? 0) + 1,
-            ambientLastPoppedAt: new Date().toISOString() },
+          [item.id]: { ...entry, item, ambientClearedAt: new Date().toISOString() },
         } });
-        // Deliberately no reaction(), XP reward or explicit taste update.
       },
 
       react: (item, reaction) => {

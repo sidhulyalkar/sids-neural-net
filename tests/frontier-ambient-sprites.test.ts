@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ambientEngagementAdjustment, frontierMotifForItem } from '../lib/frontier/ambientSprites';
+import { ambientEngagementAdjustment, frontierMotifForItem, frontierSwarmSprites } from '../lib/frontier/ambientSprites';
 import type { FrontierHistoryEntry, FrontierItem } from '../lib/frontier/types';
 
 function source(lane: FrontierItem['lane'], title: string, tags: string[] = []): FrontierItem {
@@ -25,12 +25,45 @@ test('motifs adapt to the actual source, not a global decorative skin', () => {
   assert.equal(frontierMotifForItem(source('ai_frontier','Language reasoning')),'newsprint');
 });
 
-test('ornament clicks are capped, exposure-normalized, and never equivalent to explicit likes', () => {
-  assert.equal(ambientEngagementAdjustment(history(0,1)),0);
-  assert.equal(ambientEngagementAdjustment(history(1,0)),0);
-  const clearing=ambientEngagementAdjustment(history(1,1));
-  assert(clearing > 0 && clearing <= .002, 'Clear-only taps are weak evidence of article interest');
-  const reading=ambientEngagementAdjustment(history(2,1,'2026-11-19T13:00:00Z'));
-  assert(reading > clearing && reading <= .018);
-  assert.equal(ambientEngagementAdjustment(history(2,99,'2026-11-19T13:00:00Z')), .018);
+
+test('swarm layout is deterministic, varied, bounded, and independently article-seeded', () => {
+  const desktop = frontierSwarmSprites('article-1');
+  const repeat = frontierSwarmSprites('article-1');
+  const mobile = frontierSwarmSprites('article-1', true);
+  assert.deepEqual(desktop, repeat);
+  assert.equal(desktop.length, 18);
+  assert.equal(mobile.length, 10);
+  assert.equal(new Set(desktop.map((sprite) => sprite.colorStep)).size >= 5, true);
+  assert.notDeepEqual(desktop, frontierSwarmSprites('article-2'));
+  assert.equal(new Set(desktop.map((sprite) => sprite.pattern)).size, 5);
+  assert.deepEqual(desktop.slice(0, 5).map((sprite) => sprite.pattern),
+    ['hover', 'patrol', 'orbit', 'zigzag', 'cross']);
+  for (const sprite of desktop) {
+    assert(sprite.x >= 10 && sprite.x <= 95);
+    assert(sprite.y >= 10 && sprite.y <= 80);
+    assert(sprite.duration >= 3 && sprite.duration <= 10);
+    assert(sprite.delay <= 0);
+    assert(sprite.size >= 30 && sprite.size <= 42);
+    assert(Number.isInteger(sprite.colorStep) && sprite.colorStep >= 0 && sprite.colorStep <= 6);
+  }
+});
+
+test('intentional swarm clicks yield calibrated ranking evidence, unlike a raw impression', () => {
+  assert.equal(ambientEngagementAdjustment(history(0, 1)), 0);
+  assert.equal(ambientEngagementAdjustment(history(9, 0)), 0);
+  const one = ambientEngagementAdjustment(history(9, 1));
+  const half = ambientEngagementAdjustment(history(9, 5));
+  const all = ambientEngagementAdjustment(history(9, 9));
+  assert(one > 0.002 && one < 0.02);
+  assert(half > one);
+  assert.equal(all, 0.24);
+  assert.equal(ambientEngagementAdjustment(history(9, 100)), 0.24, 'No overcount on replay');
+});
+
+test('explicit clear-all outranks an entire caught swarm and does not need a pop', () => {
+  const cleared = { ...history(9, 0), ambientClearedAt: '2026-11-19T19:45:00Z' };
+  const strong = ambientEngagementAdjustment(cleared);
+  assert.equal(strong, 0.62);
+  assert(strong > ambientEngagementAdjustment(history(9, 9)) * 2.5);
+  assert.equal(ambientEngagementAdjustment({ ...cleared, ambientPops: 9 }), 0.86);
 });
