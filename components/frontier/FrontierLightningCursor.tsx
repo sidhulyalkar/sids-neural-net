@@ -30,15 +30,24 @@ function strikeImpact(point: LightningPoint): boolean {
     if (button.closest('article')?.querySelector('[data-frontier-clear-article][data-cleared="true"]'))
       continue;
     const glyph = bubbleBody(button);
-    if (!glyph) continue;
+    const scene = button.closest('[data-frontier-ambient-layer="swarm"]');
+    if (!glyph || !scene) continue;
+    const clip = scene.getBoundingClientRect();
+    // Offscreen and clipped creatures are not tangible. In particular, a
+    // CSS animation may place a button just outside its overflow:hidden tile.
+    if (point.x < clip.left || point.x > clip.right ||
+        point.y < clip.top || point.y > clip.bottom) continue;
     const rect = glyph.getBoundingClientRect();
     if (!lightningTipTouchesBubble(point, rect)) continue;
     const distance = Math.hypot(point.x - rect.left - rect.width / 2, point.y - rect.top - rect.height / 2);
     if (distance < bestDistance) { bestDistance = distance; target = button; }
   }
   if (!target) return false;
-  target.dispatchEvent(new CustomEvent('frontier-lightning-impact'));
-  return true;
+  // A cancelable handshake tells the animation whether a live creature
+  // actually accepted the impact, preventing duplicate-shot false positives.
+  const impact = new CustomEvent('frontier-lightning-impact', { cancelable: true });
+  target.dispatchEvent(impact);
+  return impact.defaultPrevented;
 }
 
 /** Shoot at the *actual click coordinate*, anywhere on this Frontier route.

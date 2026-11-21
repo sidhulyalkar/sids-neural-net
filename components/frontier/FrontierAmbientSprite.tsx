@@ -74,9 +74,11 @@ export function FrontierAmbientSprite({ motif, articleTitle, spec, clear, onPop,
   useEffect(() => {
     const button = buttonRef.current;
     if (!button) return;
-    const impact = () => {
+    const impact = (event: Event) => {
       if (poppedRef.current || !button.isConnected) return;
       if (button.closest('article')?.querySelector('[data-frontier-clear-article][data-cleared="true"]')) return;
+      // Signal accepted impact *only* if this is the first true pop.
+      event.preventDefault();
       poppedRef.current = true;
       setPopped(true);
       onPopRef.current();
