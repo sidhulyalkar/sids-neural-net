@@ -925,3 +925,12 @@ body::before {
 .immersive-atlas-mode::after {
   display: none !important;
 }
+
+/* Frontier reading surfaces own their warm paper background even though the
+ * rest of the portfolio retains its night-sky appearance. */
+body:has([data-frontier-edition="multi-article"]),
+body:has([data-frontier-reader="true"]) {
+  background:#f7f3ea;
+}
+body:has([data-frontier-edition="multi-article"])::before,
+body:has([data-frontier-reader="true"])::before { display:none; }

@@ -1,10 +1,11 @@
-/* Frontier: pointer-transparent, viewport-fixed SVG discharge layer.
- * The true click point is the EMITTER. The visible offset reticle marks
- * the distant tip. Only that endpoint is eligible for collision.
+/* Crisp electrical arbor on warm paper: bright thin white core, narrow
+ * icy-blue halo, branching secondary and tertiary hairline dendrites.
+ * The optional reticle affects VISIBILITY ONLY, never endpoint hit testing.
  */
 .root { position:fixed; inset:0; z-index:130; pointer-events:none; overflow:hidden;
   contain:layout style paint; }
 .overlay { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+.root[data-aim-enabled='false'] .aim { display:none!important; }
 .aim { position:absolute; top:0; left:0; width:34px; height:34px; opacity:0;
   transform:translate3d(-100px,-100px,0); pointer-events:none;
   transition:opacity 80ms ease; }
@@ -21,22 +22,23 @@
 .overlay path { fill:none; stroke-linecap:round; stroke-linejoin:round; }
 .halo,.arc,.core { stroke-dasharray:100; stroke-dashoffset:100;
   animation:galvanicTrace 235ms cubic-bezier(.17,.85,.24,1) both; }
-.halo { stroke:#31a6ff; stroke-width:16; opacity:.27; }
-.arc { stroke:#8a94ff; stroke-width:6.2;
-  filter:drop-shadow(0 0 5px rgba(120,191,255,.72)); }
-.core { stroke:#f6ffff; stroke-width:2.15; filter:drop-shadow(0 0 2.5px #dcfaff); }
-.filament { stroke:#8af4ff; stroke-width:1.4; stroke-dasharray:100; stroke-dashoffset:100;
-  filter:drop-shadow(0 0 3px #94d4ff);
+.halo { stroke:#298bcb; stroke-width:8.8; opacity:.25; filter:drop-shadow(0 0 3px #4ab4e7); }
+.arc { stroke:#80c8ee; stroke-width:3.5; filter:none; }
+.core { stroke:#fcffff; stroke-width:1.5; filter:drop-shadow(0 0 1px #a2deff); }
+.filament { stroke:#bee7f9; stroke-width:.82; stroke-dasharray:100; stroke-dashoffset:100;
   animation:coronaTrace 252ms ease-out 21ms both; }
-.fork { stroke:#b1d7ff; stroke-width:1.8; stroke-dasharray:100; stroke-dashoffset:100;
-  animation:coronaTrace 270ms ease-out 54ms both; }
-.fork:nth-of-type(even) { stroke:#b7a3ff; animation-delay:93ms; }
+.fork { stroke:#b7e0f9; stroke-width:1.1; stroke-dasharray:100; stroke-dashoffset:100;
+  animation:coronaTrace 268ms ease-out 42ms both; }
+.dendrite,.microDendrite { stroke-dasharray:100; stroke-dashoffset:100;
+  animation:coronaTrace 248ms ease-out both; }
+.dendrite { stroke:#b3d7ec; stroke-width:.76; animation-delay:71ms; }
+.microDendrite { stroke:#d6eaf7; stroke-width:.49; animation-delay:94ms; }
 .emitter,.impact,.flash { transform-box:fill-box; transform-origin:center; opacity:0; }
-.emitter { fill:#d9faff; filter:drop-shadow(0 0 12px #70caff);
+.emitter { fill:#eaffff; filter:drop-shadow(0 0 4px #8bdafa);
   animation:sourcePulse 265ms ease-out both; }
-.impact { fill:none; stroke:#a1f4ff; stroke-width:2.7;
+.impact { fill:none; stroke:#79b9da; stroke-width:1.7;
   animation:impactRing 275ms cubic-bezier(.12,.85,.26,1) 158ms both; }
-.flash { fill:#ffffff; filter:drop-shadow(0 0 10px #8addff);
+.flash { fill:#ffffff; filter:drop-shadow(0 0 5px #8addff);
   animation:impactFlash 252ms ease-out 158ms both; }
 @keyframes galvanicTrace {
   0% { stroke-dashoffset:100; opacity:0; }
