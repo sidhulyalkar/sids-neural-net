@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { frontierLightningGeometry } from '@/lib/frontier/lightningGeometry';
-import type { LightningGeometry } from '@/lib/frontier/lightningGeometry';
+import type { LightningGeometry, LightningPoint } from '@/lib/frontier/lightningGeometry';
+import { lightningTipTouchesBubble } from '@/lib/frontier/lightningImpact';
 import styles from './frontier-lightning-cursor.module.css';
 
 type Strike = {
@@ -13,27 +14,37 @@ type Strike = {
 
 const STRIKE_TIME_MS = 165;
 const STRIKE_LIFETIME_MS = 470;
-const AIM_ASSIST_RADIUS = 58;
-
-function closestCreature(article: Element, x: number, y: number, direct: Element | null) {
-  if (direct instanceof HTMLButtonElement &&
-      direct.dataset.popped !== 'true' &&
-      direct.dataset.frontierLightningReserved !== 'true') return direct;
-  let nearest: HTMLButtonElement | null = null;
-  let bestDistance = AIM_ASSIST_RADIUS;
-  for (const node of article.querySelectorAll<HTMLButtonElement>('[data-frontier-sprite]')) {
-    if (node.dataset.popped === 'true' || node.dataset.frontierLightningReserved === 'true') continue;
-    const bounds = node.getBoundingClientRect();
-    if (!bounds.width || !bounds.height) continue;
-    const dist = Math.hypot(x - (bounds.left + bounds.width / 2), y - (bounds.top + bounds.height / 2));
-    if (dist < bestDistance) { nearest = node; bestDistance = dist; }
-  }
-  return nearest;
+function bubbleBody(button: HTMLButtonElement): Element | null {
+  return button.querySelector('[data-frontier-sprite-body]');
 }
 
-/** Curved, electric discharge: the bolt is the thing that pops the sprite.
- * It never owns pointer events or converts non-target clicks to interest.
- * Touch/keyboard/reduced-motion activate the native sprite button immediately.
+function strikeImpact(point: LightningPoint): boolean {
+  let target: HTMLButtonElement | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  // A shot can land on any visible article. The closest overlapping glyph
+  // receives it, not every bubble whose button rectangle happens to overlap.
+  for (const button of document.querySelectorAll<HTMLButtonElement>(
+    '[data-frontier-ambient-layer="swarm"] [data-frontier-sprite]'
+  )) {
+    if (button.dataset.popped === 'true' || !button.isConnected) continue;
+    if (button.closest('article')?.querySelector('[data-frontier-clear-article][data-cleared="true"]'))
+      continue;
+    const glyph = bubbleBody(button);
+    if (!glyph) continue;
+    const rect = glyph.getBoundingClientRect();
+    if (!lightningTipTouchesBubble(point, rect)) continue;
+    const distance = Math.hypot(point.x - rect.left - rect.width / 2, point.y - rect.top - rect.height / 2);
+    if (distance < bestDistance) { bestDistance = distance; target = button; }
+  }
+  if (!target) return false;
+  target.dispatchEvent(new CustomEvent('frontier-lightning-impact'));
+  return true;
+}
+
+/** Shoot at the *actual click coordinate*, anywhere on this Frontier route.
+ * A creature pops only when the fixed endpoint intersects its visible body
+ * at the end of the 165ms lightning travel. Misses still get electric effects.
+ * Native navigation, touch scrolling and keyboard actions are undisturbed.
  */
 export function FrontierLightningCursor() {
   const aimRef = useRef<HTMLDivElement>(null);
@@ -51,10 +62,10 @@ export function FrontierLightningCursor() {
     const onMove = (event: PointerEvent) => {
       if (!fine.matches || reduced.matches || event.pointerType === 'touch') return;
       const target = event.target instanceof Element ? event.target : null;
-      const article = target?.closest('[data-frontier-story]');
       pending = {
         x: event.clientX, y: event.clientY,
-        visible: Boolean(article), hot: Boolean(target?.closest('[data-frontier-sprite]')),
+        visible: Boolean(document.querySelector('[data-frontier-edition="multi-article"]')),
+        hot: Boolean(target?.closest('[data-frontier-sprite]')),
       };
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
@@ -66,33 +77,41 @@ export function FrontierLightningCursor() {
       });
     };
     const onClick = (event: MouseEvent) => {
-      if (!fine.matches || reduced.matches || event.detail === 0 || event.button !== 0) return;
-      const clicked = event.target instanceof Element ? event.target : null;
-      const article = clicked?.closest('[data-frontier-story]');
-      if (!article) return;
-      const directlyHit = clicked?.closest('[data-frontier-sprite]') ?? null;
-      // No aim-assist near source links, form controls, the clear-all oval,
-      // summary toggles, or other deliberate editorial interactions.
-      if (!directlyHit && clicked?.closest('a,button,input,textarea,select,summary,[role="button"]')) return;
-      const target = closestCreature(article, event.clientX, event.clientY, directlyHit);
-      if (!target) return;
-      const bounds = target.getBoundingClientRect();
-      const end = { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
+      // Pointer-driven clicks fire everywhere on Frontier, including nav,
+      // empty card space, margins and search. Never prevent their native action.
+      if (reduced.matches || event.detail === 0 || event.button !== 0) return;
+      if (!document.querySelector('[data-frontier-edition="multi-article"]')) return;
+      if (!Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return;
+      const endpoint = { x: event.clientX, y: event.clientY };
       const from = {
-        x: Math.max(14, Math.min(window.innerWidth - 14, event.clientX - 105)),
-        y: Math.max(14, Math.min(window.innerHeight - 14, event.clientY - 84)),
+        x: Math.max(14, Math.min(window.innerWidth - 14, endpoint.x - 105)),
+        y: Math.max(14, Math.min(window.innerHeight - 14, endpoint.y - 84)),
       };
       const id = ++nextId.current;
-      const geometry = frontierLightningGeometry(from, end, id * 37);
-      target.dataset.frontierLightningReserved = 'true';
-      setStrikes((current) => [...current.slice(-5), { id, geometry, hit: true }]);
+      const geometry = frontierLightningGeometry(from, endpoint, id * 37);
+
+      // Pause the directly clicked bubble at its REAL glyph position, not a
+      // 44px square, while lightning travels. A click on empty button padding
+      // is therefore a true miss. Other bubbles keep flying and may wander
+      // into or out of the endpoint before impact.
+      const clicked = event.target instanceof Element ? event.target : null;
+      const direct = clicked?.closest<HTMLButtonElement>('[data-frontier-sprite]');
+      const glyph = direct && direct.dataset.popped !== 'true' ? bubbleBody(direct) : null;
+      const reserved = glyph && lightningTipTouchesBubble(geometry.end, glyph.getBoundingClientRect())
+        ? direct : null;
+      if (reserved) reserved.dataset.frontierLightningReserved = 'true';
+
+      setStrikes((current) => [...current.slice(-5), { id, geometry, hit: false }]);
       const arrival = window.setTimeout(() => {
         timers.delete(arrival);
-        if (!target.isConnected) return;
-        const cleared = article.querySelector('[data-frontier-clear-article][data-cleared="true"]');
-        if (!cleared && target.dataset.popped !== 'true')
-          target.dispatchEvent(new CustomEvent('frontier-lightning-impact'));
-        delete target.dataset.frontierLightningReserved;
+        if (document.visibilityState !== 'visible') {
+          if (reserved) delete reserved.dataset.frontierLightningReserved;
+          return;
+        }
+        const hit = strikeImpact(geometry.end);
+        setStrikes((current) => current.map((strike) =>
+          strike.id === id ? { ...strike, hit } : strike));
+        if (reserved) delete reserved.dataset.frontierLightningReserved;
       }, STRIKE_TIME_MS);
       timers.add(arrival);
       const decay = window.setTimeout(() => {

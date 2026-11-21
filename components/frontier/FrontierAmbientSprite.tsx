@@ -60,6 +60,7 @@ export function FrontierAmbientSprite({ motif, articleTitle, spec, clear, onPop,
   const poppedRef = useRef(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const onPopRef = useRef(onPop);
+  const lastPointerType = useRef('');
   const style = {
     '--x': `${spec.x}%`,
     '--y': `${spec.y}%`,
@@ -101,13 +102,18 @@ export function FrontierAmbientSprite({ motif, articleTitle, spec, clear, onPop,
       className={`${styles.sprite} ${styles[spec.pattern]} ${popped ? styles.popped : ''}`}
       style={style}
       aria-label={`Pop ${MOTIF_LABEL[motif]} near ${articleTitle}`}
+      onPointerDown={(event) => { lastPointerType.current = event.pointerType; }}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        if (poppedRef.current || event.currentTarget.dataset.frontierLightningReserved === 'true') return;
-        // Keyboard, touch, reduced-motion and coarse-pointer activation has
-        // an immediate accessible fallback. Fine-pointer mouse activation is
-        // reserved by the route cursor until its lightning endpoint arrives.
+        if (poppedRef.current) return;
+        // Mouse AND touch taps fire a real lightning bolt that may miss.
+        // Keyboard and reduced-motion users keep immediate activation.
+        const lightningEnabled = event.detail > 0 &&
+          !window.matchMedia('(prefers-reduced-motion: reduce)').matches &&
+          (lastPointerType.current === 'mouse' || lastPointerType.current === 'touch' ||
+           lastPointerType.current === 'pen');
+        if (lightningEnabled) return;
         poppedRef.current = true;
         setPopped(true);
         onPop();
@@ -116,7 +122,7 @@ export function FrontierAmbientSprite({ motif, articleTitle, spec, clear, onPop,
         if (event.target === event.currentTarget && poppedRef.current && event.animationName.includes('popOut'))
           onExit(spec.id);
       }}>
-      <span className={styles.body}><MotifGlyph motif={motif}/></span>
+      <span className={styles.body} data-frontier-sprite-body="true"><MotifGlyph motif={motif}/></span>
       <span className={styles.burst} aria-hidden="true"><i/><i/><i/><i/><i/><i/></span>
     </button>
   );

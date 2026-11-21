@@ -100,39 +100,61 @@ async function auditActiveSwarm() {
     assert.equal(await page.locator('[data-frontier-whip-cursor]').count(),0,
       'The old rainbow whip must no longer be present');
 
+    // A miss anywhere on the page must still draw lightning, and MUST NOT
+    // increment any article's pop count.
+    const missCenter=await page.locator('[data-frontier-edition] header').first().boundingBox();
+    assert(missCenter,'Masthead must have a safe background for a miss test');
+    const miss={x:Math.round(missCenter.x+missCenter.width/2),y:Math.round(missCenter.y+missCenter.height/2)};
+    await page.mouse.click(miss.x,miss.y);
+    const missedBolt=page.locator('[data-frontier-lightning-strike]').last();
+    await missedBolt.waitFor({timeout:2000});
+    assert.equal(await missedBolt.getAttribute('data-lightning-end-x'),String(miss.x));
+    assert.equal(await missedBolt.getAttribute('data-lightning-end-y'),String(miss.y));
+    await page.waitForTimeout(225);
+    assert.equal(await missedBolt.getAttribute('data-lightning-hit'),'false',
+      'A lightning shot into empty space must not claim a hit');
+    const initialPops=await page.evaluate((id)=>{
+      const state=JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state;
+      return state.history[id]?.ambientPops??0;
+    },firstId);
+    assert.equal(initialPops,0,'A missed shot must not count as article interest');
+
     const firstSprite=first.locator('[data-frontier-sprite]').first();
     await firstSprite.evaluate((node)=>{
       node.style.animationPlayState='paused';
-      const capture = {clickedAt:0, impactedAt:0};
-      Object.assign(window, { __frontierLightningAudit:capture });
-      node.addEventListener('click',()=>{ capture.clickedAt=performance.now(); },{once:true});
+      const capture={clickedAt:0,impactedAt:0,poppedAtClick:false};
+      Object.assign(window,{__frontierLightningAudit:capture});
+      node.addEventListener('click',()=>{
+        capture.clickedAt=performance.now();
+        capture.poppedAtClick=node.getAttribute('data-popped')==='true';
+      },{once:true});
       node.addEventListener('frontier-lightning-impact',()=>{
         capture.impactedAt=performance.now();
       },{once:true});
     });
     const targetBounds=await firstSprite.boundingBox();
+    assert(targetBounds,'The target must be on-screen');
     await firstSprite.click({timeout:4000});
-    const bolt = page.locator('[data-frontier-lightning-strike]').first();
-    await bolt.waitFor({timeout:3500});
-    assert.equal(await bolt.getAttribute('data-lightning-hit'),'true',
-      'The click must produce a real target-directed electrical discharge');
-    const end = await bolt.evaluate((element) => ({
+    const bolt=page.locator('[data-frontier-lightning-strike]').last();
+    await bolt.waitFor({timeout:2000});
+    const end=await bolt.evaluate((element)=>({
       x:Number(element.getAttribute('data-lightning-end-x')),
       y:Number(element.getAttribute('data-lightning-end-y'))
     }));
-    assert(targetBounds && Math.abs(end.x-(targetBounds.x+targetBounds.width/2))<4
-      && Math.abs(end.y-(targetBounds.y+targetBounds.height/2))<4,
-      'Lightning must terminate at the sprite center, not next to the pointer');
-    await page.waitForFunction(() => {
-      const target = document.querySelector('#frontier-stories article:first-child [data-frontier-sprite][data-color-step]');
-      return !target || target.getAttribute('data-popped') === 'true';
-    },undefined,{timeout:2000});
-    assert.equal(await firstSprite.getAttribute('data-popped'),'true',
-      'The creature pops only when lightning reaches it');
+    assert(Math.abs(end.x-(targetBounds.x+targetBounds.width/2))<3 &&
+      Math.abs(end.y-(targetBounds.y+targetBounds.height/2))<3,
+      'Lightning must end at the exact pointer coordinate, not magnetically snap to a critter');
+    await page.waitForFunction(()=>{
+      const record=window.__frontierLightningAudit;
+      return Boolean(record&&record.impactedAt>0);
+    },undefined,{timeout:3000});
     const timing=await page.evaluate(()=>window.__frontierLightningAudit);
-    assert(timing && timing.clickedAt>0 && timing.impactedAt>=timing.clickedAt+100,
-      'The bolt must travel before its impact, rather than popping on initial click: '+JSON.stringify(timing));
-    // Unpause the short exit animation after the deterministic click.
+    assert(timing.clickedAt>0 && timing.poppedAtClick===false && timing.impactedAt>=timing.clickedAt+100,
+      'A bubble cannot pop before the actual lightning endpoint arrives: '+JSON.stringify(timing));
+    assert.equal(await firstSprite.getAttribute('data-popped'),'true',
+      'A real endpoint collision must pop the bubble');
+    assert.equal(await bolt.getAttribute('data-lightning-hit'),'true',
+      'Impact is recorded only after the endpoint reaches the visible bubble');
     await firstSprite.evaluate((node)=>{node.style.removeProperty('animation-play-state');});
     await firstSprite.waitFor({state:'detached',timeout:5000});
     const recorded=await page.evaluate((id)=>{
@@ -140,7 +162,7 @@ async function auditActiveSwarm() {
       return {seen:state.history[id]?.ambientAppearances,pops:state.history[id]?.ambientPops};
     },firstId);
     assert(recorded.seen>=18 && recorded.pops===1,
-      'Individual clicks must record both opportunity count and successful pop: '+JSON.stringify(recorded));
+      'Only the true hit can add a pop: '+JSON.stringify(recorded));
 
     const clear=first.locator('[data-frontier-clear-article]');
     assert.equal(await clear.textContent(),'','Clear oval must have no visible text');
