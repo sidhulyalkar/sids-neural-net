@@ -10,6 +10,7 @@ on:
       - "scripts/playtest-skimboarding.mjs"
       - "scripts/playtest-cairn-stories.mjs"
       - "scripts/playtest-grove-camera.mjs"
+      - "scripts/playtest-world-header.mjs"
       - ".github/workflows/world-complete-qa.yml"
   workflow_dispatch:
 permissions:
@@ -21,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: ["world", "skim", "cairn", "grove"]
+        suite: ["world", "skim", "cairn", "grove", "header"]
     env:
       WORLD_BASE_URL: http://127.0.0.1:3000/world
       WORLD_AUDIT_DIR: artifacts/world-complete/${{ matrix.suite }}
@@ -57,6 +58,7 @@ jobs:
             skim) node scripts/playtest-skimboarding.mjs ;;
             cairn) node scripts/playtest-cairn-stories.mjs ;;
             grove) node scripts/playtest-grove-camera.mjs ;;
+            header) node scripts/playtest-world-header.mjs ;;
             *) exit 2 ;;
           esac
       - name: Persist tested commit and server errors

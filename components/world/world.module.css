@@ -53,6 +53,14 @@
   font-weight: 600;
   text-shadow: 0 2px 8px #102926;
 }
+.headerActions {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-end;
+  flex-direction: column;
+  pointer-events: auto;
+}
 .menuButton {
   display: flex;
   gap: 17px;
@@ -753,10 +761,12 @@
   backdrop-filter: blur(8px);
 }
 .activityDock {
+  /* Anchored to the actual Menu button, not a hard-coded page offset.
+     The 12px separation survives header padding, fonts, and viewport changes. */
   position: absolute;
   z-index: 3;
-  top: 70px;
-  right: 20px;
+  top: calc(100% + 12px);
+  right: 0;
   width: min(360px, calc(100vw - 32px));
   padding: 7px 7px 5px;
   border: 1px solid #d5e7d044;
@@ -1261,7 +1271,6 @@
 .header { pointer-events: none; }
 .header > * { pointer-events: auto; }
 @media (max-width: 760px) {
-  .activityDock { top: 78px; right: 14px; }
   .trialHud {top:auto;bottom:108px;left:16px;right:auto;min-width:170px;max-width:calc(100% - 32px);padding:10px 12px;}
   .bigAirHud {top:auto;bottom:108px;left:16px;right:auto;min-width:170px;max-width:calc(100% - 32px);padding:10px 12px;}
   .bigAirHud strong {font-size:23px;}
@@ -1285,7 +1294,6 @@
   .welcome h1 { font-size: clamp(38px, 8vw, 60px); }
 }
 @media (max-height: 650px) {
-  .activityDock { top: 67px; }
   .waterDock { top: 78px; }
 
   .welcome { top: 105px; bottom: 62px; }
@@ -1569,7 +1577,6 @@
 @media(max-width:760px){.skimTrickCallout{font-size:12px;padding:6px 11px;}}
 
 @media (max-width: 420px) {
-  .activityDock { top: 78px; right: 9px; width: calc(100vw - 18px); }
   .activityButtons button { font-size: 10px; padding-inline: 1px; }
   .activityButtons .actionButton { min-width: 48px; padding-inline: 4px; }
 }

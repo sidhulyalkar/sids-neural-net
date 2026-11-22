@@ -603,60 +603,17 @@ export function WorldHome({ content }: { content: WorldContent }) {
         <Link href="/" className={styles.wordmark} prefetch={false}>
           Sid Hulyalkar
         </Link>
-        <button
-          className={styles.menuButton}
-          onClick={() => open("menu")}
-          aria-label="Open navigation menu"
-          aria-haspopup="dialog"
-        >
-          <span>Menu</span>
-          <span aria-hidden="true">☰</span>
-        </button>
-      </header>
-      {!entered || failed ? (
-        <section className={styles.welcome} aria-labelledby="world-title">
-          <h1 id="world-title">Welcome to <em>Sid’s iLand</em></h1>
-          <div className={styles.actions}>
-            <Link href="/" prefetch={false} className={styles.primary}>
-              View site <span aria-hidden="true">↗</span>
-            </Link>
-            {!failed && (
-              <button ref={enterButton} aria-label="Explore world" disabled={!entryInteractive} className={styles.exploreButton} onClick={enter}>
-                Explore world <span aria-hidden="true">→</span>
-              </button>
-            )}
-          </div>
-          {failed && (
-            <p role="status" className={styles.fallbackText}>
-              The 3D world couldn’t open on this device. All of my work is
-              available in the menu.
-            </p>
-          )}
-
-        </section>
-      ) : (
-        <>
-          {!ready && (
-            <div className={styles.loading} role="status">
-              Loading world…{" "}
-              <button onClick={() => open("menu")}>Browse the site</button>
-            </div>
-          )}
-          <div className={styles.location} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
-            {galleryPhase!=="inside" && (
-              <span className={styles.eyebrow}>
-                {String(REGIONS.indexOf(current) + 1).padStart(2, "0")} / {String(REGIONS.length).padStart(2, "0")}
-              </span>
-            )}
-            <p>{galleryPhase==="inside"?"Photography gallery":current.name}</p>
-          </div>
-          {nearby && ready && !worldGameActive && skim.phase==="off" && (
-            <button className={styles.discovery} onClick={() => open(nearby)}>
-              <span>{discoveryTitle}</span>
-              <span className={styles.key}>Enter</span>
-            </button>
-          )}
-          {aquatic === "land" && (
+        <div className={styles.headerActions}>
+          <button
+            className={styles.menuButton}
+            onClick={() => open("menu")}
+            aria-label="Open navigation menu"
+            aria-haspopup="dialog"
+          >
+            <span>Menu</span>
+            <span aria-hidden="true">☰</span>
+          </button>
+          {entered && !failed && aquatic === "land" && (
              <nav className={styles.activityDock} aria-label="World movement and sports"
                style={{display:worldGameActive||skim.phase!=="off"?"none":undefined}}>
                <div className={styles.activityButtons} role="group" aria-label="Movement activity">
@@ -705,6 +662,52 @@ export function WorldHome({ content }: { content: WorldContent }) {
                </div>
              </nav>
            )}
+        </div>
+      </header>
+      {!entered || failed ? (
+        <section className={styles.welcome} aria-labelledby="world-title">
+          <h1 id="world-title">Welcome to <em>Sid’s iLand</em></h1>
+          <div className={styles.actions}>
+            <Link href="/" prefetch={false} className={styles.primary}>
+              View site <span aria-hidden="true">↗</span>
+            </Link>
+            {!failed && (
+              <button ref={enterButton} aria-label="Explore world" disabled={!entryInteractive} className={styles.exploreButton} onClick={enter}>
+                Explore world <span aria-hidden="true">→</span>
+              </button>
+            )}
+          </div>
+          {failed && (
+            <p role="status" className={styles.fallbackText}>
+              The 3D world couldn’t open on this device. All of my work is
+              available in the menu.
+            </p>
+          )}
+
+        </section>
+      ) : (
+        <>
+          {!ready && (
+            <div className={styles.loading} role="status">
+              Loading world…{" "}
+              <button onClick={() => open("menu")}>Browse the site</button>
+            </div>
+          )}
+          <div className={styles.location} style={{display:!worldGameActive&&skim.phase==="off"?undefined:"none"}}>
+            {galleryPhase!=="inside" && (
+              <span className={styles.eyebrow}>
+                {String(REGIONS.indexOf(current) + 1).padStart(2, "0")} / {String(REGIONS.length).padStart(2, "0")}
+              </span>
+            )}
+            <p>{galleryPhase==="inside"?"Photography gallery":current.name}</p>
+          </div>
+          {nearby && ready && !worldGameActive && skim.phase==="off" && (
+            <button className={styles.discovery} onClick={() => open(nearby)}>
+              <span>{discoveryTitle}</span>
+              <span className={styles.key}>Enter</span>
+            </button>
+          )}
+          
            {skim.phase==="off" && skimNearby!==null && aquatic==="land" &&
             discGolf.phase==="off" && bigAir.phase!=="armed" && bigAir.phase!=="flying" &&
             trial.phase!=="armed" && trial.phase!=="running" && (
