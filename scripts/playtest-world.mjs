@@ -263,6 +263,13 @@ try {
     }
 
     await page.getByRole('button', { name: new RegExp(prompt) }).waitFor();
+    if(name.startsWith('01')) {
+      await page.waitForFunction(()=>{
+        const d=document.querySelector('canvas')?.dataset;
+        return d?.currentRegion==='grove'&&
+          d.groveRenderedCameraClear==='true'&&d.grovePlayerFramed==='true';
+      },null,{timeout:25000,polling:'raf'});
+    }
     await page.waitForTimeout(1800); // Allow the semantic camera transition to settle for visual review.
     await screenshot(page, `region-${name.slice(0, 2)}`);
     await page.getByRole('button', { name: new RegExp(prompt) }).click();
