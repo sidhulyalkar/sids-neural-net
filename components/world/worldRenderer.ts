@@ -5351,12 +5351,14 @@ export function createWorld(
         if(discGolfHeading){
           const actualForward=new THREE.Vector3(0,0,1)
             .applyQuaternion(bodyRoot.quaternion).applyQuaternion(explorer.quaternion);
+          canvas.dataset.discGolfAimedYaw=Math.atan2(discGolfHeading.x,discGolfHeading.z).toFixed(4);
           canvas.dataset.discGolfFacingDot=(
             actualForward.x*discGolfHeading.x+
             actualForward.z*discGolfHeading.z).toFixed(4);
           canvas.dataset.discGolfBodyYaw=bodyRoot.rotation.y.toFixed(4);
         }else{
           canvas.dataset.discGolfFacingDot="";
+          canvas.dataset.discGolfAimedYaw="";
           canvas.dataset.discGolfBodyYaw="";
         }
         if (grind) {
