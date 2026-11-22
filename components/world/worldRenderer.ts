@@ -18,7 +18,6 @@ import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample,type SkateRailG
 import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
-import {refineMountainSnow} from "./worldMountainHalfpipe";
 import {halfpipePop,mountainHalfpipeApproachClearance,suppressedFaceKicker,withinMountainHalfpipe,halfpipeManualPopEligible} from "@/lib/world/mountainHalfpipe";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
 import {createMysticElectricity} from "./worldMysticElectricity";
@@ -612,7 +611,8 @@ export function createWorld(
     }
     terrain.setIndex(keep);
   }
-  const snowTriangles = refineMountainSnow(terrain);
+  // Classic heightfield needs no halfpipe tessellation or artificial snow cut.
+  terrain.computeVertexNormals();
   const ground = mesh(
     terrain,
     mat("#ffffff", { vertexColors: true, flatShading: false, roughness: 0.92 }),
@@ -1104,7 +1104,7 @@ export function createWorld(
   const rampPlanks: Instance[] = [], rampStringers: Instance[] = [];
   for (const ramp of RIDE_RAMPS) {
     // Joshua basin uses a molded earthen lip; no timber planks above the tread.
-    if (ramp.id.startsWith("desert-")||suppressedFaceKicker(ramp.id)) continue;
+    if (ramp.id.startsWith("desert-")) continue;
     const headingLength = Math.hypot(ramp.heading.x, ramp.heading.z);
     const forward = {
       x: ramp.heading.x / headingLength,
@@ -1150,9 +1150,9 @@ export function createWorld(
   // Natural redwood skate grove: single authoritative riding heightfield.
   // Static procedural wood art is isolated and fully disposable.
   const skateGrove=createWorldSkateGrove(scene,groundHeight);
-  canvas.dataset.mountainHalfpipe="single-snow-face-v1";
+  canvas.dataset.mountainHalfpipe="absent";
   canvas.dataset.glacierCave="absent";
-  canvas.dataset.mountainHalfpipeTriangles=String(snowTriangles);
+  canvas.dataset.mountainHalfpipeTriangles="0";
   // Small grasses share one geometry and one draw call.
   const grasses: Instance[] = [];
   for (let i = 0; i < 750; i++) {
@@ -1326,7 +1326,7 @@ export function createWorld(
     // The beach already has three upright skimboards as its landmarks.
     // Keep North shore discoverable without building a gray stone pile
     // directly in front of the turquoise board and Shasta.
-    if(m.id!=="north-shore"&&!mountainHalfpipeApproachClearance({x,z}))cairnPieces.push(
+    if(m.id!=="north-shore")cairnPieces.push(
       { x, y: y + 0.18 * scale, z, sx: 0.62 * scale, sy: 0.28 * scale, sz: 0.52 * scale, ry: twist },
       { x: x + 0.05 * scale, y: y + 0.47 * scale, z: z - 0.02 * scale, sx: 0.46 * scale, sy: 0.23 * scale, sz: 0.4 * scale, ry: twist + 0.7 },
       { x: x - 0.04 * scale, y: y + 0.7 * scale, z: z + 0.03 * scale, sx: 0.31 * scale, sy: 0.19 * scale, sz: 0.29 * scale, ry: twist + 1.4 },
@@ -1970,10 +1970,11 @@ export function createWorld(
   const skiProbe=new THREE.Vector3(),skiInverse=new THREE.Quaternion();
   const skiContacts=[createSkiContact(),createSkiContact()];
   const skiAnkle=new THREE.Vector3(),skiHip=new THREE.Vector3(),skiKnee=new THREE.Vector3(),skiBoneDirection=new THREE.Vector3();
-  const skiPresentation=new URLSearchParams(window.location.search).get("ski-view")!=="legacy";
+  // The classic ski mode is authoritative. Deprecated V3 flags and query params cannot re-enable it.
+  const skiPresentation=false;
   const skiKnees=legs.map(()=>mesh(boxGeo,dark,[0,0,0],[.19,.36,.23],bodyRoot));
   skiKnees.forEach(k=>{k.visible=false});
-  const skiV3Enabled = skiPresentation && process.env.NEXT_PUBLIC_SKI_V3 === "1";
+  const skiV3Enabled = false;
   let ride: SkiSimulation | null = null;
   let skiHalfpipe=new SkiHalfpipeQualification();
   let skiTricks=new SkiTrickQualification();
@@ -4131,16 +4132,6 @@ export function createWorld(
     if(grind&&state.activity==="ski"){
       grind=null;verticalSpeed=5.5;airHeight=.04;lastRampAt=elapsed;return;
     }
-    // Halfpipe airtime requires an intentional action. It uses ordinary
-    // gravity and ski contact, NEVER the scored Big Air camera/game state.
-    if(halfpipeManualPopEligible(player,state.activity,travel.speed,
-       airHeight<=.01)){
-      const pop=halfpipePop(player,travel.heading,travel.speed);
-      verticalSpeed=pop.verticalSpeed;
-      travel.speed=pop.speed;
-      airHeight=.025;lastRampAt=elapsed;
-      return;
-    }
     if(state.activity==="skate"&&airHeight>.08){launchAssistedSkateTrick();return;}
     if(grind&&state.activity==="skate"){launchAssistedSkateTrick();return;}
     if ((state.activity === "skate" || state.activity === "ski") && travel.speed > 2.2) {
@@ -5581,10 +5572,10 @@ export function createWorld(
         " PTS · BEST "+skateTrick.best;
       // Avoid 60 identical live-region mutations per second for screen readers.
       if(skateVisible&&skateHud.textContent!==skateStatus)skateHud.textContent=skateStatus;
-      canvas.dataset.mountainHalfpipeInside=String(withinMountainHalfpipe(player));
-      canvas.dataset.mountainHalfpipeManualPop=String(halfpipeManualPopEligible(player,state.activity,travel.speed,airHeight<=.01));
+      canvas.dataset.mountainHalfpipeInside="false";
+      canvas.dataset.mountainHalfpipeManualPop="false";
       canvas.dataset.mountainSkiJumpAuthorized=String(bigAir.phase==="armed"||bigAir.phase==="flying");
-      canvas.dataset.mountainFaceEditedZone=String(withinMountainHalfpipe(player));
+      canvas.dataset.mountainFaceEditedZone="false";
       canvas.dataset.skateGrove="redwood-timber-v1";
       canvas.dataset.skateGroveArt="old-growth-stump-v2";
       canvas.dataset.skateGapPhase=skateRailGapRide?"airborne":"free";
@@ -7980,8 +7971,7 @@ export function createWorld(
         if(galleryStart==="photos"||galleryStart==="papers"){
           // yaw is already authored by the corresponding room entrance.
         }else if (next.command.activity === "ski") {
-          // The single halfpipe now determines the free-ski descent axis.
-          // The old timber kicker no longer controls arrival or camera.
+          // Classic Granite Ridge spawn faces the original timber kicker.
           yaw=Math.PI;
           if(skiPresentation)snapSkiCamera=true;
           pitch=.34;
