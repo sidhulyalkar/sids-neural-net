@@ -441,7 +441,8 @@ export function stepTravel(
   const slope =
     contactSupport({ x: current.point.x + heading.x, z: current.point.z + heading.z }) -
     contactSupport(current.point);
-  const boostEligible=boost && (mode==="bike"||mode==="ski"||mode==="skate");
+  // Shooting-ring speed boosts belong to bike/skate, not the restored clean ski mode.
+  const boostEligible=boost && (mode==="bike"||mode==="skate");
   const maxSpeed =
     config.speed *
     (mode === "run" && sprint ? 1.45 : 1) *
