@@ -7,6 +7,7 @@ type ArcadeThree=Pick<typeof import("three/src/Three.Core.js"),
  "SRGBColorSpace"|"RepeatWrapping"|"LinearMipmapLinearFilter">;
 import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "@/lib/world/arcadeCavernArtManifest";
 import {ARCADE_MURAL_ART_ASSETS,validateArcadeMuralAssets} from "@/lib/world/arcadeCavernAssetManifest";
+import {ARCADE_GENERATED_MURAL_OVERLAYS,GENERATED_MURAL_TEXTURES_BUNDLED,validateGeneratedMuralOverlays} from "@/lib/world/arcadeGeneratedMuralConfig";
 import {paintConceptStory,distressPigment} from "./worldArcadeConceptArt";
 import {createArcadeStoneLining} from "./worldArcadeStoneLining";
 import {createShastaPhotoStencil} from "./worldArcadeShastaStencil";
@@ -573,6 +574,7 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
  const issues=[
   ...validateArcadeArtManifest(ARCADE_CAVERN_MURALS),
   ...validateArcadeMuralAssets(),
+  ...validateGeneratedMuralOverlays(),
  ];
  if(issues.length)throw Error("Cave mural manifest: "+issues.join("; "));
  const root=new three.Group();root.name="sid-underground-fandom-fresco";
@@ -583,6 +585,8 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
  // One image decode/composite per theme even when a gallery wraps from the
  // side wall onto the rear rock. Reuse the same CanvasTexture on both meshes.
  const galleryCache=new Map<string,ReturnType<typeof composeArcadeGallery>>();
+ // Generated alternatives replace, never double-expose, the source murals.
+ const originalWalls=new Map<CavernArtTheme,THREE.Mesh[]>();
  const galleryKind=(theme:CavernArtTheme)=>
   theme==="shasta-gallery"||theme==="nature-gallery"||
   theme==="game-gallery"||theme==="feature-gallery";
@@ -592,12 +596,12 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
   const material=wall.material as THREE.MeshStandardMaterial;
   material.map=painted;
   material.opacity=opacity;
-  if(source&&["neural","anime","comedy"].includes(theme)){
+  if(source&&["neural","anime","comedy","sport-anime","sitcom","fandom-panorama"].includes(theme)){
    const mask=authoredNeonMask(source,three);
    textures.push(mask);
    material.emissive=new three.Color("#ffffff");
    material.emissiveMap=mask;
-   material.emissiveIntensity=.85;
+   material.emissiveIntensity=theme==="fandom-panorama"?.48:.77;
   }else{
    // Tiny ink bounce makes broad ivory lettering and the genuine club
    // crests remain readable from the player's normal camera in dim basalt.
@@ -625,6 +629,7 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
   // For the rear upper band the longitudinal z dimension is zero: texture
   // horizontal must use wall width, not the degenerate z-coordinate.
   meshes.push(wall);root.add(wall);
+  originalWalls.set(mural.theme,[...(originalWalls.get(mural.theme)??[]),wall]);
   if(galleryKind(mural.theme)){
    const kind=mural.theme as "shasta-gallery"|"nature-gallery"|
     "game-gallery"|"feature-gallery";
@@ -679,6 +684,55 @@ export function createWorldArcadeGraffiti(scene:THREE.Scene,three:ArcadeThree,
     root.userData.muralArtLoadFailure=artwork.src;
    });
    textures.push(source);
+  }
+ }
+ // Optional real AI-generated WebP artwork. Never allocate these meshes
+ // unless the six files have been installed as part of the source tree.
+ // Each strip retains its intrinsic aspect ratio and avoids clickable bays.
+ if(GENERATED_MURAL_TEXTURES_BUNDLED){
+  const mobile=window.matchMedia("(max-width: 767px)").matches;
+  root.userData.generatedMuralsReady=0;
+  for(const item of ARCADE_GENERATED_MURAL_OVERLAYS){
+   const {mural}=item,{paint,glow}=emptyPaint(three);
+   textures.push(paint,glow);
+   const layer=surfaceMesh(mural.surface,mural.z0,mural.z1,
+    mural.v0,mural.v1,paint,"generated-"+mural.id,three,34,12,glow);
+   layer.renderOrder=5;layer.raycast=()=>{};
+   layer.visible=false; // Do not draw unresolved or missing image placeholders.
+   const material=layer.material as THREE.MeshStandardMaterial;
+   material.opacity=.96;
+   meshes.push(layer);root.add(layer);
+   const url=mobile?item.mobile:item.desktop;
+   const loaded=loader.load(url,texture=>{
+    if(!alive){texture.dispose();return;}
+    texture.colorSpace=three.SRGBColorSpace;
+    texture.anisotropy=4;
+    texture.generateMipmaps=true;
+    texture.minFilter=three.LinearMipmapLinearFilter;
+    const image=texture.image as HTMLImageElement;
+    const selectiveGlow=authoredNeonMask(image,three);
+    textures.push(selectiveGlow);
+    material.map=texture;
+    material.emissiveMap=selectiveGlow;
+    material.emissive=new three.Color("#ffffff");
+    material.emissiveIntensity=.21;
+    material.needsUpdate=true;
+    for(const theme of item.replacesThemes)
+     for(const original of originalWalls.get(theme)??[])
+      original.visible=false;
+    layer.visible=true;
+    root.userData.generatedMuralsReady=
+     Number(root.userData.generatedMuralsReady||0)+1;
+    onAssetReady?.(authoredReady,{kind:"generated-fandom",photoCount:
+     Number(root.userData.generatedMuralsReady)});
+   },undefined,()=>{
+    if(!alive)return;
+    const previous=String(root.userData.generatedMuralLoadFailure||"");
+    root.userData.generatedMuralLoadFailure=previous+
+     (previous?"; ":"")+url;
+    // Keep the underlying original mural visible on missing files.
+   });
+   textures.push(loaded);
   }
  }
  // Game artwork is also presented IN each existing game target, not only

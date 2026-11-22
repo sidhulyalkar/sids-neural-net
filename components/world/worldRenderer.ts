@@ -1677,6 +1677,7 @@ export function createWorld(
        detail.kind==="nature-gallery"?"arcadeNaturePhotos":
        detail.kind==="feature-gallery"?"arcadeFeaturePhotos":
        detail.kind==="game-plaques"?"arcadeGamePlaquesReady":
+       detail.kind==="generated-fandom"?"arcadeGeneratedMuralsReady":
        "arcadeGamePosters";
       canvas.dataset[attr]=String(detail.photoCount);
     }

@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+<title>After Hours: original street-art tribute to ensemble sitcoms, campus comedy, dive bars and outrageous game-day stories</title>
+<defs>
+ <radialGradient id="night"><stop stop-color="#3b235c"/><stop offset=".53" stop-color="#261a42"/><stop offset="1" stop-color="#090f20" stop-opacity="0"/></radialGradient>
+ <linearGradient id="sunset" x1="0" x2="1" y1="1" y2="0"><stop stop-color="#f36c89"/><stop offset=".45" stop-color="#ffad53"/><stop offset="1" stop-color="#f5d277"/></linearGradient>
+ <linearGradient id="turq" x1="0" x2="1" y1="1" y2="0"><stop stop-color="#3bc8c3"/><stop offset="1" stop-color="#b0ffe6"/></linearGradient>
+ <linearGradient id="violet" x1="0" x2="1"><stop stop-color="#bd52e9"/><stop offset="1" stop-color="#6668e8"/></linearGradient>
+ <pattern id="halftone" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="4" cy="6" r="3" fill="#f9d1ac" opacity=".20"/></pattern>
+ <filter id="softglow"><feGaussianBlur stdDeviation="10"/></filter>
+</defs>
+<!-- Transparent painting: actual cave stone supplies the darkest texture. -->
+<ellipse cx="810" cy="486" rx="753" ry="474" fill="url(#night)"/>
+<path d="M18 730Q165 590 329 643T675 660Q821 513 985 645T1576 594L1580 932 0 927Z" fill="#171729" opacity=".91"/>
+<path d="M0 230Q132 120 299 202T619 175Q821 85 998 192T1371 164L1600 91" fill="none" stroke="#c44fe4" stroke-width="55" opacity=".18"/>
+<path d="M55 165Q373 66 685 188T1554 99" fill="none" stroke="#36e0df" stroke-width="13" opacity=".77" stroke-linecap="round"/>
+<path d="M40 785Q342 697 631 788T1227 760Q1439 721 1566 780" fill="none" stroke="#ffaf54" stroke-width="16" opacity=".55" stroke-linecap="round"/>
+<path d="M87 883Q336 797 580 880T1090 841Q1350 778 1516 882" fill="none" stroke="#43e0cb" stroke-width="8" opacity=".78"/>
+<!-- Left: a very questionable college study session. -->
+<g transform="translate(105 250)">
+ <path d="M0 431L44 174 252 124 353 182 399 431Z" fill="#312b49" stroke="#88ded8" stroke-width="13"/>
+ <path d="M83 180L111 0 277 0 318 185" fill="#433258" stroke="#c69de9" stroke-width="14"/>
+ <path d="M147 40H245V153H147Z" fill="#121d33" stroke="#85ebd6" stroke-width="9"/>
+ <path d="M111 210H297V350H111Z" fill="#14192c" stroke="#f2b978" stroke-width="11"/>
+ <path d="M70 366H336" stroke="#edc89e" stroke-width="28" stroke-linecap="round"/>
+ <path d="M103 405V334M305 405V334" stroke="#f9ae6b" stroke-width="12" stroke-linecap="round"/>
+ <g fill="#e3c6bd" stroke="#20203c" stroke-width="10">
+  <circle cx="153" cy="281" r="40"/><circle cx="250" cy="284" r="39"/><circle cx="197" cy="212" r="42"/>
+ </g>
+ <g fill="#53a8a8"><path d="M120 320Q150 299 183 323L189 407H99Z"/><path d="M219 323Q250 302 281 327L298 400H203Z"/></g>
+ <path d="M181 251Q198 224 217 251L230 395H164Z" fill="#ef995a"/>
+ <path d="M96 357L163 338 210 361 278 340 331 364" fill="none" stroke="#e5dcb9" stroke-width="10"/>
+ <g fill="#f4b15d"><rect x="171" y="337" width="18" height="28" rx="3"/><rect x="283" y="327" width="15" height="32" rx="3"/></g>
+ <path d="M-28 462Q174 429 411 463" fill="none" stroke="#d29fff" stroke-width="8"/>
+</g>
+<!-- Center: chaotic dive bar, a pinball glint, and an ensemble of original silhouettes. -->
+<g transform="translate(530 195)">
+ <path d="M30 226L103 122 491 122 572 227 548 622 62 622Z" fill="#22243b" stroke="#fdb77e" stroke-width="18"/>
+ <path d="M81 250H524L506 584H101Z" fill="#151b30" stroke="#a47ee8" stroke-width="9"/>
+ <path d="M121 305H467V386H121Z" fill="#291a34" stroke="#52dfbd" stroke-width="13"/>
+ <path d="M150 316L238 306 284 347 360 311 438 326" fill="none" stroke="#ffc773" stroke-width="11" stroke-linecap="round"/>
+ <g opacity=".63"><path d="M131 298H476" stroke="#b6ffda" stroke-width="27" filter="url(#softglow)"/></g>
+ <path d="M103 524H500" stroke="#fba365" stroke-width="31" stroke-linecap="round"/>
+ <path d="M117 587H492" stroke="#9964bc" stroke-width="17"/>
+ <g fill="#e4b9a5" stroke="#1c2135" stroke-width="12">
+  <circle cx="171" cy="461" r="43"/><circle cx="266" cy="445" r="45"/><circle cx="367" cy="463" r="41"/><circle cx="439" cy="447" r="41"/>
+ </g>
+ <g fill="#2caaae"><path d="M135 502Q171 484 201 506L226 607H113Z"/><path d="M331 498Q366 475 400 502L422 609H309Z"/></g>
+ <g fill="#ae62b0"><path d="M224 485Q268 468 300 502L313 609H205Z"/><path d="M404 485Q447 467 473 500L495 606H394Z"/></g>
+ <g fill="#f4a966"><path d="M219 521L227 479 251 494 247 538Z"/><path d="M385 521L393 485 419 495 416 535Z"/></g>
+ <path d="M137 252Q270 186 425 241" fill="none" stroke="#eec8ff" stroke-width="17" stroke-linecap="round"/>
+ <g fill="#ec717f"><path d="M152 505h33l-5 39h-23z"/><path d="M304 513h29l-4 31h-21z"/></g>
+</g>
+<!-- Right: sport-draft gathering by a trailer, an illustrated comedy of bad plans. -->
+<g transform="translate(1173 326)">
+ <path d="M-22 224L54 89 315 89 356 224 340 458H-25Z" fill="#36344b" stroke="#f49f7b" stroke-width="12"/>
+ <path d="M64 115H275V224H64Z" fill="#6b6480" stroke="#dbefda" stroke-width="9"/>
+ <path d="M76 127H167V218H76Z" fill="#22394b"/>
+ <path d="M187 127H265V218H187Z" fill="#273141"/>
+ <path d="M47 296H291" stroke="#37dfca" stroke-width="20" stroke-linecap="round"/>
+ <g stroke="#f5bd6b" stroke-width="9" fill="none">
+  <circle cx="57" cy="468" r="33"/><circle cx="278" cy="468" r="33"/>
+ </g>
+ <path d="M-35 320Q65 284 137 333T334 314" stroke="#c956ea" stroke-width="9" fill="none"/>
+ <path d="M139 50C189-6 245 25 243 82C212 130 152 96 139 50Z" fill="#e6a360" stroke="#11243a" stroke-width="13"/>
+ <path d="M143 45L244 86M144 89L243 43" stroke="#252437" stroke-width="8"/>
+ <g stroke="#e8d18e" stroke-width="9"><path d="M300 3l26-40M306 4l40-9"/></g>
+</g>
+<!-- Comic speech bursts, small spray details and meaningful chaos. -->
+<path d="M1177 174l63-40-18 47 75-14-46 48 41 25-78-5-25 46-10-65-51-18Z" fill="#ffbe64" stroke="#232039" stroke-width="12"/>
+<path d="M88 64l46-28 8 46 61-20-36 48 41 18-58 4-10 48-26-44-52 10 29-43Z" fill="#6ae2d0" stroke="#201a30" stroke-width="10"/>
+<g fill="url(#halftone)" opacity=".83"><path d="M0 0H1600V1000H0Z"/></g>
+<g fill="#bafde6"><circle cx="413" cy="121" r="8"/><circle cx="1438" cy="254" r="8"/><circle cx="751" cy="104" r="6"/><circle cx="1091" cy="744" r="10"/></g>
+<g fill="none" stroke="#ffbb7c" stroke-linecap="round"><path d="M54 540l57 27M1368 877l78-26M617 884l51-15" stroke-width="13"/></g>
+<g font-family="Impact,Arial Black,sans-serif" font-weight="900" text-anchor="middle" paint-order="stroke" stroke-linejoin="round">
+ <text x="814" y="132" font-size="125" letter-spacing="6" fill="url(#sunset)" stroke="#121a2a" stroke-width="22">AFTER HOURS</text>
+ <text x="812" y="166" font-size="25" letter-spacing="8" fill="#bbf5db" stroke="#171932" stroke-width="6">STUDY  /  DRAFT  /  LAUGH  /  REPEAT</text>
+</g>
+</svg>
