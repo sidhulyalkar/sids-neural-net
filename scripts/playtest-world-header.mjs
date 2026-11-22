@@ -32,6 +32,18 @@ try{
   const menu=page.getByRole("button",{name:"Open navigation menu"});
   const dock=page.getByRole("navigation",{name:"World movement and sports"});
   await dock.waitFor({state:"visible",timeout:90000});
+  // The new dock is mounted as soon as Explore is clicked. A loading-screen
+  // screenshot can pass geometry assertions without verifying the real HUD.
+  // Require a genuinely rendered 3D frame and completed React readiness.
+  await page.waitForFunction(()=>{
+   const canvas=document.querySelector("canvas");
+   return canvas&&Number(canvas.dataset.drawCalls)>0;
+  },null,{timeout:90000,polling:"raf"});
+  await page.getByText("Loading world…").waitFor({state:"hidden",timeout:90000});
+  await page.getByRole("button",{name:"Trail running",exact:true})
+   .waitFor({state:"visible"});
+  assert.equal(await page.getByRole("button",{name:"Trail running",exact:true})
+   .isEnabled(),true,"The 3D world must be ready before HUD qualification");
   const measure=async()=>page.evaluate(()=>{
    const menu=document.querySelector('button[aria-label="Open navigation menu"]');
    const dock=document.querySelector('nav[aria-label="World movement and sports"]');
