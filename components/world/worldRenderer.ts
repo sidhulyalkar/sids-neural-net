@@ -47,6 +47,8 @@ import {isBoostActivity,initialRideBoost,fireRideBoost,
 import {JOSHUA_GHOSTS,joshuaRacePlace,joshuaPlayerFraction} from "@/lib/world/joshuaGhostRace";
 import {createRideChallengeGeometry} from "./worldRideChallengeGeometry";
 import {createWorldCameraOcclusion} from "./worldCameraOcclusion";
+import {northShoreLogBlocksView,resolveNorthShoreCamera} from "@/lib/world/northShoreCamera";
+import {resolveBikeTerrainSightline} from "@/lib/world/terrainCameraSightline";
 import {CameraVisibilityField,type CameraVolume} from "@/lib/world/cameraVisibility";
 import {createJetSkiCoastGeometry} from "./worldJetSkiCourseGeometry";
 import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
@@ -1967,6 +1969,7 @@ export function createWorld(
     mesh(cylinder, metal, [side * 0.61, 0.6, 0], [0.024, 1.15, 0.024], skis);
   }
   const skiFocus=new THREE.Vector3(),skiFootFocus=new THREE.Vector3();
+  const bikeCameraFocus=new THREE.Vector3(),bikeScreenProbe=new THREE.Vector3();
   const skiProbe=new THREE.Vector3(),skiInverse=new THREE.Quaternion();
   const skiContacts=[createSkiContact(),createSkiContact()];
   const skiAnkle=new THREE.Vector3(),skiHip=new THREE.Vector3(),skiKnee=new THREE.Vector3(),skiBoneDirection=new THREE.Vector3();
@@ -7041,6 +7044,26 @@ export function createWorld(
       }
       snowPuffs.instanceMatrix.needsUpdate=true;
     }
+    // A large fallen-sequoia shell can visually fill the entire shore
+    // viewport even while the player remains correctly on the beach.
+    // Reframe only the presentation camera; leave sport collision untouched.
+    const shoreCameraActive=aquatic==="land"&&state.activity!=="ski"&&
+      !skateTunnelRide&&!skateLoopRide&&skimHeat.phase!=="riding"&&
+      galleryPhase==="outside"&&discGolf.phase==="off"&&
+      bigAir.phase==="idle"&&!jetSki&&
+      Math.abs(player.x)<23&&player.z>northShoreZ(player.x)-10&&
+      player.z<northShoreZ(player.x)+11;
+    if(shoreCameraActive){
+      const pose=resolveNorthShoreCamera(targetCamera,targetLook,
+        (x,z)=>worldFloorHeight(x,z));
+      if(pose.adjusted)
+        targetCamera.set(pose.point.x,pose.point.y,pose.point.z);
+      canvas.dataset.northShoreCameraAdjusted=String(pose.adjusted);
+      canvas.dataset.northShoreCandidateClear=String(pose.clear);
+    }else{
+      canvas.dataset.northShoreCameraAdjusted="n/a";
+      canvas.dataset.northShoreCandidateClear="n/a";
+    }
     if(showingDiscGolfIntro || snapDiscCamera || snapSkiCamera){
       // A direct time-derived pose starts on the basket instead of slowly
       // drifting there from a camera that previously followed the player.
@@ -7056,6 +7079,13 @@ export function createWorld(
       camera.position.lerp(targetCamera, 1 - Math.exp(-dt * cinematicRate));
       look.lerp(targetLook, 1 - Math.exp(-dt * (cinematicRate+.4)));
     }
+    // Even a clear target can pass through the giant log while the actual
+    // camera is easing there. Reject that intermediate occluded shot.
+    if(shoreCameraActive&&northShoreLogBlocksView(camera.position,look)){
+      camera.position.copy(targetCamera);look.copy(targetLook);
+    }
+    canvas.dataset.northShoreRenderedCameraClear=shoreCameraActive?
+      String(!northShoreLogBlocksView(camera.position,look)):"n/a";
     // South snorkel lens must not interpolate above the water plane after
     // diving, nor slip below the sampled seabed. Other regions are untouched.
     if(aquatic==="dive"&&waterZone(player)==="south-channel"&&
@@ -7169,7 +7199,42 @@ export function createWorld(
       canvas.dataset.southPlayerY=playerY.toFixed(2);
       canvas.dataset.southCameraFocus=[look.x,look.y,look.z].map(v=>v.toFixed(2)).join(",");
     }else canvas.dataset.southCameraActualDistance="";
-    camera.lookAt(look);
+    // Look at the actual bike rider rather than only the raised camera aim.
+    // A clear camera *position* can still see nothing but steep foreground snow.
+    const bikeViewActive=state.activity==="bike"&&aquatic==="land"&&
+      caveLayer==="surface"&&galleryPhase==="outside"&&discGolf.phase==="off"&&
+      bigAir.phase==="idle"&&!jetSki;
+    if(bikeViewActive){
+      bikeCameraFocus.set(player.x,playerY+1.25,player.z);
+      const shot=resolveBikeTerrainSightline(camera.position,bikeCameraFocus,
+        (x,z)=>worldFloorHeight(x,z));
+      if(shot.adjusted&&shot.clear)
+        camera.position.set(shot.point.x,shot.point.y,shot.point.z);
+      look.lerp(bikeCameraFocus,1-Math.exp(-Math.min(dt,.1)*9));
+      camera.lookAt(look);camera.updateMatrixWorld();
+      bikeScreenProbe.copy(bikeCameraFocus).project(camera);
+      const framed=()=>Number.isFinite(bikeScreenProbe.x)&&
+        Number.isFinite(bikeScreenProbe.y)&&bikeScreenProbe.z>=-1&&
+        bikeScreenProbe.z<=1&&Math.abs(bikeScreenProbe.x)<.68&&
+        Math.abs(bikeScreenProbe.y)<.62;
+      if(!framed()){
+        look.copy(bikeCameraFocus);camera.lookAt(look);camera.updateMatrixWorld();
+        bikeScreenProbe.copy(bikeCameraFocus).project(camera);
+      }
+      canvas.dataset.bikePlayerFramed=String(framed());
+      canvas.dataset.bikePlayerScreen=[bikeScreenProbe.x,bikeScreenProbe.y,bikeScreenProbe.z]
+        .map(v=>v.toFixed(3)).join(",");
+      canvas.dataset.bikeCameraSightlineClear=String(shot.clear);
+      canvas.dataset.bikeCameraClearanceLift=shot.lift.toFixed(2);
+      canvas.dataset.bikeCameraBoomRatio=shot.boomRatio.toFixed(3);
+    }else{
+      camera.lookAt(look);
+      canvas.dataset.bikePlayerFramed="n/a";
+      canvas.dataset.bikePlayerScreen="";
+      canvas.dataset.bikeCameraSightlineClear="n/a";
+      canvas.dataset.bikeCameraClearanceLift="0";
+      canvas.dataset.bikeCameraBoomRatio="1";
+    }
     if(skiCameraActive){
       camera.updateMatrixWorld();skiProbe.copy(skiFocus).project(camera);
       if(Math.abs(skiProbe.x)>.65||Math.abs(skiProbe.y)>.65){
