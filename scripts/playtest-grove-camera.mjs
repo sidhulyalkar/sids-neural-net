@@ -18,11 +18,37 @@ async function arrive(page,region="grove"){
   "06 Fern falls Follow the water";
  await page.getByRole("button",{name:"Open navigation menu"}).click();
  await page.getByRole("button",{name:button,exact:true}).click();
- await page.waitForFunction(region=>{
-  const d=document.querySelector("canvas")?.dataset;
-  return d?.currentRegion===region&&d.forestPlayerFramed==="true"&&
-    d.forestRenderedCameraClear==="true";
- },region,{timeout:40000,polling:"raf"});
+ try{
+  await page.waitForFunction(region=>{
+   const d=document.querySelector("canvas")?.dataset;
+   return d?.currentRegion===region&&d.forestPlayerFramed==="true"&&
+     d.forestRenderedCameraClear==="true";
+  },region,{timeout:40000,polling:"raf"});
+ }catch(error){
+  const state=await page.locator("canvas").evaluate(c=>({
+   currentRegion:c.dataset.currentRegion,
+   player:c.dataset.player,activity:c.dataset.activity,
+   forestCandidate:c.dataset.forestCameraCandidateClear,
+   forestRendered:c.dataset.forestRenderedCameraClear,
+   forestFramed:c.dataset.forestPlayerFramed,
+   forestScreen:c.dataset.forestPlayerScreen,
+   forestBlocks:c.dataset.forestCameraBlockers,
+   forestCutaways:c.dataset.forestCameraCutaways,
+   forestAdjusted:c.dataset.forestCameraAdjusted,
+   cameraDistance:c.dataset.cameraDistance,
+   cameraTargetError:c.dataset.cameraTargetError,
+   cameraPosition:c.dataset.skiCameraPosition,
+   look:c.dataset.skiCameraLook,
+   drawCalls:c.dataset.drawCalls,
+   regionHint:c.dataset.currentRegion,
+  }));
+  const name="failure-"+region+"-"+page.viewportSize().width;
+  fs.writeFileSync(path.join(output,name+".json"),
+   JSON.stringify({state,error:String(error)},null,2)+"\n");
+  await page.screenshot({path:path.join(output,name+".png")});
+  console.error("FOREST ARRIVAL DIAGNOSTIC",JSON.stringify({region,state,error:String(error)}));
+  throw error;
+ }
  // The camera must remain safe after moving toward the resolved shot.
  await page.waitForTimeout(1100);
  const state=await page.locator("canvas").evaluate(c=>({
