@@ -5,7 +5,6 @@ import {airborneSupportHeight} from "./rideRecovery";
 import { beamSupportHeight, technicalFeatureClearance } from "./technicalFeatures";
 import { bigAirClearance } from "./bigAir";
 import {jetSkiPierHeight} from "./jetSkiPier";
-import {MOUNTAIN_HALFPIPE,withinMountainHalfpipe,suppressedFaceKicker,mountainHalfpipeApproachClearance,mountainSummitBoost} from "./mountainHalfpipe";
 import {
   constrainMove,
   constrainSwimMove,
@@ -56,9 +55,7 @@ export const ACTIVITIES = [
     acceleration: 7,
     braking: 4,
     action: "Hop",
-    hint: process.env.NEXT_PUBLIC_SKI_V3==="1"
-      ? "A/D carve or spin · W/S tuck or brake, pitch in air · Hold Space and release to jump · Q/E roll · Shift grab"
-      : "WASD ski · Space to hop",
+    hint: "WASD ski · Space to hop · Granite Ridge jumps",
   },
   {
     id: "boulder",
@@ -372,9 +369,6 @@ export function groundHeight(p: Point) {
   let height = Math.max(worldFloorHeight(p.x, p.z),timberSupport(p));
   if (isWater(p)) return height;
   for (const ramp of RIDE_RAMPS){
-    // Older timber kickers occupying the newly carved snow corridor must
-    // not keep invisible airborne support after their art is hidden.
-    if(suppressedFaceKicker(ramp.id))continue;
     height = Math.max(height, rampSurface(ramp, p) ?? -Infinity);
   }
   height = Math.max(height, skateParkSurface(p) ?? -Infinity);
@@ -394,12 +388,8 @@ export function nextHold(p: Point) {
 }
 
 export function activityLanding(id: Activity): Point | null {
-  // The ordinary Skiing button starts on a dry, high snow approach to the
-  // *single* downhill halfpipe. It does not arm the separate Ski Jump game.
-  if (id === "ski") return {
-    x:MOUNTAIN_HALFPIPE.centerX,
-    z:MOUNTAIN_HALFPIPE.startZ+(process.env.NEXT_PUBLIC_SKI_V3==="1"?-.05:-1.65),
-  };
+  // Classic Granite Ridge shoulder. The scored Ski Jump remains menu-authorized.
+  if (id === "ski") return { x: 8, z: -54 };
   if (id === "skate") return {...SKATE_GROVE_FLOW.approach};
   if (id === "boulder") return { x: 13, z: -15 };
   return null;
@@ -426,18 +416,9 @@ export function stepTravel(
   const config = activityConfig(mode);
   const length = Math.hypot(input.x, input.z);
   const moving = length > 0.001;
-  let desired = moving
+  const desired = moving
     ? { x: input.x / length, z: input.z / length }
     : current.heading;
-  const carving = mode === "ski" && withinMountainHalfpipe(current.point);
-  if (carving && moving && current.speed > .2) {
-    const angle = Math.atan2(current.heading.x,current.heading.z);
-    const target = Math.atan2(desired.x,desired.z);
-    const delta = Math.atan2(Math.sin(target-angle),Math.cos(target-angle));
-    const maxTurn = dt * (airborne > 0 ? 6.5 : 3.8);
-    const yaw = angle + Math.max(-maxTurn, Math.min(maxTurn,delta));
-    desired = {x:Math.sin(yaw),z:Math.cos(yaw)};
-  }
   // Rolling skateboard carves gradually; other modes keep exact steering.
   const steer = mode === "skate" ? Math.min(1, dt * (3.1 + current.speed * 0.16)) : 1;
   const blended = {x:current.heading.x*(1-steer)+desired.x*steer,
@@ -460,20 +441,15 @@ export function stepTravel(
   const slope =
     contactSupport({ x: current.point.x + heading.x, z: current.point.z + heading.z }) -
     contactSupport(current.point);
-  const boostEligible=boost && (mode==="bike"||mode==="skate");
+  const boostEligible=boost && (mode==="bike"||mode==="ski"||mode==="skate");
   const maxSpeed =
-    carving ? 6.5 : config.speed *
+    config.speed *
     (mode === "run" && sprint ? 1.45 : 1) *
     (mode === "ski" ? Math.max(0.42, Math.min(1.45, 1 - slope * 0.38)) : 1) *
     (boostEligible ? 1.6 : 1);
   // When the skill-shot expires, retain momentum briefly instead of snapping
   // immediately to normal cruise speed. Normal braking still takes over.
-  // In the pipe, steering in the air redirects the retained takeoff speed.
-  // Ground acceleration resumes when the skis meet the snow again.
-  const speed = mode==="ski" && airborne>0 && (withinMountainHalfpipe(current.point) ||
-      (current.point.z <= -64 && current.point.z >= -78 && current.point.x >= 9 && current.point.x <= 24))
-    ? current.speed
-    : mode==="skate"
+  const speed = mode==="skate"
     ? skateRollingSpeed({
       speed:current.speed,dt,pushing:moving,riseAhead:slope,
       maxSpeed,boosted:boostEligible,
@@ -501,10 +477,6 @@ export function stepTravel(
   );
   if (
     (!isWater(point)||jetSkiPierHeight(point)!==null) &&
-    !(mode === "ski" && mountainHalfpipeApproachClearance(point) &&
-      mountainHalfpipeApproachClearance(current.point) &&
-      Math.abs(contactSupport(point)-terrainHeight(point.x,point.z))<.01 &&
-      Math.abs(contactSupport(current.point)-terrainHeight(current.point.x,current.point.z))<.01) &&
     contactSupport(point) > contactSupport(current.point) + Math.max(0.6, airborne)
   )
     return { ...current, speed: 0 };
@@ -625,7 +597,6 @@ export function rampImpulseAt(
   if (speed < 3) return null;
   const headingLength = Math.max(1e-6, Math.hypot(heading.x, heading.z));
   for (const ramp of RIDE_RAMPS) {
-    if(suppressedFaceKicker(ramp.id))continue;
     if (!ramp.modes.includes(mode)) continue;
     const desert = DESERT_JUMPS.find(j => j.id === ramp.id);
     if(desert?.kind === "gap" && speed < desert.minSpeed) continue;
@@ -755,7 +726,6 @@ export function sportClearance(p: Point) {
   };
   return (
     insideSkatePark(p,2) || insideMeadowConnector(p,2) ||
-    mountainHalfpipeApproachClearance(p) || mountainSummitBoost(p)>.025 ||
     desertTrackClearance(p) ||
     technicalFeatureClearance(p) ||
     bigAirClearance(p) ||
@@ -763,7 +733,6 @@ export function sportClearance(p: Point) {
       r.id !== "desert-flow" && r.points.slice(1).some((b, i) => lineDistance(r.points[i], b) < 3),
     ) ||
     RIDE_RAMPS.some((r) => {
-      if(suppressedFaceKicker(r.id))return false;
       const len = Math.hypot(r.heading.x, r.heading.z);
       return (
         lineDistance(
@@ -785,7 +754,6 @@ export function sportClearance(p: Point) {
 export function rampSurface(ramp: (typeof RIDE_RAMPS)[number], p: Point) {
   // Once a timber kicker has been removed from the ski-face scene, its
   // exported support query must not resurrect a phantom deck either.
-  if(suppressedFaceKicker(ramp.id))return null;
   // The Joshua step is earthen terrain, not a disconnected timber platform.
   if (ramp.id.startsWith("desert-")) return null;
   const len = Math.hypot(ramp.heading.x, ramp.heading.z),
