@@ -7230,10 +7230,10 @@ export function createWorld(
     if(forestArrivalFraming&&lastForestCameraSolve){
       const blockers=sceneryCamera.field.blockingIndices(
         camera.position,lastForestCameraSolve.focus).length;
-      canvas.dataset.groveRenderedCameraClear=String(blockers===0||cutawayCount>=blockers);
+      canvas.dataset.forestRenderedCameraClear=String(blockers===0||cutawayCount>=blockers);
       canvas.dataset.forestCameraCutaways=String(cutawayCount);
     }else{
-      canvas.dataset.groveRenderedCameraClear="n/a";
+      canvas.dataset.forestRenderedCameraClear="n/a";
       canvas.dataset.forestCameraCutaways="0";
     }
     // A 47° outdoor lens crops the carved photo pediment at 2.45m. The
