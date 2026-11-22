@@ -3353,9 +3353,9 @@ export function createWorld(
     desired:THREE.Vector3;focus:THREE.Vector3;position:THREE.Vector3;
     clear:boolean;adjusted:boolean;blocking:number;
   }|null=null;
-  // Grove arrival uses the existing geometry visibility solver. Cache the
-  // resolved shot to avoid probing thousands of leaves on every render.
-  let lastGroveCameraSolve:{
+  // Landmark arrival at the Redwood Grove and Fern Falls uses actual
+  // geometry visibility. Cache poses to avoid scanning foliage every frame.
+  let lastForestCameraSolve:{
     desired:THREE.Vector3;focus:THREE.Vector3;position:THREE.Vector3;
     clear:boolean;adjusted:boolean;blocking:number;
   }|null=null;
@@ -4276,7 +4276,7 @@ export function createWorld(
     let dx = 0,
       dz = 0;
     let showingDiscGolfIntro=false;
-    let groveArrivalFraming=false;
+    let forestArrivalFraming=false;
     if (state.entered) {
       const stick=mobileJoysticks.movement;
       const usingStick=stick.x!==0||stick.y!==0;
@@ -5904,11 +5904,11 @@ export function createWorld(
         caveInside && caveProgress > 0.48 && distance(player, arcadeWall) < 8.5;
       // Arrive at the rainforest clearing from the open coastal side, not
       // from a third-person boom embedded in trunks and boulders.
-      groveArrivalFraming=r==="grove"&&aquatic==="land"&&
-        state.activity==="run"&&caveLayer==="surface"&&
-        galleryPhase==="outside"&&discGolf.phase==="off"&&
-        bigAir.phase==="idle"&&!jetSki&&
-        distance(player,regionLanding("grove"))<9;
+      forestArrivalFraming=(r==="grove"||r==="waterfall")&&
+        aquatic==="land"&&state.activity==="run"&&
+        caveLayer==="surface"&&galleryPhase==="outside"&&
+        discGolf.phase==="off"&&bigAir.phase==="idle"&&!jetSki&&
+        distance(player,regionLanding(r))<9;
       const rainforestFraming = r==="rainforest" && aquatic==="land" &&
         caveLayer==="surface" && skimHeat.phase==="off" &&
         discGolf.phase==="off" &&
@@ -6163,7 +6163,7 @@ export function createWorld(
           const bx = targetCamera.x - player.x,
             bz = targetCamera.z - player.z;
           let boom = 1;
-          for (const o of groveArrivalFraming?[]:obstacles) {
+          for (const o of forestArrivalFraming?[]:obstacles) {
             const t =
               ((o.x - player.x) * bx + (o.z - player.z) * bz) / (bx * bx + bz * bz);
             if (
@@ -6394,32 +6394,32 @@ export function createWorld(
         canvas.dataset.discGolfCameraClear="true";
         canvas.dataset.discGolfCameraBlockers="0";
       }
-      if (groveArrivalFraming) {
+      if (forestArrivalFraming) {
         const focus=new THREE.Vector3(player.x,playerY+1.48,player.z);
-        const old=lastGroveCameraSolve;
+        const old=lastForestCameraSolve;
         const needed=!old||old.desired.distanceTo(targetCamera)>.32||
           old.focus.distanceTo(focus)>.32;
         if(needed){
           const shot=cameraVisibility.resolve(targetCamera,focus,
             (x,z)=>worldFloorHeight(x,z),old?.position);
-          lastGroveCameraSolve={
+          lastForestCameraSolve={
             desired:targetCamera.clone(),focus,
             position:new THREE.Vector3(shot.point.x,shot.point.y,shot.point.z),
             clear:shot.clear,adjusted:shot.adjusted,blocking:shot.blocking,
           };
         }
-        if(lastGroveCameraSolve){
-          targetCamera.copy(lastGroveCameraSolve.position);
-          targetLook.copy(lastGroveCameraSolve.focus);
+        if(lastForestCameraSolve){
+          targetCamera.copy(lastForestCameraSolve.position);
+          targetLook.copy(lastForestCameraSolve.focus);
         }
-        canvas.dataset.groveCameraCandidateClear=String(lastGroveCameraSolve?.clear??false);
-        canvas.dataset.groveCameraBlockers=String(lastGroveCameraSolve?.blocking??0);
-        canvas.dataset.groveCameraAdjusted=String(lastGroveCameraSolve?.adjusted??false);
+        canvas.dataset.forestCameraCandidateClear=String(lastForestCameraSolve?.clear??false);
+        canvas.dataset.forestCameraBlockers=String(lastForestCameraSolve?.blocking??0);
+        canvas.dataset.forestCameraAdjusted=String(lastForestCameraSolve?.adjusted??false);
       }else{
-        lastGroveCameraSolve=null;
-        canvas.dataset.groveCameraCandidateClear="n/a";
-        canvas.dataset.groveCameraBlockers="0";
-        canvas.dataset.groveCameraAdjusted="n/a";
+        lastForestCameraSolve=null;
+        canvas.dataset.forestCameraCandidateClear="n/a";
+        canvas.dataset.forestCameraBlockers="0";
+        canvas.dataset.forestCameraAdjusted="n/a";
       }
       if (cavernFraming) {
         const cameraFloor = arcadeCaveFloorHeight({x:targetCamera.x,z:targetCamera.z});
@@ -7132,12 +7132,12 @@ export function createWorld(
     if(shoreCameraActive&&northShoreLogBlocksView(camera.position,look)){
       camera.position.copy(targetCamera);look.copy(targetLook);
     }
-    if(groveArrivalFraming&&lastGroveCameraSolve&&
-      !cameraVisibility.clear(camera.position,lastGroveCameraSolve.focus)){
+    if(forestArrivalFraming&&lastForestCameraSolve&&
+      !cameraVisibility.clear(camera.position,lastForestCameraSolve.focus)){
       // The smooth orbit can pass THROUGH the trunk between two safe shots.
       // Cut directly to the safe composition before submitting this frame.
-      camera.position.copy(lastGroveCameraSolve.position);
-      look.copy(lastGroveCameraSolve.focus);
+      camera.position.copy(lastForestCameraSolve.position);
+      look.copy(lastForestCameraSolve.focus);
     }
     canvas.dataset.northShoreRenderedCameraClear=shoreCameraActive?
       String(!northShoreLogBlocksView(camera.position,look)):"n/a";
@@ -7222,19 +7222,19 @@ export function createWorld(
     // Last-resort cutaway also covers an obstructed interpolated pose or
     // a lie surrounded by foliage where no unobstructed boom exists.
     const visibilityFocus=lastDiscCameraSolve?.focus??
-      (groveArrivalFraming?lastGroveCameraSolve?.focus:null);
+      (forestArrivalFraming?lastForestCameraSolve?.focus:null);
     const cutawayCount=visibilityFocus?
       sceneryCamera.cutaway(camera.position,visibilityFocus):
       (sceneryCamera.restore(),0);
     canvas.dataset.discGolfCameraCutaways=String(lastDiscCameraSolve?cutawayCount:0);
-    if(groveArrivalFraming&&lastGroveCameraSolve){
+    if(forestArrivalFraming&&lastForestCameraSolve){
       const blockers=sceneryCamera.field.blockingIndices(
-        camera.position,lastGroveCameraSolve.focus).length;
+        camera.position,lastForestCameraSolve.focus).length;
       canvas.dataset.groveRenderedCameraClear=String(blockers===0||cutawayCount>=blockers);
-      canvas.dataset.groveCameraCutaways=String(cutawayCount);
+      canvas.dataset.forestCameraCutaways=String(cutawayCount);
     }else{
       canvas.dataset.groveRenderedCameraClear="n/a";
-      canvas.dataset.groveCameraCutaways="0";
+      canvas.dataset.forestCameraCutaways="0";
     }
     // A 47° outdoor lens crops the carved photo pediment at 2.45m. The
     // 74° inspection lens frames desktop art; an adaptive phone viewing
@@ -7301,18 +7301,18 @@ export function createWorld(
       canvas.dataset.bikeCameraClearanceLift="0";
       canvas.dataset.bikeCameraBoomRatio="1";
     }
-    if(groveArrivalFraming&&lastGroveCameraSolve){
+    if(forestArrivalFraming&&lastForestCameraSolve){
       camera.updateMatrixWorld();
-      const focusOnScreen=lastGroveCameraSolve.focus.clone().project(camera);
-      canvas.dataset.grovePlayerFramed=String(
+      const focusOnScreen=lastForestCameraSolve.focus.clone().project(camera);
+      canvas.dataset.forestPlayerFramed=String(
         Number.isFinite(focusOnScreen.x)&&Number.isFinite(focusOnScreen.y)&&
         Math.abs(focusOnScreen.x)<.72&&Math.abs(focusOnScreen.y)<.72&&
         focusOnScreen.z>=-1&&focusOnScreen.z<=1);
-      canvas.dataset.grovePlayerScreen=
+      canvas.dataset.forestPlayerScreen=
         [focusOnScreen.x,focusOnScreen.y,focusOnScreen.z].map(v=>v.toFixed(3)).join(",");
     }else{
-      canvas.dataset.grovePlayerFramed="n/a";
-      canvas.dataset.grovePlayerScreen="";
+      canvas.dataset.forestPlayerFramed="n/a";
+      canvas.dataset.forestPlayerScreen="";
     }
     if(skiCameraActive){
       camera.updateMatrixWorld();skiProbe.copy(skiFocus).project(camera);

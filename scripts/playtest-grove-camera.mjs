@@ -13,25 +13,27 @@ const browser=await chromium.launch({
  headless:true,args:["--no-sandbox","--enable-unsafe-swiftshader"],
 });
 const errors=[],report=[];
-async function arrive(page){
+async function arrive(page,region="grove"){
+ const button=region==="grove"?"01 Redwood grove A little about me":
+  "06 Fern falls Follow the water";
  await page.getByRole("button",{name:"Open navigation menu"}).click();
- await page.getByRole("button",{name:"01 Redwood grove A little about me",exact:true}).click();
- await page.waitForFunction(()=>{
+ await page.getByRole("button",{name:button,exact:true}).click();
+ await page.waitForFunction(region=>{
   const d=document.querySelector("canvas")?.dataset;
-  return d?.currentRegion==="grove"&&d.grovePlayerFramed==="true"&&
-    d.groveRenderedCameraClear==="true";
- },null,{timeout:40000,polling:"raf"});
+  return d?.currentRegion===region&&d.forestPlayerFramed==="true"&&
+    d.forestRenderedCameraClear==="true";
+ },region,{timeout:40000,polling:"raf"});
  // The camera must remain safe after moving toward the resolved shot.
  await page.waitForTimeout(1100);
  const state=await page.locator("canvas").evaluate(c=>({
   region:c.dataset.currentRegion,player:c.dataset.player,
-  candidateClear:c.dataset.groveCameraCandidateClear,
-  actualClear:c.dataset.groveRenderedCameraClear,
-  framed:c.dataset.grovePlayerFramed,
-  screen:c.dataset.grovePlayerScreen,
-  cutaways:c.dataset.groveCameraCutaways,
-  adjusted:c.dataset.groveCameraAdjusted,
-  blockers:c.dataset.groveCameraBlockers,
+  candidateClear:c.dataset.forestCameraCandidateClear,
+  actualClear:c.dataset.forestRenderedCameraClear,
+  framed:c.dataset.forestPlayerFramed,
+  screen:c.dataset.forestPlayerScreen,
+  cutaways:c.dataset.forestCameraCutaways,
+  adjusted:c.dataset.forestCameraAdjusted,
+  blockers:c.dataset.forestCameraBlockers,
  }));
  assert.equal(state.actualClear,"true",JSON.stringify(state));
  assert.equal(state.framed,"true",JSON.stringify(state));
@@ -48,14 +50,17 @@ try{
    null,{timeout:90000});
   const initial=await arrive(page);
   await page.screenshot({path:path.join(output,size.w+"-grove-arrival.png")});
-  report.push({size:size.w,scenario:"arrival",...initial});
+  report.push({size:size.w,scenario:"grove-arrival",...initial});
+  const falls=await arrive(page,"waterfall");
+  await page.screenshot({path:path.join(output,size.w+"-falls-arrival.png")});
+  report.push({size:size.w,scenario:"falls-arrival",...falls});
   if(!size.mobile){
    // Reenter from a distant biome to exercise actual camera interpolation.
    await page.getByRole("button",{name:"Open navigation menu"}).click();
    await page.getByRole("button",{name:"02 Granite ridge Things I build",exact:true}).click();
    await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.currentRegion==="mountain",
     null,{timeout:20000});
-   const returnState=await arrive(page);
+   const returnState=await arrive(page,"grove");
    await page.screenshot({path:path.join(output,"1440-grove-return.png")});
    report.push({size:size.w,scenario:"return",...returnState});
   }
@@ -63,5 +68,5 @@ try{
  }
  assert.deepEqual(errors,[],"No uncaught errors during Redwood camera traversal");
  fs.writeFileSync(path.join(output,"report.json"),JSON.stringify({report,errors},null,2)+"\n");
- console.log("REDWOOD CAMERA QA PASS",JSON.stringify({report,errors}));
+ console.log("FOREST LANDMARK CAMERA QA PASS",JSON.stringify({report,errors}));
 }finally{await browser.close();}
