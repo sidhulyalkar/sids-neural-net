@@ -27,7 +27,7 @@ try {
   const page = activePage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(base);
-  assert.equal(await page.getByRole('link', { name: 'View site', exact: true }).getAttribute('href'), '/atlas');
+  assert.equal(await page.getByRole('link', { name: 'View site', exact: true }).getAttribute('href'), '/');
   assert.equal(await page.getByRole('link', { name: 'Get to know me', exact: true }).getAttribute('href'), '/about');
   assert.equal(await page.getByRole('heading', { name: 'Welcome to Sid’s iLand', exact: true }).count(), 1);
   assert.equal(await page.getByRole('link', { name: 'Sid Hulyalkar', exact: true }).getAttribute('href'), '/');
