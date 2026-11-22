@@ -8,14 +8,15 @@ on:
       - "scripts/playtest-ski-v3.mjs"
       - "scripts/playtest-ski-player-spin.mjs"
       - "scripts/playtest-ski-player-spin-clock.mjs"
-      - "scripts/playtest-clean-mountain-halfpipe.mjs"
+      - "scripts/playtest-classic-ski.mjs"
+      - "scripts/playtest-disc-golf.mjs"
       - ".github/workflows/world-master-port-browser.yml"
   workflow_dispatch:
 
 jobs:
-  world-ski-browser:
+  world-classic-ski-disc-golf-browser:
     runs-on: ubuntu-24.04
-    timeout-minutes: 28
+    timeout-minutes: 38
     strategy:
       fail-fast: false
       matrix:
@@ -50,25 +51,11 @@ jobs:
           done
           tail -n 100 /tmp/world-port-browser.log
           exit 1
-      - name: Browser evidence for real V3 or legacy menu Ski Jump
-        run: |
-          if [ "$NEXT_PUBLIC_SKI_V3" = "1" ]; then
-            node scripts/playtest-ski-v3.mjs
-            # Two independent proof modes: controlled 60Hz physics cadence
-            # and real wall-clock software WebGL. Both retain evidence even
-            # if the other fails; neither asserts GPU hardware performance.
-            set +e
-            node scripts/playtest-ski-player-spin-clock.mjs
-            clock_code=$?
-            node scripts/playtest-ski-player-spin.mjs
-            realtime_code=$?
-            set -e
-            echo "SKI_TRICK_CLOCK_EXIT=$clock_code"
-            echo "SKI_TRICK_REALTIME_EXIT=$realtime_code"
-            test "$clock_code" -eq 0 && test "$realtime_code" -eq 0
-          else
-            node scripts/playtest-clean-mountain-halfpipe.mjs
-          fi
+      - name: Qualify restored classic skiing on desktop and mobile under both legacy flag settings
+        run: node scripts/playtest-classic-ski.mjs
+      - name: Qualify all nine disc-golf holes and Shasta fetch handoff
+        if: matrix.ski_v3 == '0'
+        run: node scripts/playtest-disc-golf.mjs
       - name: Save tested head even if browser fails
         if: always()
         run: |
@@ -78,7 +65,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: world-master-browser-${{ matrix.ski_v3 }}-${{ github.sha }}
+          name: world-classic-browser-${{ matrix.ski_v3 }}-${{ github.sha }}
           path: |
             artifacts/world-master-browser/
             artifacts/world-player-spin/
