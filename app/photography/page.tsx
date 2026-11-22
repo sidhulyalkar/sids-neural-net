@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import {galleryWorldHref} from '@/lib/world/galleryLinks';
 import { ComicSectionLayout } from '@/components/neural-atlas/ComicSectionLayout';
 import { VisualArchiveGallery } from '@/components/visual-archive';
 import { VisualMotionGallery } from '@/components/visual-archive/VisualMotionGallery';
@@ -28,6 +30,9 @@ export default function PhotographyPage() {
         </p>
       </section>
 
+      <p className="mb-8 text-sm"><Link href={galleryWorldHref("photos")} className="text-cyan hover:underline">
+        Enter the 3D waterfall photo gallery in Sid’s iLand
+      </Link></p>
       <section aria-labelledby="visual-motion-heading" className="mb-20 sm:mb-28">
         <div className="mb-7 flex items-end justify-between gap-4 border-b border-white/8 pb-4">
           <div>

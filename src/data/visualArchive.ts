@@ -1,11 +1,15 @@
+import { photoPlaces, type PhotoPlace } from './photoPlaces';
+
 export type VisualArchiveEntry = {
   id: string;
   src: string;
   thumbSrc: string;
   alt: string;
   title?: string;
-  location?: string;
-  date?: string;
+  /** A human-readable place at the level we actually know. */
+  location: string;
+  /** Map-search target and provenance, shared by the future travel map. */
+  place: PhotoPlace;
   tags?: string[];
   aspectRatio: string;
   width: number;
@@ -13,7 +17,7 @@ export type VisualArchiveEntry = {
   featured?: boolean;
 };
 
-export const visualArchive: VisualArchiveEntry[] = [
+const photoImages: Omit<VisualArchiveEntry, 'location' | 'place'>[] = [
   {
     id: 'photo-001',
     src: '/visual-archive/web/photo-001.webp',
@@ -170,8 +174,8 @@ export const visualArchive: VisualArchiveEntry[] = [
     id: 'photo-016',
     src: '/visual-archive/web/photo-016.webp',
     thumbSrc: '/visual-archive/thumbs/photo-016-thumb.webp',
-    alt: 'Small lizard blending into textured tree bark and dry leaves.',
-    tags: ['wildlife', 'detail'],
+    alt: 'Sloth clinging to the trunk of a rainforest tree, extending one long forelimb.',
+    tags: ['sloth', 'rainforest', 'wildlife'],
     aspectRatio: '1800 / 2400',
     width: 1800,
     height: 2400,
@@ -241,7 +245,7 @@ export const visualArchive: VisualArchiveEntry[] = [
     id: 'photo-023',
     src: '/visual-archive/web/photo-023.webp',
     thumbSrc: '/visual-archive/thumbs/photo-023-thumb.webp',
-    alt: 'Narrow road through bright green fields lined with palms beneath low clouds.',
+    alt: 'Path through the green grass and palms of Kualoa Regional Park beneath the Koʻolau Mountains.',
     tags: ['road', 'tropical'],
     aspectRatio: '1800 / 2400',
     width: 1800,
@@ -271,8 +275,8 @@ export const visualArchive: VisualArchiveEntry[] = [
     id: 'photo-026',
     src: '/visual-archive/web/photo-026.webp',
     thumbSrc: '/visual-archive/thumbs/photo-026-thumb.webp',
-    alt: 'White dog curled among smooth rocks in warm low sunlight.',
-    tags: ['dog', 'sunset'],
+    alt: 'Orange-and-white cat relaxing among shoreline rocks in golden sunlight.',
+    tags: ['cat', 'coast', 'sunset'],
     aspectRatio: '1800 / 2400',
     width: 1800,
     height: 2400,
@@ -291,7 +295,7 @@ export const visualArchive: VisualArchiveEntry[] = [
     id: 'photo-028',
     src: '/visual-archive/web/photo-028.webp',
     thumbSrc: '/visual-archive/thumbs/photo-028-thumb.webp',
-    alt: 'Reflective wet beach at sunset with low clouds and soft ocean light.',
+    alt: 'Reflective sand and breaking waves at a hidden beach near Kualoa on Oʻahu at sunset.',
     tags: ['beach', 'sunset'],
     aspectRatio: '1800 / 1350',
     width: 1800,
@@ -301,7 +305,7 @@ export const visualArchive: VisualArchiveEntry[] = [
     id: 'photo-029',
     src: '/visual-archive/web/photo-029.webp',
     thumbSrc: '/visual-archive/thumbs/photo-029-thumb.webp',
-    alt: 'Mountain valley below pink evening clouds after rain.',
+    alt: 'Moʻorea mountains beneath pink sunset clouds.',
     tags: ['valley', 'sunset'],
     aspectRatio: '1800 / 2400',
     width: 1800,
@@ -311,7 +315,7 @@ export const visualArchive: VisualArchiveEntry[] = [
     id: 'photo-030',
     src: '/visual-archive/web/photo-030.webp',
     thumbSrc: '/visual-archive/thumbs/photo-030-thumb.webp',
-    alt: 'White flowers in the foreground with misty coastal hills beyond.',
+    alt: 'White plumeria flowers above the Bora Bora lagoon.',
     tags: ['flower', 'coast'],
     aspectRatio: '1800 / 2400',
     width: 1800,
@@ -321,7 +325,7 @@ export const visualArchive: VisualArchiveEntry[] = [
     id: 'photo-031',
     src: '/visual-archive/web/photo-031.webp',
     thumbSrc: '/visual-archive/thumbs/photo-031-thumb.webp',
-    alt: 'Golden sun over rippled ocean water and dark offshore rocks.',
+    alt: 'Sunset over the clear Bora Bora lagoon with boats offshore.',
     tags: ['ocean', 'sunset'],
     aspectRatio: '1800 / 1350',
     width: 1800,
@@ -331,7 +335,7 @@ export const visualArchive: VisualArchiveEntry[] = [
     id: 'photo-032',
     src: '/visual-archive/web/photo-032.webp',
     thumbSrc: '/visual-archive/thumbs/photo-032-thumb.webp',
-    alt: 'Palm frond hanging over calm sunset water.',
+    alt: 'Palm fronds framing the sunset over the Bora Bora lagoon.',
     tags: ['water', 'sunset'],
     aspectRatio: '1800 / 2400',
     width: 1800,
@@ -341,8 +345,8 @@ export const visualArchive: VisualArchiveEntry[] = [
     id: 'photo-033',
     src: '/visual-archive/web/photo-033.webp',
     thumbSrc: '/visual-archive/thumbs/photo-033-thumb.webp',
-    alt: 'Rocky forest creek with water moving between boulders.',
-    tags: ['creek', 'rocks'],
+    alt: 'Shasta standing on snow-dusted granite boulders among pine trees in California.',
+    tags: ['dog', 'snow', 'granite'],
     aspectRatio: '1800 / 2400',
     width: 1800,
     height: 2400,
@@ -361,8 +365,8 @@ export const visualArchive: VisualArchiveEntry[] = [
     id: 'photo-035',
     src: '/visual-archive/web/photo-035.webp',
     thumbSrc: '/visual-archive/thumbs/photo-035-thumb.webp',
-    alt: 'Purple wildflowers beside a clear mountain stream and green hills.',
-    tags: ['flower', 'water'],
+    alt: 'Pink coastal ice plant flower overlooking breaking waves at a California cove.',
+    tags: ['flower', 'coast'],
     aspectRatio: '1800 / 2400',
     width: 1800,
     height: 2400,
@@ -411,7 +415,7 @@ export const visualArchive: VisualArchiveEntry[] = [
     id: 'photo-040',
     src: '/visual-archive/web/photo-040.webp',
     thumbSrc: '/visual-archive/thumbs/photo-040-thumb.webp',
-    alt: 'Close view of a dog beside flowing water and rock.',
+    alt: 'Shasta looking down toward a graffiti-covered concrete spillway in California.',
     tags: ['dog', 'water'],
     aspectRatio: '1800 / 2400',
     width: 1800,
@@ -509,3 +513,10 @@ export const visualArchive: VisualArchiveEntry[] = [
     height: 1350,
   },
 ];
+
+/** Enrich the existing stable photo IDs without rewriting/reordering the archive. */
+export const visualArchive: VisualArchiveEntry[] = photoImages.map((photo) => {
+  const location = photoPlaces[photo.id];
+  if (!location) throw new Error(`Missing location for Visual Cortex photo ${photo.id}`);
+  return { ...photo, location: location.label, place: location };
+});

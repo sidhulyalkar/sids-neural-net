@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+<title>RAID ASCEND: layered illustrated fantasy dungeon graffiti</title>
+<defs>
+<radialGradient id="mist"><stop stop-color="#7151cd" stop-opacity=".68"/><stop offset=".62" stop-color="#37245b" stop-opacity=".31"/><stop offset="1" stop-color="#16142b" stop-opacity="0"/></radialGradient>
+<linearGradient id="steel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ba98fa"/><stop offset=".3" stop-color="#7063af"/><stop offset=".66" stop-color="#31314f"/><stop offset="1" stop-color="#151d31"/></linearGradient>
+<linearGradient id="fire" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff4ac"/><stop offset=".35" stop-color="#ffb74e"/><stop offset=".76" stop-color="#eb5e4d"/><stop offset="1" stop-color="#943c87"/></linearGradient>
+<linearGradient id="ice" x1="0" y1="0" x2="1" y2=".5"><stop stop-color="#48e7f0"/><stop offset=".5" stop-color="#b2dbfb"/><stop offset="1" stop-color="#a28af8"/></linearGradient>
+<filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="16"/></filter>
+<pattern id="fissure" width="115" height="108" patternUnits="userSpaceOnUse"><path d="M7 22l22 11 19-18 30 16M80 88l-15-7-11 14" stroke="#10101c" stroke-width="5" opacity=".42" fill="none"/></pattern>
+</defs>
+<ellipse cx="817" cy="489" rx="580" ry="399" fill="url(#mist)"/>
+<g opacity=".65" fill="none" stroke="#9872eb" stroke-width="31" filter="url(#blur)">
+<path d="M302 594Q486 303 758 294T1323 595"/><path d="M404 738Q798 468 1222 727"/>
+</g>
+<!-- Energy rift as layered painted masses, no thin line scaffolding -->
+<path d="M514 840Q382 602 472 344Q539 168 790 177Q1043 177 1132 388Q1236 632 1066 841Q978 714 1037 550Q1083 352 868 301Q648 265 566 496Q530 649 639 770Z"
+ fill="#161832" stroke="#42326e" stroke-width="47" stroke-linejoin="round"/>
+<path d="M518 810Q406 539 553 354Q666 190 862 205Q1088 219 1162 461Q1205 612 1090 800"
+ fill="none" stroke="url(#ice)" stroke-width="28" stroke-linecap="round"/>
+<path d="M608 820Q497 613 583 435Q671 281 840 289Q1032 301 1082 502Q1115 643 1020 793"
+ fill="none" stroke="#bb85ff" stroke-width="18" stroke-linecap="round"/>
+<path d="M711 840Q592 691 657 488Q712 379 846 390Q996 403 1020 553"
+ fill="none" stroke="#72f1e7" stroke-width="11" stroke-linecap="round" opacity=".87"/>
+<!-- Hero is a *finished fantasy mask and armor* silhouette, not character-specific imitation -->
+<g transform="translate(550 211)">
+<path d="M243 82L390 132 478 268 483 464 585 633 511 720 353 651 215 721 88 643 179 433 180 266Z" fill="#111629" stroke="#725ca8" stroke-width="18"/>
+<path d="M230 239Q201 115 337 60Q443 90 460 216L423 359 321 411 233 349Z" fill="url(#steel)" stroke="#111529" stroke-width="25"/>
+<path d="M244 218L301 168 339 191 374 165 445 225 405 286 358 273 314 290Z" fill="#171a31"/>
+<path d="M260 267L317 253 344 269 313 290Z" fill="#78f1f1" stroke="#7dedf5" stroke-width="6"/>
+<path d="M367 268L409 251 433 267 403 290Z" fill="#dcadff" stroke="#be80f1" stroke-width="6"/>
+<path d="M324 312Q356 328 390 302" stroke="#dce1ea" fill="none" stroke-width="11" stroke-linecap="round"/>
+<path d="M224 345L147 441 117 635 240 604 278 458 344 478 416 459 455 625 578 631 518 423 444 343 370 399 320 408Z" fill="#24253f" stroke="#0b1223" stroke-width="24"/>
+<path d="M163 420L62 497 35 634 160 579Z M479 424L584 474 613 616 518 577Z" fill="#504467" stroke="#111b28" stroke-width="20"/>
+<path d="M278 479L321 557 349 484 371 564 427 480" fill="none" stroke="#a68ddb" stroke-width="22" stroke-linecap="round"/>
+<path d="M219 594L319 644 414 594" fill="none" stroke="#b6b0d7" stroke-width="23" stroke-linecap="round"/>
+<path d="M83 602L19 699 115 687 181 618 M533 589L653 687 553 716 491 610" fill="#17162c" stroke="#8de6e5" stroke-width="16"/>
+</g>
+<!-- Three bold impact slashes and shattering shards, asymmetrically organized -->
+<path d="M182 713L272 318 330 367 294 562 428 458 342 828 304 700Z" fill="#d8466b" opacity=".84"/>
+<path d="M1345 688L1447 346 1491 423 1462 551 1562 484 1476 820 1453 704Z" fill="url(#fire)" opacity=".9"/>
+<path d="M305 859L411 755 432 824 513 760 476 906Z M1163 859L1300 744 1309 835 1406 782 1367 915Z" fill="#a080e1" opacity=".69"/>
+<g fill="none" stroke="#ffe8ae" stroke-width="21" stroke-linecap="round" opacity=".74">
+<path d="M226 823l160-127M1248 809l202-170"/>
+</g>
+<!-- Readable dominant type floating as sprayed cutouts, not text extrusion -->
+<g font-family="Impact,Arial Black,sans-serif" font-weight="900" paint-order="stroke" stroke-linejoin="round">
+<text x="95" y="184" font-size="190" fill="#f8e9d2" stroke="#141524" stroke-width="43" letter-spacing="1">RAID</text>
+<text x="947" y="183" font-size="157" fill="#bcebf5" stroke="#11152d" stroke-width="40" letter-spacing="1">ASCEND</text>
+<text x="112" y="956" font-size="51" fill="#d7c4f8" stroke="#101528" stroke-width="16" letter-spacing="2">SOLO LEVELING  /  JJK  /  CHAINSAW MAN</text>
+</g>
+<!-- Paint flecks respect the hero face and titles -->
+<path d="M88 259L462 259L430 920L102 920Z M1160 269L1555 267L1550 901L1288 929Z" fill="url(#fissure)" opacity=".38"/>
+</svg>
