@@ -19,6 +19,54 @@ const results = [], errors = [];
 let diagnostics;
 let activePage;
 async function screenshot(page, name) { await page.screenshot({ path: path.join(output, `${name}.png`) }); }
+async function returnToShore(page, label) {
+  // Observe the rendered world on the page side, not a 150ms/300ms remote
+  // polling loop. SwiftShader frames can be slow enough to miss a brief
+  // land transition while the test keeps holding the reverse key.
+  await page.locator('canvas').evaluate(c => {
+    const evidence={seen:false,transitions:[],landedAt:null};
+    c.__shoreReturn=evidence;
+    const observer=new MutationObserver(()=>{
+      const mode=c.dataset.aquatic??'unknown';
+      if(evidence.transitions.at(-1)!==mode) evidence.transitions.push(mode);
+      if(mode==='land'&&!evidence.seen) {
+        evidence.seen=true;
+        evidence.landedAt=c.dataset.player??'';
+        // The game listens to keyup on window. Clear the held swim input
+        // in the SAME rendering turn as the shore collision, before another
+        // simulation tick might walk back across the narrow shoreline.
+        window.dispatchEvent(new KeyboardEvent('keyup',{
+          key:'s',code:'KeyS',bubbles:true,
+        }));
+        observer.disconnect();
+      }
+    });
+    c.__shoreObserver=observer;
+    observer.observe(c,{attributes:true,attributeFilter:['data-aquatic']});
+  });
+  await page.keyboard.down('s');
+  let evidence;
+  try {
+    await page.waitForFunction(() =>
+      document.querySelector('canvas')?.__shoreReturn?.seen===true,
+    null,{timeout:45000,polling:'raf'});
+    evidence=await page.locator('canvas').evaluate(c=>c.__shoreReturn);
+  } finally {
+    await page.keyboard.up('s');
+    await page.locator('canvas').evaluate(c=>c.__shoreObserver?.disconnect())
+      .catch(()=>{});
+  }
+  assert.ok(evidence?.landedAt,
+    label+' must physically reach a valid shore position: '+JSON.stringify(evidence));
+  await page.waitForTimeout(650);
+  const final=await page.locator('canvas').evaluate(c=>({
+    aquatic:c.dataset.aquatic,player:c.dataset.player,
+  }));
+  assert.equal(final.aquatic,'land',
+    label+' must remain on shore after movement release: '+
+    JSON.stringify({evidence,final}));
+  return {label,...evidence,final};
+}
 async function waitForScene(page) {
   // A canvas element alone is insufficient evidence that the scene has rendered.
   await page.waitForFunction(() => Number(document.querySelector('canvas')?.dataset.drawCalls) > 0);
@@ -408,15 +456,9 @@ try {
   results.push('Dive pose, framing, reef density and renderer budget stay bounded');
   await page.getByRole('button', { name: 'Surface', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface');
-  await page.keyboard.down('s');
-  try {
-    // SwiftShader can run this scene at ~4 FPS in CI. The transition itself is
-    // still mandatory; allow enough wall time for bounded low-FPS swim stepping.
-    await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land', null, { timeout: 15000 });
-  } finally {
-    await page.keyboard.up('s');
-  }
-  results.push('Land, snorkeling, dive depth, surfacing, and shore return all transition cleanly');
+  const coastReturn=await returnToShore(page,'West coast');
+  results.push('Land, snorkeling, dive depth, surfacing, and shore return all transition cleanly: '+
+    JSON.stringify(coastReturn.transitions));
 
   // The east-side lagoon is a separate warm-water biome with its own shoreline,
   // atmosphere and batched fauna. Enter it through normal movement as well.
@@ -467,16 +509,9 @@ try {
   results.push('East lagoon snorkeling and diving activate only the warm-water reef within renderer budget');
   await page.getByRole('button', { name: 'Surface', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'surface');
-  await page.keyboard.down('s');
-  try {
-    await page.waitForFunction(
-      () => document.querySelector('canvas')?.dataset.aquatic === 'land',
-      null,
-      { timeout: 15000 },
-    );
-  } finally {
-    await page.keyboard.up('s');
-  }
+  const lagoonReturn=await returnToShore(page,'East lagoon');
+  results.push('Lagoon surface-to-shore transition remains stable: '+
+    JSON.stringify(lagoonReturn.transitions));
 
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   await page.getByRole('button', { name: 'Field notes', exact: true }).click();
