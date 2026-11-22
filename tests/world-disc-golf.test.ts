@@ -12,7 +12,6 @@ import {
 } from "../lib/world/discGolf";
 import { terrainHeight,isWater,SEA_SURFACE } from "../lib/world/model";
 import {discGolfSurfaceHeight,discGolfSurfaceIsWater} from "../lib/world/discGolfSurface";
-import {discGolfSurfaceHeight,discGolfSurfaceIsWater} from "../lib/world/discGolfSurface";
 import {jetSkiPierHeight,JET_SKI_PIER} from "../lib/world/jetSkiPier";
 import { createDiscGolfGeometry } from "../components/world/worldDiscGolfGeometry";
 const ground=discGolfSurfaceHeight;
