@@ -4,7 +4,9 @@ import {createTrial,inside} from "../app/dev/ski-lab/fiveCarve";
 import {EarlyEdgeController,runEarlyEdge,sweepEarlyEdge} from "../app/dev/ski-lab/earlyEdge";
 import {neutral,tuning} from "../lib/world/ski/simulation";
 
-test("late-controller reproduces the unqualified V3-1 reference, never silently claiming five carves",()=>{
+// Archived halfpipe-specific simulation benchmark. No halfpipe surface is shipped
+// in classic iLand, so its old contact/tick reference is no longer a valid gate.
+test.skip("late-controller reproduces the unqualified V3-1 reference, never silently claiming five carves [retired Ski V3 terrain benchmark]",()=>{
  const control=runEarlyEdge(0);
  assert.equal(control.visited,1);
  assert.equal(control.traversals,0);
