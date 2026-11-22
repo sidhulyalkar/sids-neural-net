@@ -1,7 +1,6 @@
 import { desertTrackHeightOffset } from "./desertTrack";
 import { rockGardenHeightOffset } from "./technicalFeatures";
 import { bigAirTerrainOffset } from "./bigAir";
-import {MOUNTAIN_HALFPIPE,mountainFaceEditDelta} from "./mountainHalfpipe";
 import { beachBlend, northShoreZ } from "./skimboarding";
 import {MYSTIC_GROVE} from "./mysticGrove";
 import {rayPassageDepth} from "./rayPassage";
@@ -382,14 +381,9 @@ export function terrainHeightBeforeHalfpipe(x: number, z: number): number {
   }
   return base;
 }
-/** The untouched, previously verified mountain/stream/waterfall geometry
- * remains authoritative. A small +Z-facing ski patch is the sole overlay. */
-export function terrainHeight(x:number,z:number):number {
-  const original=terrainHeightBeforeHalfpipe(x,z);
-  const delta=mountainFaceEditDelta({x,z},original,
-    faceZ=>terrainHeightBeforeHalfpipe(MOUNTAIN_HALFPIPE.centerX,faceZ));
-  return original+delta;
-}
+/** Classic mountain surface, with the post-halfpipe South Shore shoreline
+ * collar retained. No carved halfpipe or artificial summit elevation. */
+export const terrainHeight = terrainHeightBeforeHalfpipe;
 /** Natural roof surface, intentionally independent from underground cave floors. */
 export const mountainSurfaceHeight = rawTerrainHeight;
 
