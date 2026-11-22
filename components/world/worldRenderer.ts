@@ -4276,6 +4276,7 @@ export function createWorld(
     let dx = 0,
       dz = 0;
     let showingDiscGolfIntro=false;
+    let groveArrivalFraming=false;
     if (state.entered) {
       const stick=mobileJoysticks.movement;
       const usingStick=stick.x!==0||stick.y!==0;
@@ -5903,7 +5904,7 @@ export function createWorld(
         caveInside && caveProgress > 0.48 && distance(player, arcadeWall) < 8.5;
       // Arrive at the rainforest clearing from the open coastal side, not
       // from a third-person boom embedded in trunks and boulders.
-      const groveArrivalFraming=r==="grove"&&aquatic==="land"&&
+      groveArrivalFraming=r==="grove"&&aquatic==="land"&&
         state.activity==="run"&&caveLayer==="surface"&&
         galleryPhase==="outside"&&discGolf.phase==="off"&&
         bigAir.phase==="idle"&&!jetSki&&
