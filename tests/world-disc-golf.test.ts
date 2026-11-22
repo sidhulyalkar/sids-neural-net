@@ -3,7 +3,7 @@ import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
 import {
  DISC_GOLF_HOLES,DISC_GOLF_VERSION,discGolfBasketPosition,discGolfWind,
- discGolfNextTarget,discGolfFacingHeading,discGolfRouteLength,discGolfGateCrossing,
+ discGolfNextTarget,discGolfFacingHeading,discGolfAimedHeading,discGolfRouteLength,discGolfGateCrossing,
  startDiscGolf,idleDiscGolf,discGolfThrow,stepDiscGolf,discGolfScoreName,
  discGolfRemaining,discGolfTreeContact,traceDiscGolfShot,recommendDiscGolfPower,
  discGolfIntroPose,DISC_GOLF_INTRO_HOLD,DISC_GOLF_INTRO_PULLBACK,
@@ -38,6 +38,41 @@ test("disc-golf stance always points toward the next gate, then basket",()=>{
   {x:0,z:0},{x:-2,z:0}),{x:-1,z:0});
  assert.deepEqual(discGolfFacingHeading({x:0,z:0},{x:0,z:0},
   {x:0,z:0},{x:0,z:0}),{x:0,z:1});
+});
+
+test("disc-golf avatar aim and actual launch azimuth match on every hole and gate",()=>{
+  const offsets=[-55,-35,-9,0,8,24,55];
+  for(let i=0;i<DISC_GOLF_HOLES.length;i++){
+    const hole=DISC_GOLF_HOLES[i];
+    for(let gate=0;gate<=hole.gates.length;gate++){
+      const state={...startDiscGolf(i,ground),gatesCleared:gate};
+      const target=discGolfNextTarget(state);
+      for(const aimOffset of offsets){
+        const facing=discGolfAimedHeading(state.lie,target,hole.target,aimOffset);
+        const launch=discGolfThrow(state,{...ordinary,aimOffset},ground);
+        assert.equal(launch.phase,"flying");
+        const horizontal=Math.hypot(launch.velocity.x,launch.velocity.z);
+        const alignment=(facing.x*launch.velocity.x+facing.z*launch.velocity.z)/horizontal;
+        assert.ok(alignment>1-1e-12,
+          `Hole ${i+1} gate ${gate}, aim ${aimOffset}: avatar faces ${alignment} of launch`);
+        assert.ok(Math.abs(Math.hypot(facing.x,facing.z)-1)<1e-12);
+      }
+    }
+  }
+});
+
+test("disc-golf aim respects active gate, basket and clamped input",()=>{
+  const lie={x:0,z:0},gate={x:0,z:10},basket={x:12,z:0};
+  const forward=discGolfAimedHeading(lie,gate,basket);
+  assert.deepEqual(forward,{x:0,z:1});
+  assert.ok(discGolfAimedHeading(lie,gate,basket,15).x>0);
+  assert.ok(discGolfAimedHeading(lie,gate,basket,-15).x<0);
+  assert.deepEqual(discGolfAimedHeading(lie,gate,basket,120),
+    discGolfAimedHeading(lie,gate,basket,55));
+  const afterGate=discGolfAimedHeading(lie,basket,basket);
+  assert.deepEqual(afterGate,{x:1,z:0});
+  const coincident=discGolfAimedHeading(lie,lie,lie,0,{x:-2,z:0});
+  assert.deepEqual(coincident,{x:-1,z:0});
 });
 
 test("nine independently placed tees and fixed greens remain on playable land",()=>{
