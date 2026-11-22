@@ -161,13 +161,14 @@ test("fallen logs can be acquired for a grind and ramps only launch compatible m
 });
 
 
-test("original ski landing still reaches Granite Ridge; the displaced timber kicker no longer auto launches", () => {
+test("classic ski landing again uses the original Granite Ridge timber kicker", () => {
   const landing=activityLanding("ski")!;
   const kicker=RIDE_RAMPS.find(ramp=>ramp.id==="ski-kicker")!;
+  assert.deepEqual(landing,{x:8,z:-54});
   assert.ok(onSnow(landing));
   assert.ok(groundHeight(landing)>groundHeight(kicker.point));
-  assert.equal(rampImpulseAt(kicker.point,kicker.heading,"ski",8),null);
-  assert.equal(rampImpulseAt(kicker.point,kicker.heading,"bike",8),null);
+  assert.equal(rampImpulseAt(kicker.point,kicker.heading,"ski",8)?.id,kicker.id);
+  assert.equal(rampImpulseAt(kicker.point,kicker.heading,"bike",8)?.id,kicker.id);
   const other=RIDE_RAMPS.find(r=>r.id==="grove-home-kicker")!;
   assert.equal(rampImpulseAt(other.point,other.heading,"bike",8)?.id,other.id);
 });
