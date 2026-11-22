@@ -4,7 +4,8 @@ import {
  DISC_GOLF_HOLES,discGolfRemaining,discGolfScoreName,discGolfWind,
  recommendDiscGolfPower,discGolfPullback,DISC_GOLF_MAX_BANK,type DiscGolfState,type DiscShot,type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
-import {terrainHeight,isWater,SEA_SURFACE} from "@/lib/world/model";
+import {SEA_SURFACE} from "@/lib/world/model";
+import {discGolfSurfaceHeight,discGolfSurfaceIsWater} from "@/lib/world/discGolfSurface";
 import {DISC_GOLF_SPIN_MIN_RPM,DISC_GOLF_SPIN_MAX_RPM,
  DISC_GOLF_NOSE_MAX_DEGREES} from "@/lib/world/discGolfAerodynamics";
 import type {DiscGolfFlightStyle,DiscGolfReleaseStyle} from "@/lib/world/discGolf";
@@ -15,7 +16,8 @@ import {discGolfRailPower,discGolfRailIdeal,discGolfRailStatus,
  clampDiscGolfRail} from "@/lib/world/discGolfPowerRail";
 
 const clamp=(value:number,min:number,max:number)=>Math.min(max,Math.max(min,value));
-const ground=(p:{x:number;z:number})=>terrainHeight(p.x,p.z);
+// Preview and live flight both use the raised pier, never submerged terrain.
+const ground=discGolfSurfaceHeight;
 
 export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onNewRound,onShot,onChangeHole,onExit,onStage,onPreview,onSwing}:{
  game:DiscGolfState;
@@ -57,7 +59,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const locked=game.phase==="flying"||game.phase==="holed"||!!game.presentationPending;
  const available=!locked&&game.phase!=="off";
  // Re-solve on a new lie or a changed aim, not on every animation frame.
- const suggested=useMemo(()=>recommendDiscGolfPower(game,loft,aim,ground,isWater,SEA_SURFACE,[],bankAngle,
+ const suggested=useMemo(()=>recommendDiscGolfPower(game,loft,aim,ground,discGolfSurfaceIsWater,SEA_SURFACE,[],bankAngle,
   {noseAngle,spinRpm,discStyle,releaseStyle}),
   // The wind varies slowly; the preview itself refreshes during aiming.
   // eslint-disable-next-line react-hooks/exhaustive-deps

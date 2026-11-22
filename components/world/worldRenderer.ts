@@ -5687,6 +5687,7 @@ export function createWorld(
       canvas.dataset.rideFlightContinuity=String(rideFlightContinuity);
       canvas.dataset.airborne = String(airHeight > 0 || !!climb || !!grind);
       canvas.dataset.discGolfPhase=discGolf.phase;
+      canvas.dataset.discGolfOutcomeReason=discGolf.reason??"";
       canvas.dataset.discGolfSwing=state.discGolfSwingStage;
       canvas.dataset.discGolfPreview=String(
         !!state.discGolfPreview &&
@@ -7816,6 +7817,9 @@ export function createWorld(
             discGolf=discGolfThrow(discGolf,next.discGolfShot,discGolfSurfaceHeight);
             const accepted=discGolf.phase==="flying"&&beforeShot!=="flying";
             if(accepted){
+              canvas.dataset.discGolfLastPower=next.discGolfShot.power.toFixed(2);
+              canvas.dataset.discGolfLastAim=next.discGolfShot.aimOffset.toFixed(2);
+              canvas.dataset.discGolfLastLoft=next.discGolfShot.loft.toFixed(2);
               discFetch=startDiscGolfFetch(performance.now()*.001);
               discGolf={...discGolf,presentationPending:true};
               canvas.dataset.discGolfHandoff="waiting";

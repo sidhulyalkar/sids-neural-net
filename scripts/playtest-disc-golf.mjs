@@ -192,10 +192,15 @@ try{
    await page.screenshot({path:path.join(out,"hole-3-power-rail-charging.png")});
    await page.mouse.up();
    assert.equal(await powerRail.getAttribute("data-dragging"),"false");
-  }else{
+  }else if(i===0){
+   // Opening shot verifies the true keyboard tap.
    await page.keyboard.down("Space");
    await page.waitForTimeout(85);
    await page.keyboard.up("Space");
+  }else{
+   // Use actual quick-throw control on later holes. Software-rendered browser
+   // stalls may turn a simulated short keyboard tap into a charged swing.
+   await page.getByRole("button",{name:"Space · Throw"}).click();
   }
   await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfLastShot==="accepted",
    null,{timeout:5000});
@@ -230,7 +235,20 @@ try{
   },null,{timeout:15000});
   const phase=await canvas.getAttribute("data-disc-golf-phase");
   const strokes=Number(await canvas.getAttribute("data-disc-golf-strokes"));
-  assert.notEqual(phase,"water","Default first throw should not be an immediate water redo on "+ids[i]);
+  if(phase==="water"){
+   const diagnostic=await canvas.evaluate(c=>({
+    hole:c.dataset.discGolfHole,reason:c.dataset.discGolfOutcomeReason,
+    power:c.dataset.discGolfLastPower,aim:c.dataset.discGolfLastAim,
+    loft:c.dataset.discGolfLastLoft,gate:c.dataset.discGolfGates,
+    player:c.dataset.player,shot:c.dataset.discGolfLastShot,
+    locks:c.__fetchLockTrace??[],
+   }));
+   fs.writeFileSync(path.join(out,`hole-${i+1}-water-diagnostic.json`),
+    JSON.stringify(diagnostic,null,2)+"\n");
+   await page.screenshot({path:path.join(out,`hole-${i+1}-water-failure.png`)});
+   assert.fail("Recommended first throw entered water on "+ids[i]+": "+
+    JSON.stringify(diagnostic));
+  }
   assert.equal(strokes,1,"First throw must count exactly one stroke on "+ids[i]);
   const lockEvidence=await canvas.evaluate(c=>c.__fetchLockTrace??[]);
   assert.ok(lockEvidence.some(v=>v.pending==="true"),

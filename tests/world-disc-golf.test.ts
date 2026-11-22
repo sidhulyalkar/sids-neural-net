@@ -10,7 +10,8 @@ import {
  discGolfThrowCameraPose,discGolfPullback,DISC_GOLF_TAP_WINDOW_MS,
  DISC_GOLF_SWING_CYCLE_MS,
 } from "../lib/world/discGolf";
-import { terrainHeight,isWater } from "../lib/world/model";
+import { terrainHeight,isWater,SEA_SURFACE } from "../lib/world/model";
+import {discGolfSurfaceHeight,discGolfSurfaceIsWater} from "../lib/world/discGolfSurface";
 import {discGolfSurfaceHeight,discGolfSurfaceIsWater} from "../lib/world/discGolfSurface";
 import {jetSkiPierHeight,JET_SKI_PIER} from "../lib/world/jetSkiPier";
 import { createDiscGolfGeometry } from "../components/world/worldDiscGolfGeometry";
@@ -548,4 +549,19 @@ test("single elastic backswing is continuous across tap and hold with a forgivin
  const down=discGolfPullback(DISC_GOLF_TAP_WINDOW_MS+DISC_GOLF_SWING_CYCLE_MS*.75,55);
  assert.ok(up.power>55&&down.power<55,"hold offers both stronger and softer shots");
  assert.equal(discGolfPullback(Number.NaN,55).power,55);
+});
+
+test("suggested shots on all nine tees use actual pier and water geometry across wind phases",()=>{
+ for(const clock of [5,120,300]){
+  for(let i=0;i<DISC_GOLF_HOLES.length;i++){
+   const state=startDiscGolf(i,discGolfSurfaceHeight,clock);
+   const extras={noseAngle:0,spinRpm:650,discStyle:"midrange" as const,releaseStyle:"backhand" as const};
+   const power=recommendDiscGolfPower(state,24,0,discGolfSurfaceHeight,
+     discGolfSurfaceIsWater,SEA_SURFACE,[],0,extras);
+   const shot={power,accuracy:0,loft:24,aimOffset:0,bankAngle:0,...extras};
+   const predicted=traceDiscGolfShot(state,shot,discGolfSurfaceHeight,discGolfSurfaceIsWater,SEA_SURFACE);
+   assert.ok(["landed","holed"].includes(predicted.outcome),
+     "Hole "+(i+1)+" at t="+clock+" suggested "+power+"% ended "+predicted.outcome);
+  }
+ }
 });
