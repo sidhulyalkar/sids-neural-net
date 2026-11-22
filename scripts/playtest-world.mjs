@@ -543,7 +543,8 @@ try {
       null, {timeout:9000},
     );
   } finally { await page.keyboard.up('w'); }
-  assert.equal(await page.getByRole('complementary', { name: 'Joshua bike time trial' }).count(), 1);
+  await page.getByRole('complementary', { name: 'Joshua dirt-bike ghost race' })
+    .waitFor({state:'visible',timeout:15000});
   await screenshot(page, 'challenge-joshua-timer');
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   await page.keyboard.press('Escape');
