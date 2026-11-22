@@ -55,8 +55,14 @@ try{
   await page.screenshot({path:path.join(out,`classic-${spec.name}-entry.png`)});
   if(!spec.touch){
    await page.keyboard.down("w");
-   await page.waitForTimeout(1100);
-   await page.keyboard.up("w");
+   try{
+    // SwiftShader can render only a handful of simulation frames per second.
+    // Wait for *actual* world displacement, not a fixed amount of wall time.
+    await page.waitForFunction(({x,z})=>{
+     const p=document.querySelector('canvas[role="application"]')?.dataset.player?.split(",").map(Number);
+     return p?.length===2&&Math.hypot(p[0]-x,p[1]-z)>.55;
+    },{x:start.x,z:start.z},{timeout:90000,polling:"raf"});
+   }finally{await page.keyboard.up("w");}
    const moving=await state(page);
    assert.ok(Math.hypot(moving.x-start.x,moving.z-start.z)>.25,
      `classic skis must move from Granite Ridge: ${JSON.stringify({start,moving})}`);
