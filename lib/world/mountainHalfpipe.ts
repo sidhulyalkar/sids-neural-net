@@ -37,8 +37,9 @@ export const MOUNTAIN_SUMMIT={
 export const SUPPRESSED_FACE_KICKERS=[
   "ski-kicker","bowl-small","bowl-medium",
 ] as const;
-export function suppressedFaceKicker(id:string):boolean{
-  return (SUPPRESSED_FACE_KICKERS as readonly string[]).includes(id);
+/** Historical API, now inert: original timber jumps remain visible and playable. */
+export function suppressedFaceKicker(_id:string):boolean{
+ return false;
 }
 
 const clamp01=(x:number)=>Math.min(1,Math.max(0,x));
@@ -107,10 +108,9 @@ export function mountainFaceEditDelta(
 /** Clear the entire natural approach, pipe, and receiving slope of
  * procedurally placed trees and boulders, without touching mountain caves
  * or any waterfall/stream coordinate outside this bounded ski face. */
-export function mountainHalfpipeApproachClearance(p:Point):boolean{
- const h=MOUNTAIN_HALFPIPE;
- return p.x>=-10 && p.x<=18.5 &&
-   p.z>=h.startZ-3.0&&p.z<=h.endZ+3.0;
+/** Historical API, now inert: no halfpipe reserves the mountain approach. */
+export function mountainHalfpipeApproachClearance(_p:Point):boolean{
+ return false;
 }
 export function withinMountainHalfpipe(p:Point):boolean{
  return mountainHalfpipeInfluence(p)>.35;
