@@ -141,6 +141,22 @@ try{
   const startAvatar=await canvas.evaluate(c=>({
    x:Number(c.dataset.discGolfAvatarX),z:Number(c.dataset.discGolfAvatarZ),
   }));
+  // Record the fetch lock in the actual browser before shooting.
+  // Slow software renderers may finish the entire chase before Playwright
+  // makes its next external DOM query.
+  await canvas.evaluate(c=>{
+   c.__fetchLockTrace=[{pending:c.dataset.discGolfHandoffPending,
+     stage:c.dataset.discGolfCinematicStage,at:performance.now()}];
+   c.__fetchLockObserver?.disconnect();
+   c.__fetchLockObserver=new MutationObserver(()=>{
+    const state={pending:c.dataset.discGolfHandoffPending,
+      stage:c.dataset.discGolfCinematicStage,at:performance.now()};
+    if(c.__fetchLockTrace.at(-1)?.pending!==state.pending)
+      c.__fetchLockTrace.push(state);
+   });
+   c.__fetchLockObserver.observe(c,{attributes:true,
+     attributeFilter:["data-disc-golf-handoff-pending"]});
+  });
   if(i===0)await canvas.evaluate(c=>{
    const trace=[];
    c.__discStory=trace;
@@ -216,11 +232,22 @@ try{
   const strokes=Number(await canvas.getAttribute("data-disc-golf-strokes"));
   assert.notEqual(phase,"water","Default first throw should not be an immediate water redo on "+ids[i]);
   assert.equal(strokes,1,"First throw must count exactly one stroke on "+ids[i]);
-  assert.equal(await canvas.getAttribute("data-disc-golf-handoff-pending"),"true",
-   "landing cannot unlock the next throw before fetch");
+  const lockEvidence=await canvas.evaluate(c=>c.__fetchLockTrace??[]);
+  assert.ok(lockEvidence.some(v=>v.pending==="true"),
+   "A landed throw must lock user input during fetch: "+
+    JSON.stringify({hole:ids[i],lockEvidence}));
   await page.waitForFunction(()=>
    document.querySelector("canvas")?.dataset.discGolfHandoffPending==="false",
    null,{timeout:25000});
+  const lockTimeline=await canvas.evaluate(c=>{
+   c.__fetchLockObserver?.disconnect();
+   return c.__fetchLockTrace??[];
+  });
+  const firstLocked=lockTimeline.findIndex(v=>v.pending==="true");
+  assert.ok(firstLocked>=0&&lockTimeline.some((v,j)=>j>firstLocked&&v.pending==="false"),
+   "Fetch may only unlock after an observed locked interval: "+
+    JSON.stringify({hole:ids[i],lockTimeline}));
+
   if(i===0){
    const story=await canvas.evaluate(c=>c.__discStory);
    for(const stage of ["disc","landing","chase"]){
