@@ -4974,10 +4974,9 @@ export function createWorld(
             const ramp = rampImpulseCrossing(
               previousPoint, player, travel.heading, modeForRamp, travel.speed,
             );
-            // Ski-specific launch physics are never implicit. The dedicated
-            // Ski Jump menu arms its own marked takeoff. Bike/skate ramps
-            // outside the clean face keep their established behavior.
-            if (ramp && modeForRamp!=="ski" && ramp.id !== lastRampId) {
+            // Classic timber ski kickers may launch riders normally.
+            // The scored Alpine Ski Jump still requires explicit menu authorization.
+            if (ramp && ramp.id !== lastRampId) {
               if(modeForRamp==="skate"){
                 skateLastTakeoff=ramp.id;
                 if(ramp.id==="redwood-bowl-exit"){
