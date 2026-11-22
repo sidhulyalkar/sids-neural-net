@@ -66,6 +66,12 @@ try {
   assert.equal(await attr("shore-rays"),"3");
   assert.ok(Number(await attr("skim-water-opacity"))<.55,
     "north-shore water should reveal the sandy bottom");
+  await page.waitForFunction(()=>{
+    const d=document.querySelector('canvas[role="application"]')?.dataset;
+    return d?.northShoreRenderedCameraClear==="true";
+  },null,{timeout:30000,polling:"raf"});
+  assert.notEqual(await attr("north-shore-camera-adjusted"),"n/a");
+  checks.push("North Shore camera looks past the fallen sequoia without clipping scenery");
   checks.push("Sandy shallows, fish schools and stingrays are active only near the beach");
   const start=await page.locator("canvas").evaluate(c=>({
     biome:c.dataset.biome,drawCalls:Number(c.dataset.drawCalls),player:c.dataset.player,

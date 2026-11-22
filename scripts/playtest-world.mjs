@@ -283,90 +283,31 @@ try {
   await screenshot(page,'activity-redwood-skatepark');
   results.push('Skatepark opens in the integrated south meadow and lands a scored trick');
 
-  // Aim from the actual halfpipe run-in toward the preserved ridge log.
-  // Reading the arrival avoids silently retaining an obsolete ski spawn.
+  // The original Granite Ridge is now the canonical, lighter ski mode.
+  // No halfpipe corridor, V3 solver or implicit scored Ski Jump may activate.
   await page.getByRole('button', { name: 'Skiing', exact: true }).click();
-  await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
   await page.waitForFunction(() => {
-    const d=document.querySelector("canvas")?.dataset;
-    return d?.activity==="ski"&&d.bigAirPhase==="idle"&&Number(d.speed)<.1;
-  });
-  const ridgeStart = (await page.locator("canvas").getAttribute("data-player")).split(",").map(Number);
-  const ridgeApproachYaw = Math.atan2(ridgeStart[0] - 12.4, ridgeStart[1] + 65);
-  const ridgeDelta=Math.PI-ridgeApproachYaw;
-  const ridgeTurnPixels=Math.atan2(Math.sin(ridgeDelta),Math.cos(ridgeDelta))/.005;
-  await page.mouse.move(700, 450);
-  await page.mouse.down();
-  await page.mouse.move(700 + ridgeTurnPixels, 450, { steps: 12 });
-  await page.mouse.up();
-  await page.keyboard.down('w');
-  try {
-    await page.waitForFunction(
-      () => document.querySelector('canvas')?.dataset.grindReady === 'true',
-      null,
-      { timeout: 12000 },
-    );
-    assert.equal(await page.locator('canvas').getAttribute('data-grind-style'), 'fifty-fifty');
-    await page.keyboard.press('Space');
-    await page.waitForFunction(() => {
-      const d=document.querySelector('canvas')?.dataset;
-      return d?.grinding==='true' && d.grindId==='ridge-log' && d.grindStyle==='fifty-fifty';
-    },null,{timeout:4000});
-  } finally {
-    await page.keyboard.up('w');
-  }
-  await screenshot(page, 'activity-ski-grind');
-  results.push('Skis acquire the ridge log as an angle-selected 50-50');
-
-  // Default skiing must keep the mountain scenic. No timber launch or
-  // scored Big Air can start from a downhill grade, even across the new
-  // halfpipe. A deliberate Space press may create ordinary ski airtime.
-  await page.getByRole('button', { name: 'Skiing', exact: true }).click();
-  await page.getByRole('button', { name: 'Open navigation menu' }).click();
-  await page.getByRole('button', { name: '02 Granite ridge Things I build', exact: true }).click();
-  await page.getByRole('button', { name: 'Skiing', exact: true }).click();
-  await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
-  const ordinarySki=page.evaluate(()=>new Promise((resolve,reject)=>{
-    const c=document.querySelector('canvas');
-    if(!c){reject(Error('World canvas unavailable'));return;}
-    const samples=[];
-    let seenHalfpipe=false,first=null;
-    const began=performance.now();
-    const frame=()=>{
-      const d=c.dataset,p=(d.player??'').split(',').map(Number);
-      if(!p.every(Number.isFinite)){reject(Error('Nonfinite ski position'));return;}
-      const sample={player:d.player,speed:Number(d.speed),
-        jump:d.bigAirPhase,ramp:d.rampId,
-        pipe:d.mountainHalfpipeInside,authorized:d.mountainSkiJumpAuthorized};
-      first??=sample;
-      seenHalfpipe ||= d.mountainHalfpipeInside==='true';
-      if(samples.length>=18)samples.shift();
-      samples.push(sample);
-      if(d.bigAirPhase!=='idle'||d.mountainSkiJumpAuthorized!=='false'){
-        reject(Error('Unrequested ski jump fired: '+JSON.stringify(sample)));return;
-      }
-      if(p[1]>-41){
-        resolve({first,last:sample,seenHalfpipe,tail:samples});
-        return;
-      }
-      if(performance.now()-began>70000){
-        reject(Error('Ordinary ski descent failed: '+JSON.stringify(samples)));return;
-      }
-      requestAnimationFrame(frame);
-    };
-    requestAnimationFrame(frame);
-  }));
-  // Start movement while the independent rendered timeline observes the
-  // full run from the mountain shoulder to the lower receiving slope.
-  await page.keyboard.down('w');
+    const d=document.querySelector('canvas')?.dataset;
+    return d?.activity==="ski" && d.bigAirPhase==="idle" &&
+      d.mountainHalfpipe==="absent" && d.mountainHalfpipeTriangles==="0";
+  },null,{timeout:45000});
+  const classicStart=(await page.locator("canvas").getAttribute("data-player")).split(",").map(Number);
+  assert.ok(Math.abs(classicStart[0]-8)<.25&&Math.abs(classicStart[1]+54)<.25,
+    "Skiing must begin on the original Granite Ridge shoulder");
+  assert.equal(await page.locator("canvas").getAttribute("data-ski-ride-phase"),"");
+  assert.equal(await page.locator("canvas").getAttribute("data-mountain-ski-jump-authorized"),"false");
+  await page.locator("canvas").focus();
+  await page.keyboard.down("w");
   try{
-    const skiProof=await ordinarySki;
-    assert.equal(skiProof.seenHalfpipe,true);
-    assert.equal(skiProof.last.jump,'idle');
-    results.push('Skiing traverses the clean halfpipe without auto-starting any jump');
-    console.log('ORDINARY SKI NO AUTO JUMP PROOF',JSON.stringify(skiProof));
-    await screenshot(page,'activity-granite-clean-halfpipe');
-  }finally{await page.keyboard.up('w')}
+    await page.waitForFunction(startZ=>{
+      const p=document.querySelector("canvas")?.dataset.player?.split(",").map(Number);
+      return p?.length===2&&p.every(Number.isFinite)&&p[1]>startZ+.75;
+    },classicStart[1],{timeout:70000,polling:"raf"});
+  }finally{await page.keyboard.up("w")}
+  assert.equal(await page.locator("canvas").getAttribute("data-big-air-phase"),"idle");
+  assert.equal(await page.locator("canvas").getAttribute("data-mountain-ski-jump-authorized"),"false");
+  await screenshot(page,"activity-granite-classic-ski");
+  results.push("Original Granite Ridge ski descent is playable; no halfpipe, advanced solver or unrequested Ski Jump");
 
   // Reproduce the original steep-terrain failure mode on Granite Ridge. The rendered
   // gear root must stay above support terrain while pitch/roll remain finite.
@@ -377,6 +318,14 @@ try {
   for (const [name, mode] of [['Mountain biking', 'bike'], ['Skateboarding', 'skate']]) {
     await page.getByRole('button', { name, exact: true }).click();
     await page.waitForFunction(expected => document.querySelector('canvas')?.dataset.activity === expected, mode);
+    if(mode==="bike"){
+      await page.waitForFunction(()=>{
+        const d=document.querySelector("canvas")?.dataset;
+        return d?.bikeCameraSightlineClear==="true"&&d.bikePlayerFramed==="true";
+      },null,{timeout:30000,polling:"raf"});
+      await screenshot(page,"activity-mountain-bike-camera-clear");
+      results.push("Mountain bike camera clears the snow ridge and keeps the actual rider framed");
+    }
     await page.keyboard.down('w');
     await page.waitForTimeout(1000);
     await page.keyboard.up('w');
