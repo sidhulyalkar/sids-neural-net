@@ -1,6 +1,7 @@
 import frontierSnapshot from '@/content/frontier/latest.json';
 import { needsEnglishTranslation } from './english';
 import { cleanFrontierItem, isFrontierEditoriallyUsable } from './editorialQuality';
+import { isFrontierEditoriallyQualified } from './editorialAdmission';
 import {
   buildFrontierPipelineDiagnostics,
   frontierObservedDrop,
@@ -80,7 +81,7 @@ export function getFrontierColdSnapshotFeed(now = Date.now()): FrontierObservabl
     !needsEnglishTranslation(item.title) && !needsEnglishTranslation(item.summary)
   ));
   const deduped = dedupe(english);
-  const admitted = vetFrontierItems(deduped.filter(isFrontierEditoriallyUsable));
+  const admitted = vetFrontierItems(deduped.filter((item) => isFrontierEditoriallyUsable(item) && isFrontierEditoriallyQualified(item)));
   const items = admitted.slice(0, MAX_SNAPSHOT_CANDIDATES);
 
   const pipeline = buildFrontierPipelineDiagnostics({

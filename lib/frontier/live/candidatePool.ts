@@ -1,4 +1,6 @@
 import type { FrontierItem } from '../types';
+import { cleanFrontierItem } from '../editorialQuality';
+import { isFrontierEditoriallyQualified } from '../editorialAdmission';
 import {
   FRONTIER_RESERVOIR_CAPACITY,
   FRONTIER_RESERVOIR_MIN_VALIDATION,
@@ -108,7 +110,7 @@ async function prune(db: IDBDatabase, now = Date.now()): Promise<void> {
  */
 export async function addFrontierCandidates(items: FrontierItem[], now = Date.now()): Promise<FrontierItem[]> {
   if (!items.length || typeof indexedDB === 'undefined') return items;
-  const unseen = await filterUnseenFrontierItems(items);
+  const unseen = await filterUnseenFrontierItems(items.map(cleanFrontierItem).filter(isFrontierEditoriallyQualified));
   if (!unseen.length) return [];
   try {
     const db = await openCandidateDb();
@@ -171,7 +173,7 @@ export async function readFrontierCandidates(limit = 96, now = Date.now()): Prom
       Math.min(FRONTIER_RESERVOIR_CAPACITY, Math.max(limit, limit * 4)),
       now,
     );
-    const unseen = await filterUnseenFrontierItems(sampled.map((record) => record.item));
+    const unseen = await filterUnseenFrontierItems(sampled.map((record) => cleanFrontierItem(record.item)).filter(isFrontierEditoriallyQualified));
     const selected = unseen.slice(0, Math.max(0, Math.min(FRONTIER_RESERVOIR_CAPACITY, limit)));
 
     if (selected.length) {
