@@ -57,6 +57,9 @@ jobs:
       - name: Build live FRONTIER snapshot
         env:
           FRONTIER_GITHUB_TOKEN: ${{ secrets.FRONTIER_GITHUB_TOKEN || github.token }}
+          # PR audits stay network-bounded; only scheduled/manual deep refreshes
+          # fetch source HTML for original figures after qualification.
+          FRONTIER_ENRICH_SOURCE_FIGURES: ${{ github.event_name != 'pull_request' && '1' || '0' }}
           BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
           FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
           OPENALEX_EMAIL: ${{ vars.OPENALEX_EMAIL }}

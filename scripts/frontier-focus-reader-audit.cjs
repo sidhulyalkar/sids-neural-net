@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { chromium } = require('playwright');
 
 const TARGET = process.env.FRONTIER_FOCUS_AUDIT_URL || 'http://127.0.0.1:3000/frontier';
@@ -57,7 +59,78 @@ async function audit(width, height) {
     assert.equal(await balloon.count(), 1, 'Exactly one radial interest control is mounted');
     assert.equal(await page.locator('footer').count(), 0, 'Reader must not render a bulky bottom navigation footer');
     assert.equal(await page.getByText('A quiet space for what is new').count(), 0, 'Remove redundant brand tagline');
-    assert.equal(await page.locator('article h1').count(), 1, 'Headline appears once, centered before the media');
+    assert.equal(await page.locator('article h1').count(), 1, 'Article headline must appear exactly once');
+    const subjectTabs = page.getByRole('tablist', { name: 'Content areas' });
+    assert.equal(await subjectTabs.getByRole('tab').count(), 6,
+      'Research, engineering, sports, entertainment, and nature must be independently browsable');
+    const availableTabs = await subjectTabs.getByRole('tab').all();
+    const validTab = [];
+    for (const tab of availableTabs) {
+      const section = await tab.getAttribute('data-journal-section');
+      const count = Number((await tab.locator('span').last().textContent()) || '0');
+      if (section !== 'for-you' && count > 0) {
+        validTab.push(tab);
+      }
+    }
+    assert(validTab.length > 0, 'The edition should contain at least one themed source');
+    const requestsBeforeTab = feedRequests.filter((url) => !url.includes('latest=1')).length;
+    await validTab[0].click();
+    assert.equal(await validTab[0].getAttribute('aria-selected'), 'true');
+    assert.equal(await page.locator('article').count(), 1,
+      'Changing subject must replace the source article, never duplicate it');
+    assert.equal(feedRequests.filter((url) => !url.includes('latest=1')).length, requestsBeforeTab,
+      'Switching subject shelves must use already-loaded sources, not fetch a new feed');
+    await subjectTabs.getByRole('tab', { name: /^For you/ }).click();
+    assert.equal(await page.locator('article h1').first().textContent(), heading,
+      'Returning to For you preserves the editorial starting point');
+
+    const chapterMap = page.getByRole('navigation', { name: 'Story chapters' });
+    const chapterButtons = chapterMap.getByRole('button');
+    assert((await chapterButtons.count()) >= 2, 'Every article should explain itself and link to the original source');
+    for (const button of await chapterButtons.all()) {
+      const label = await button.getAttribute('aria-label');
+      assert(label?.trim(), 'Every story step needs a semantic accessible label');
+    }
+    await chapterMap.getByRole('button', { name: 'Trace the original source' }).click();
+    assert.equal(await chapterMap.locator('button[aria-current="step"]').count(), 1,
+      'A reader can follow individual source-grounded chapter anchors');
+    await chapterMap.getByRole('button', { name: 'Understand the story' }).click();
+
+    const sourceLens = page.locator('[aria-label="Source identity"]');
+    assert.equal(await sourceLens.count(), 1, 'One source-specific identity should be visible');
+    const kind = await sourceLens.getAttribute('data-source-kind');
+    assert(['paper', 'repository', 'discussion', 'watch', 'match', 'game', 'music', 'field', 'report'].includes(kind),
+      'Unrecognized source imprint: ' + kind);
+    assert((await sourceLens.textContent())?.trim(), 'Source identity must contain actual publisher metadata');
+    const journal = page.locator('[data-frontier-journal="true"]');
+    const realm = await journal.getAttribute('data-realm');
+    const format = await journal.getAttribute('data-format');
+    assert(['research', 'neural', 'behavior', 'systems', 'nature', 'motion', 'culture'].includes(realm),
+      'Every source should resolve to an explicit visual realm: ' + realm);
+    assert(['live', 'watch', 'measured', 'visual', 'technical', 'brief'].includes(format),
+      'The journal must adopt a source-evidence layout: ' + format);
+    const titleSize = await page.locator('article h1').first().evaluate((node) =>
+      Number.parseFloat(getComputedStyle(node).fontSize));
+    assert(titleSize >= 26 && titleSize <= 49, 'Oversized or illegible headline: ' + titleSize + 'px');
+    const screenshotDir = path.resolve('artifacts/frontier/journal');
+    fs.mkdirSync(screenshotDir, { recursive: true });
+    await page.screenshot({ path: path.join(screenshotDir, 'journal-' + width + '.png'), fullPage: true, animations: 'disabled' });
+
+    assert.equal(await page.locator('[aria-label="Editorial article cover"]').count(), 0,
+      'The journal cannot duplicate a headline inside a fake text-only poster');
+    const issueToggle = page.getByRole('button', { name: /Contents/i }).first();
+    await issueToggle.click();
+    await page.locator('#frontier-contents').waitFor();
+    const entries = page.locator('#frontier-contents button[aria-current], #frontier-contents button[aria-current="true"]');
+    assert((await entries.count()) >= 1, 'The current article should be marked in the edition index');
+    const issueButtons = page.locator('#frontier-contents button').filter({ has: page.locator('strong') });
+    assert((await issueButtons.count()) >= 2, 'Contents should permit direct article navigation');
+    await issueButtons.nth(1).click();
+    await page.waitForFunction((prior) => document.querySelector('article h1')?.textContent !== prior, heading);
+    await page.locator('[data-frontier-previous="true"]').click();
+    assert.equal(await page.locator('article h1').first().textContent(), heading,
+      'Edition index navigation must preserve the standard back path');
+
     const navigationArea = page.locator('nav[aria-label="Article navigation"]');
     assert.equal(await navigationArea.count(), 1, 'Use an edge navigation overlay');
     const image = page.locator('figure img').first();
@@ -92,12 +165,19 @@ async function audit(width, height) {
       const geometry = await page.evaluate(() => ({
         documentWidth: document.documentElement.scrollWidth,
         viewportWidth: innerWidth,
+        overflowElements: [...document.querySelectorAll('body *')]
+          .filter((el) => el instanceof HTMLElement)
+          .map((el) => ({ el, rect: el.getBoundingClientRect() }))
+          .filter(({ rect }) => rect.width > 0 && (rect.right > innerWidth + 2 || rect.left < -2))
+          .slice(0, 8)
+          .map(({ el, rect }) => ({ element: el.tagName, className: el.className,
+            left: Math.round(rect.left), right: Math.round(rect.right) })),
       }));
       assert(geometry.documentWidth <= geometry.viewportWidth + 2,
         'Mobile focus reader must not require sideways scrolling: ' + JSON.stringify(geometry));
     }
 
-    const exact = page.locator('details').filter({ hasText: 'Choose exact score' });
+    const exact = page.locator('details').filter({ hasText: 'Fine-tune interest' });
     await exact.locator('summary').click();
     await exact.locator('input[type="range"]').focus();
     await page.keyboard.press('End');
@@ -113,7 +193,7 @@ async function audit(width, height) {
     assert.equal(candidateLookups.length, 1,
       'Returning reader should load the wider public snapshot once, after first paint');
     const beforeRevision = await page.evaluate(() => JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
-    const finalRating = page.locator('details').filter({ hasText: 'Choose exact score' });
+    const finalRating = page.locator('details').filter({ hasText: 'Fine-tune interest' });
     await finalRating.locator('summary').click();
     await finalRating.locator('input[type="range"]').focus();
     await page.keyboard.press('Home');
@@ -197,12 +277,83 @@ async function auditBackgroundLatest() {
   }
 }
 
+async function auditSourceVideo() {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  let videoRequests = 0;
+  let searchRequests = 0;
+  try {
+    const base = new URL(TARGET);
+    const snapshotResponse = await page.request.get(base.origin + '/api/frontier/feed');
+    assert(snapshotResponse.ok(), 'Need an existing source-backed article fixture');
+    const snapshot = await snapshotResponse.json();
+    assert(snapshot.items?.length, 'Source snapshot should include at least one item');
+    // Test-only fixture. The URL is intentionally intercepted, not displayed
+    // as real editorial material and never included in production snapshots.
+    const item = {
+      ...snapshot.items[0],
+      id: 'frontier-journal-test-video',
+      title: 'Source video audit fixture',
+      summary: 'Test of consent-controlled source video behavior.',
+      url: 'https://example.org/verified-source',
+      source: 'example.org', sourceLabel: 'Test source', sourceKind: 'youtube',
+      lane: 'sports', tags: ['media audit'], figures: [], metrics: [],
+      sportsState: undefined, artifacts: [], convergence: undefined,
+      media: { type: 'video', url: 'https://media.example.org/journal-media-audit.mp4', duration: 80 },
+    };
+    await page.route('**/api/frontier/feed?latest=1', (route) => route.fulfill({
+      status: 200, contentType: 'application/json',
+      headers: { 'X-Frontier-Live': 'snapshot-fallback' },
+      body: JSON.stringify({ items: [], generatedAt: snapshot.generatedAt, sources: [] }),
+    }));
+    await page.route('**/api/frontier/feed?focus=*', (route) => {
+      searchRequests += 1;
+      return route.fulfill({ status: 200, contentType: 'application/json',
+        headers: { 'X-Frontier-Live': 'source-test-fixture' },
+        body: JSON.stringify({ items: [item], generatedAt: new Date().toISOString(), sources: [] }) });
+    });
+    await page.route('**/journal-media-audit.mp4', (route) => {
+      videoRequests += 1;
+      return route.abort();
+    });
+    await page.goto(TARGET, { waitUntil: 'domcontentloaded' });
+    await page.locator('article h1').waitFor();
+    const search = page.getByRole('textbox', { name: 'Search live topics' });
+    await search.fill('journal media audit');
+    await search.press('Enter');
+    await page.getByRole('heading', { name: 'Source video audit fixture', exact: true }).waitFor({ timeout: 8000 });
+    assert.equal(searchRequests, 1, 'Media fixture should only be requested when deliberately searched');
+    assert.equal(await page.locator('[data-frontier-media="direct-video"]').count(), 1);
+    assert.equal(await page.locator('video').count(), 0, 'Never load video before user activation');
+    assert.equal(videoRequests, 0, 'Video resource must not fetch during reader first paint');
+    assert.equal(await page.locator('figure img').count(), 0,
+      'A video poster cannot also become a duplicate research figure');
+    await page.getByRole('button', { name: /Play original source clip/ }).click();
+    await page.getByText('The direct clip could not play here.').waitFor({ timeout: 6000 });
+    assert.equal(videoRequests, 1, 'Video should be requested once after explicit play');
+    const original = page.locator('[aria-label="Original source video"] a').filter({ hasText: 'Open original' });
+    assert.equal(await original.getAttribute('href'), item.url,
+      'Playback failure must preserve a genuine external source link');
+    const geometry = await page.evaluate(() => ({
+      documentWidth: document.documentElement.scrollWidth, viewportWidth: innerWidth,
+    }));
+    assert(geometry.documentWidth <= geometry.viewportWidth + 2,
+      'Video and fallback must fit the mobile viewport: ' + JSON.stringify(geometry));
+    return { watchFormat: true, initialVideoRequests: 0, activatedVideoRequests: videoRequests,
+      failureHasSourceFallback: true, noDuplicatePoster: true };
+  } finally {
+    await page.close();
+    await browser.close();
+  }
+}
+
 async function main() {
   const results = [];
   results.push(await audit(1440, 900));
   results.push(await audit(390, 844));
   results.push(await audit(320, 700));
   results.push(await auditBackgroundLatest());
+  results.push(await auditSourceVideo());
   console.log('FRONTIER focus reader audit:', JSON.stringify(results));
 }
 
