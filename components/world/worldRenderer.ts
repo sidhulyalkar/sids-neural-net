@@ -18,7 +18,7 @@ import {beginSkateRailGap,advanceSkateRailGap,skateRailGapSample,type SkateRailG
 import {skateTunnelJumpDuration,jumpSkateTunnel,beginSkateTunnelRide,advanceSkateTunnelRide,skateTunnelSample,
  type SkateTunnelRide} from "@/lib/world/skateTunnel";
 import {createWorldSkateGrove} from "./worldSkateGroveGeometry";
-import {halfpipePop,mountainHalfpipeApproachClearance,suppressedFaceKicker,withinMountainHalfpipe,halfpipeManualPopEligible} from "@/lib/world/mountainHalfpipe";
+import {mountainHalfpipeApproachClearance} from "@/lib/world/mountainHalfpipe";
 import {MYSTIC_GROVE,MYSTIC_TREES,mysticGroveDistance} from "@/lib/world/mysticGrove";
 import {createMysticElectricity} from "./worldMysticElectricity";
 import {createWorldMysticGroveGeometry} from "./worldMysticGroveGeometry";
