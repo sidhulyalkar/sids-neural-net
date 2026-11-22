@@ -53,7 +53,7 @@ import {jetSkiSectionName} from "@/lib/world/jetSkiCourse";
 import {canStartWorldGame,worldGameSession,type WorldGameMode} from "@/lib/world/gameMode";
 import {JET_SKI_DOCK,JET_SKI_GATES,startJetSkiRace,stepJetSkiRace,jetSkiNavigableWater,jetSkiGateDistance,jetSkiBearingToGate,jetSkiOpponentInput,jetSkiRacePlace,type JetSkiState} from "@/lib/world/jetSkiRace";
 import {
-  DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfFacingHeading,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
+  DISC_GOLF_HOLES,discGolfOpeningClearance,discGolfCourseClearance,discGolfBasketPosition,discGolfNextTarget,discGolfFacingHeading,discGolfAimedHeading,discGolfThrowCameraPose,discGolfIntroPose,discGolfThrow,stepDiscGolf,
   startDiscGolf,idleDiscGolf,type DiscGolfState,type DiscShot,
   type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
@@ -4485,8 +4485,9 @@ export function createWorld(
           // run and find animation have completed, then move it once.
           player=handoff;playerY=groundHeight(player);
           const nextTarget=discGolfNextTarget(discGolf);
-          const heading=discGolfFacingHeading(player,nextTarget,
-            DISC_GOLF_HOLES[discGolf.holeIndex].target,travel.heading);
+          const heading=discGolfAimedHeading(player,nextTarget,
+            DISC_GOLF_HOLES[discGolf.holeIndex].target,
+            state.discGolfPreview?.aimOffset??0,travel.heading);
           travel={point:player,speed:0,heading};
           explorer.rotation.y=Math.atan2(heading.x,heading.z);
           yaw=Math.atan2(-heading.x,-heading.z);
@@ -5215,8 +5216,9 @@ export function createWorld(
       const discGolfAiming=discGolf.phase!=="off" &&
         discGolf.phase!=="flying"&&!discGolf.presentationPending;
       const discGolfHeading=discGolfAiming?
-        discGolfFacingHeading(player,discGolfNextTarget(discGolf),
-          DISC_GOLF_HOLES[discGolf.holeIndex].target,travel.heading):null;
+        discGolfAimedHeading(player,discGolfNextTarget(discGolf),
+          DISC_GOLF_HOLES[discGolf.holeIndex].target,
+          state.discGolfPreview?.aimOffset??0,travel.heading):null;
       if(discGolfHeading)travel={...travel,speed:0,heading:discGolfHeading};
       const skiGrounded=skiPresentation&&mode==="ski"&&aquatic==="land"&&caveLayer==="surface"&&
         galleryPhase==="outside"&&airHeight<=.001&&!grind&&!climb&&bigAir.phase==="idle";
@@ -5330,7 +5332,7 @@ export function createWorld(
           skateTunnelSample(skateTunnelRide,groundHeight).roll:0;
         explorer.rotation.set(skateLoopRide?loopPitch:
           skateTunnelRide?0:surfing?skimPosePitch:pitchAngle,
-          headingYaw+avatarTurn+(mode==="skate"?trickPose.bodyYaw:0),
+          headingYaw+(discGolfHeading?0:avatarTurn)+(mode==="skate"?trickPose.bodyYaw:0),
           skateLoopRide?0:skateTunnelRide?tubeRoll:
             surfing?skimPoseRoll:rollAngle,
           "YXZ");
@@ -5678,6 +5680,7 @@ export function createWorld(
         !!state.discGolfPreview &&
         (discGolf.phase==="ready"||discGolf.phase==="landed"||discGolf.phase==="water"));
       canvas.dataset.discGolfSwingAmount=state.discGolfSwingAmount.toFixed(2);
+      canvas.dataset.discGolfAimOffset=String(state.discGolfPreview?.aimOffset??0);
       canvas.dataset.discGolfBeacon=String(discGolf.phase==="landed");
       canvas.dataset.discGolfStrokes=String(discGolf.strokes);
       canvas.dataset.discGolfWaterRedos=String(discGolf.waterRedos);
