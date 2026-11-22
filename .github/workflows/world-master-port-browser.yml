@@ -52,10 +52,23 @@ jobs:
           tail -n 100 /tmp/world-port-browser.log
           exit 1
       - name: Qualify restored classic skiing on desktop and mobile under both legacy flag settings
+        id: classic
+        continue-on-error: true
         run: node scripts/playtest-classic-ski.mjs
-      - name: Qualify all nine disc-golf holes and Shasta fetch handoff
-        if: matrix.ski_v3 == '0'
+      - name: Qualify all nine disc-golf holes, aim rotation and Shasta fetch handoff
+        id: disc
+        if: matrix.ski_v3 == '0' && always()
+        continue-on-error: true
         run: node scripts/playtest-disc-golf.mjs
+      - name: Fail closed if any browser gate failed
+        if: always()
+        run: |
+          echo "CLASSIC_STATUS=${{ steps.classic.outcome }}"
+          echo "DISC_STATUS=${{ steps.disc.outcome }}"
+          test "${{ steps.classic.outcome }}" = "success"
+          if [ "$NEXT_PUBLIC_SKI_V3" = "0" ]; then
+            test "${{ steps.disc.outcome }}" = "success"
+          fi
       - name: Save tested head even if browser fails
         if: always()
         run: |
