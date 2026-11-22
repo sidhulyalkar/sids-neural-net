@@ -151,6 +151,19 @@ export function discGolfFacingHeading(
  return Number.isFinite(length)&&length>1e-6
   ?{x:previous.x/length,z:previous.z/length}:{x:0,z:1};
 }
+/** Match the player's stance to the actual adjustable launch direction.
+ * Mandatory gates take priority over the basket until they are cleared. */
+export function discGolfAimedHeading(
+ lie:Point,activeTarget:Point,basket:Point,aimOffsetDegrees=0,
+ previous:Point={x:0,z:1},
+):Point{
+ const forward=discGolfFacingHeading(lie,activeTarget,basket,previous);
+ const radians=clamp(Number.isFinite(aimOffsetDegrees)?aimOffsetDegrees:0,-55,55)*Math.PI/180;
+ const sine=Math.sin(radians),cosine=Math.cos(radians);
+ return {x:forward.x*cosine+forward.z*sine,
+   z:forward.z*cosine-forward.x*sine};
+}
+
 export function discGolfRouteLength(hole:DiscGolfHole):number{
  const pts=[hole.tee,...hole.gates.map(g=>g.point),hole.target];
  return pts.slice(1).reduce((sum,p,i)=>sum+Math.hypot(
@@ -249,9 +262,8 @@ export function discGolfThrow(state:DiscGolfState,shot:DiscShot,ground:DiscTerra
  const loft=clamp(shot.loft+clamp(shot.noseAngle??0,-15,15)*.5,6,42)*Math.PI/180;
  const hole=DISC_GOLF_HOLES[state.holeIndex];
  const aimPoint=discGolfNextTarget(state);
- const base=Math.atan2(aimPoint.x-state.lie.x,aimPoint.z-state.lie.z);
- const aim=base+clamp(shot.aimOffset,-55,55)*Math.PI/180+
-   accuracy*.28;
+  const heading=discGolfAimedHeading(state.lie,aimPoint,hole.target,shot.aimOffset);
+  const aim=Math.atan2(heading.x,heading.z)+accuracy*.28;
  // A low-end putt must be possible: zero power is no longer a full drive.
  const speed=2.3+power*26.7;
  return {...state,phase:"flying",reason:undefined,
