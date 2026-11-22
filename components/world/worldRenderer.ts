@@ -4471,8 +4471,16 @@ export function createWorld(
       }else if (discGolf.phase!=="off") {
         const previous=discGolf.phase;
         const wasPresentationPending=!!discGolf.presentationPending;
-        // Preserve elapsed flight time on slow GPUs without enlarging physics steps.
-        let discDelta=Math.max(0,Math.min(rawDelta,.5));
+        // Guarantee that every accepted throw displays at least one *rendered*
+        // in-flight camera frame. On a slow GPU, the first RAF can otherwise
+        // consume a full 500ms of physics and move directly from "ready" to
+        // "landed", skipping the entire disc-flight shot. Later RAFs retain
+        // the bounded 50ms-slice integration and ordinary 500ms frame cap.
+        const showOpeningDiscFrame=discGolf.phase==="flying"&&
+          discFetch.phase==="flight"&&discGolf.flightTime<=1e-8&&
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        let discDelta=Math.max(0,Math.min(rawDelta,showOpeningDiscFrame?.05:.5));
+        canvas.dataset.discGolfOpeningFlightFrame=String(showOpeningDiscFrame);
         while(discDelta>1e-8){
           const slice=Math.min(discDelta,.05);
           discGolf=stepDiscGolf(discGolf,slice,discGolfSurfaceHeight,
