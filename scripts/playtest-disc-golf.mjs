@@ -14,7 +14,11 @@ const browser=await chromium.launch({headless:true,args:["--no-sandbox","--enabl
 const report=[];
 const errors=[];
 try{
- const page=await browser.newPage({viewport:{width:1440,height:900}});
+ // Force ordinary camera choreography, independent of runner OS motion preferences.
+  const page=await browser.newPage({viewport:{width:1440,height:900},
+   reducedMotion:"no-preference"});
+  assert.equal(await page.evaluate(()=>
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches),false);
  page.on("pageerror",e=>errors.push("pageerror: "+e.message));
  page.on("console",msg=>{if(msg.type()==="error")
   errors.push("console: "+msg.text().slice(0,350));});
@@ -145,7 +149,9 @@ try{
     if(trace.at(-1)?.stage!==stage)trace.push({stage,
      x:Number(d.discGolfAvatarX),z:Number(d.discGolfAvatarZ),
      pending:d.discGolfHandoffPending,follow:d.shastaFollowMode,
-     boom:Number(d.shastaFollowBoom)});
+     boom:Number(d.shastaFollowBoom),phase:d.discGolfPhase,
+     fetch:d.dogFetchStage,shot:d.discGolfLastShot,
+     at:performance.now()});
     if(d.discGolfHandoffPending==="false"&&trace.some(s=>s.stage==="chase"))observer.disconnect();
    });
    observer.observe(c,{attributes:true,attributeFilter:["data-disc-golf-cinematic-stage"]});
@@ -180,11 +186,27 @@ try{
   // The opening throw is also a camera-story regression. Shasta must
   // NOT steal attention mid-flight; see where the disc lands first.
   if(i===0){
-   await page.waitForFunction(()=>
-    document.querySelector("canvas")?.dataset.discGolfCinematicStage==="disc",
-    null,{timeout:5000}).catch(()=>{
-     throw new Error("First throw never entered disc-follow camera mode");
-    });
+   try{
+    // A slow software-rendered frame may have advanced the camera stage before
+    // a separate page query. A MutationObserver records the actual render.
+    await page.waitForFunction(()=>{
+     const c=document.querySelector("canvas");
+     return c?.__discStory?.some(s=>s.stage==="disc");
+    },null,{timeout:12000,polling:"raf"});
+   }catch(error){
+    const diagnostic=await canvas.evaluate(c=>({
+     current:{phase:c.dataset.discGolfPhase,stage:c.dataset.discGolfCinematicStage,
+      fetch:c.dataset.dogFetchStage,shot:c.dataset.discGolfLastShot,
+      pending:c.dataset.discGolfHandoffPending},
+     trace:c.__discStory??[],
+     reducedMotion:matchMedia("(prefers-reduced-motion: reduce)").matches,
+    }));
+    fs.writeFileSync(path.join(out,"first-shot-camera-failure.json"),
+     JSON.stringify(diagnostic,null,2)+"\n");
+    await page.screenshot({path:path.join(out,"first-shot-camera-failure.png")});
+    throw new Error("First throw never rendered disc-follow camera: "+
+     JSON.stringify(diagnostic).slice(0,2200),{cause:error});
+   }
   }
   await page.waitForFunction(()=>{
    const phase=document.querySelector("canvas")?.dataset.discGolfPhase;
