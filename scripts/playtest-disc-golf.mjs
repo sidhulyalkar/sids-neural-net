@@ -257,6 +257,30 @@ try{
   await page.screenshot({path:path.join(out,`hole-${i+1}-clear-rethrow.png`)});
   report.push({hole:i+1,id:ids[i],phase,strokes,camera:cameraEvidence});
  }
+ // The live aim slider must rotate the avatar, not just change the label.
+ await page.getByRole("button",{name:"Tune",exact:true}).click();
+ const aimControl=page.locator("#disc-golf-aim");
+ assert.ok(await aimControl.isVisible());
+ await aimControl.focus();
+ await aimControl.press("End");
+ await page.waitForFunction(()=>{
+  const d=document.querySelector("canvas")?.dataset;
+  return d?.discGolfAimOffset==="55" && Number(d.discGolfFacingDot)>.96 &&
+   Number.isFinite(Number(d.discGolfAimedYaw));
+ },null,{timeout:20000});
+ const positiveYaw=Number(await canvas.getAttribute("data-disc-golf-aimed-yaw"));
+ await aimControl.press("Home");
+ await page.waitForFunction(()=>{
+  const d=document.querySelector("canvas")?.dataset;
+  return d?.discGolfAimOffset==="-55" && Number(d.discGolfFacingDot)>.96 &&
+   Number.isFinite(Number(d.discGolfAimedYaw));
+ },null,{timeout:20000});
+ const negativeYaw=Number(await canvas.getAttribute("data-disc-golf-aimed-yaw"));
+ const yawChange=Math.abs(Math.atan2(
+  Math.sin(positiveYaw-negativeYaw),Math.cos(positiveYaw-negativeYaw)));
+ assert.ok(yawChange>1.8&&yawChange<2.05,
+  `Aim slider should rotate the character by 110 degrees; measured ${yawChange}`);
+ await page.screenshot({path:path.join(out,"hole-9-live-aim-yaw.png")});
  assert.deepEqual(errors,[],"Browser should produce no runtime errors");
  fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({report,errors},null,2)+"\n");
  console.log(JSON.stringify({report,errors},null,2));
