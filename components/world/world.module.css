@@ -603,7 +603,7 @@
 }
 @media (max-width: 760px) {
   .header {
-    padding: 23px;
+    padding: calc(23px + env(safe-area-inset-top, 0px)) 23px 23px;
   }
   .wordmark {
     font-size: 12px;
@@ -1676,6 +1676,14 @@
  }
  .touchHelp,.controls{display:none}
  .location{bottom:auto;top:calc(82px + env(safe-area-inset-top,0px));left:14px}
+ /* Mobile navigation occupies the screen top. Don't hide region metadata
+    beneath it, and let the expanded sports palette take visual priority. */
+ .world[data-world-nav-visible="true"] .location{
+   top:calc(190px + env(safe-area-inset-top,0px));
+ }
+ .world[data-world-nav-visible="true"][data-world-sports-open="true"] .location{
+   display:none;
+ }
  .location p{font-size:clamp(15px,4vw,21px);line-height:1.16}
  .discovery{bottom:calc(169px + env(safe-area-inset-bottom,0px));max-width:64vw}
  .waterDock{top:calc(130px + env(safe-area-inset-top,0px));left:10px;

@@ -19,6 +19,51 @@ const results = [], errors = [];
 let diagnostics;
 let activePage;
 async function screenshot(page, name) { await page.screenshot({ path: path.join(output, `${name}.png`) }); }
+async function enterLagoonWater(page) {
+  // Slow software WebGL can advance fewer than two simulated seconds in a
+  // 12-second timeout. Observe the true first water-entry frame in-page.
+  await page.locator('canvas').evaluate(c=>{
+    const record={seen:false,phases:[],entryAt:null};
+    c.__lagoonEntry=record;
+    const observer=new MutationObserver(()=>{
+      const phase=c.dataset.aquatic??'unknown';
+      if(record.phases.at(-1)!==phase)record.phases.push(phase);
+      if(phase==='surface'&&!record.seen){
+        record.seen=true;record.entryAt=c.dataset.player??null;
+        window.dispatchEvent(new KeyboardEvent('keyup',
+          {key:'w',code:'KeyW',bubbles:true}));
+        observer.disconnect();
+      }
+    });
+    c.__lagoonObserver=observer;
+    observer.observe(c,{attributes:true,attributeFilter:['data-aquatic']});
+  });
+  await page.keyboard.press('Space');
+  await page.keyboard.down('w');
+  try{
+    await page.waitForFunction(()=>
+      document.querySelector('canvas')?.__lagoonEntry?.seen===true,
+      null,{timeout:45000,polling:'raf'});
+  }catch(error){
+    const state=await page.locator('canvas').evaluate(c=>({
+      record:c.__lagoonEntry,player:c.dataset.player,
+      aquatic:c.dataset.aquatic,airborne:c.dataset.airborne,
+      zone:c.dataset.reefZone,frameP95:c.dataset.frameP95,
+    }));
+    fs.writeFileSync(path.join(output,'lagoon-entry-failure.json'),
+      JSON.stringify({state,error:String(error)},null,2)+'\n');
+    await screenshot(page,'lagoon-entry-failure');
+    throw error;
+  }finally{
+    await page.keyboard.up('w');
+    await page.locator('canvas').evaluate(c=>c.__lagoonObserver?.disconnect())
+      .catch(()=>{});
+  }
+  const entry=await page.locator('canvas').evaluate(c=>c.__lagoonEntry);
+  assert.ok(entry.entryAt,'Lagoon jump must physically reach open water');
+  assert.equal(await page.locator('canvas').getAttribute('data-aquatic'),'surface');
+  return entry;
+}
 async function returnToShore(page, label) {
   // Observe the rendered world on the page side, not a 150ms/300ms remote
   // polling loop. SwiftShader frames can be slow enough to miss a brief
@@ -474,17 +519,9 @@ try {
   await page.getByRole('button', { name: '05 Lagoon reef South Pacific reef', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.aquatic === 'land');
   await page.waitForFunction(() => document.activeElement?.tagName === 'CANVAS');
-  await page.keyboard.press('Space');
-  await page.keyboard.down('w');
-  try {
-    await page.waitForFunction(
-      () => document.querySelector('canvas')?.dataset.aquatic === 'surface',
-      null,
-      { timeout: 12000 },
-    );
-  } finally {
-    await page.keyboard.up('w');
-  }
+  const lagoonEntry=await enterLagoonWater(page);
+  results.push('Lagoon shore jump actually enters the reef: '+
+    JSON.stringify(lagoonEntry.phases));
   await page.waitForFunction(() => document.querySelector('canvas')?.dataset.reefZone === 'lagoon');
   assert.equal(await page.locator('canvas').getAttribute('data-reef'), 'true');
   // The coral garden is intentionally shallow, and Dive itself requires more

@@ -556,6 +556,9 @@ export function WorldHome({ content }: { content: WorldContent }) {
       data-world-session={session.phase}
       data-world-game={session.active??"none"}
       data-world-state={failed ? "fallback" : entered ? "exploring" : "welcome"}
+      data-world-nav-visible={String(entered&&!failed&&aquatic==="land"&&
+        !worldGameActive&&skim.phase==="off")}
+      data-world-sports-open={String(sportsOpen)}
     >
       <div className={styles.backdrop} aria-hidden="true" />
       {enabled && !failed && (

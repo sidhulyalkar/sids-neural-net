@@ -53,12 +53,31 @@ try{
    "Sports bar must stay fully within the viewport: "+JSON.stringify(rect));
   assert.ok(rect.scrollWidth<=rect.viewportWidth+1,
    "Header should not cause horizontal overflow: "+JSON.stringify(rect));
+  if(viewport.mobile){
+   const location=await page.evaluate(()=>{
+    const label=document.querySelector('[class*="location"]');
+    const dock=document.querySelector('nav[aria-label="World movement and sports"]');
+    if(!label||!dock)throw Error("Mobile dock and region label missing");
+    const region=label.getBoundingClientRect(),nav=dock.getBoundingClientRect();
+    return {regionTop:region.top,dockBottom:nav.bottom,visible:region.height>0};
+   });
+   assert.ok(location.visible&&location.regionTop>=location.dockBottom+8,
+    "Mobile region label must sit below the sports dock: "+JSON.stringify(location));
+  }
   await page.screenshot({path:path.join(output,
    viewport.width+"x"+viewport.height+"-header.png")});
   await page.getByRole("button",{name:"Show sport shortcuts"}).click();
   const expanded=page.getByRole("group",{name:"Sport shortcuts"});
   await expanded.waitFor({state:"visible"});
   assert.equal(await expanded.getByRole("button").count(),5);
+  if(viewport.mobile){
+   const hidden=await page.evaluate(()=>{
+    const label=document.querySelector('[class*="location"]');
+    return label?getComputedStyle(label).display==="none":false;
+   });
+   assert.equal(hidden,true,
+    "Mobile region metadata must not overlap the expanded sports drawer");
+  }
   const opened=await measure();
   assert.ok(opened.gap>=10&&opened.gap<=14,
    "Expanded sports drawer must preserve Menu gap: "+JSON.stringify(opened));
