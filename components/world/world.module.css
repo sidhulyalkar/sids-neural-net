@@ -1695,3 +1695,31 @@
  .mobileJoystick{width:82px;height:82px}
  .discovery{bottom:calc(120px + env(safe-area-inset-bottom,0px))}
 }
+
+/* Classic aerial buttons live beneath the sport bar in the anchored dock;
+   the explicit Ski Jump reuses them in its existing compact game HUD. */
+.skiAerialControls{
+  display:grid;gap:7px;padding:9px 2px 4px;margin-top:7px;
+  border-top:1px solid #e7e1cc3b;
+}
+.skiAerialHint{
+  font-size:9px;letter-spacing:.09em;color:#d3e7e0;
+  font-weight:650;line-height:1.4;text-align:center;
+}
+.skiAerialGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;}
+.world .skiAerialGrid button{
+  min-width:0;min-height:36px;padding:6px 3px;
+  border:1px solid #dcc89b5a;border-radius:8px;
+  background:#f5e5c50d;color:#f8f0e0;
+  font-size:11px;letter-spacing:0;font-weight:650;
+}
+.world .skiAerialGrid button:hover:not(:disabled),
+.world .skiAerialGrid button:focus-visible{background:#f7e8cd;color:#1d3840;}
+.world .skiAerialGrid button:disabled{opacity:.42;}
+.bigAirHud .skiAerialControls{margin:10px 0 8px;}
+@media(max-width:420px){
+  .skiAerialHint{font-size:8px;letter-spacing:.045em;}
+  .skiAerialGrid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .world .skiAerialGrid button{min-height:43px;font-size:12px;}
+}
+@media(pointer:coarse){.world .skiAerialGrid button{min-height:44px;}}

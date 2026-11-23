@@ -55,7 +55,7 @@ export const ACTIVITIES = [
     acceleration: 7,
     braking: 4,
     action: "Hop",
-    hint: "WASD ski · Space to hop · Granite Ridge jumps",
+    hint: "WASD ski · Space jump · Q/E 180° · Shift+Q/E 360°",
   },
   {
     id: "boulder",

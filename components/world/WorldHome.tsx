@@ -27,6 +27,7 @@ import {
   type WorldContent,
 } from "@/lib/world/model";
 import { ACTIVITIES, activityConfig, type Activity, type AquaticMode } from "@/lib/world/activities";
+import type {ClassicSkiSpinCommand} from "@/lib/world/ski/classicAerial";
 import { COASTAL_FLORA, MARINE_LIFE } from "@/lib/world/ecology";
 import {cairnStoryFor,REGION_CAIRN_PHOTOS} from "@/lib/world/cairnStories";
 import { UNDERWATER_TRIDENTS } from "@/lib/world/artifacts";
@@ -138,6 +139,12 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const issueSkim=(action:typeof skimCommand,board=0)=>{
     if(action==="pickup")setActivity("run");
     setSkimCommand(action);setSkimBoardIndex(board);setSkimCommandSerial(n=>n+1);
+    requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
+  };
+  const [skiSpinDegrees,setSkiSpinDegrees]=useState<ClassicSkiSpinCommand>(180);
+  const [skiSpinSerial,setSkiSpinSerial]=useState(0);
+  const requestSkiSpin=(degrees:ClassicSkiSpinCommand)=>{
+    setSkiSpinDegrees(degrees);setSkiSpinSerial(n=>n+1);
     requestAnimationFrame(()=>worldRoot.current?.querySelector("canvas")?.focus({preventScroll:true}));
   };
   const [actionSerial, setActionSerial] = useState(0);
@@ -548,6 +555,22 @@ export function WorldHome({ content }: { content: WorldContent }) {
   const session=worldGameSession({jet:jetActive,ski:bigAir.phase,
     disc:discGolf.phase,trial:trial.phase,skim:skim.phase});
   const worldGameActive=!session.canChangeMovement;
+  // Ordinary mountain skiing and the menu-authorized Ski Jump share controls.
+  const skiAerialButtons=(
+    <div className={styles.skiAerialControls} role="group" aria-label="Ski aerial tricks">
+      <span className={styles.skiAerialHint}>AIR TRICKS · Q/E 180° · SHIFT+Q/E 360°</span>
+      <div className={styles.skiAerialGrid}>
+        <button type="button" aria-label="Spin 180 left" disabled={!ready||quiet}
+          onClick={()=>requestSkiSpin(-180)}>↶ 180°</button>
+        <button type="button" aria-label="Spin 180 right" disabled={!ready||quiet}
+          onClick={()=>requestSkiSpin(180)}>180° ↷</button>
+        <button type="button" aria-label="Spin 360 left" disabled={!ready||quiet}
+          onClick={()=>requestSkiSpin(-360)}>↶ 360°</button>
+        <button type="button" aria-label="Spin 360 right" disabled={!ready||quiet}
+          onClick={()=>requestSkiSpin(360)}>360° ↷</button>
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -571,6 +594,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
             actionSerial={actionSerial}
             challengeSerial={challengeSerial}
             bigAirSerial={bigAirSerial}
+            skiSpinSerial={skiSpinSerial}
+            skiSpinDegrees={skiSpinDegrees}
             sessionExitSerial={sessionExitSerial}
             discGolfStartSerial={discGolfStartSerial}
             discGolfHoleIndex={discGolfHoleIndex}
@@ -663,6 +688,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                    <Trees aria-hidden="true"/><span>Skatepark</span>
                  </button>
                </div>
+               {activity==="ski"&&skiAerialButtons}
              </nav>
            )}
         </div>
@@ -807,7 +833,8 @@ export function WorldHome({ content }: { content: WorldContent }) {
               {bestFlight!==null&&(
                 <small>Furthest from mountain center {bestFlight.toFixed(1)} m</small>
               )}
-              {(bigAir.phase==="armed"||bigAir.phase==="flying")&&<button onClick={exploreWorld}>Exit jump</button>}
+              {(bigAir.phase==="armed"||bigAir.phase==="flying")&&skiAerialButtons}
+              {(bigAir.phase==="armed"||bigAir.phase==="flying")&&<button onClick={exploreWorld}>Exit jump</button>
               {(bigAir.phase==="armed"||bigAir.phase==="flying")&&(
                 <button className={styles.birdVoiceToggle} aria-pressed={birdVoice}
                   onClick={toggleBirdVoice}>

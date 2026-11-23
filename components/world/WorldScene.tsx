@@ -8,6 +8,7 @@ import styles from "./world.module.css";
 import type { Activity, AquaticMode } from "@/lib/world/activities";
 import type { TrialState } from "@/lib/world/trials";
 import type { BigAirState } from "@/lib/world/bigAir";
+import type {ClassicSkiSpinCommand} from "@/lib/world/ski/classicAerial";
 import type { DiscGolfState,DiscShot,DiscGolfSwingStage } from "@/lib/world/discGolf";
 import type { SkimHeat } from "@/lib/world/skimboarding";
 import type {WorldContent} from "@/lib/world/model";
@@ -18,6 +19,8 @@ type Props = {
   actionSerial: number;
   challengeSerial: number;
   bigAirSerial:number;
+  skiSpinSerial:number;
+  skiSpinDegrees:ClassicSkiSpinCommand;
   sessionExitSerial:number;
   discGolfStartSerial:number;
   discGolfHoleIndex:number;
