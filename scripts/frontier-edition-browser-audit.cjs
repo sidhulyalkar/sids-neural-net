@@ -262,15 +262,25 @@ async function auditActiveSwarm() {
     await page.reload({waitUntil:'domcontentloaded'});
     const savedOval=page.locator(`article[data-frontier-story="${firstId}"] [data-frontier-clear-article]`);
     await savedOval.waitFor();
+    // Zustand persist rehydrates on the client after the server-first DOM is
+    // visible; never mistake that initial false frame for lost saved state.
+    await page.waitForFunction(id=>{
+      const article=Array.from(document.querySelectorAll('[data-frontier-story]'))
+        .find(node=>node.getAttribute('data-frontier-story')===id);
+      return article?.querySelector('[data-frontier-clear-article]')
+        ?.getAttribute('data-cleared')==='true';
+    },firstId,{timeout:7000});
     assert.equal(await savedOval.getAttribute('data-cleared'),'true',
-      'Strong preference persists without bringing back the swarm');
+      'Strong preference persists after local hydration');
 
     const off=page.getByRole('button',{name:'Turn off floating newspaper creatures'});
     await off.click();
     assert.equal(await page.locator('[data-frontier-sprite]').count(),0,'Opt-out removes active swarms');
     await page.reload({waitUntil:'domcontentloaded'});
+    await page.getByRole('button',{name:'Turn on floating newspaper creatures'})
+      .waitFor({state:'visible',timeout:7000});
     assert.equal(await page.getByRole('button',{name:'Turn on floating newspaper creatures'}).count(),1,
-      'Preference to suppress swarms must persist');
+      'Preference to suppress swarms must persist after hydration');
     assert.deepEqual(errors,[],'No browser runtime failures');
     return {initialSwarm:count,uniquePaths:new Set(patterns).size,clearPersists:true,optOutPersists:true};
   } finally { await browser.close(); }
