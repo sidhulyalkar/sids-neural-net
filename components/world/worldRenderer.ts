@@ -1,5 +1,8 @@
 import {worldFrameDelta} from "@/lib/world/frameTiming";
 import { SkiSimulation, neutral as neutralSkiInput } from "@/lib/world/ski/simulation";
+import {initialClassicSkiSpin,beginClassicSkiAir,queueClassicSkiSpin,
+  advanceClassicSkiSpin,classicSkiDisplayYaw,
+  type ClassicSkiSpinCommand} from "@/lib/world/ski/classicAerial";
 import { renderedSnowHeight } from "@/lib/world/ski/renderedSnow";
 import { SnowTracks } from "./skiSnowTracks";
 import {createSkiContact,fitSkiContact,skiFollowYaw,constrainSkiCamera} from "./worldSkiContact";
@@ -168,6 +171,8 @@ type State = {
   actionSerial: number;
   challengeSerial: number;
   bigAirSerial: number;
+  skiSpinSerial:number;
+  skiSpinDegrees:ClassicSkiSpinCommand;
   sessionExitSerial:number;
   discGolfStartSerial:number;
   discGolfHoleIndex:number;
@@ -3289,6 +3294,8 @@ export function createWorld(
     actionSerial: 0,
     challengeSerial: 0,
     bigAirSerial: 0,
+    skiSpinSerial:0,
+    skiSpinDegrees:180,
     sessionExitSerial:0,
     discGolfStartSerial:0,
     discGolfHoleIndex:0,
@@ -3322,6 +3329,8 @@ export function createWorld(
   let airHeight = 0, verticalSpeed = 0, lastAction = 0, lastWaterAction = 0;
   let lastChallengeSerial=0, lastTrialUpdate=0;
   let lastBigAirSerial=0,lastBigAirUpdate=0,lastSessionExit=0;
+  let lastSkiSpinSerial=0;
+  let classicSkiSpin=initialClassicSkiSpin();
   let bigAir:BigAirState=idleBigAir();
   let discGolf:DiscGolfState=idleDiscGolf();
   let jetSki:JetSkiState|null=null;
@@ -3914,6 +3923,21 @@ export function createWorld(
     setAquaticMode("dive");
     canvas.focus({preventScroll:true});
   }
+  function requestClassicSkiSpin(degrees:ClassicSkiSpinCommand){
+    if(!state.entered||state.paused||document.hidden||state.activity!=="ski"||
+      aquatic!=="land"||galleryPhase!=="outside"||caveLayer!=="surface"||
+      jetSki||jetChoosing||discGolf.phase!=="off"||skimHeat.phase!=="off"||
+      trial.phase==="armed"||trial.phase==="running"||climb||grind||
+      bigAir.phase==="landed"||bigAir.phase==="missed")return;
+    if(!(airHeight>.035||verticalSpeed>.1||bigAir.phase==="flying")){
+      // One press invokes the existing hop. The authored Ski Jump still
+      // requires a real approach and an explicitly armed jump session.
+      if(bigAir.phase!=="idle")return;
+      performAction();
+    }
+    if(grind||!(airHeight>.035||verticalSpeed>.1||bigAir.phase==="flying"))return;
+    classicSkiSpin=queueClassicSkiSpin(beginClassicSkiAir(classicSkiSpin),degrees);
+  }
   function onKey(e: KeyboardEvent) {
     if (!state.entered || state.paused || e.metaKey || e.ctrlKey || e.altKey)
       return;
@@ -3965,7 +3989,7 @@ export function createWorld(
       if(!e.repeat&&key==="x"){e.preventDefault();doSkimAction("exit");return;}
       const action=key==="r"?"wrap":skimTrickForKey(key);
       if(!e.repeat&&action){e.preventDefault();doSkimAction(action);return;}
-    }else if(!e.repeat&&(key==="enter"||key==="e")){
+    }else if(!e.repeat&&(key==="enter"||(key==="e"&&state.activity!=="ski"))){
       const board=nearbySkimBoard(player);
       if(board!==null){e.preventDefault();doSkimAction("pickup",board);return;}
     }
@@ -4001,6 +4025,14 @@ export function createWorld(
         skateTrick=startSkateManual(skateTrick,key==="c"?"manual":"nose-manual",travel.speed);
         e.preventDefault();return;
       }
+    }
+    // Q/E are spin taps only in classic ski mode. Shift requests 360°.
+    if(state.activity==="ski"&&aquatic==="land"&&!jetSki&&
+      (key==="q"||key==="e")){
+      e.preventDefault();
+      if(!e.repeat)requestClassicSkiSpin(
+        ((key==="q"?-1:1)*(e.shiftKey?360:180)) as ClassicSkiSpinCommand);
+      return;
     }
     // The land jump action must not fire while steering a jet ski.
     if(jetSki&&key===" "){if(e.target===canvas)e.preventDefault();return;}
@@ -5143,6 +5175,24 @@ export function createWorld(
         lastRampAt=elapsed;
         callbacks.onBigAir(bigAir);
       }
+      // Spins rotate the rendered skier without modifying classic terrain,
+      // travel velocity, collision or menu authorization for the big jump.
+      const classicAirborne=state.activity==="ski"&&aquatic==="land"&&
+        !climb&&!grind&&!jetSki&&discGolf.phase==="off"&&
+        (airHeight>.035||verticalSpeed>.1||bigAir.phase==="flying");
+      const previousSpinSerial=classicSkiSpin.serial;
+      if(state.activity==="ski"){
+        classicSkiSpin=advanceClassicSkiSpin(classicSkiSpin,dt,
+          classicAirborne,bigAir.phase!=="missed");
+        if(classicSkiSpin.serial!==previousSpinSerial&&classicSkiSpin.latestName){
+          skiTrickNotice.textContent=classicSkiSpin.latestName+" · "+
+            (classicSkiSpin.landing==="clean"?"clean landing":
+             classicSkiSpin.landing==="short"?"under-rotated":"landing missed");
+          skiTrickNoticeUntil=elapsed+2.4;
+        }
+      }
+      if(!ride)skiTrickNotice.style.display=state.activity==="ski"&&
+        elapsed<skiTrickNoticeUntil?"block":"none";
       // Disc golf temporarily borrows the upright run rig instead of
       // inheriting a sideways skateboard pose from equipment selection.
       const mode = effectiveActivity(
@@ -5349,7 +5399,8 @@ export function createWorld(
           skateTunnelSample(skateTunnelRide,groundHeight).roll:0;
         explorer.rotation.set(skateLoopRide?loopPitch:
           skateTunnelRide?0:surfing?skimPosePitch:pitchAngle,
-          headingYaw+(discGolfHeading?0:avatarTurn)+(mode==="skate"?trickPose.bodyYaw:0),
+          headingYaw+(discGolfHeading?0:avatarTurn)+(mode==="skate"?trickPose.bodyYaw:0)+
+            (mode==="ski"?classicSkiDisplayYaw(classicSkiSpin):0),
           skateLoopRide?0:skateTunnelRide?tubeRoll:
             surfing?skimPoseRoll:rollAngle,
           "YXZ");
@@ -5524,6 +5575,16 @@ export function createWorld(
           canvas.dataset.skiBankCrossings=String(skiHalfpipe.metrics.bankCrossings);
           canvas.dataset.skiLateralReversals=String(skiHalfpipe.metrics.lateralReversals);
         }
+        canvas.dataset.classicSkiSpinAir=String(classicSkiSpin.airborne);
+        canvas.dataset.classicSkiSpinTarget=String(classicSkiSpin.targetDegrees);
+        canvas.dataset.classicSkiSpinAngle=classicSkiSpin.rotationDegrees.toFixed(2);
+        canvas.dataset.classicSkiSpinStance=String(classicSkiSpin.stance);
+        canvas.dataset.classicSkiSpinLanding=classicSkiSpin.landing;
+        canvas.dataset.classicSkiSpinName=classicSkiSpin.latestName;
+        canvas.dataset.classicSkiSpinSerial=String(classicSkiSpin.serial);
+        canvas.dataset.classicSkiSpinClean=String(classicSkiSpin.completed);
+        canvas.dataset.classicSkiSpinFailed=String(classicSkiSpin.failed);
+        canvas.dataset.classicSkiSpinBodyYaw=explorer.rotation.y.toFixed(4);
         canvas.dataset.skiRidePhase=ride?.phase ?? "";
         canvas.dataset.skiLanding=ride?.landing ?? "";
         canvas.dataset.skiContactActive=String(skiGrounded);
@@ -7780,6 +7841,8 @@ export function createWorld(
       const requestedAction = next.actionSerial !== lastAction;
       const requestedWaterAction = next.waterActionSerial !== lastWaterAction;
       if (changedActivity) {
+        classicSkiSpin=initialClassicSkiSpin();
+        skiTrickNotice.style.display="none";skiTrickNoticeUntil=0;
         // Do not turn a midair ski exit into an instant unsupported landing.
         const preserveFlight=bigAir.phase==="flying"||
           airHeight>.04||verticalSpeed>.1;
@@ -7811,6 +7874,11 @@ export function createWorld(
         }
       }
       state = next;
+      if(next.skiSpinSerial!==lastSkiSpinSerial){
+        lastSkiSpinSerial=next.skiSpinSerial;
+        requestClassicSkiSpin(next.skiSpinDegrees);
+        canvas.focus({preventScroll:true});
+      }
       if(next.sessionExitSerial!==lastSessionExit){
         lastSessionExit=next.sessionExitSerial;leaveWorldGames();
       }
@@ -8002,6 +8070,8 @@ export function createWorld(
       if (next.entered && (!wasEntered || (wasPaused && !next.paused)))
         canvas.focus({ preventScroll: true });
       if (next.command && next.command.serial !== lastSerial) {
+        classicSkiSpin=initialClassicSkiSpin();
+        skiTrickNotice.style.display="none";skiTrickNoticeUntil=0;
         if(skimHeat.phase!=="off"){
           skimHeat=idleSkimHeat();callbacks.onSkim(skimHeat);
         }
