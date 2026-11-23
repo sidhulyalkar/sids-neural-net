@@ -124,6 +124,7 @@ export function FrontierLightningCursor({ showAimReticle = false }: { showAimRet
       // all clicks still produce the visual bolt, but only a blank-surface
       // shot toward a visible article swarm enters private gameplay counts.
       const clicked = event.target instanceof Element ? event.target : null;
+      const guided = aimEnabledRef.current;
       const isGameplayClick = !clicked?.closest(
         'a,button,input,textarea,select,summary,[role="button"],[role="link"]'
       );
@@ -143,7 +144,7 @@ export function FrontierLightningCursor({ showAimReticle = false }: { showAimRet
         if (isGameplayClick && articleId) {
           const state=useFrontierStore.getState();
           const item=state.history[articleId]?.item;
-          if (item) state.recordLightningShot(item,hit);
+          if (item) state.recordLightningShot(item,hit,guided);
         }
         setStrikes((current) => current.map((strike) =>
           strike.id === id ? { ...strike, hit } : strike));

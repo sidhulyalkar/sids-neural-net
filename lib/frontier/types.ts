@@ -306,6 +306,9 @@ export type FrontierHistoryEntry = {
    * article swarm are counted. No cursor coordinates are stored. */
   lightningShots?: number;
   lightningHits?: number;
+  /** Subset of shot totals with the optional aim guide enabled. */
+  lightningGuidedShots?: number;
+  lightningGuidedHits?: number;
   /** An explicit strong preference expressed by the unlabelled clear-all oval. */
   ambientClearedAt?: string;
   resurfacedCount: number;

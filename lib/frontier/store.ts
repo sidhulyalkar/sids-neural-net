@@ -96,7 +96,7 @@ export type FrontierStore = FrontierPersistedState & {
   recordOpen: (item: FrontierItem) => void;
   recordAmbientAppearances: (item: FrontierItem, count: number) => void;
   recordAmbientPop: (item: FrontierItem) => void;
-  recordLightningShot: (item: FrontierItem, connected: boolean) => void;
+  recordLightningShot: (item: FrontierItem, connected: boolean, guided?: boolean) => void;
   recordAmbientClear: (item: FrontierItem) => void;
   react: (item: FrontierItem, reaction: FrontierReaction) => void;
   rateInterest: (item: FrontierItem, score: number, method: 'hold' | 'slider' | 'wheel', holdMs?: number) => void;
@@ -253,7 +253,7 @@ export const useFrontierStore = create<FrontierStore>()(
         });
       },
 
-      recordLightningShot: (item, connected) => {
+      recordLightningShot: (item, connected, guided = false) => {
         const current=get();
         const previous=current.history[item.id];
         // Gameplay is deliberately independent of taste, XP and rank.
@@ -262,8 +262,13 @@ export const useFrontierStore = create<FrontierStore>()(
         const attempts=Math.min(500,(previous.lightningShots ?? 0)+1);
         const hits=Math.min(attempts,(previous.lightningHits ?? 0)+(connected ? 1 : 0));
         if (attempts===previous.lightningShots && hits===previous.lightningHits) return;
+        const guidedShots = Math.min(attempts,
+          (previous.lightningGuidedShots ?? 0)+(guided ? 1 : 0));
+        const guidedHits = Math.min(guidedShots,
+          (previous.lightningGuidedHits ?? 0)+(guided && connected ? 1 : 0));
         set({ history: { ...current.history,
-          [item.id]: { ...previous, lightningShots:attempts, lightningHits:hits } } });
+          [item.id]: { ...previous, lightningShots:attempts, lightningHits:hits,
+            lightningGuidedShots:guidedShots, lightningGuidedHits:guidedHits } } });
       },
 
       recordAmbientClear: (item) => {

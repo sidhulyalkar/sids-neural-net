@@ -42,7 +42,14 @@ async function audit(width,height) {
     assert(initialTitle?.trim(),'Edition stories need real source titles');
 
     const widthInfo = await page.evaluate(() => ({viewport:innerWidth,content:document.documentElement.scrollWidth}));
-    assert(widthInfo.content <= widthInfo.viewport + 2, 'Default edition overflows horizontally: '+JSON.stringify(widthInfo));
+    if(widthInfo.content > widthInfo.viewport+2) {
+      const offenders=await page.evaluate(()=>Array.from(document.querySelectorAll('body *'))
+        .map(el=>({tag:el.tagName,classes:typeof el.className==='string'?el.className.slice(0,90):'',
+          right:Math.round(el.getBoundingClientRect().right),
+          left:Math.round(el.getBoundingClientRect().left)}))
+        .filter(el=>el.right>innerWidth+2 || el.left < -2).slice(0,16));
+      assert.fail('Default edition overflows horizontally: '+JSON.stringify({widthInfo,offenders}));
+    }
 
     assert.equal(await page.locator('[data-frontier-wheel-rating]').count(),0,
       'The explicit numeric interest dial must be removed from the edition');

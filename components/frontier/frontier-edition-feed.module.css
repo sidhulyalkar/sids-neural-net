@@ -467,3 +467,17 @@
 .footer { border-color:rgba(214,196,174,.22); }
 .footer a { color:#f2c5cb; }
 @media(max-width:640px) { .masthead { background:transparent; } }
+
+/* Defensive narrow-screen typography/layout: avoid long publisher labels,
+ * source titles, and crowded utility controls widening a 320px viewport. */
+@media(max-width:380px) {
+  .page { max-width:100%; }
+  .masthead { display:flex; flex-wrap:wrap; gap:10px; }
+  .mastActions { flex:0 0 100%; width:100%; min-width:0; justify-content:space-between; gap:5px; }
+  .mastActions a,.mastActions button { flex-shrink:0; }
+  .discover,.editionMeta,.grid,.moreStories,.footer { max-width:calc(100% - 28px); }
+  .categories { max-width:100%; min-width:0; }
+  .story,.leadStory,.storyMain,.storyText,.sourceVisual { min-width:0; max-width:100%; }
+  .story h2,.summary,.sourcePlate>strong,.sourceTopics,.sourceVisual { overflow-wrap:anywhere; }
+  .storyActions { min-width:0; }
+}
