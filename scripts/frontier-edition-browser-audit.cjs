@@ -186,6 +186,10 @@ async function auditActiveSwarm() {
     });
     assert(targetIndex>=0,'At least one visible sprite must have a safe offset firing origin');
     const target=first.locator('[data-frontier-sprite]').nth(targetIndex);
+    // Keep the specific DOM identity. The nth() locator will otherwise
+    // select the NEXT sprite as soon as the struck one is removed.
+    const struckNode=await target.elementHandle();
+    assert(struckNode,'Expected a mounted creature for the deterministic strike');
     const bodyBounds=await target.locator('[data-frontier-sprite-body]').boundingBox();
     assert(bodyBounds,'Bubble glyph must have a visible body');
     const aimTip={x:Math.round(bodyBounds.x+bodyBounds.width/2),y:Math.round(bodyBounds.y+bodyBounds.height/2)};
@@ -215,11 +219,12 @@ async function auditActiveSwarm() {
       'Only the distant tip should reach the target bubble');
     await page.waitForFunction(()=>Boolean(window.__frontierLightningAudit?.impactedAt),
       undefined,{timeout:2000});
-    assert.equal(await target.getAttribute('data-popped'),'true',
+    assert.equal(await struckNode.evaluate(node=>node.getAttribute('data-popped')),'true',
       'A real far-tip collision must pop the bubble');
     assert.equal(await bolt.getAttribute('data-lightning-hit'),'true');
-    await target.evaluate(node=>{node.style.removeProperty('animation-play-state');});
-    await target.waitFor({state:'detached',timeout:5000});
+    await struckNode.evaluate(node=>{node.style.removeProperty('animation-play-state');});
+    await page.waitForFunction(node=>!node.isConnected,struckNode,{timeout:5000});
+    await struckNode.dispose();
     const recorded=await page.evaluate(id=>{
       const state=JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state;
       return {
