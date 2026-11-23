@@ -4026,14 +4026,6 @@ export function createWorld(
         e.preventDefault();return;
       }
     }
-    // Q/E are spin taps only in classic ski mode. Shift requests 360°.
-    if(state.activity==="ski"&&aquatic==="land"&&!jetSki&&
-      (key==="q"||key==="e")){
-      e.preventDefault();
-      if(!e.repeat)requestClassicSkiSpin(
-        ((key==="q"?-1:1)*(e.shiftKey?360:180)) as ClassicSkiSpinCommand);
-      return;
-    }
     // The land jump action must not fire while steering a jet ski.
     if(jetSki&&key===" "){if(e.target===canvas)e.preventDefault();return;}
     if (onSkiFace() && [" ", "q", "e"].includes(key)) {
@@ -4356,6 +4348,10 @@ export function createWorld(
           dx = 0;
           dz = 0;
         }
+      }
+      if(state.activity==="ski"&&aquatic==="land"&&!jetSki&&!climb&&!grind&&
+        (airHeight>.035||verticalSpeed>.1||bigAir.phase==="flying")){
+        dx=0;dz=0;destination=null;
       }
       const previousPoint = { ...player };
       const previousY = playerY;
@@ -5183,7 +5179,9 @@ export function createWorld(
       const previousSpinSerial=classicSkiSpin.serial;
       if(state.activity==="ski"){
         classicSkiSpin=advanceClassicSkiSpin(classicSkiSpin,dt,
-          classicAirborne,bigAir.phase!=="missed");
+          classicAirborne,bigAir.phase!=="missed",{
+            spin:right,flip:forward,
+          });
         if(classicSkiSpin.serial!==previousSpinSerial&&classicSkiSpin.latestName){
           skiTrickNotice.textContent=classicSkiSpin.latestName+" · "+
             (classicSkiSpin.landing==="clean"?"clean landing":
@@ -5398,7 +5396,8 @@ export function createWorld(
         const tubeRoll=skateTunnelRide?
           skateTunnelSample(skateTunnelRide,groundHeight).roll:0;
         explorer.rotation.set(skateLoopRide?loopPitch:
-          skateTunnelRide?0:surfing?skimPosePitch:pitchAngle,
+          skateTunnelRide?0:surfing?skimPosePitch:pitchAngle+
+            (mode==="ski"?classicSkiSpin.flipDegrees*Math.PI/180:0),
           headingYaw+(discGolfHeading?0:avatarTurn)+(mode==="skate"?trickPose.bodyYaw:0)+
             (mode==="ski"?classicSkiDisplayYaw(classicSkiSpin):0),
           skateLoopRide?0:skateTunnelRide?tubeRoll:
@@ -5577,6 +5576,7 @@ export function createWorld(
         }
         canvas.dataset.classicSkiSpinAir=String(classicSkiSpin.airborne);
         canvas.dataset.classicSkiSpinTarget=String(classicSkiSpin.targetDegrees);
+        canvas.dataset.classicSkiFlipAngle=classicSkiSpin.flipDegrees.toFixed(2);
         canvas.dataset.classicSkiSpinAngle=classicSkiSpin.rotationDegrees.toFixed(2);
         canvas.dataset.classicSkiSpinStance=String(classicSkiSpin.stance);
         canvas.dataset.classicSkiSpinLanding=classicSkiSpin.landing;

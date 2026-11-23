@@ -73,3 +73,51 @@ test("180 switch can transition back to forward with a second 180",()=>{
  assert.equal(state.stance,0);
  assert.equal(state.completed,2);
 });
+
+const held=(spin:number,flip:number,seconds:number,hz=60)=>{
+ let s=initialClassicSkiSpin();
+ for(let i=0;i<Math.round(seconds*hz);i++)s=advanceClassicSkiSpin(s,1/hz,true,true,{spin,flip});
+ return s;
+};
+test("held input scales with time and is identical at 30/60/120 Hz",()=>{
+ for(const hz of [30,60,120]){
+  assert.ok(Math.abs(held(1,0,.5,hz).rotationDegrees-360)<1e-8);
+  assert.ok(Math.abs(held(0,-1,.5,hz).flipDegrees+360)<1e-8);
+ }
+});
+test("release stops instantly and opposite input reverses",()=>{
+ const s=held(1,1,.25);
+ const stopped=advanceClassicSkiSpin(s,.05,true);
+ assert.equal(stopped.rotationDegrees,s.rotationDegrees);
+ assert.equal(stopped.flipDegrees,s.flipDegrees);
+ const reversed=advanceClassicSkiSpin(stopped,.05,true,true,{spin:-1,flip:-1});
+ assert.equal(reversed.rotationDegrees,144);
+ assert.equal(reversed.flipDegrees,144);
+});
+test("flips must finish a full turn and both axes must align",()=>{
+ for(const flip of [-1,1]){
+  const full=advanceClassicSkiSpin(held(0,flip,.5),.01,false);
+  assert.equal(full.landing,"clean");
+  assert.equal(full.stance,0);
+  const half=advanceClassicSkiSpin(held(0,flip,.25),.01,false);
+  assert.equal(half.landing,"short");
+  assert.equal(half.completed,0);
+ }
+ const combined=advanceClassicSkiSpin(held(1,1,.5),.01,false);
+ assert.equal(combined.landing,"clean");
+ assert.match(combined.latestName,/360.*Frontflip/);
+});
+test("ground input never starts a hop or rotation; landing clears flip",()=>{
+ const idle=initialClassicSkiSpin();
+ assert.equal(advanceClassicSkiSpin(idle,.05,false,true,{spin:1,flip:1}),idle);
+ const landed=advanceClassicSkiSpin(held(0,1,.5),.01,false);
+ assert.equal(landed.flipDegrees,0);
+ assert.equal(beginClassicSkiAir(landed).heldControl,false);
+});
+test("invalid frame time and nonfinite input cannot corrupt orientation",()=>{
+ const s=held(1,0,.25);
+ assert.equal(advanceClassicSkiSpin(s,NaN,true),s);
+ const next=advanceClassicSkiSpin(s,.05,true,true,{spin:Infinity,flip:NaN});
+ assert.equal(next.rotationDegrees,180);
+ assert.equal(next.flipDegrees,0);
+});

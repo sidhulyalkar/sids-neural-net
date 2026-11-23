@@ -96,10 +96,22 @@ try{
   assert.equal(mode.skiRide,"","Experimental Ski V3 must stay disabled");
   await page.getByRole("group",{name:"Ski aerial tricks"}).waitFor({state:"visible"});
   if(!viewport.mobile){
-   // Keyboard Q performs one physical hop and one 180. A new rendering
-   // state must be qualified after actual landing, not a button animation.
+   // Space launches the normal hop. Hold A until a half-turn is observed.
    await page.locator("canvas").focus();
-   await shot(page,1,"desktop-keyboard-left-180",180,()=>page.keyboard.press("q"));
+   await shot(page,1,"desktop-keyboard-left-180",180,async()=>{
+    await page.locator("canvas").evaluate(c=>{
+     const observer=new MutationObserver(()=>{
+      if(Number(c.dataset.classicSkiSpinAngle)<=-175){
+       c.dispatchEvent(new KeyboardEvent("keyup",{key:"a",bubbles:true}));
+       observer.disconnect();
+      }
+     });
+     observer.observe(c,{attributes:true,attributeFilter:["data-classic-ski-spin-angle"]});
+    });
+    await page.keyboard.press("Space");
+    await page.keyboard.down("a");
+   });
+   await page.keyboard.up("a");
    // Single button touch path on desktop, 360 preserving switch stance.
    await shot(page,2,"desktop-button-right-360",180,()=>
     page.getByRole("button",{name:"Spin 360 right"}).click());

@@ -450,7 +450,7 @@ export function stepTravel(
     (boostEligible ? 1.6 : 1);
   // When the skill-shot expires, retain momentum briefly instead of snapping
   // immediately to normal cruise speed. Normal braking still takes over.
-  const speed = mode==="skate"
+  const speed = selected==="ski"&&airborne>.035 ? current.speed : mode==="skate"
     ? skateRollingSpeed({
       speed:current.speed,dt,pushing:moving,riseAhead:slope,
       maxSpeed,boosted:boostEligible,

@@ -187,3 +187,13 @@ test("rail grind style follows landing angle for both skateboard and skis", () =
   assert.equal(grindStyleForApproach(across, log), "boardslide");
   assert.equal(grindStyleForApproach({ x: -across.x, z: -across.z }, log), "boardslide");
 });
+
+test("classic airborne skis preserve momentum while WASD controls rotation",()=>{
+  const current:Travel={point:{x:8,z:-54},heading:{x:0,z:1},speed:5};
+  const next=stepTravel(current,{x:0,z:0},.05,"ski",[],false,null,1,()=>0,false,1);
+  assert.equal(next.speed,5);
+  assert.deepEqual(next.heading,current.heading);
+  assert.ok(Math.abs(next.point.z-current.point.z-.25)<1e-8);
+  const grounded=stepTravel(current,{x:0,z:0},.05,"ski",[],false,null,0,()=>0);
+  assert.ok(grounded.speed<5,"ground braking stays active");
+});

@@ -560,7 +560,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
     <div className={styles.skiAerialControls} role="group" aria-label="Ski aerial tricks">
       <span className={styles.skiAerialHint}>{bigAir.phase==="armed"
         ?"APPROACH THE RIDGE LIP · SPIN AFTER TAKEOFF"
-        :"AIR TRICKS · Q/E 180° · SHIFT+Q/E 360°"}</span>
+        :"SPACE HOP · HOLD W/S FLIP · A/D SPIN · RELEASE TO STOP"}</span>
       <div className={styles.skiAerialGrid}>
         <button type="button" aria-label="Spin 180 left" disabled={!ready||quiet||bigAir.phase==="armed"}
           onClick={()=>requestSkiSpin(-180)}>↶ 180°</button>
