@@ -1,54 +1,131 @@
-/* Decorative scene never captures scrolling. Only the little button itself
- * accepts clicks. No canvas, image requests, animation loops or wheel hooks. */
-.scene { position:absolute; inset:0; z-index:3; overflow:hidden; pointer-events:none; }
+/* A swarm is visually chaotic, not input-chaotic. Only the individual
+ * lightweight SVG buttons accept pointer events. Native scrolling survives. */
+.scene { position:absolute; inset:0; z-index:3; overflow:hidden; pointer-events:none;
+  container-type:inline-size; contain:paint; }
 .sprite {
-  --sprite-ink:#526e62; --sprite-paper:rgba(220,232,216,.62);
-  position:absolute; top:var(--fly-top); left:0; width:44px; height:44px;
-  display:grid; place-items:center; padding:6px;
+  --sprite-ink:#95e6cc; --sprite-paper:rgba(104,231,194,.09);
+  position:absolute; top:var(--y); left:var(--x); width:44px; height:44px;
+  display:grid; place-items:center; padding:5px;
   border:0; border-radius:50%; background:transparent;
-  color:var(--sprite-ink); cursor:pointer; pointer-events:auto; touch-action:manipulation;
-  opacity:.85; will-change:transform,opacity;
+  color:var(--sprite-ink); cursor:crosshair; pointer-events:auto; touch-action:manipulation;
+  opacity:.96;
+  animation-duration:var(--speed); animation-delay:var(--phase);
+  animation-timing-function:ease-in-out; animation-iteration-count:infinite;
+  animation-direction:alternate;
 }
-.sprite[data-frontier-sprite='soccer'] { --sprite-ink:#49735f; --sprite-paper:rgba(231,242,227,.66); }
-.sprite[data-frontier-sprite='snow'] { --sprite-ink:#64909a; --sprite-paper:rgba(232,245,247,.67); }
-.sprite[data-frontier-sprite='neuron'] { --sprite-ink:#6b7395; --sprite-paper:rgba(231,233,243,.65); }
-.sprite[data-frontier-sprite='code'] { --sprite-ink:#607582; --sprite-paper:rgba(225,238,242,.65); }
-.sprite[data-frontier-sprite='game'] { --sprite-ink:#806685; --sprite-paper:rgba(240,230,239,.65); }
-.sprite[data-frontier-sprite='music'] { --sprite-ink:#826d88; --sprite-paper:rgba(239,232,243,.65); }
-.sprite[data-frontier-sprite='leaf'] { --sprite-ink:#638465; --sprite-paper:rgba(231,242,226,.65); }
-.body { width:34px; height:34px; display:grid; place-items:center; border-radius:50%;
-  background:var(--sprite-paper); box-shadow:0 1px 7px rgba(56,75,60,.09);
-  animation:tinyWobble 1.8s ease-in-out infinite alternate; }
-.body svg { width:27px; height:27px; display:block; }
-.fromLeft { animation:floatAcross 9s linear forwards; }
-.fromRight { animation:floatBack 9s linear forwards; }
-.sprite:focus-visible { outline:2px solid #426b54; outline-offset:2px; }
-.sprite:hover:not(.popped),.sprite:focus-visible:not(.popped) { animation-play-state:paused; }
-.sprite:hover .body { box-shadow:0 0 0 3px rgba(100,140,111,.18),0 2px 10px rgba(56,75,60,.16); }
-.popped,.fromLeft.popped,.fromRight.popped { animation:popOut 340ms cubic-bezier(.22,.9,.28,1) forwards; }
-.popped .body { animation:none; }
+.sprite[data-frontier-sprite='soccer'] { --sprite-ink:#d5eee7; --sprite-paper:rgba(210,242,233,.09); }
+.sprite[data-frontier-sprite='snow'] { --sprite-ink:#a9eaff; --sprite-paper:rgba(177,221,250,.10); }
+.sprite[data-frontier-sprite='neuron'] { --sprite-ink:#baadff; --sprite-paper:rgba(182,160,250,.11); }
+.sprite[data-frontier-sprite='code'] { --sprite-ink:#96dbec; --sprite-paper:rgba(132,221,235,.09); }
+.sprite[data-frontier-sprite='game'] { --sprite-ink:#edabf0; --sprite-paper:rgba(232,164,247,.09); }
+.sprite[data-frontier-sprite='music'] { --sprite-ink:#f0b3dc; --sprite-paper:rgba(243,176,222,.09); }
+.sprite[data-frontier-sprite='leaf'] { --sprite-ink:#a7eb9e; --sprite-paper:rgba(168,235,147,.10); }
+/* Thematic color is the baseline (step 0); neighboring creatures introduce
+ * alternating coral, yellow, violet, azure and lime punctures against ink. */
+.sprite[data-color-step='1']{--sprite-ink:#ff95c2;--sprite-paper:rgba(255,90,155,.24)}
+.sprite[data-color-step='2']{--sprite-ink:#ffd36b;--sprite-paper:rgba(255,198,68,.21)}
+.sprite[data-color-step='3']{--sprite-ink:#c7a0ff;--sprite-paper:rgba(175,111,247,.23)}
+.sprite[data-color-step='4']{--sprite-ink:#73eafa;--sprite-paper:rgba(61,206,249,.22)}
+.sprite[data-color-step='5']{--sprite-ink:#ddfa78;--sprite-paper:rgba(186,241,58,.20)}
+.sprite[data-color-step='6']{--sprite-ink:#ff997e;--sprite-paper:rgba(255,118,91,.23)}
+
+.body { width:var(--size); height:var(--size); display:grid; place-items:center; border-radius:50%;
+  border:1px solid color-mix(in srgb,var(--sprite-ink) 58%,transparent);
+  background:var(--sprite-paper);
+  box-shadow:0 0 14px color-mix(in srgb,var(--sprite-ink) 29%,transparent);
+}
+.body svg { width:75%; height:75%; display:block; }
+.hover { animation-name:floatHover; }
+.patrol { animation-name:floatPatrol; }
+.orbit { animation-name:floatOrbit; animation-direction:normal; }
+.zigzag { animation-name:floatZigzag; }
+.cross { animation-name:floatCross; animation-direction:normal; }
+.sprite:focus-visible { outline:2px solid #c0ffdf; outline-offset:1px; }
+.sprite:hover:not(.popped),.sprite:focus-visible:not(.popped),.sprite[data-frontier-lightning-reserved='true'] { animation-play-state:paused; }
+.sprite:hover .body { box-shadow:0 0 0 4px rgba(127,233,197,.14),0 0 22px rgba(133,225,192,.38); }
+.popped,.hover.popped,.patrol.popped,.orbit.popped,.zigzag.popped,.cross.popped {
+  animation:popOut 350ms cubic-bezier(.2,.85,.22,1) forwards;
+  pointer-events:none;
+}
 .burst { position:absolute; inset:0; opacity:0; pointer-events:none; }
-.burst i { position:absolute; left:50%; top:50%; width:4px; height:4px; background:var(--sprite-ink);
-  border-radius:50%; transform:rotate(var(--angle)) translateY(0); }
+.burst i { position:absolute; left:50%; top:50%; width:4px; height:4px;
+  background:var(--sprite-ink); border-radius:50%; transform:rotate(var(--angle)); }
 .burst i:nth-child(1){--angle:0deg}.burst i:nth-child(2){--angle:60deg}
 .burst i:nth-child(3){--angle:120deg}.burst i:nth-child(4){--angle:180deg}
 .burst i:nth-child(5){--angle:240deg}.burst i:nth-child(6){--angle:300deg}
 .popped .burst { opacity:1; }
-.popped .burst i { animation:burstOut 340ms ease-out forwards; }
-@keyframes floatAcross {
-  0% { transform:translate3d(-50px,2px,0) rotate(-17deg); opacity:0; }
-  9% { opacity:.82; } 30% { transform:translate3d(calc(var(--fly-width) * .3),-13px,0) rotate(7deg); }
-  65% { transform:translate3d(calc(var(--fly-width) * .66),8px,0) rotate(-6deg); opacity:.85; }
-  92% { opacity:.76; } 100% { transform:translate3d(calc(var(--fly-width) + 50px),-17px,0) rotate(14deg);opacity:0; }
+.popped .burst i { animation:burstOut 350ms ease-out forwards; }
+@keyframes floatHover {
+  0%{transform:translate3d(-13px,14px,0) rotate(-15deg)}
+  35%{transform:translate3d(10px,-23px,0) rotate(7deg)}
+  75%{transform:translate3d(-19px,4px,0) rotate(-6deg)}
+  100%{transform:translate3d(14px,20px,0) rotate(13deg)}
 }
-@keyframes floatBack {
-  0% { transform:translate3d(calc(var(--fly-width) + 50px),-9px,0) rotate(16deg);opacity:0; }
-  9% { opacity:.82; } 35% { transform:translate3d(calc(var(--fly-width) * .65),12px,0) rotate(-8deg); }
-  70% { transform:translate3d(calc(var(--fly-width) * .29),-13px,0) rotate(6deg);opacity:.85; }
-  92% { opacity:.76; } 100% { transform:translate3d(-50px,9px,0) rotate(-18deg);opacity:0; }
+@keyframes floatPatrol {
+  0%{transform:translate3d(-29cqw,-6px,0) rotate(-23deg)}
+  50%{transform:translate3d(5cqw,18px,0) rotate(10deg)}
+  100%{transform:translate3d(31cqw,-10px,0) rotate(23deg)}
 }
-@keyframes tinyWobble { from{transform:translateY(-2px) rotate(-5deg)}to{transform:translateY(3px) rotate(6deg)} }
-@keyframes popOut { 0%{opacity:1;scale:1} 32%{opacity:1;scale:1.26} 100%{opacity:0;scale:.05} }
-@keyframes burstOut { from{opacity:1; transform:rotate(var(--angle)) translateY(1px) scale(1)} to{opacity:0; transform:rotate(var(--angle)) translateY(-27px) scale(.35)} }
-@media(max-width:640px) { .sprite{width:42px;height:42px;} .body{width:31px;height:31px;} .body svg{width:25px;height:25px;} }
-@media(prefers-reduced-motion:reduce) { .scene { display:none; } .sprite,.body,.burst i{ animation:none!important; } }
+@keyframes floatOrbit {
+  0%{transform:translate3d(12cqw,0,0) rotate(0)}
+  25%{transform:translate3d(0,37px,0) rotate(90deg)}
+  50%{transform:translate3d(-12cqw,0,0) rotate(180deg)}
+  75%{transform:translate3d(0,-37px,0) rotate(270deg)}
+  100%{transform:translate3d(12cqw,0,0) rotate(360deg)}
+}
+@keyframes floatZigzag {
+  0%{transform:translate3d(-23cqw,-14px,0) rotate(-18deg)}
+  20%{transform:translate3d(-8cqw,28px,0) rotate(16deg)}
+  40%{transform:translate3d(6cqw,-22px,0) rotate(-10deg)}
+  60%{transform:translate3d(18cqw,32px,0) rotate(19deg)}
+  80%{transform:translate3d(29cqw,-13px,0) rotate(-15deg)}
+  100%{transform:translate3d(-23cqw,-14px,0) rotate(-18deg)}
+}
+@keyframes floatCross {
+  0%{transform:translate3d(-43cqw,22px,0) rotate(-20deg)}
+  35%{transform:translate3d(-10cqw,-22px,0) rotate(14deg)}
+  70%{transform:translate3d(22cqw,18px,0) rotate(-12deg)}
+  100%{transform:translate3d(48cqw,-18px,0) rotate(18deg)}
+}
+@keyframes popOut {
+  0%{opacity:1;transform:scale(1)}
+  38%{opacity:1;transform:scale(1.45)}
+  100%{opacity:0;transform:scale(.08)}
+}
+@keyframes burstOut {
+  from{opacity:1;transform:rotate(var(--angle)) translateY(1px) scale(1)}
+  to{opacity:0;transform:rotate(var(--angle)) translateY(-28px) scale(.3)}
+}
+@media(max-width:640px){.sprite{width:42px;height:42px;}}
+@media(prefers-reduced-motion:reduce){.scene{display:none;} .sprite,.burst i{animation:none!important;}}
+
+/* An unlabeled, almost invisible oval: intentional high-priority preference.
+ * Focus and accessibility remain explicit even though visual UI is silent. */
+.clearAll { position:absolute; bottom:12px; left:50%; z-index:7;
+  width:78px; height:26px; transform:translateX(-50%);
+  border:1px solid rgba(136,227,200,.26); border-radius:999px;
+  background:rgba(128,235,199,.025); padding:0; cursor:pointer;
+  display:grid; place-items:center; backdrop-filter:blur(5px);
+  transition:background 160ms ease,border-color 160ms ease,box-shadow 160ms ease;
+}
+.clearAll>span { display:block; width:22px; height:2px; border-radius:10px; background:rgba(140,244,211,.24); }
+.clearAll:hover { border-color:rgba(133,255,219,.8); background:rgba(133,255,219,.13);
+  box-shadow:0 0 18px rgba(111,251,201,.17); }
+.clearAll:focus-visible { outline:2px solid #b6ffe3; outline-offset:3px; }
+.clearAll[data-cleared='true'] { cursor:default; background:rgba(90,201,168,.12);
+  border-color:rgba(122,234,196,.38); }
+.clearAll[data-cleared='true']>span { width:12px; height:12px; border:1.5px solid #99f6d4;
+  border-radius:50%; background:rgba(116,239,199,.2); }
+.clearAll:disabled:not([data-cleared='true']) { cursor:default;opacity:.25; }
+@media(prefers-reduced-motion:reduce){.clearAll{transition:none;}}
+
+/* The invisible editorial interest action belongs to the paper/ink palette. */
+.clearAll { border-color:rgba(147,122,91,.35); background:rgba(164,141,106,.035); backdrop-filter:none; }
+.clearAll>span { background:rgba(119,79,73,.39); }
+.clearAll:hover { border-color:#9d695b; background:rgba(141,91,83,.10);
+  box-shadow:0 0 0 3px rgba(149,108,88,.07); }
+.clearAll:focus-visible { outline:2px solid #783b4b; }
+.clearAll[data-cleared='true'] { background:#eee1d6; border-color:#c6a9a1; }
+.clearAll[data-cleared='true']>span { border-color:#783b4b; background:#d4b4aa; }
+.sprite:focus-visible { outline:2px solid #783b4b; }
+.sprite:hover .body { box-shadow:0 0 0 3px rgba(112,73,88,.12),0 0 13px color-mix(in srgb,var(--sprite-ink) 32%,transparent); }

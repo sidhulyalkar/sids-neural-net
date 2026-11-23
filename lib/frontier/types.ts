@@ -301,6 +301,16 @@ export type FrontierHistoryEntry = {
   ambientAppearances?: number;
   ambientPops?: number;
   ambientLastPoppedAt?: string;
+  /** Private, aggregate gameplay diagnostics only; never a taste/rank signal.
+   * Only intentional blank-surface shots whose tip lands inside an active
+   * article swarm are counted. No cursor coordinates are stored. */
+  lightningShots?: number;
+  lightningHits?: number;
+  /** Subset of shot totals with the optional aim guide enabled. */
+  lightningGuidedShots?: number;
+  lightningGuidedHits?: number;
+  /** An explicit strong preference expressed by the unlabelled clear-all oval. */
+  ambientClearedAt?: string;
   resurfacedCount: number;
   rewarded: boolean;
 };

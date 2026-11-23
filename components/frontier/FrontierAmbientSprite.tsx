@@ -1,19 +1,18 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Atom, Code2, Gamepad2, Leaf, Music2, Snowflake } from 'lucide-react';
-import type { FrontierMotif } from '@/lib/frontier/ambientSprites';
+import type { FrontierMotif, FrontierSwarmSprite } from '@/lib/frontier/ambientSprites';
 import styles from './frontier-ambient-sprite.module.css';
 
 type Props = {
   motif: FrontierMotif;
   articleTitle: string;
-  fromRight: boolean;
-  width: number;
-  top: number;
+  spec: FrontierSwarmSprite;
+  clear: boolean;
   onPop: () => void;
-  onExit: () => void;
+  onExit: (id: number) => void;
 };
 
 function SoccerBall() {
@@ -56,31 +55,96 @@ const MOTIF_LABEL: Record<FrontierMotif, string> = {
   music: 'music note', leaf: 'leaf',
 };
 
-export function FrontierAmbientSprite({ motif, articleTitle, fromRight, width, top, onPop, onExit }: Props) {
+export function FrontierAmbientSprite({ motif, articleTitle, spec, clear, onPop, onExit }: Props) {
   const [popped, setPopped] = useState(false);
   const poppedRef = useRef(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const onPopRef = useRef(onPop);
+  const onExitRef = useRef(onExit);
+  const exitReported = useRef(false);
+  const lastPointerType = useRef('');
   const style = {
-    '--fly-width': `${Math.max(200, Math.round(width))}px`,
-    '--fly-top': `${Math.max(24, Math.round(top))}px`,
+    '--x': `${spec.x}%`,
+    '--y': `${spec.y}%`,
+    '--speed': `${spec.duration}s`,
+    '--phase': `${spec.delay}s`,
+    '--size': `${spec.size}px`,
   } as CSSProperties;
 
-  return <div className={styles.scene} data-frontier-ambient-layer="true">
-    <button type="button" data-frontier-sprite={motif} data-popped={popped ? 'true' : 'false'}
-      className={`${styles.sprite} ${fromRight ? styles.fromRight : styles.fromLeft} ${popped ? styles.popped : ''}`}
+  useEffect(() => { onPopRef.current = onPop; }, [onPop]);
+  useEffect(() => { onExitRef.current = onExit; }, [onExit]);
+
+  // CSS animationend can be lost under input-driven pause/resume, browser
+  // throttling or immediate layout changes. A bounded fallback guarantees
+  // popped creatures never linger as invisible, untargetable DOM nodes.
+  useEffect(() => {
+    if (!popped) return;
+    const timeout=window.setTimeout(() => {
+      if (exitReported.current) return;
+      exitReported.current=true;
+      onExitRef.current(spec.id);
+    }, 520);
+    return () => window.clearTimeout(timeout);
+  }, [popped, spec.id]);
+
+  useEffect(() => {
+    const button = buttonRef.current;
+    if (!button) return;
+    const impact = (event: Event) => {
+      if (poppedRef.current || !button.isConnected) return;
+      if (button.closest('article')?.querySelector('[data-frontier-clear-article][data-cleared="true"]')) return;
+      // Signal accepted impact *only* if this is the first true pop.
+      event.preventDefault();
+      poppedRef.current = true;
+      setPopped(true);
+      onPopRef.current();
+    };
+    button.addEventListener('frontier-lightning-impact', impact);
+    return () => button.removeEventListener('frontier-lightning-impact', impact);
+  }, []);
+
+  useEffect(() => {
+    if (!clear || poppedRef.current) return;
+    // A clear-all gesture produces a little cascading constellation of pops.
+    const timeout = window.setTimeout(() => {
+      if (poppedRef.current) return;
+      poppedRef.current = true;
+      setPopped(true);
+    }, spec.id * 42);
+    return () => window.clearTimeout(timeout);
+  }, [clear, spec.id]);
+
+  return (
+    <button ref={buttonRef} type="button" data-frontier-sprite={motif} data-flight-pattern={spec.pattern}
+      data-popped={popped ? 'true' : 'false'} data-color-step={spec.colorStep}
+      className={`${styles.sprite} ${styles[spec.pattern]} ${popped ? styles.popped : ''}`}
       style={style}
       aria-label={`Pop ${MOTIF_LABEL[motif]} near ${articleTitle}`}
-      title={`Pop ${MOTIF_LABEL[motif]}`}
+      onPointerDown={(event) => { lastPointerType.current = event.pointerType; }}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
         if (poppedRef.current) return;
+        // Mouse AND touch taps fire a real lightning bolt that may miss.
+        // Keyboard and reduced-motion users keep immediate activation.
+        const lightningEnabled = event.detail > 0 &&
+          !window.matchMedia('(prefers-reduced-motion: reduce)').matches &&
+          (lastPointerType.current === 'mouse' || lastPointerType.current === 'touch' ||
+           lastPointerType.current === 'pen');
+        if (lightningEnabled) return;
         poppedRef.current = true;
         setPopped(true);
         onPop();
       }}
-      onAnimationEnd={(event) => { if (event.target === event.currentTarget) onExit(); }}>
-      <span className={styles.body}><MotifGlyph motif={motif}/></span>
+      onAnimationEnd={(event) => {
+        if (event.target === event.currentTarget && poppedRef.current &&
+            event.animationName.includes('popOut') && !exitReported.current) {
+          exitReported.current = true;
+          onExitRef.current(spec.id);
+        }
+      }}>
+      <span className={styles.body} data-frontier-sprite-body="true"><MotifGlyph motif={motif}/></span>
       <span className={styles.burst} aria-hidden="true"><i/><i/><i/><i/><i/><i/></span>
     </button>
-  </div>;
+  );
 }

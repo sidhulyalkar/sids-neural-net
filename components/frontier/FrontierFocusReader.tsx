@@ -304,7 +304,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
   const sourceBrief = useMemo(() => buildFrontierSourceBrief(item?.summary || '', item?.sourceKind), [item?.summary, item?.sourceKind]);
 
   return (
-    <section className={styles.reader} aria-label="Frontier focused reader" data-frontier-edition-at={editionAt}>
+    <section className={styles.reader} data-frontier-reader="true" aria-label="Frontier focused reader" data-frontier-edition-at={editionAt}>
       <header className={styles.masthead}>
         <Link href="/" className={styles.brand}>FRONTIER<span className={styles.brandDot}>.</span></Link>
         <div className={styles.topActions}>
