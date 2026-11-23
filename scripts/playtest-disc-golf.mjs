@@ -69,8 +69,8 @@ try{
  assert.ok(desktopHud,"Disc Golf bar must be rendered");
  assert.ok(desktopHud.width>=page.viewportSize().width*.93,
   "HUD must span nearly the entire width of the world");
- assert.ok(desktopHud.height<=110,
-  "Idle bottom HUD must stay thin instead of blocking the player");
+ assert.ok(desktopHud.height<=180,
+  "Idle HUD including the visible aim row must remain compact");
  assert.ok(desktopHud.y+desktopHud.height>=page.viewportSize().height-42,
   "HUD must sit near the bottom edge of the world");
  assert.equal(await page.getByRole("region",{name:"Disc throw tuning"}).count(),0,
@@ -324,29 +324,33 @@ try{
   await page.screenshot({path:path.join(out,`hole-${i+1}-clear-rethrow.png`)});
   report.push({hole:i+1,id:ids[i],phase,strokes,camera:cameraEvidence});
  }
- // The live aim slider must rotate the avatar, not just change the label.
- await page.getByRole("button",{name:"Tune",exact:true}).click();
+ // Aim is available without opening Tune and rotates the actual avatar.
  const aimControl=page.locator("#disc-golf-aim");
  assert.ok(await aimControl.isVisible());
  await aimControl.focus();
  await aimControl.press("End");
  await page.waitForFunction(()=>{
   const d=document.querySelector("canvas")?.dataset;
-  return d?.discGolfAimOffset==="55" && Number(d.discGolfFacingDot)>.96 &&
+  return d?.discGolfAimOffset==="180" && Number(d.discGolfFacingDot)>.96 &&
    Number.isFinite(Number(d.discGolfAimedYaw));
  },null,{timeout:20000});
  const positiveYaw=Number(await canvas.getAttribute("data-disc-golf-aimed-yaw"));
  await aimControl.press("Home");
  await page.waitForFunction(()=>{
   const d=document.querySelector("canvas")?.dataset;
-  return d?.discGolfAimOffset==="-55" && Number(d.discGolfFacingDot)>.96 &&
+  return d?.discGolfAimOffset==="-180" && Number(d.discGolfFacingDot)>.96 &&
    Number.isFinite(Number(d.discGolfAimedYaw));
  },null,{timeout:20000});
- const negativeYaw=Number(await canvas.getAttribute("data-disc-golf-aimed-yaw"));
+ await page.getByRole("button",{name:/^Face (gate|basket)$/}).click();
+ await page.waitForFunction(()=>{
+  const d=document.querySelector("canvas")?.dataset;
+  return d?.discGolfAimOffset==="0" && Number(d.discGolfFacingDot)>.96;
+ },null,{timeout:20000});
+ const centeredYaw=Number(await canvas.getAttribute("data-disc-golf-aimed-yaw"));
  const yawChange=Math.abs(Math.atan2(
-  Math.sin(positiveYaw-negativeYaw),Math.cos(positiveYaw-negativeYaw)));
- assert.ok(yawChange>1.8&&yawChange<2.05,
-  `Aim slider should rotate the character by 110 degrees; measured ${yawChange}`);
+  Math.sin(positiveYaw-centeredYaw),Math.cos(positiveYaw-centeredYaw)));
+ assert.ok(Math.abs(yawChange-Math.PI)<.05,
+  `Aim slider must turn backwards and recenter; measured ${yawChange}`);
  await page.screenshot({path:path.join(out,"hole-9-live-aim-yaw.png")});
  assert.deepEqual(errors,[],"Browser should produce no runtime errors");
  fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({report,errors},null,2)+"\n");

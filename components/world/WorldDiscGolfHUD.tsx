@@ -1,7 +1,7 @@
 "use client";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {
- DISC_GOLF_HOLES,discGolfRemaining,discGolfScoreName,discGolfWind,
+ normalizeDiscGolfAim,DISC_GOLF_HOLES,discGolfRemaining,discGolfScoreName,discGolfWind,
  recommendDiscGolfPower,discGolfPullback,DISC_GOLF_MAX_BANK,type DiscGolfState,type DiscShot,type DiscGolfSwingStage,
 } from "@/lib/world/discGolf";
 import {SEA_SURFACE} from "@/lib/world/model";
@@ -153,8 +153,9 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
    if(key==="a"||key==="d"||key==="w"||key==="s"||key==="q"||key==="e"||
       key==="arrowleft"||key==="arrowright"||key==="arrowup"||key==="arrowdown"){
     e.preventDefault();
-    if(key==="a"||key==="arrowleft")setAim(v=>clamp(v-2,-55,55));
-    else if(key==="d"||key==="arrowright")setAim(v=>clamp(v+2,-55,55));
+    if(held.current||railDraggingRef.current||fired.current)return;
+    if(key==="a"||key==="arrowleft")setAim(v=>normalizeDiscGolfAim(v-2));
+    else if(key==="d"||key==="arrowright")setAim(v=>normalizeDiscGolfAim(v+2));
     else if(key==="w"||key==="arrowup")setLoft(v=>clamp(v+2,6,42));
     else if(key==="s"||key==="arrowdown")setLoft(v=>clamp(v-2,6,42));
     else if(key==="q")setBankAngle(v=>clamp(v-5,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK));
@@ -374,6 +375,16 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
     </div>
    </div>
 
+   <div className={styles.discGolfAimControl}>
+    <label htmlFor="disc-golf-aim">Rotate aim · {aim>0?"+":""}{aim}° · A / D</label>
+    <input id="disc-golf-aim" aria-label="Rotate disc golf aim" type="range"
+     min={-180} max={180} step={1} value={aim}
+     disabled={!available||charging||railDragging}
+     onChange={e=>setAim(Number(e.currentTarget.value))}/>
+    <button type="button" disabled={!available||charging||railDragging}
+     onClick={()=>setAim(0)}>Face {gatePending?"gate":"basket"}</button>
+   </div>
+
    {settingsOpen&&(
     <section id="disc-golf-settings" className={styles.discGolfPanel}
      aria-label="Disc throw tuning">
@@ -382,12 +393,6 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
       <button type="button" onClick={()=>setSettingsOpen(false)}>Close</button>
      </div>
      <div className={styles.discGolfTuneGrid}>
-      <label className={styles.discGolfTuneItem} htmlFor="disc-golf-aim">
-       <span>Aim · {aim>0?"+":""}{aim}° <small>A / D</small></span>
-       <input id="disc-golf-aim" type="range" min={-55} max={55} step={1}
-        value={aim} disabled={!available||charging}
-        onChange={e=>setAim(Number(e.currentTarget.value))}/>
-      </label>
       <label className={styles.discGolfTuneItem} htmlFor="disc-golf-loft">
        <span>Loft · {loft}° <small>W / S</small></span>
        <input id="disc-golf-loft" type="range" min={6} max={42} step={1}

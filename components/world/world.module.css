@@ -1729,3 +1729,13 @@
 @media(max-width:760px){
  .world[data-world-activity="ski"] .location{display:none;}
 }
+
+.discGolfAimControl{
+ display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;
+ padding:10px 14px;background:#173431;color:#f2e9d7;border-radius:12px;
+ font-size:14px;pointer-events:auto;
+}
+.discGolfAimControl input{flex:1;min-width:100px;min-height:44px;accent-color:#ebd19b}
+.discGolfAimControl button{min-height:44px;padding:6px 12px;border:1px solid #8ca59a;border-radius:8px}
+.discGolfAimControl button:disabled{opacity:.5}
+.discGolfAimControl :focus-visible{outline:2px solid #ffe5a7;outline-offset:3px}

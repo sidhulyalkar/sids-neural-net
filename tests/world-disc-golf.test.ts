@@ -3,7 +3,7 @@ import test from "node:test";
 import * as THREE from "three/src/Three.Core.js";
 import {
  DISC_GOLF_HOLES,DISC_GOLF_VERSION,discGolfBasketPosition,discGolfWind,
- discGolfNextTarget,discGolfFacingHeading,discGolfAimedHeading,discGolfRouteLength,discGolfGateCrossing,
+ normalizeDiscGolfAim,discGolfNextTarget,discGolfFacingHeading,discGolfAimedHeading,discGolfRouteLength,discGolfGateCrossing,
  startDiscGolf,idleDiscGolf,discGolfThrow,stepDiscGolf,discGolfScoreName,
  discGolfRemaining,discGolfTreeContact,traceDiscGolfShot,recommendDiscGolfPower,
  discGolfIntroPose,DISC_GOLF_INTRO_HOLD,DISC_GOLF_INTRO_PULLBACK,
@@ -41,7 +41,7 @@ test("disc-golf stance always points toward the next gate, then basket",()=>{
 });
 
 test("disc-golf avatar aim and actual launch azimuth match on every hole and gate",()=>{
-  const offsets=[-55,-35,-9,0,8,24,55];
+  const offsets=[-180,-120,-90,-55,-35,-9,0,8,24,55,90,120,180];
   for(let i=0;i<DISC_GOLF_HOLES.length;i++){
     const hole=DISC_GOLF_HOLES[i];
     for(let gate=0;gate<=hole.gates.length;gate++){
@@ -61,14 +61,14 @@ test("disc-golf avatar aim and actual launch azimuth match on every hole and gat
   }
 });
 
-test("disc-golf aim respects active gate, basket and clamped input",()=>{
+test("disc-golf aim respects active gate, basket and full-circle input",()=>{
   const lie={x:0,z:0},gate={x:0,z:10},basket={x:12,z:0};
   const forward=discGolfAimedHeading(lie,gate,basket);
   assert.deepEqual(forward,{x:0,z:1});
   assert.ok(discGolfAimedHeading(lie,gate,basket,15).x>0);
   assert.ok(discGolfAimedHeading(lie,gate,basket,-15).x<0);
-  assert.deepEqual(discGolfAimedHeading(lie,gate,basket,120),
-    discGolfAimedHeading(lie,gate,basket,55));
+  assert.deepEqual(discGolfAimedHeading(lie,gate,basket,480),
+    discGolfAimedHeading(lie,gate,basket,120));
   const afterGate=discGolfAimedHeading(lie,basket,basket);
   assert.deepEqual(afterGate,{x:1,z:0});
   const coincident=discGolfAimedHeading(lie,lie,lie,0,{x:-2,z:0});
@@ -563,4 +563,12 @@ test("suggested shots on all nine tees use actual pier and water geometry across
      "Hole "+(i+1)+" at t="+clock+" suggested "+power+"% ended "+predicted.outcome);
   }
  }
+});
+
+test("full-circle aim wraps continuously and sanitizes invalid angles",()=>{
+ assert.equal(normalizeDiscGolfAim(182),-178);
+ assert.equal(normalizeDiscGolfAim(-182),178);
+ assert.equal(normalizeDiscGolfAim(720),0);
+ assert.equal(normalizeDiscGolfAim(NaN),0);
+ assert.equal(normalizeDiscGolfAim(Infinity),0);
 });

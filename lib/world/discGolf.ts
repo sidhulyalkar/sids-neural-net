@@ -151,6 +151,10 @@ export function discGolfFacingHeading(
  return Number.isFinite(length)&&length>1e-6
   ?{x:previous.x/length,z:previous.z/length}:{x:0,z:1};
 }
+/** Signed full-circle offset; non-finite external input safely recenters. */
+export function normalizeDiscGolfAim(degrees:number):number{
+ return Number.isFinite(degrees)?((degrees+180)%360+360)%360-180:0;
+}
 /** Match the player's stance to the actual adjustable launch direction.
  * Mandatory gates take priority over the basket until they are cleared. */
 export function discGolfAimedHeading(
@@ -158,7 +162,7 @@ export function discGolfAimedHeading(
  previous:Point={x:0,z:1},
 ):Point{
  const forward=discGolfFacingHeading(lie,activeTarget,basket,previous);
- const radians=clamp(Number.isFinite(aimOffsetDegrees)?aimOffsetDegrees:0,-55,55)*Math.PI/180;
+ const radians=normalizeDiscGolfAim(aimOffsetDegrees)*Math.PI/180;
  const sine=Math.sin(radians),cosine=Math.cos(radians);
  return {x:forward.x*cosine+forward.z*sine,
    z:forward.z*cosine-forward.x*sine};
