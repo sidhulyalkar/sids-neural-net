@@ -1723,3 +1723,9 @@
   .world .skiAerialGrid button{min-height:43px;font-size:12px;}
 }
 @media(pointer:coarse){.world .skiAerialGrid button{min-height:44px;}}
+
+/* On narrow screens the ski trick pad extends the header; don't print the
+   region caption through interactive 180/360 buttons. */
+@media(max-width:760px){
+ .world[data-world-activity="ski"] .location{display:none;}
+}

@@ -558,15 +558,17 @@ export function WorldHome({ content }: { content: WorldContent }) {
   // Ordinary mountain skiing and the menu-authorized Ski Jump share controls.
   const skiAerialButtons=(
     <div className={styles.skiAerialControls} role="group" aria-label="Ski aerial tricks">
-      <span className={styles.skiAerialHint}>AIR TRICKS · Q/E 180° · SHIFT+Q/E 360°</span>
+      <span className={styles.skiAerialHint}>{bigAir.phase==="armed"
+        ?"APPROACH THE RIDGE LIP · SPIN AFTER TAKEOFF"
+        :"AIR TRICKS · Q/E 180° · SHIFT+Q/E 360°"}</span>
       <div className={styles.skiAerialGrid}>
-        <button type="button" aria-label="Spin 180 left" disabled={!ready||quiet}
+        <button type="button" aria-label="Spin 180 left" disabled={!ready||quiet||bigAir.phase==="armed"}
           onClick={()=>requestSkiSpin(-180)}>↶ 180°</button>
-        <button type="button" aria-label="Spin 180 right" disabled={!ready||quiet}
+        <button type="button" aria-label="Spin 180 right" disabled={!ready||quiet||bigAir.phase==="armed"}
           onClick={()=>requestSkiSpin(180)}>180° ↷</button>
-        <button type="button" aria-label="Spin 360 left" disabled={!ready||quiet}
+        <button type="button" aria-label="Spin 360 left" disabled={!ready||quiet||bigAir.phase==="armed"}
           onClick={()=>requestSkiSpin(-360)}>↶ 360°</button>
-        <button type="button" aria-label="Spin 360 right" disabled={!ready||quiet}
+        <button type="button" aria-label="Spin 360 right" disabled={!ready||quiet||bigAir.phase==="armed"}
           onClick={()=>requestSkiSpin(360)}>360° ↷</button>
       </div>
     </div>
@@ -582,6 +584,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
       data-world-nav-visible={String(entered&&!failed&&aquatic==="land"&&
         !worldGameActive&&skim.phase==="off")}
       data-world-sports-open={String(sportsOpen)}
+      data-world-activity={activity}
     >
       <div className={styles.backdrop} aria-hidden="true" />
       {enabled && !failed && (
