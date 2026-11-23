@@ -222,10 +222,21 @@ async function auditActiveSwarm() {
     await target.waitFor({state:'detached',timeout:5000});
     const recorded=await page.evaluate(id=>{
       const state=JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state;
-      return {seen:state.history[id]?.ambientAppearances,pops:state.history[id]?.ambientPops};
+      return {
+        seen:state.history[id]?.ambientAppearances,
+        pops:state.history[id]?.ambientPops,
+        shots:state.history[id]?.lightningShots,
+        hits:state.history[id]?.lightningHits,
+        guidedShots:state.history[id]?.lightningGuidedShots,
+        guidedHits:state.history[id]?.lightningGuidedHits,
+      };
     },firstId);
     assert(recorded.seen>=18&&recorded.pops===1,
       'Only a far-tip hit, not the cursor or electric forks, may increment a pop: '+JSON.stringify(recorded));
+    assert.equal(recorded.shots,1,'The non-UI intentional shot should count as one local gameplay attempt');
+    assert.equal(recorded.hits,1,'Only a real far-tip collision should count as a gameplay success');
+    assert.equal(recorded.guidedShots,0,'Aim-disabled default shots must remain in the unguided cohort');
+    assert.equal(recorded.guidedHits,0,'A default unguided shot must not be labeled assisted');
 
     const clear=first.locator('[data-frontier-clear-article]');
     assert.equal(await clear.textContent(),'','Clear oval must have no visible text');
