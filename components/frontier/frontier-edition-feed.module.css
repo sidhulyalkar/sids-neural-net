@@ -409,3 +409,61 @@
   .story { transition:none; }
   .mastActions .ambientToggle,.mastActions .aimToggle { transition:none; }
 }
+
+/* Midnight canvas / ivory reading matter.
+ * The deep navy is the surrounding surface only. Story cards remain white,
+ * typographic ink stays navy, and oxblood accents remain restrained. */
+.page {
+  --canvas:#0b1422; --paper:#fffcf6;
+  background:
+    radial-gradient(ellipse 48rem 36rem at 9% 8%,rgba(51,75,101,.23),transparent 74%),
+    radial-gradient(ellipse 33rem 30rem at 90% 52%,rgba(81,52,70,.15),transparent 78%),
+    #0b1422;
+}
+.masthead { background:transparent; border-bottom:1px solid rgba(214,196,174,.2); }
+.brand { color:#f8f3ea; }
+.brand span { color:#c98a9b; }
+.mastActions a,.mastActions button { color:#e1d4c4; }
+.mastActions a:hover,.mastActions button:hover { color:#fff8f0; }
+.mastActions button[aria-label="Check for a newer Frontier edition"] { color:#d4c6b8; }
+.mastActions .ambientToggle,.mastActions .aimToggle,
+.mastActions .ambientToggle[aria-pressed='false'],
+.mastActions .aimToggle[aria-pressed='false'] { color:#d6c9bb; }
+.mastActions .aimToggle[aria-pressed='true'] {
+  color:#fff5ed; background:#703c52; border-color:#ae8290;
+}
+.mastActions .ambientToggle:hover,.mastActions .aimToggle:hover {
+  color:#fff8ef; background:#29384a; border-color:#a3917d;
+}
+.discover { border-color:rgba(214,196,174,.22); }
+.categories button { color:#c9bcab; }
+.categories button:hover { color:#fff7ed; background:rgba(219,202,173,.11); }
+.categories button[aria-pressed='true'] {
+  color:#fff4e7; background:rgba(124,69,87,.49);
+  border:1px solid rgba(214,151,169,.38); box-shadow:none;
+}
+.categoryCount { color:#d5c5b1; }
+.categoryMeter { background:rgba(219,206,184,.2); }
+.categoryMeter>span { background:#bea88c; }
+.categories button[aria-pressed='true'] .categoryMeter>span { background:#dba9ae; }
+.search { color:#d9c6b5; background:#152337; border-color:#445067; }
+.search input { color:#fffaf3; }
+.search input::placeholder { color:#c2b3a5; }
+.search:focus-within { border-color:#d4a5b0; box-shadow:0 0 0 2px #d4a5b018; }
+.editionMeta,.footer { color:#c2b4a4; }
+.signalCount { color:#f0e7dc; }
+.liveDot { background:#c8a18c; }
+.status,.empty { color:#ebd4cb; }
+.story {
+  border-color:#dacbbc; box-shadow:0 14px 37px rgba(0,0,0,.19),inset 0 1px #fff;
+}
+.story:hover { border-color:#bb9b90; box-shadow:0 17px 42px rgba(0,0,0,.24); }
+.leadStory { border-color:#ceb6a3; border-left-color:#905366; }
+.moreStories button {
+  color:#f2e5d4; background:#1b293b; border-color:#927d70;
+}
+.moreStories button:hover { color:#fff8ed; background:#29384c; }
+.moreStories span { color:#dac9b4; }
+.footer { border-color:rgba(214,196,174,.22); }
+.footer a { color:#f2c5cb; }
+@media(max-width:640px) { .masthead { background:transparent; } }

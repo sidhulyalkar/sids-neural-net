@@ -257,3 +257,36 @@
   .article h1 { line-height:1.16; }
   .navigation button { background:#fffbf4ee; }
 }
+
+/* A deep-night gallery framing a tactile ivory reading sheet. */
+.reader {
+  --canvas:#0b1422; --paper:#fffcf6;
+  background:radial-gradient(ellipse 45rem 27rem at 86% 8%,rgba(75,61,83,.19),transparent 84%),#0b1422;
+}
+.masthead { background:transparent; border-color:rgba(214,196,174,.22); }
+.brand { color:#faf4ea; }
+.brandDot { color:#d6a1ac; }
+.topActions .iconButton,.topActions .advanced { color:#dfd1c1; }
+.topActions .iconButton:hover,.topActions .advanced:hover { color:#fff8ed; }
+.search { background:#172438; color:#d4c4b3; border-color:#475164; }
+.search input { color:#fff9f1; }
+.search input::placeholder { color:#b7a99b; }
+.search:focus-within { border-color:#d7a9b3; }
+.progressTrack { background:#293547; }
+.progressTrack>span { background:#c995a5; }
+.article {
+  width:min(calc(100% - clamp(100px,12vw,180px)),1370px);
+  background:#fffcf6; color:#243247;
+  border:1px solid #d8c8b4; border-radius:6px;
+  box-shadow:0 20px 58px rgba(0,0,0,.22);
+  margin:clamp(18px,2.8vw,40px) auto;
+  padding:clamp(25px,3vw,42px) clamp(22px,3.7vw,52px) clamp(28px,3.6vw,52px);
+}
+.checkingLatest { color:#d7c4b6; }
+.latestChip { background:#663c50; color:#fff7ed; border-color:#966f7b; }
+@media(max-width:900px) {
+  .article { width:calc(100% - 78px); padding:24px clamp(16px,3vw,30px) 30px; }
+}
+@media(max-width:520px) {
+  .article { width:calc(100% - 25px); margin:12px auto; padding:19px 14px 24px; }
+}

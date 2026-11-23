@@ -26,7 +26,7 @@ async function audit(width,height) {
         accent:style.getPropertyValue('--accent').trim(),
         colorScheme:style.colorScheme};
     });
-    assert.deepEqual(palette,{paper:'#f7f3ea',ink:'#243247',
+    assert.deepEqual(palette,{paper:'#fffcf6',ink:'#243247',
       accent:'#783b4b',colorScheme:'light'},
       'Warm eggshell, ink navy and restrained maroon are required: '+JSON.stringify(palette));
     const cards = page.locator('#frontier-stories article');
@@ -157,6 +157,9 @@ async function auditActiveSwarm() {
       return state.history[id]?.ambientPops??0;
     },firstId);
     assert.equal(initialPops,0,'A miss must never count as article interest');
+    const darkCanvas=await page.locator('[data-frontier-edition]').evaluate(el=>
+      getComputedStyle(el).backgroundColor);
+    assert(darkCanvas!=='rgb(247, 243, 234)','Canvas must no longer be eggshell');
 
     // Freeze the first swarm for deterministic hit geometry. Pick a bubble
     // with a clear, clickable EMITTER position down/right from its body.
@@ -287,6 +290,10 @@ async function auditFocusPalette() {
     });
     assert.deepEqual(palette,{ink:'#243247',accent:'#783b4b',colorScheme:'light'},
       'Focus and the edition must share the same accessible paper/ink identity');
+    const focusDark=await reader.evaluate(node=>getComputedStyle(node).backgroundColor);
+    assert(focusDark!=='rgb(247, 243, 234)','Focus canvas must be midnight navy');
+    const focusSheet=await reader.locator('article').first().evaluate(node=>getComputedStyle(node).backgroundColor);
+    assert.equal(focusSheet,'rgb(255, 252, 246)','Focused article stays ivory on a dark canvas');
     assert((await page.locator('h1').count())>=1,'Focus reader retains its readable article');
     assert(await page.locator('main').count()>=1,'Focus reader retains main page structure');
     return {palette,reachable:true};

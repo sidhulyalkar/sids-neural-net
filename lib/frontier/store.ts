@@ -96,6 +96,7 @@ export type FrontierStore = FrontierPersistedState & {
   recordOpen: (item: FrontierItem) => void;
   recordAmbientAppearances: (item: FrontierItem, count: number) => void;
   recordAmbientPop: (item: FrontierItem) => void;
+  recordLightningShot: (item: FrontierItem, connected: boolean) => void;
   recordAmbientClear: (item: FrontierItem) => void;
   react: (item: FrontierItem, reaction: FrontierReaction) => void;
   rateInterest: (item: FrontierItem, score: number, method: 'hold' | 'slider' | 'wheel', holdMs?: number) => void;
@@ -250,6 +251,19 @@ export const useFrontierStore = create<FrontierStore>()(
               ambientLastPoppedAt: new Date().toISOString() },
           },
         });
+      },
+
+      recordLightningShot: (item, connected) => {
+        const current=get();
+        const previous=current.history[item.id];
+        // Gameplay is deliberately independent of taste, XP and rank.
+        // Do not create an impression or accumulate data for hidden swarms.
+        if (!previous?.ambientAppearances || previous.ambientClearedAt) return;
+        const attempts=Math.min(500,(previous.lightningShots ?? 0)+1);
+        const hits=Math.min(attempts,(previous.lightningHits ?? 0)+(connected ? 1 : 0));
+        if (attempts===previous.lightningShots && hits===previous.lightningHits) return;
+        set({ history: { ...current.history,
+          [item.id]: { ...previous, lightningShots:attempts, lightningHits:hits } } });
       },
 
       recordAmbientClear: (item) => {

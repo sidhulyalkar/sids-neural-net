@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { frontierLightningFarTip, frontierLightningGeometry } from '@/lib/frontier/lightningGeometry';
 import type { LightningGeometry, LightningPoint } from '@/lib/frontier/lightningGeometry';
 import { lightningTipTouchesBubble } from '@/lib/frontier/lightningImpact';
+import { useFrontierStore } from '@/lib/frontier/store';
 import styles from './frontier-lightning-cursor.module.css';
 
 type Strike = {
@@ -119,6 +120,18 @@ export function FrontierLightningCursor({ showAimReticle = false }: { showAimRet
       const reserved = creatureAtTip(geometry.end);
       if (reserved) reserved.dataset.frontierLightningReserved = 'true';
 
+      // Distinguish voluntary play from source navigation and UI controls:
+      // all clicks still produce the visual bolt, but only a blank-surface
+      // shot toward a visible article swarm enters private gameplay counts.
+      const clicked = event.target instanceof Element ? event.target : null;
+      const isGameplayClick = !clicked?.closest(
+        'a,button,input,textarea,select,summary,[role="button"],[role="link"]'
+      );
+      const hitSurface = document.elementFromPoint(geometry.end.x,geometry.end.y);
+      const article = hitSurface?.closest<HTMLElement>('[data-frontier-story]');
+      const articleId = article?.querySelector('[data-frontier-ambient-layer="swarm"]')
+        ? article.dataset.frontierStory : undefined;
+
       setStrikes((current) => [...current.slice(-5), { id, geometry, hit: false }]);
       const arrival = window.setTimeout(() => {
         timers.delete(arrival);
@@ -127,6 +140,11 @@ export function FrontierLightningCursor({ showAimReticle = false }: { showAimRet
           return;
         }
         const hit = strikeImpact(geometry.end);
+        if (isGameplayClick && articleId) {
+          const state=useFrontierStore.getState();
+          const item=state.history[articleId]?.item;
+          if (item) state.recordLightningShot(item,hit);
+        }
         setStrikes((current) => current.map((strike) =>
           strike.id === id ? { ...strike, hit } : strike));
         if (reserved) delete reserved.dataset.frontierLightningReserved;

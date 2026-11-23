@@ -934,3 +934,8 @@ body:has([data-frontier-reader="true"]) {
 }
 body:has([data-frontier-edition="multi-article"])::before,
 body:has([data-frontier-reader="true"])::before { display:none; }
+
+/* In Frontier the shared portfolio still uses its night-sky backdrop.
+ * Light reading sheets float on that canvas, without the global grid. */
+body:has([data-frontier-edition="multi-article"]),
+body:has([data-frontier-reader="true"]) { background:#0b1422; }
