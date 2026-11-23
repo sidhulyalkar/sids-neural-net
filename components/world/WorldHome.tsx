@@ -834,7 +834,7 @@ export function WorldHome({ content }: { content: WorldContent }) {
                 <small>Furthest from mountain center {bestFlight.toFixed(1)} m</small>
               )}
               {(bigAir.phase==="armed"||bigAir.phase==="flying")&&skiAerialButtons}
-              {(bigAir.phase==="armed"||bigAir.phase==="flying")&&<button onClick={exploreWorld}>Exit jump</button>
+              {(bigAir.phase==="armed"||bigAir.phase==="flying")&&<button onClick={exploreWorld}>Exit jump</button>}
               {(bigAir.phase==="armed"||bigAir.phase==="flying")&&(
                 <button className={styles.birdVoiceToggle} aria-pressed={birdVoice}
                   onClick={toggleBirdVoice}>
