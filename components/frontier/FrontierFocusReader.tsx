@@ -69,7 +69,7 @@ export function FrontierFocusReader({ initialItems, generatedAt }: Props) {
 
   const item = items[position];
   const rating = item ? history[item.id]?.interestScore : undefined;
-  const sliderScore = sliderDraft?.id === item?.id ? sliderDraft.value : (rating ?? 5);
+  const sliderScore = sliderDraft && item && sliderDraft.id === item.id ? sliderDraft.value : (rating ?? 5);
   const isSaved = Boolean(item && saved[item.id]);
   const figures = useMemo(() => item ? frontierSourceFigures(item) : [], [item]);
   const activeFigure = figures[Math.min(figureIndex, Math.max(0, figures.length - 1))];

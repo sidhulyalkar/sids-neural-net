@@ -12,7 +12,8 @@ import type {DiscGolfFlightStyle,DiscGolfReleaseStyle} from "@/lib/world/discGol
 import {discGolfName} from "@/lib/world/discGolfNames";
 import {discGolfRoundSummary,nextUnplayedDiscGolfHole,type DiscGolfRound} from "@/lib/world/discGolfRound";
 import styles from "./world.module.css";
-import {discGolfRailPower,discGolfRailIdeal,discGolfRailStatus,
+import {discGolfSlingshot} from "@/lib/world/discGolfSlingshot";
+import {discGolfRailIdeal,discGolfRailStatus,
  clampDiscGolfRail} from "@/lib/world/discGolfPowerRail";
 
 const clamp=(value:number,min:number,max:number)=>Math.min(max,Math.max(min,value));
@@ -51,6 +52,8 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const [lastReleasePower,setLastReleasePower]=useState<number|null>(null);
  const held=useRef(false);
  const railDraggingRef=useRef(false);
+ const pullOrigin=useRef<{id:number;x:number;y:number;width:number;height:number}|null>(null);
+ const [pull,setPull]=useState({depth:0,side:0});
  const fired=useRef(false);
  const pendingReset=useRef<ReturnType<typeof setTimeout>|null>(null);
  const chargeAt=useRef(0);
@@ -150,6 +153,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
   const down=(e:KeyboardEvent)=>{
    if(!available||e.altKey||e.ctrlKey||e.metaKey||isTextEntry(e.target))return;
    const key=e.key.toLowerCase();
+   if(key==="escape"){cancel();return;}
    if(key==="a"||key==="d"||key==="w"||key==="s"||key==="q"||key==="e"||
       key==="arrowleft"||key==="arrowright"||key==="arrowup"||key==="arrowdown"){
     e.preventDefault();
@@ -168,13 +172,10 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
   const up=(e:KeyboardEvent)=>{
    if(e.code!=="Space"||e.altKey||e.ctrlKey||e.metaKey||isTextEntry(e.target))return;
    if(held.current){e.preventDefault();finish();}
-   else if(available&&!fired.current){
-    // Keydown may have happened during the flyover or before HUD mount.
-    // Never eat the opening keyup without performing the first throw.
-    e.preventDefault();tap();
-   }
+
   };
   const cancel=()=>{
+   pullOrigin.current=null;setPull({depth:0,side:0});
    if(held.current||railDraggingRef.current){
     held.current=false;railDraggingRef.current=false;
     setCharging(false);setRailDragging(false);
@@ -184,10 +185,12 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
   window.addEventListener("keydown",down);
   window.addEventListener("keyup",up);
   window.addEventListener("blur",cancel);
+  document.addEventListener("visibilitychange",cancel);
   return ()=>{
    window.removeEventListener("keydown",down);
    window.removeEventListener("keyup",up);
    window.removeEventListener("blur",cancel);
+   document.removeEventListener("visibilitychange",cancel);
   };
  },[available,begin,finish,tap,onStage,onSwing]);
  const liveWind=game.phase==="flying"?game.lockedWind:discGolfWind(game.holeIndex,game.clock);
@@ -198,46 +201,42 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
   railKeyPower??suggested;
  const ideal=discGolfRailIdeal(suggested);
  const powerStatus=discGolfRailStatus(shownPower,suggested);
- const sampleRail=(clientX:number,left:number,width:number)=>{
-  const value=discGolfRailPower(clientX,left,width);
-  setChargePower(value);
-  const bucket=Math.round(value/3);
-  if(bucket!==powerBucket.current){
-   powerBucket.current=bucket;preview(value);
-  }
-  onSwing(.18+.72*value/100);
-  return value;
+ const sampleRail=(clientX:number,clientY:number)=>{
+  const origin=pullOrigin.current;
+  if(!origin)return discGolfSlingshot(0,0);
+  const sample=discGolfSlingshot((clientX-origin.x)/(origin.width*.4),
+    (clientY-origin.y)/(origin.height*.72));
+  setPull(sample);setChargePower(sample.power);
+  onPreview({...shotAtPower(sample.power),accuracy:sample.accuracy});
+  onSwing(sample.depth*.9);
+  return sample;
  };
- const beginRail=(element:HTMLDivElement,pointerId:number,clientX:number)=>{
+ const beginRail=(element:HTMLDivElement,pointerId:number,clientX:number,clientY:number)=>{
   if(!available||held.current||railDraggingRef.current||fired.current)return;
-  railDraggingRef.current=true;
-  powerBucket.current=-1;
   const rect=element.getBoundingClientRect();
-  sampleRail(clientX,rect.left,rect.width);
-  setRailDragging(true);
-  onStage("power");
-  element.setPointerCapture(pointerId);
+  pullOrigin.current={id:pointerId,x:clientX,y:clientY,width:rect.width,height:rect.height};
+  railDraggingRef.current=true;setRailDragging(true);
+  sampleRail(clientX,clientY);onStage("power");element.setPointerCapture(pointerId);
  };
- const moveRail=(element:HTMLDivElement,clientX:number)=>{
-  if(!railDraggingRef.current)return;
-  const rect=element.getBoundingClientRect();
-  sampleRail(clientX,rect.left,rect.width);
- };
- const finishRail=(element:HTMLDivElement,pointerId:number,clientX:number)=>{
-  if(!railDraggingRef.current)return;
-  const rect=element.getBoundingClientRect();
-  const power=discGolfRailPower(clientX,rect.left,rect.width);
-  railDraggingRef.current=false;
-  setRailDragging(false);
-  setChargePower(power);
-  if(element.hasPointerCapture(pointerId))element.releasePointerCapture(pointerId);
-  queueShot(shotAtPower(power));
+ const moveRail=(pointerId:number,clientX:number,clientY:number)=>{
+  if(!railDraggingRef.current||pullOrigin.current?.id!==pointerId)return;
+  sampleRail(clientX,clientY);
  };
  const cancelRail=()=>{
   if(!railDraggingRef.current)return;
-  railDraggingRef.current=false;setRailDragging(false);
+  railDraggingRef.current=false;pullOrigin.current=null;
+  setRailDragging(false);setPull({depth:0,side:0});
   onSwing(0);onStage("idle");
   if(available)preview(railKeyPower??suggested);
+ };
+ const finishRail=(element:HTMLDivElement,pointerId:number,clientX:number,clientY:number)=>{
+  if(!railDraggingRef.current||pullOrigin.current?.id!==pointerId)return;
+  const sample=sampleRail(clientX,clientY);
+  if(!sample.armed){cancelRail();return;}
+  railDraggingRef.current=false;pullOrigin.current=null;
+  setRailDragging(false);setPull({depth:0,side:0});
+  if(element.hasPointerCapture(pointerId))element.releasePointerCapture(pointerId);
+  queueShot({...shotAtPower(sample.power),accuracy:sample.accuracy});
  };
  const railKeyDown=(key:string)=>{
   if(!available)return false;
@@ -249,7 +248,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
    setRailKeyPower(null);preview(suggested);
    return true;
   }
-  if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Home","End","PageUp","PageDown"].includes(key))return false;
+  if(!["ArrowUp","ArrowDown","Home","End","PageUp","PageDown"].includes(key))return false;
   const start=railKeyPower??suggested;
   const next=clampDiscGolfRail(key==="Home"?4:key==="End"?100:
    start+(key==="ArrowRight"||key==="ArrowUp"?1:
@@ -286,38 +285,36 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
      </div>
      <div className={styles.discGolfMeterRail}>
       <div className={[
-       styles.discGolfMeter,
+       styles.discGolfSling,
        charging||railDragging?styles.discGolfMeterActive:"",
        !available?styles.discGolfMeterLocked:"",
       ].filter(Boolean).join(" ")}
        role="slider" tabIndex={available?0:-1}
        aria-disabled={!available}
-       aria-label="Throw power. Drag and release to throw, or use arrow keys and Enter."
-       aria-valuemin={4} aria-valuemax={100} aria-valuenow={shownPower}
+       aria-label="Slingshot throw. Pull down for power, sideways to angle the release. Up or down adjusts keyboard power; Enter throws."
+       aria-valuemin={0} aria-valuemax={100} aria-valuenow={shownPower}
        aria-valuetext={shownPower+" percent; suggested "+ideal.ideal+" percent"}
        data-power={shownPower} data-quality={powerStatus}
        data-dragging={String(railDragging)}
        onPointerDown={e=>{
         if(e.pointerType==="mouse"&&e.button!==0)return;
-        e.preventDefault();beginRail(e.currentTarget,e.pointerId,e.clientX);
+        e.preventDefault();e.currentTarget.focus();beginRail(e.currentTarget,e.pointerId,e.clientX,e.clientY);
        }}
-       onPointerMove={e=>moveRail(e.currentTarget,e.clientX)}
-       onPointerUp={e=>finishRail(e.currentTarget,e.pointerId,e.clientX)}
+       onPointerMove={e=>moveRail(e.pointerId,e.clientX,e.clientY)}
+       onPointerUp={e=>finishRail(e.currentTarget,e.pointerId,e.clientX,e.clientY)}
        onPointerCancel={cancelRail}
        onLostPointerCapture={cancelRail}
        onKeyDown={e=>{if(railKeyDown(e.key)){e.preventDefault();e.stopPropagation();}}}>
-       <span className={styles.discGolfTrackTicks} aria-hidden="true"/>
-       <span className={styles.discGolfPowerFill}
-        style={{width:shownPower+"%"}} aria-hidden="true"/>
-       <span className={styles.discGolfSweetBand}
-        style={{left:ideal.low+"%",width:ideal.high-ideal.low+"%"}}
-        aria-hidden="true"/>
-       <span className={styles.discGolfBestMarker}
-        style={{left:ideal.ideal+"%"}} aria-hidden="true"/>
-       <span className={styles.discGolfPowerHandle}
-        style={{left:shownPower+"%"}} aria-hidden="true">
-        <span className={styles.discGolfPowerGrip}/>
-       </span>
+       <svg viewBox="0 0 300 170" aria-hidden="true" className={styles.discGolfSlingGraphic}>
+        <path d="M150 18 L30 156 L270 156 Z" fill="#b9d7c00c" stroke="#a8cebd55"/>
+        <path d="M150 18 L150 156" stroke="#dfebd7" strokeDasharray="4 6"/>
+        <ellipse cx="150" cy="35" rx="35" ry="9" fill="none" stroke="#f5dba7"/>
+        <path d={`M115 35 L${150+pull.side*100} ${35+pull.depth*115} L185 35`}
+         fill="none" stroke="#f5dba7" strokeWidth="3"/>
+        <ellipse cx={150+pull.side*100} cy={35+pull.depth*115}
+         rx={16+pull.depth*10} ry={6+pull.depth*5} fill="#f5dba7" stroke="#fff4da" strokeWidth="2"/>
+       </svg>
+       <span className={styles.discGolfSlingCaption}>{railDragging?"Release to launch":"Hold here · pull down · release"}</span>
       </div>
      </div>
      <div className={styles.discGolfMeterFooter} aria-hidden="true">
@@ -376,11 +373,11 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
    </div>
 
    <div className={styles.discGolfAimControl}>
-    <label htmlFor="disc-golf-aim">Rotate aim · {aim>0?"+":""}{aim}° · A / D</label>
-    <input id="disc-golf-aim" aria-label="Rotate disc golf aim" type="range"
-     min={-180} max={180} step={1} value={aim}
-     disabled={!available||charging||railDragging}
-     onChange={e=>setAim(Number(e.currentTarget.value))}/>
+    <span>Face your throw · A / D or ← / → · {aim}°</span>
+    <button type="button" aria-label="Turn left" disabled={!available||charging||railDragging}
+     onClick={()=>setAim(v=>normalizeDiscGolfAim(v-5))}>Turn left</button>
+    <button type="button" aria-label="Turn right" disabled={!available||charging||railDragging}
+     onClick={()=>setAim(v=>normalizeDiscGolfAim(v+5))}>Turn right</button>
     <button type="button" disabled={!available||charging||railDragging}
      onClick={()=>setAim(0)}>Face {gatePending?"gate":"basket"}</button>
    </div>

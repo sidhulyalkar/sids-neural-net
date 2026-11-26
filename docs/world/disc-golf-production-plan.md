@@ -19,3 +19,11 @@ Require exact-commit unit/type/build checks, browser journeys and screenshots, d
 ## Follow-on polish
 
 If key-repeat stepping feels inconsistent in playtesting, move aim adjustment to a bounded elapsed-time controller with keyup, blur and visibility cleanup. Consider dragging an explicit aim handle, while preserving separate camera orbit controls and an accessible slider.
+
+## Slingshot interaction revision
+
+The aim slider is replaced by A/D or arrow-key facing, with left/right buttons for touch. The pull surface and world-space elastic guide show a backward draw: vertical depth sets power, lateral displacement creates an opposite signed release offset. Facing is held fixed throughout the pull. Existing 3D trajectory prediction receives the same power and accuracy as release. A straight pull has no added lateral error; wind, bank and disc flight still apply.
+
+Tiny/forward drags cancel. Escape, blur, visibility changes and pointer cancellation disarm the gesture. Space-key release without an active charge does not throw. Keyboard power adjustment and the throw button remain alternatives.
+
+Qualification adds straight/left/right pull launch tests on all nine holes, pull cancellation and revised live pointer tests. Real-browser desktop/mobile usability and actual-device frame timing remain required; these are not established by unit tests.

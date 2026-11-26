@@ -426,6 +426,13 @@ export function createWorld(
   });
   host.appendChild(jetChooser);
   const scene = new THREE.Scene();
+  // A world-space elastic guide follows the same facing and pull as the shot.
+  const slingPositions=new Float32Array(9);
+  const slingGeometry=new THREE.BufferGeometry();
+  slingGeometry.setAttribute("position",new THREE.BufferAttribute(slingPositions,3));
+  const slingMaterial=new THREE.LineBasicMaterial({color:0xffdea0,transparent:true,opacity:.9});
+  const slingGuide=new THREE.Line(slingGeometry,slingMaterial);
+  slingGuide.frustumCulled=false;slingGuide.visible=false;scene.add(slingGuide);
   scene.background = new THREE.Color("#67b7ef");
   scene.fog = new THREE.Fog("#c4e2f1", 85, 270);
   const camera = new THREE.PerspectiveCamera(47, 1, 0.15, 360);
@@ -5284,6 +5291,18 @@ export function createWorld(
         discGolfAimedHeading(player,discGolfNextTarget(discGolf),
           DISC_GOLF_HOLES[discGolf.holeIndex].target,
           state.discGolfPreview?.aimOffset??0,travel.heading):null;
+      slingGuide.visible=!!discGolfHeading&&state.discGolfSwingStage==="power"&&!!state.discGolfPreview;
+      if(slingGuide.visible&&discGolfHeading&&state.discGolfPreview){
+        const h=discGolfHeading,rx=h.z,rz=-h.x;
+        const depth=state.discGolfPreview.power/100*2;
+        const side=-state.discGolfPreview.accuracy*.9;
+        slingPositions.set([
+          player.x-rx*.65,playerY+1.15,player.z-rz*.65,
+          player.x-h.x*depth+rx*side,playerY+1.05,player.z-h.z*depth+rz*side,
+          player.x+rx*.65,playerY+1.15,player.z+rz*.65,
+        ]);
+        slingGeometry.attributes.position.needsUpdate=true;
+      }
       if(discGolfHeading)travel={...travel,speed:0,heading:discGolfHeading};
       const skiGrounded=skiPresentation&&mode==="ski"&&aquatic==="land"&&caveLayer==="surface"&&
         galleryPhase==="outside"&&airHeight<=.001&&!grind&&!climb&&bigAir.phase==="idle";
@@ -8278,6 +8297,7 @@ export function createWorld(
       skimWake.dispose();
       skimSurf.dispose();
       discGolfObjects.dispose();
+      scene.remove(slingGuide);slingGeometry.dispose();slingMaterial.dispose();
       jetskiCoast.dispose();
       rideVisual.dispose();rideHud.remove();rideReticle.remove();rideAnnounce.remove();
       skateHud.remove();skateTouch.remove();skateResult.remove();arcadeTrailHud.remove();

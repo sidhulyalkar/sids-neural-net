@@ -1739,3 +1739,9 @@
 .discGolfAimControl button{min-height:44px;padding:6px 12px;border:1px solid #8ca59a;border-radius:8px}
 .discGolfAimControl button:disabled{opacity:.5}
 .discGolfAimControl :focus-visible{outline:2px solid #ffe5a7;outline-offset:3px}
+
+.discGolfSling{position:relative;height:170px;width:100%;touch-action:none;cursor:grab;user-select:none;border:1px solid #9ebca380;border-radius:12px;background:radial-gradient(ellipse at top,#36544d,#112923);overflow:hidden}
+.discGolfSling:active{cursor:grabbing}
+.discGolfSling:focus-visible{outline:2px solid #ffe5a7;outline-offset:3px}
+.discGolfSlingGraphic{width:100%;height:100%;pointer-events:none}
+.discGolfSlingCaption{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:12px;pointer-events:none;color:#fff0d1}

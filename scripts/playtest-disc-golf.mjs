@@ -69,7 +69,7 @@ try{
  assert.ok(desktopHud,"Disc Golf bar must be rendered");
  assert.ok(desktopHud.width>=page.viewportSize().width*.93,
   "HUD must span nearly the entire width of the world");
- assert.ok(desktopHud.height<=180,
+ assert.ok(desktopHud.height<=300,
   "Idle HUD including the visible aim row must remain compact");
  assert.ok(desktopHud.y+desktopHud.height>=page.viewportSize().height-42,
   "HUD must sit near the bottom edge of the world");
@@ -90,19 +90,19 @@ try{
  const mobileHud=await hud.boundingBox();
  assert.ok(mobileHud&&mobileHud.x>=0&&mobileHud.x+mobileHud.width<=390,
   "Mobile bar must remain within the viewport");
- assert.ok(mobileHud.height<=170,
+ assert.ok(mobileHud.height<=360,
   "Mobile HUD should remain compact even when it wraps into rows");
  await page.setViewportSize({width:1440,height:900});
- const powerRail=page.getByRole("slider",{name:/Throw power/});
+ const powerRail=page.getByRole("slider",{name:/Slingshot throw/});
  assert.ok(await powerRail.isVisible(),"Precision launch rail must be visible");
- assert.equal(await powerRail.getAttribute("aria-valuemin"),"4");
+ assert.equal(await powerRail.getAttribute("aria-valuemin"),"0");
  assert.equal(await powerRail.getAttribute("aria-valuemax"),"100");
  const suggested=Number(await powerRail.getAttribute("aria-valuenow"));
  assert.ok(suggested>=4&&suggested<=100);
  await powerRail.focus();
  await page.keyboard.press("Home");
  assert.equal(await powerRail.getAttribute("aria-valuenow"),"4");
- await page.keyboard.press("ArrowRight");
+ await page.keyboard.press("ArrowUp");
  assert.equal(await powerRail.getAttribute("aria-valuenow"),"5",
   "Keyboard must adjust power, not the player's aim");
  await page.keyboard.press("Escape");
@@ -181,11 +181,11 @@ try{
    // exactly one throw without needing to click the normal throw button.
    const bounds=await powerRail.boundingBox();
    assert.ok(bounds&&bounds.width>90);
-   const y=bounds.y+bounds.height/2;
-   await page.mouse.move(bounds.x+bounds.width*.3,y);
+   const y=bounds.y+bounds.height*.15;
+   await page.mouse.move(bounds.x+bounds.width*.5,y);
    await page.mouse.down();
    assert.equal(await powerRail.getAttribute("data-dragging"),"true");
-   await page.mouse.move(bounds.x+bounds.width*.77,y,{steps:9});
+   await page.mouse.move(bounds.x+bounds.width*.5,y+bounds.height*.72*.77,{steps:9});
    const adjusted=Number(await powerRail.getAttribute("data-power"));
    assert.ok(adjusted>=70&&adjusted<=85,
     "Drag should control strength in the correct direction");
@@ -324,34 +324,30 @@ try{
   await page.screenshot({path:path.join(out,`hole-${i+1}-clear-rethrow.png`)});
   report.push({hole:i+1,id:ids[i],phase,strokes,camera:cameraEvidence});
  }
- // Aim is available without opening Tune and rotates the actual avatar.
- const aimControl=page.locator("#disc-golf-aim");
- assert.ok(await aimControl.isVisible());
- await aimControl.focus();
- await aimControl.press("End");
- await page.waitForFunction(()=>{
-  const d=document.querySelector("canvas")?.dataset;
-  return d?.discGolfAimOffset==="180" && Number(d.discGolfFacingDot)>.96 &&
-   Number.isFinite(Number(d.discGolfAimedYaw));
- },null,{timeout:20000});
- const positiveYaw=Number(await canvas.getAttribute("data-disc-golf-aimed-yaw"));
- await aimControl.press("Home");
- await page.waitForFunction(()=>{
-  const d=document.querySelector("canvas")?.dataset;
-  return d?.discGolfAimOffset==="-180" && Number(d.discGolfFacingDot)>.96 &&
-   Number.isFinite(Number(d.discGolfAimedYaw));
- },null,{timeout:20000});
+ // Facing controls replace the separate aim slider.
+ assert.equal(await page.locator("#disc-golf-aim").count(),0);
  await page.getByRole("button",{name:/^Face (gate|basket)$/}).click();
+ await canvas.focus();
+ await page.keyboard.press("d");
  await page.waitForFunction(()=>{
   const d=document.querySelector("canvas")?.dataset;
-  return d?.discGolfAimOffset==="0" && Number(d.discGolfFacingDot)>.96;
+  return d?.discGolfAimOffset==="2" && Number(d.discGolfFacingDot)>.96;
  },null,{timeout:20000});
- const centeredYaw=Number(await canvas.getAttribute("data-disc-golf-aimed-yaw"));
- const yawChange=Math.abs(Math.atan2(
-  Math.sin(positiveYaw-centeredYaw),Math.cos(positiveYaw-centeredYaw)));
- assert.ok(Math.abs(yawChange-Math.PI)<.05,
-  `Aim slider must turn backwards and recenter; measured ${yawChange}`);
- await page.screenshot({path:path.join(out,"hole-9-live-aim-yaw.png")});
+ await page.keyboard.press("ArrowLeft");
+ await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.discGolfAimOffset==="0");
+ const sling=page.getByRole("slider",{name:/Slingshot throw/});
+ const box=await sling.boundingBox();
+ assert.ok(box);
+ await page.mouse.move(box.x+box.width/2,box.y+20);
+ await page.mouse.down();
+ await page.mouse.move(box.x+box.width*.65,box.y+box.height*.65,{steps:8});
+ assert.equal(await sling.getAttribute("data-dragging"),"true");
+ await page.keyboard.press("Escape");
+ await page.mouse.up();
+ assert.equal(await sling.getAttribute("data-dragging"),"false");
+ assert.notEqual(await canvas.getAttribute("data-disc-golf-phase"),"flying",
+  "Cancelling a pull must never throw");
+ await page.screenshot({path:path.join(out,"hole-9-slingshot.png")});
  assert.deepEqual(errors,[],"Browser should produce no runtime errors");
  fs.writeFileSync(path.join(out,"report.json"),JSON.stringify({report,errors},null,2)+"\n");
  console.log(JSON.stringify({report,errors},null,2));
