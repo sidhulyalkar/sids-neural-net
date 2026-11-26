@@ -13,7 +13,7 @@ import {discGolfName} from "@/lib/world/discGolfNames";
 import {discGolfRoundSummary,nextUnplayedDiscGolfHole,type DiscGolfRound} from "@/lib/world/discGolfRound";
 import styles from "./world.module.css";
 import {discGolfSlingshot} from "@/lib/world/discGolfSlingshot";
-import {discGolfRailIdeal,discGolfRailStatus,
+import {discGolfRailStatus,
  clampDiscGolfRail} from "@/lib/world/discGolfPowerRail";
 
 const clamp=(value:number,min:number,max:number)=>Math.min(max,Math.max(min,value));
@@ -160,10 +160,10 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
     if(held.current||railDraggingRef.current||fired.current)return;
     if(key==="a"||key==="arrowleft")setAim(v=>normalizeDiscGolfAim(v-2));
     else if(key==="d"||key==="arrowright")setAim(v=>normalizeDiscGolfAim(v+2));
-    else if(key==="w"||key==="arrowup")setLoft(v=>clamp(v+2,6,42));
-    else if(key==="s"||key==="arrowdown")setLoft(v=>clamp(v-2,6,42));
-    else if(key==="q")setBankAngle(v=>clamp(v-5,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK));
-    else if(key==="e")setBankAngle(v=>clamp(v+5,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK));
+    else if(settingsOpen&&(key==="w"||key==="arrowup"))setLoft(v=>clamp(v+2,6,42));
+    else if(settingsOpen&&(key==="s"||key==="arrowdown"))setLoft(v=>clamp(v-2,6,42));
+    else if(settingsOpen&&key==="q")setBankAngle(v=>clamp(v-5,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK));
+    else if(settingsOpen&&key==="e")setBankAngle(v=>clamp(v+5,-DISC_GOLF_MAX_BANK,DISC_GOLF_MAX_BANK));
    }else if(e.code==="Space"){
     e.preventDefault();
     if(!e.repeat)begin();
@@ -192,14 +192,13 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
    window.removeEventListener("blur",cancel);
    document.removeEventListener("visibilitychange",cancel);
   };
- },[available,begin,finish,tap,onStage,onSwing]);
+ },[available,begin,finish,tap,onStage,onSwing,settingsOpen]);
  const liveWind=game.phase==="flying"?game.lockedWind:discGolfWind(game.holeIndex,game.clock);
  const bearing=Math.atan2(liveWind.x,liveWind.z)*180/Math.PI;
  const windArrow=["↑","↗","→","↘","↓","↙","←","↖"][((Math.round((bearing+360)/45)%8)+8)%8];
  const shownPower=charging||railDragging?chargePower:
   game.presentationPending&&lastReleasePower!==null?lastReleasePower:
   railKeyPower??suggested;
- const ideal=discGolfRailIdeal(suggested);
  const powerStatus=discGolfRailStatus(shownPower,suggested);
  const sampleRail=(clientX:number,clientY:number)=>{
   const origin=pullOrigin.current;
@@ -261,7 +260,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
  const gatePending=game.gatesCleared<hole.gates.length;
 
  return (
-  <aside className={styles.discGolfHud} aria-label="Disc golf controls">
+  <aside className={styles.discGolfHud} data-pulling={charging||railDragging} aria-label="Disc golf controls">
    <div className={styles.discGolfBar}>
     <div className={styles.discGolfBarHole}>
      <span className={styles.discGolfBarEyebrow}>DISC GOLF · {game.holeIndex+1}/9 · PAR {hole.par}</span>
@@ -273,15 +272,10 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
        game.phase==="holed"?discGolfScoreName(game.strokes,hole.par):
        game.phase==="water"?"Water · free retry":"Wind "+windArrow+" "+liveWind.speed.toFixed(1)}</span>
     </div>
-    <div className={styles.discGolfQuickReadout} aria-label="Current throw settings">
-     <span title="A/D adjust aim">Aim <strong>{aim>0?"+":""}{aim}°</strong></span>
-     <span title="W/S adjust loft">Loft <strong>{loft}°</strong></span>
-     <span title="Q/E adjust curve">Curve <strong>{bankAngle>0?"+":""}{bankAngle}°</strong></span>
-    </div>
     <div className={styles.discGolfBarPower}>
      <div className={styles.discGolfMeterHeader}>
-      <span>{charging||railDragging?"PULL · RELEASE":"THROW POWER"}</span>
-      <strong aria-live="off">{shownPower}% <span className={styles.discGolfSuggested}>/ {ideal.ideal}% target</span></strong>
+      <span>{charging||railDragging?"Release to throw":"Pull to throw"}</span>
+      <strong aria-live="off">{charging||railDragging?shownPower+"%":railKeyPower!==null?railKeyPower+"%":""}</strong>
      </div>
      <div className={styles.discGolfMeterRail}>
       <div className={[
@@ -293,7 +287,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
        aria-disabled={!available}
        aria-label="Slingshot throw. Pull down for power, sideways to angle the release. Up or down adjusts keyboard power; Enter throws."
        aria-valuemin={0} aria-valuemax={100} aria-valuenow={shownPower}
-       aria-valuetext={shownPower+" percent; suggested "+ideal.ideal+" percent"}
+       aria-valuetext={shownPower+" percent; "+(pull.side===0?"straight release":pull.side>0?"release left":"release right")}
        data-power={shownPower} data-quality={powerStatus}
        data-dragging={String(railDragging)}
        onPointerDown={e=>{
@@ -307,20 +301,15 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
        onKeyDown={e=>{if(railKeyDown(e.key)){e.preventDefault();e.stopPropagation();}}}>
        <svg viewBox="0 0 300 170" aria-hidden="true" className={styles.discGolfSlingGraphic}>
         <path d="M150 18 L30 156 L270 156 Z" fill="#b9d7c00c" stroke="#a8cebd55"/>
-        <path d="M150 18 L150 156" stroke="#dfebd7" strokeDasharray="4 6"/>
+        <path d="M150 18 L150 156" stroke={pull.side===0?"#fff1c4":"#dfebd766"} strokeDasharray="4 6"/>
         <ellipse cx="150" cy="35" rx="35" ry="9" fill="none" stroke="#f5dba7"/>
         <path d={`M115 35 L${150+pull.side*100} ${35+pull.depth*115} L185 35`}
          fill="none" stroke="#f5dba7" strokeWidth="3"/>
         <ellipse cx={150+pull.side*100} cy={35+pull.depth*115}
          rx={16+pull.depth*10} ry={6+pull.depth*5} fill="#f5dba7" stroke="#fff4da" strokeWidth="2"/>
        </svg>
-       <span className={styles.discGolfSlingCaption}>{railDragging?"Release to launch":"Hold here · pull down · release"}</span>
+       <span className={styles.discGolfSlingCaption}>{railDragging?(pull.depth<.06?"Release to cancel":pull.side===0?"Straight · release to throw":pull.side>0?"Left release":"Right release"):!available?"Wait for your disc":"Pull down · release"}</span>
       </div>
-     </div>
-     <div className={styles.discGolfMeterFooter} aria-hidden="true">
-      <span>SOFT</span>
-      <span>{charging?"HOLD SPACE":railDragging?"RELEASE TO THROW":"DRAG TO THROW"}</span>
-      <span>FULL</span>
      </div>
     </div>
     <div className={styles.discGolfBarPrimary}>
@@ -353,7 +342,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
      )}
     </div>
     <div className={styles.discGolfBarActions}>
-     <button type="button" aria-expanded={settingsOpen}
+     <button type="button" disabled={charging||railDragging} aria-expanded={settingsOpen}
       aria-controls="disc-golf-settings"
       onClick={()=>{
        if(!settingsOpen&&scorecardOpen)onToggleScorecard();
@@ -373,7 +362,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
    </div>
 
    <div className={styles.discGolfAimControl}>
-    <span>Face your throw · A / D or ← / → · {aim}°</span>
+    <span>A / D or ← / → to turn</span>
     <button type="button" aria-label="Turn left" disabled={!available||charging||railDragging}
      onClick={()=>setAim(v=>normalizeDiscGolfAim(v-5))}>Turn left</button>
     <button type="button" aria-label="Turn right" disabled={!available||charging||railDragging}
@@ -386,21 +375,22 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
     <section id="disc-golf-settings" className={styles.discGolfPanel}
      aria-label="Disc throw tuning">
      <div className={styles.discGolfPanelHeading}>
-      <strong>Shape your throw</strong>
+      <strong>Throw settings</strong>
       <button type="button" onClick={()=>setSettingsOpen(false)}>Close</button>
      </div>
+     <p className={styles.discGolfHelp}>Pull sideways to release toward the opposite side. Return to the start or press Escape to cancel. Space is an alternative throw control.</p>
      <div className={styles.discGolfTuneGrid}>
       <label className={styles.discGolfTuneItem} htmlFor="disc-golf-loft">
        <span>Loft · {loft}° <small>W / S</small></span>
        <input id="disc-golf-loft" type="range" min={6} max={42} step={1}
-        value={loft} disabled={!available||charging}
+        value={loft} disabled={!available||charging||railDragging}
         onChange={e=>setLoft(Number(e.currentTarget.value))}/>
       </label>
       <label className={styles.discGolfTuneItem} htmlFor="disc-golf-bank">
        <span>Curve · {bankAngle>0?"+":""}{bankAngle}° <small>Q / E</small></span>
        <input id="disc-golf-bank" type="range"
         min={-DISC_GOLF_MAX_BANK} max={DISC_GOLF_MAX_BANK} step={5}
-        value={bankAngle} disabled={!available||charging}
+        value={bankAngle} disabled={!available||charging||railDragging}
         onChange={e=>setBankAngle(Number(e.currentTarget.value))}
         aria-label="Curve disc left or right" aria-valuetext={
          bankAngle===0?"Flat":Math.abs(bankAngle)+" degrees "+(bankAngle<0?"left":"right")
@@ -410,17 +400,17 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
        <span>Nose · {noseAngle>0?"+":""}{noseAngle}°</span>
        <input id="disc-golf-nose" type="range" min={-DISC_GOLF_NOSE_MAX_DEGREES}
         max={DISC_GOLF_NOSE_MAX_DEGREES} step={1} value={noseAngle}
-        disabled={!available||charging} onChange={e=>setNoseAngle(Number(e.currentTarget.value))}/>
+        disabled={!available||charging||railDragging} onChange={e=>setNoseAngle(Number(e.currentTarget.value))}/>
       </label>
       <label className={styles.discGolfTuneItem} htmlFor="disc-golf-spin">
        <span>Flick · {spinRpm} rpm</span>
        <input id="disc-golf-spin" type="range" min={DISC_GOLF_SPIN_MIN_RPM}
         max={DISC_GOLF_SPIN_MAX_RPM} step={50} value={spinRpm}
-        disabled={!available||charging} onChange={e=>setSpinRpm(Number(e.currentTarget.value))}/>
+        disabled={!available||charging||railDragging} onChange={e=>setSpinRpm(Number(e.currentTarget.value))}/>
       </label>
       <label className={styles.discGolfTuneItem} htmlFor="disc-golf-disc-type">
        <span>Disc profile</span>
-       <select id="disc-golf-disc-type" value={discStyle} disabled={!available||charging}
+       <select id="disc-golf-disc-type" value={discStyle} disabled={!available||charging||railDragging}
         onChange={e=>setDiscStyle(e.currentTarget.value as DiscGolfFlightStyle)}>
         <option value="putter">Putter</option><option value="midrange">Midrange</option>
         <option value="fairway">Fairway</option><option value="driver">Driver</option>
@@ -428,7 +418,7 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
       </label>
       <label className={styles.discGolfTuneItem} htmlFor="disc-golf-release-style">
        <span>Release</span>
-       <select id="disc-golf-release-style" value={releaseStyle} disabled={!available||charging}
+       <select id="disc-golf-release-style" value={releaseStyle} disabled={!available||charging||railDragging}
         onChange={e=>setReleaseStyle(e.currentTarget.value as DiscGolfReleaseStyle)}>
         <option value="backhand">Backhand</option><option value="forehand">Forehand</option>
        </select>

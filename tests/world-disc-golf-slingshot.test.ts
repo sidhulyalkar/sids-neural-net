@@ -10,8 +10,8 @@ test("pull depth maps to power with a release deadzone",()=>{
  assert.equal(discGolfSlingshot(1,0).armed,false);
 });
 test("sideways pull launches opposite the displacement, without adding power",()=>{
- assert.equal(discGolfSlingshot(.5,.6).accuracy,-.5);
- assert.equal(discGolfSlingshot(-.5,.6).accuracy,.5);
+ assert.ok(discGolfSlingshot(.5,.6).accuracy<0);
+ assert.equal(discGolfSlingshot(-.5,.6).accuracy,-discGolfSlingshot(.5,.6).accuracy);
  assert.equal(discGolfSlingshot(1,.6).power,60);
  assert.equal(discGolfSlingshot(0,.6).accuracy,0);
  assert.equal(discGolfSlingshot(NaN,1).armed,false);
@@ -31,4 +31,13 @@ test("straight pull launches along facing; lateral pulls straddle that heading",
    }
   }
  }
+});
+
+test("center tolerance rejects jitter without a discontinuous side jump",()=>{
+ assert.equal(discGolfSlingshot(.03,.7).accuracy,0);
+ assert.equal(discGolfSlingshot(-.03,.7).accuracy,0);
+ assert.ok(Math.abs(discGolfSlingshot(.04001,.7).accuracy)<.00002);
+ assert.equal(discGolfSlingshot(1,.7).accuracy,-1);
+ assert.equal(discGolfSlingshot(-1,.7).accuracy,1);
+ assert.equal(discGolfSlingshot(.5,.02).armed,false);
 });
