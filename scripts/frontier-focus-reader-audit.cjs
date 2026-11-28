@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 
-const TARGET = process.env.FRONTIER_FOCUS_AUDIT_URL || 'http://127.0.0.1:3000/frontier';
+const TARGET = process.env.FRONTIER_FOCUS_AUDIT_URL || 'http://127.0.0.1:3000/frontier/read';
 const FIRST_PAINT_BUDGET_MS = 9000;
 
 async function audit(width, height) {
@@ -52,42 +52,22 @@ async function audit(width, height) {
     await back.click();
     assert.equal(await page.locator('article h1').first().textContent(), heading);
 
-    const rating = page.getByRole('button', { name: /Hold to rate interest/i });
-    const balloon = page.locator('[data-frontier-balloon]');
-    assert.equal(await balloon.count(), 1, 'Exactly one radial interest control is mounted');
-    assert.equal(await page.locator('footer').count(), 0, 'Reader must not render a bulky bottom navigation footer');
-    assert.equal(await page.getByText('A quiet space for what is new').count(), 0, 'Remove redundant brand tagline');
-    assert.equal(await page.locator('article h1').count(), 1, 'Headline appears once, centered before the media');
-    const navigationArea = page.locator('nav[aria-label="Article navigation"]');
-    assert.equal(await navigationArea.count(), 1, 'Use an edge navigation overlay');
-    const image = page.locator('figure img').first();
-    if (await image.count()) {
-      const sizing = await image.evaluate((el) => ({ fit: getComputedStyle(el).objectFit,
-        naturalWidth: el.naturalWidth, naturalHeight: el.naturalHeight }));
-      assert.equal(sizing.fit, 'contain', 'Never crop article photos to fill an arbitrary frame');
+    assert.equal(await page.locator('[data-frontier-balloon]').count(),0,
+      'The retired hold-to-rate control must not appear in the Focus Reader');
+    assert.equal(await page.locator('input[type="range"]').count(),0,
+      'No numeric interest slider should remain');
+    assert.equal(await page.locator('footer').count(),0,'No bulky footer');
+    assert.equal(await page.getByText('A quiet space for what is new').count(),0);
+    assert.equal(await page.locator('article h1').count(),1,'Headline appears exactly once');
+    assert.equal(await page.locator('nav[aria-label="Article navigation"]').count(),1);
+    const image=page.locator('figure img').first();
+    if(await image.count()) {
+      assert.equal(await image.evaluate(el=>getComputedStyle(el).objectFit),'contain',
+        'Original figure may not be cropped');
     }
-    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'idle');
-    assert.equal(await page.locator('[aria-label="Source-grounded summary"]').count(), 1);
-    assert((await page.locator('[aria-label="Source metrics"]').count()) <= 1,
-      'No duplicate metric panel should be mounted');
-    await rating.hover();
-    await page.mouse.down();
-    await page.waitForTimeout(650);
-    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'inflating', 'Holding must animate the radial interest meter');
-    await page.mouse.up();
-    await page.waitForFunction(() => {
-      const text = document.querySelector('button[aria-label^="Hold to rate"]')?.textContent || '';
-      return /[1-9]\/10/.test(text) || /10\/10/.test(text);
-    }, null, { timeout: 5000 }).catch(async (error) => {
-      const diagnostics = await page.evaluate(() => ({
-        rating: document.querySelector('button[aria-label^="Hold to rate"]')?.textContent,
-        status: document.querySelector('[role="status"]')?.textContent,
-        active: document.activeElement?.tagName,
-      }));
-      throw new Error('Hold interaction did not save a score: ' + JSON.stringify(diagnostics) + '; ' + error.message);
-    });
-    assert.match((await rating.textContent()) || '', /\/10/, 'Explicit rating must persist in interface');
-    assert.equal(await balloon.getAttribute('data-frontier-balloon'), 'rated', 'Radial interest meter returns to saved state on release');
+    assert.equal(await page.locator('[aria-label="Source-grounded summary"]').count(),1);
+    assert((await page.locator('[aria-label="Source metrics"]').count())<=1);
+
     if (width <= 390) {
       const geometry = await page.evaluate(() => ({
         documentWidth: document.documentElement.scrollWidth,
@@ -97,40 +77,22 @@ async function audit(width, height) {
         'Mobile focus reader must not require sideways scrolling: ' + JSON.stringify(geometry));
     }
 
-    const exact = page.locator('details').filter({ hasText: 'Choose exact score' });
-    await exact.locator('summary').click();
-    await exact.locator('input[type="range"]').focus();
-    await page.keyboard.press('End');
-    await page.keyboard.press('ArrowLeft');
-    await exact.getByRole('button', { name: 'Save' }).click();
-    assert.match((await rating.textContent()) || '', /9\/10/, 'Slider fallback must save exact score');
-
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.getByRole('button',{name:'Save',exact:true}).click();
+    assert.equal(await page.getByRole('button',{name:'Saved',exact:true}).count(),1,
+      'Direct article save should work without a numeric rating');
+    await page.reload({waitUntil:'domcontentloaded'});
     await page.locator('article h1').first().waitFor();
-    await page.waitForFunction(() => document.querySelector('button[aria-label^="Hold to rate"]')?.textContent?.includes('9/10'), undefined, { timeout: 4000 });
-    await page.waitForTimeout(1_200);
-    const candidateLookups = feedRequests.filter((url) => url.includes('candidates=1'));
-    assert.equal(candidateLookups.length, 1,
-      'Returning reader should load the wider public snapshot once, after first paint');
-    const beforeRevision = await page.evaluate(() => JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
-    const finalRating = page.locator('details').filter({ hasText: 'Choose exact score' });
-    await finalRating.locator('summary').click();
-    await finalRating.locator('input[type="range"]').focus();
-    await page.keyboard.press('Home');
-    await page.keyboard.press('ArrowRight');
-    await finalRating.getByRole('button', { name: 'Save' }).click();
-    assert.match((await rating.textContent()) || '', /2\/10/, 'Rating revision must replace the previous value');
-    const afterRevision = await page.evaluate(() => JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
-    assert.equal(afterRevision.profile.meaningfulInteractions, beforeRevision.profile.meaningfulInteractions,
-      'Revising a rating cannot add another learned interaction');
-    assert.equal(afterRevision.game.xp, beforeRevision.game.xp,
-      'Revising a rating cannot award the same item XP again');
-    const updated = Object.values(afterRevision.history).find((entry) => entry.item.title === heading && entry.interestScore === 2);
-    assert.equal(updated?.reaction, 'down', 'The numeric revision must replace the canonical coarse preference');
+    await page.waitForTimeout(1600);
+    const candidateLookups=feedRequests.filter(url=>url.includes('candidates=1'));
+    assert.equal(candidateLookups.length,1,'Returning engaged readers receive one candidate cache lookup');
+    assert.equal(await page.locator('[data-frontier-balloon]').count(),0,
+      'Reload must not resurrect the numeric control');
+    const state=await page.evaluate(()=>JSON.parse(localStorage.getItem('frontier-personal-radar-v1')).state);
+    assert(Object.keys(state.saved).length>0,'Saved articles must persist after reload');
     assert.deepEqual(errors, [], 'No browser JavaScript exceptions allowed');
     return { width, height, firstPaintMs, initialUncachedRequests: 0,
       backgroundCachedRequests: feedRequests.filter((url) => url.includes('latest=1')).length,
-      singleArticle: true, ratingPersisted: true, revisionReplacedVote: true, widerCandidateLookups: 1 };
+      singleArticle: true, ratingRemoved: true, savePersisted: true, widerCandidateLookups: 1 };
   } finally {
     await page.close();
     await browser.close();

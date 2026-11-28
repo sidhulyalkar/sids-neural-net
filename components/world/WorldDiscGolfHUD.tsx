@@ -238,7 +238,8 @@ export function WorldDiscGolfHUD({game,round,scorecardOpen,onToggleScorecard,onN
   queueShot({...shotAtPower(sample.power),accuracy:sample.accuracy});
  };
  const railKeyDown=(key:string)=>{
-  if(!available)return false;
+  if(key==="Escape"&&railDraggingRef.current){cancelRail();return true;}
+  if(!available||railDraggingRef.current||held.current)return false;
   if(key==="Enter"){
    queueShot(shotAtPower(railKeyPower??suggested));
    return true;

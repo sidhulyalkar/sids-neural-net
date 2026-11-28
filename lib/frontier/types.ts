@@ -294,8 +294,23 @@ export type FrontierHistoryEntry = {
   /** Explicit numeric signal retained separately from coarse reaction semantics. */
   interestScore?: number;
   interestRatedAt?: string;
-  interestRatingMethod?: 'hold' | 'slider';
+  interestRatingMethod?: 'hold' | 'slider' | 'wheel';
   interestRatingDurationMs?: number;
+  /** Ambient ornamental interactions: exposure denominator and observed pops.
+   * Neither is an explicit article rating. */
+  ambientAppearances?: number;
+  ambientPops?: number;
+  ambientLastPoppedAt?: string;
+  /** Private, aggregate gameplay diagnostics only; never a taste/rank signal.
+   * Only intentional blank-surface shots whose tip lands inside an active
+   * article swarm are counted. No cursor coordinates are stored. */
+  lightningShots?: number;
+  lightningHits?: number;
+  /** Subset of shot totals with the optional aim guide enabled. */
+  lightningGuidedShots?: number;
+  lightningGuidedHits?: number;
+  /** An explicit strong preference expressed by the unlabelled clear-all oval. */
+  ambientClearedAt?: string;
   resurfacedCount: number;
   rewarded: boolean;
 };

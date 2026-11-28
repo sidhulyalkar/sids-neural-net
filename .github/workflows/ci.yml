@@ -163,8 +163,14 @@ jobs:
       - name: Audit FRONTIER focused reader first paint and intentional labeling
         env:
           NODE_PATH: /tmp/frontier-playwright/node_modules
-          FRONTIER_FOCUS_AUDIT_URL: http://127.0.0.1:3000/frontier
+          FRONTIER_FOCUS_AUDIT_URL: http://127.0.0.1:3000/frontier/read
         run: node scripts/frontier-focus-reader-audit.cjs
+
+      - name: Audit FRONTIER multi-article edition and deliberate wheel rating
+        env:
+          NODE_PATH: /tmp/frontier-playwright/node_modules
+          FRONTIER_EDITION_AUDIT_URL: http://127.0.0.1:3000/frontier
+        run: node scripts/frontier-edition-browser-audit.cjs
 
       - name: Audit advanced FRONTIER bounded first useful paint
         env:

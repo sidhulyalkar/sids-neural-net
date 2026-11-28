@@ -4,10 +4,14 @@ import test from 'node:test';
 
 const file = (path: string) => readFileSync(path, 'utf8');
 
-test('first reader navigation serializes 36 full items, not the 96-candidate inventory', () => {
+test('default multi-article edition and preserved focused reader each cap first-paint payload at 36', () => {
   const page = file('app/frontier/page.tsx');
+  const focused = file('app/frontier/read/page.tsx');
   const reader = file('components/frontier/FrontierFocusReader.tsx');
+  assert.match(page, /FrontierEditionFeed/);
   assert.match(page, /initialItems=\{feed\.items\.slice\(0, 36\)\}/);
+  assert.match(focused, /FrontierFocusReader/);
+  assert.match(focused, /initialItems=\{feed\.items\.slice\(0, 36\)\}/);
   assert.match(reader, /fetch\('\/api\/frontier\/feed\?candidates=1'/);
   assert.match(reader, /state\.profile\.meaningfulInteractions > 0/);
   assert.match(reader, /readerInteractedRef\.current/);

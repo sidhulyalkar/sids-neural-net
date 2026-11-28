@@ -1,0 +1,31 @@
+.rating { position:relative; min-width:0; }
+.toggle { min-height:40px; border:0; background:none; color:#53625b; display:inline-flex; align-items:center; gap:8px;
+  padding:5px 3px; font:560 11px/1.4 var(--font-geist-sans),system-ui,sans-serif; cursor:pointer; }
+.toggle:hover,.toggle:focus-visible { color:#245948; }
+.ratingGlyph { font:400 20px/1 Georgia,serif; color:#5a8069; }
+.panel { position:relative; margin-top:8px; border:1px solid #c9d5c8; background:#f1f4ec; padding:18px 16px;
+  display:flex; align-items:center; gap:18px; max-width:100%; border-radius:5px; }
+.wheel { --rating-arc:50%; position:relative; flex:0 0 86px; width:86px; height:86px; cursor:ns-resize;
+  display:flex; align-items:center; justify-content:center; gap:2px;
+  color:#283e35; background:conic-gradient(#567f69 var(--rating-arc),#d7dfd4 var(--rating-arc)); border-radius:50%;
+  touch-action:pan-y; user-select:none; }
+.wheel::before { content:''; position:absolute; inset:7px; background:#f6f7f1; border-radius:50%; }
+.wheel::after { content:''; position:absolute; inset:-5px; border-radius:50%;
+  background:repeating-conic-gradient(from -90deg,#8caa95 0deg 1deg,transparent 1deg 36deg);
+  -webkit-mask:radial-gradient(transparent 0 85%,#000 86% 100%); mask:radial-gradient(transparent 0 85%,#000 86% 100%);
+  opacity:.8; pointer-events:none; }
+.wheel strong,.wheel span { position:relative; z-index:1; }
+.wheel strong { font:400 31px/.95 Georgia,serif; font-variant-numeric:tabular-nums; }
+.wheel span { align-self:center; font:12px var(--font-geist-sans),sans-serif; color:#68766c; }
+.wheel:focus-visible { outline:2px solid #406955; outline-offset:4px; }
+.controls { min-width:0; flex:1; }
+.controls p { margin:0 0 10px; color:#57665d; font:11px/1.5 var(--font-geist-sans),sans-serif; }
+.controls input { width:100%; min-height:24px; accent-color:#406955; cursor:pointer; }
+.actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:6px; }
+.actions button { background:none; border:1px solid #c0c9bf; min-height:34px; padding:5px 10px; border-radius:3px;
+  font:600 11px var(--font-geist-sans),sans-serif; color:#3b5144; cursor:pointer; }
+.actions .commit { background:#365742; color:#fff; border-color:#365742; }
+.actions button:focus-visible,.toggle:focus-visible { outline:2px solid #406955; outline-offset:3px; }
+@media(max-width:480px){.panel { gap:10px; padding:12px; }.wheel{flex-basis:70px;width:70px;height:70px;}
+  .wheel strong{font-size:25px;}.controls p{font-size:10px;} }
+@media(prefers-reduced-motion:reduce){.panel,.wheel{transition:none;}}
