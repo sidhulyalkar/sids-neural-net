@@ -1,0 +1,300 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {existsSync,readFileSync} from "node:fs";
+import {SPORTS_TEAM_CAPTIONS} from "../components/world/worldArcadeSportsMural";
+import {ARCADE_CAVE,arcadeCaveFloorHeight,caveHalfWidth} from "../lib/world/model";
+import {ARCADE_CAVERN_MURALS,validateArcadeArtManifest} from "../lib/world/arcadeCavernArtManifest";
+import {ARCADE_REAR_CAP_Z,caveArtRing,sampleCavernArt,validateCavernMural} from "../lib/world/arcadeCavernSurface";
+import {ARCADE_MURAL_ART_ASSETS,validateArcadeMuralAssets}
+ from "../lib/world/arcadeCavernAssetManifest";
+import {ARCADE_GENERATED_MURAL_OVERLAYS,GENERATED_MURAL_TEXTURES_BUNDLED,validateGeneratedMuralOverlays,measureGeneratedMuralAspect}
+ from "../lib/world/arcadeGeneratedMuralConfig";
+import {SHASTA_PHOTOS,NATURE_PHOTOS,CAVERN_GAME_ART,CAVERN_GAME_PANEL_ART,CAVERN_PHOTO_ALBUMS,validateCavernPhotoAlbums,archivePhotoPath}
+ from "../lib/world/arcadeCavernGalleryContent";
+
+test("Curated arcade includes anime and comedy while preserving the three real game covers",()=>{
+ assert.deepEqual(validateArcadeArtManifest(ARCADE_CAVERN_MURALS),[]);
+ assert.equal(ARCADE_CAVERN_MURALS.length,10);
+ const ids=ARCADE_CAVERN_MURALS.map(m=>m.id);
+ assert.deepEqual(ids,[
+  "wild-places-scenic-wall","my-games-gallery","wild-places-rear",
+  "home-stand","raid-ascend","striker-setpoint","out-of-this-world",
+  "after-hours-comedy","fandom-feature-panorama","shasta-rear-portrait",
+ ]);
+ assert.deepEqual(ARCADE_CAVERN_MURALS.filter(m=>
+  ["anime","comedy","sport-anime","sitcom"].includes(m.theme)).map(m=>m.theme),
+  ["anime","sport-anime","comedy","sitcom"]);
+ const left=ARCADE_CAVERN_MURALS.filter(m=>m.surface==="left");
+ assert.deepEqual(left.map(m=>m.id),["raid-ascend","striker-setpoint"]);
+ const games=ARCADE_CAVERN_MURALS.find(m=>m.theme==="game-gallery")!;
+ assert.equal(games.surface,"right");
+ assert.deepEqual(games.tags,["UNICORN STAMPEDE","UNIRICO","STRETCHICORN"]);
+ assert.equal(ARCADE_CAVERN_MURALS.find(m=>m.theme==="sports")!.surface,"right");
+ assert.deepEqual(validateCavernPhotoAlbums(),[]);
+ for(const album of Object.values(CAVERN_PHOTO_ALBUMS)){
+  assert.ok(album.images.length>0&&album.images.length<=25,
+   "future albums must be nonempty and fit into a single static atlas");
+ }
+ assert.equal(SHASTA_PHOTOS.length,13);
+ assert.equal(NATURE_PHOTOS.length,12);
+ assert.equal(CAVERN_GAME_ART.length,3);
+ assert.deepEqual(CAVERN_GAME_PANEL_ART.map(g=>g.id),[
+  "stretchicorn","unirico","unicorn-stampede",
+ ]);
+ assert.equal(new Set(SHASTA_PHOTOS).size,13);
+ assert.equal(new Set(NATURE_PHOTOS).size,12);
+ for(const id of [...SHASTA_PHOTOS,...NATURE_PHOTOS])
+  assert.match(archivePhotoPath(id),/^\/visual-archive\/thumbs\/photo-\d{3}-thumb\.webp$/);
+ for(const poster of CAVERN_GAME_ART)
+  assert.match(poster.src,/^\/world\/arcade-cavern\/games\/[-a-z0-9]+\.(?:svg|png)$/);
+ assert.ok(ARCADE_CAVERN_MURALS.every(m=>!validateCavernMural(m)));
+});
+test("Rear entertainment panorama fits its 4.8:1 source and clears game panels",()=>{
+ const banner=ARCADE_CAVERN_MURALS.find(m=>m.id==="fandom-feature-panorama")!;
+ assert.equal(banner.surface,"back");
+ assert.ok(banner.u0!==undefined&&banner.u1!==undefined);
+ const width=(banner.u1!-banner.u0!)*12.45;
+ const height=(banner.v1-banner.v0)*5.45;
+ assert.ok(Math.abs(width/height-4800/1000)<.16,
+  "entertainment art aspect must not stretch across the rock");
+ assert.ok(width<8&&height>1.25,
+  "panoramic photo mural must fit within the protected rear panel");
+ for(const id of ["shasta-rear-portrait","wild-places-rear"]){
+  const m=ARCADE_CAVERN_MURALS.find(x=>x.id===id)!;
+  assert.ok(m.u0!==undefined&&m.u1!==undefined);
+  const edge=id==="shasta-rear-portrait"?m.u1!:m.u0!;
+  const x=16+(edge-.5)*12.45;
+  assert.ok(id==="shasta-rear-portrait"?x<13.65:x>18.35,
+   "portrait edge must clear center arcade game by more than half a meter");
+ }
+});
+test("Curved graffiti is projected into interior of exact 17-shell ring segments",()=>{
+ for(let index=0;index<=16;index++){
+  const ring=caveArtRing(index);
+  assert.equal(ring.length,7);
+  for(const p of ring)assert.ok([p.x,p.y,p.z].every(Number.isFinite));
+  const w=caveHalfWidth(ring[0].z);
+  assert.ok(Math.abs(ring[0].x-(16-w))<.00001);
+  assert.ok(Math.abs(ring[6].x-(16+w))<.00001);
+ }
+ for(const mural of ARCADE_CAVERN_MURALS){
+  for(let i=0;i<=10;i++){
+   const t=i/10,z=mural.z0+(mural.z1-mural.z0)*t;
+   for(let j=0;j<=8;j++){
+    const v=mural.v0+(mural.v1-mural.v0)*j/8;
+    const u=mural.surface==="back"&&mural.u0!==undefined&&mural.u1!==undefined
+     ?mural.u0+(mural.u1-mural.u0)*t:t;
+    const p=sampleCavernArt(mural.surface,z,u,v,.056);
+    assert.ok(p, "missing "+mural.id+" "+i+" "+j);
+    const a=p!.position,n=p!.normal;
+    assert.ok([a.x,a.y,a.z,n.x,n.y,n.z].every(Number.isFinite));
+    assert.ok(Math.abs(Math.hypot(n.x,n.y,n.z)-1)<.00001);
+    if(mural.surface==="left")assert.ok(n.x>.20);
+    if(mural.surface==="right")assert.ok(n.x<-.20);
+    if(mural.surface==="back"){
+     if(mural.v0<.6)
+      assert.ok(a.x<=13.64||a.x>=18.36,
+       "rear lower murals must remain at least 0.55m away from the center game panel");
+     else assert.ok(a.y>
+       arcadeCaveFloorHeight(ARCADE_CAVE.wall)+2.35+2.65/2+.20,
+       "rear photo panorama must clear the game selector by 20cm");
+    }
+   }
+  }
+ }
+});
+
+test("physical cave cap must never obscure back-wall art or rock lining",()=>{
+ const stone=sampleCavernArt("back",-63.32,.5,.75,.019)!;
+ const paint=sampleCavernArt("back",-63.32,.5,.75,.056)!;
+ // From inside the cave, the camera is at smaller Z: paint must have the
+ // smallest Z, then stone, then the opaque rear cap at the largest Z.
+ assert.ok(paint.position.z<stone.position.z);
+ assert.ok(stone.position.z<ARCADE_REAR_CAP_Z-.04,
+  "cap is in front of the portrait and hides the whole gallery");
+});
+
+test("Floor paint uses underground support, not mountain topography",()=>{
+ for(const z of [-78,-75.5,-72,-68,-65.2]){
+  for(const u of [.1,.25,.5,.75,.9]){
+   const floor=sampleCavernArt("floor",z,u,.35,.056)!;
+   assert.ok(Math.abs(floor.position.y-
+    (arcadeCaveFloorHeight({x:floor.position.x,z})-.024))<1e-6);
+   const ceiling=sampleCavernArt("ceiling",z,u,.35,.056)!;
+   assert.ok(ceiling.position.y>floor.position.y+3);
+  }
+ }
+});
+test("No invalid, clipping, nonfinite or game-occluding mural descriptors",()=>{
+ const first=ARCADE_CAVERN_MURALS[0];
+ assert.match(validateCavernMural({...first,id:"",title:""})!,/invalid/);
+ assert.match(validateCavernMural({...first,z1:-62})!,/bounds/);
+ assert.match(validateCavernMural({...first,z1:-66})!,/sightline/);
+ assert.match(validateCavernMural({...first,v1:NaN})!,/nonfinite/);
+ const rear=ARCADE_CAVERN_MURALS.find(m=>m.id==="shasta-rear-portrait")!;
+ assert.equal(validateCavernMural(rear),null);
+ assert.match(validateCavernMural({...rear,u0:.30,u1:.70})!,/overlap/);
+ assert.match(validateCavernMural({...rear,u1:1.2})!,/invalid back patch/);
+ assert.match(validateCavernMural({...rear,u0:undefined})!,/invalid back patch/);
+ assert.equal(sampleCavernArt("left",-90,.5,.5),null);
+ assert.equal(sampleCavernArt("right",-70,.5,.5,-.1),null);
+ assert.deepEqual(validateArcadeArtManifest([first,first]),["duplicate "+first.id]);
+});
+
+test("Authored cavern artwork is local, attributed, unique and usable without network image hotlinks",()=>{
+ assert.deepEqual(validateArcadeMuralAssets(),[]);
+ assert.equal(ARCADE_CAVERN_MURALS.some(m=>m.theme==="identity"),false,
+  "typographic hero banner must not be rendered in the cavern");
+ assert.equal(ARCADE_MURAL_ART_ASSETS.shasta!.src,
+  "/visual-archive/web/photo-037.webp");
+ assert.equal(ARCADE_MURAL_ART_ASSETS.shasta!.presentation,"shasta-photo-stencil");
+ assert.equal(ARCADE_MURAL_ART_ASSETS.sports!.presentation,
+  "sports-crest-composite");
+ assert.deepEqual(ARCADE_MURAL_ART_ASSETS.sports!.supportingSources,[
+  "/world/arcade-cavern/sports/patriots-crest.png",
+  "/world/arcade-cavern/sports/warriors-crest.png",
+ ]);
+ assert.equal(ARCADE_MURAL_ART_ASSETS.sports!.authorship,"third-party-trademark");
+ for(const theme of ["anime","sport-anime","comedy","sitcom"] as const){
+  const item=ARCADE_MURAL_ART_ASSETS[theme]!;
+  assert.equal(item.authorship,"original");
+  assert.match(item.src,/^\/world\/arcade-cavern\/[-a-z/]+\.svg$/);
+  assert.ok(existsSync("public"+item.src),"missing published "+theme+" artwork");
+ }
+ assert.deepEqual(validateArcadeMuralAssets({
+  sports:{...ARCADE_MURAL_ART_ASSETS.sports!,supportingSources:[
+   "/world/arcade-cavern/sports/patriots-crest.png",
+   "https://external.test/logo.png",
+  ]},
+ }),["sports: invalid supporting source"]);
+
+ assert.match(ARCADE_MURAL_ART_ASSETS.shasta!.attribution,/photo-037/);
+ assert.deepEqual(validateArcadeMuralAssets({
+  shasta:{...ARCADE_MURAL_ART_ASSETS.shasta!,attribution:""},
+ }),["shasta: missing attribution"]);
+});
+test("Photo walls are text-free, with only three sports caption exceptions",()=>{
+ for(const file of [
+  "components/world/worldArcadePhotoGallery.ts",
+  "components/world/worldArcadeShastaStencil.ts",
+ ]){
+  const source=readFileSync(file,"utf8");
+  assert.doesNotMatch(source,/\b(?:fillText|strokeText|paintWord|solidTitle)\s*\(/,
+   file+" must never paint titles, labels or slogans over the photo");
+ }
+ assert.deepEqual([...SPORTS_TEAM_CAPTIONS],["CHELSEA","PATRIOTS","WARRIORS"]);
+ const sportsSource=readFileSync("components/world/worldArcadeSportsMural.ts","utf8");
+ assert.match(sportsSource,/SPORTS_TEAM_CAPTIONS\[i\]/,
+  "all three captions must be painted below their corresponding crest");
+ assert.doesNotMatch(sportsSource,/THE HOME STAND/,
+  "sports mural should not restore unrelated giant headings");
+ assert.equal(ARCADE_CAVERN_MURALS.some(m=>m.id==="sids-underground"),false);
+ assert.deepEqual(ARCADE_CAVERN_MURALS.filter(m=>m.surface==="left").map(m=>m.theme),
+  ["anime","sport-anime"]);
+ assert.ok(CAVERN_PHOTO_ALBUMS.feature.images.every(p=>p.startsWith("/")));
+});
+
+
+test("Entertainment wall sections cannot overlap each other or the interactive game art",()=>{
+ const murals=ARCADE_CAVERN_MURALS;
+ for(let i=0;i<murals.length;i++)for(let j=i+1;j<murals.length;j++){
+  const a=murals[i],b=murals[j];
+  if(a.surface!==b.surface)continue;
+  if(a.surface==="back")continue; // back wall reserved bands are orthogonal
+  const zOverlap=Math.min(a.z1,b.z1)-Math.max(a.z0,b.z0);
+  const vOverlap=Math.min(a.v1,b.v1)-Math.max(a.v0,b.v0);
+  assert.ok(zOverlap<=0||vOverlap<=0,
+   "overlapping authored paint: "+a.id+" & "+b.id);
+ }
+ for(const name of ["anime","sport-anime","comedy"] as const){
+  assert.ok(murals.find(m=>m.theme===name),"missing themed mural "+name);
+ }
+ const gameMurals=murals.filter(m=>m.theme==="game-gallery");
+ assert.equal(gameMurals.length,1,"retain exactly one real game-cover gallery");
+ assert.ok(gameMurals[0].tags.includes("STRETCHICORN"));
+ assert.ok(gameMurals[0].tags.includes("UNIRICO"));
+ assert.ok(gameMurals[0].tags.includes("UNICORN STAMPEDE"));
+});
+
+
+test("Every entertainment art placement has acceptable wall aspect and a local original image",()=>{
+ const expected={
+  anime:"/world/arcade-cavern/anime/raid-ascend.svg",
+  "sport-anime":"/world/arcade-cavern/sport-anime/striker-setpoint.svg",
+  comedy:"/world/arcade-cavern/comedy/out-of-this-world.svg",
+  sitcom:"/world/arcade-cavern/comedy/after-hours.svg",
+ };
+ for(const [theme,src] of Object.entries(expected)){
+  const mural=ARCADE_CAVERN_MURALS.find(m=>m.theme===theme);
+  assert.ok(mural, "missing "+theme+" descriptor");
+  assert.ok(mural!.surface==="left"||mural!.surface==="right",
+   "entertainment must stay on the two side walls");
+  assert.equal(ARCADE_MURAL_ART_ASSETS[theme as keyof typeof ARCADE_MURAL_ART_ASSETS]?.src,src);
+  const depth=mural!.z1-mural!.z0;
+  // The two-slope wall has about 5 m of arc-length for its complete
+  // height. Limit distortion against each 1600x1000 source SVG.
+  const wallHeight=(mural!.v1-mural!.v0)*5.3;
+  const ratio=depth/wallHeight;
+  assert.ok(ratio>1.1&&ratio<2.2,
+   "avoid squeezing/stretching mural "+theme+": "+ratio.toFixed(2));
+ }
+});
+
+
+test("Rear headline mural is an optimized locally sourced vector panorama",()=>{
+ const theme="fandom-panorama";
+ const art=ARCADE_MURAL_ART_ASSETS[theme]!;
+ assert.equal(art.authorship,"original");
+ assert.equal(art.presentation,"original-texture");
+ assert.equal(art.src,"/world/arcade-cavern/hero/fandom-triptych.svg");
+ assert.ok(existsSync("public"+art.src));
+ const svg=readFileSync("public"+art.src,"utf8");
+ assert.match(svg,/viewBox="0 0 4800 1000"/);
+ assert.match(svg,/width="2048" height="427"/);
+ assert.equal((svg.match(/<svg\b/g)||[]).length,4,
+  "one combined mural plus the three original panels");
+ assert.doesNotMatch(svg,/<image\b[^>]*href="https?:/,
+  "all hero imagery must be embedded and first-party");
+});
+
+test("Optional generated murals are distortion-bounded, local and non-interactive",()=>{
+ assert.deepEqual(validateGeneratedMuralOverlays(),[]);
+ assert.equal(ARCADE_GENERATED_MURAL_OVERLAYS.length,3);
+ const ids=ARCADE_GENERATED_MURAL_OVERLAYS.map(x=>x.mural.id);
+ assert.deepEqual(ids,["generated-sports-fandom",
+  "generated-anime-favorites","generated-tv-comedy"]);
+ for(const art of ARCADE_GENERATED_MURAL_OVERLAYS){
+  assert.equal(art.provenance,"owner-supplied-ai");
+  const geometry=measureGeneratedMuralAspect(art.mural);
+  assert.ok(geometry,"actual surface geometry must be measurable");
+  assert.ok(Math.abs(geometry!.aspect/art.expectedAspect-1)<=.20,
+   "real mural aspect for "+art.mural.id+" is "+geometry!.aspect.toFixed(2));
+  assert.ok(art.mural.z1<=-68.68,
+   "art overlays cannot enter the three playable side niches");
+  if(GENERATED_MURAL_TEXTURES_BUNDLED){
+   for(const url of [art.desktop,art.mobile]){
+    assert.ok(existsSync("public"+url),
+     "enabled generated mural missing local asset: "+url);
+   }
+  }
+ }
+ assert.deepEqual(validateGeneratedMuralOverlays([
+  ARCADE_GENERATED_MURAL_OVERLAYS[0],
+  ARCADE_GENERATED_MURAL_OVERLAYS[0],
+ ]),["generated-sports-fandom: duplicate replacement sports",
+  "duplicate id generated-sports-fandom",
+  "generated-sports-fandom: repeated asset path",
+  "generated-sports-fandom: repeated asset path"]);
+});
+
+
+test("AI mural replacements are unique and avoid double-exposed fandom panels",()=>{
+ const replaced=ARCADE_GENERATED_MURAL_OVERLAYS.flatMap(x=>x.replacesThemes);
+ assert.deepEqual(replaced,["sports","anime","sport-anime","comedy","sitcom"]);
+ assert.equal(new Set(replaced).size,replaced.length);
+ assert.ok(ARCADE_GENERATED_MURAL_OVERLAYS[0].mural.v1<=.50);
+ assert.ok(ARCADE_GENERATED_MURAL_OVERLAYS[1].mural.v1<=.50,
+  "anime frieze must sit at eye level rather than on the roof");
+ assert.ok(ARCADE_GENERATED_MURAL_OVERLAYS[2].mural.v1<=.78,
+  "comedy frieze must not be cropped by overhead camera framing");
+});

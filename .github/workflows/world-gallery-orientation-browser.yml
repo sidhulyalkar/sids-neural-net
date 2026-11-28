@@ -1,0 +1,65 @@
+name: iLand Orientation-Aware Gallery Browser Gate
+on:
+  pull_request:
+    paths:
+      - "lib/world/hiddenShrineGallery.ts"
+      - "lib/world/galleryReturn.ts"
+      - "tests/world-gallery-exit-return.test.ts"
+      - "components/world/WorldHome.tsx"
+      - "components/world/worldHiddenShrineGallery.ts"
+      - "components/world/worldRenderer.ts"
+      - "lib/world/galleryPhotoStreaming.ts"
+      - "tests/world-gallery-photo-streaming.test.ts"
+      - "tests/world-hidden-shrine-gallery.test.ts"
+      - "scripts/playtest-hidden-gallery-orientation.mjs"
+      - ".github/workflows/world-gallery-orientation-browser.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gallery-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      WORLD_BASE_URL: http://127.0.0.1:3000/world?gallery=photos
+      GALLERY_AUDIT_DIR: artifacts/world/orientation-gallery
+      PLAYWRIGHT_MODULE_ROOT: /tmp/iland-gallery-playwright/node_modules/playwright
+      NEXT_PUBLIC_SKI_V3: "0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Frame and link geometry unit tests
+        run: node --import tsx --test tests/world-hidden-shrine-gallery.test.ts tests/world-gallery-archive-links.test.ts tests/world-gallery-photo-streaming.test.ts tests/world-gallery-exit-return.test.ts
+      - name: Install Chromium
+        run: |
+          npm install --prefix /tmp/iland-gallery-playwright --no-package-lock playwright@1.56.1
+          /tmp/iland-gallery-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start exact-head world
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/iland-gallery-server.log 2>&1 &
+          for i in $(seq 1 110); do
+            if curl -fsS 'http://127.0.0.1:3000/world?gallery=photos' >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 100 /tmp/iland-gallery-server.log
+          exit 1
+      - name: Inspect desktop and mobile room and photo focus
+        run: node scripts/playtest-hidden-gallery-orientation.mjs
+      - name: Save exact commit and diagnostics
+        if: always()
+        run: |
+          mkdir -p "$GALLERY_AUDIT_DIR"
+          git rev-parse HEAD > "$GALLERY_AUDIT_DIR/tested-sha.txt"
+          cp /tmp/iland-gallery-server.log "$GALLERY_AUDIT_DIR/server.log" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gallery-orientation-${{ github.sha }}
+          path: artifacts/world/orientation-gallery/
+          if-no-files-found: warn

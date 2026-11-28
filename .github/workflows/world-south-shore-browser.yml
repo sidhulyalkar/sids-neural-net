@@ -1,0 +1,66 @@
+name: iLand South Shore Snorkeling Browser Gate
+on:
+  pull_request:
+    paths:
+      - "lib/world/model.ts"
+      - "lib/world/activities.ts"
+      - "lib/world/southCoastAccess.ts"
+      - "lib/world/rayPassage.ts"
+      - "lib/world/rayFever.ts"
+      - "lib/world/southCoastHabitats.ts"
+      - "components/world/worldRenderer.ts"
+      - "components/world/worldRayPassage.ts"
+      - "components/world/worldSouthChannelLife.ts"
+      - "components/world/worldSouthCoastalEcology.ts"
+      - "scripts/playtest-south-shore.mjs"
+      - "tests/world-south-shore-integration.test.ts"
+      - ".github/workflows/world-south-shore-browser.yml"
+  workflow_dispatch:
+
+jobs:
+  snorkeling-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    env:
+      WORLD_BASE_URL: http://127.0.0.1:3000/world
+      WORLD_AUDIT_DIR: artifacts/world/south-shore
+      PLAYWRIGHT_MODULE_ROOT: /tmp/south-shore-playwright/node_modules/playwright
+      NEXT_PUBLIC_SKI_V3: "0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: South Shore unit tests
+        run: node --import tsx --test tests/world-south-shore-integration.test.ts
+      - name: Install Chromium
+        run: |
+          npm install --prefix /tmp/south-shore-playwright --no-package-lock playwright@1.56.1
+          /tmp/south-shore-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start exact-head /world
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/south-shore-server.log 2>&1 &
+          for i in $(seq 1 110); do
+            if curl -fsS "$WORLD_BASE_URL" >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 120 /tmp/south-shore-server.log
+          exit 1
+      - name: Snorkeling desktop and mobile
+        run: node scripts/playtest-south-shore.mjs
+      - name: Preserve exact-head proof
+        if: always()
+        run: |
+          mkdir -p "$WORLD_AUDIT_DIR"
+          git rev-parse HEAD > "$WORLD_AUDIT_DIR/tested-sha.txt"
+          cp /tmp/south-shore-server.log "$WORLD_AUDIT_DIR/server.log" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: south-shore-qa-${{ github.sha }}
+          path: artifacts/world/south-shore/
+          if-no-files-found: warn

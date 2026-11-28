@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+<title>Out of this World: illustrated sci-fi graffiti and animation tributes</title>
+<defs>
+<radialGradient id="portal"><stop stop-color="#e4ffb2"/><stop offset=".24" stop-color="#8de956"/><stop offset=".53" stop-color="#30c5a2"/><stop offset=".76" stop-color="#0b6e73" stop-opacity=".94"/><stop offset="1" stop-color="#164d4f" stop-opacity="0"/></radialGradient>
+<linearGradient id="letters" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff2af"/><stop offset=".65" stop-color="#b5e9a3"/><stop offset="1" stop-color="#55c9b7"/></linearGradient>
+<linearGradient id="pink" x1="0" y1="0" x2="1" y2=".5"><stop stop-color="#e6b4e9"/><stop offset="1" stop-color="#91a7ee"/></linearGradient>
+<filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="15"/></filter>
+<pattern id="freckles" width="101" height="103" patternUnits="userSpaceOnUse"><circle cx="17" cy="11" r="4" fill="#b4fbd6" opacity=".3"/><path d="M61 87l15 -7" fill="none" stroke="#ccebd6" stroke-width="3" opacity=".33"/></pattern>
+</defs>
+<ellipse cx="540" cy="526" rx="495" ry="390" fill="url(#portal)" opacity=".83"/>
+<g fill="none" stroke="#7befa5" opacity=".5" filter="url(#soft)" stroke-width="38">
+<path d="M203 665Q96 422 341 287Q662 137 854 369Q990 624 729 823"/>
+</g>
+<!-- Broad, asymmetrical portal stroke language -->
+<path d="M223 610C142 359 388 220 617 260C919 303 934 655 703 791C481 923 223 768 246 541" stroke="#173c4a" stroke-width="76" fill="none" stroke-linecap="round"/>
+<path d="M207 601C144 410 337 238 554 254C819 256 913 539 746 721C583 919 250 791 268 549" stroke="#aaf37b" stroke-width="44" fill="none" stroke-linecap="round"/>
+<path d="M281 601C252 418 382 332 546 343C730 354 796 565 693 669C569 810 372 721 364 568" stroke="#34dcb3" stroke-width="42" fill="none" stroke-linecap="round"/>
+<path d="M383 548C379 445 481 411 570 442C652 481 675 553 616 618C556 685 463 654 457 582" stroke="#b4f0a2" stroke-width="33" fill="none" stroke-linecap="round"/>
+<path d="M504 560C529 530 585 531 603 574" stroke="#f4f9c2" stroke-width="17" fill="none" stroke-linecap="round"/>
+<!-- Star spray accents in clusters, not random thin line scaffolding -->
+<g fill="#b1ffe5" stroke="#145e64" stroke-width="5">
+<path d="M193 302l14 32 35 8-33 14-10 34-11-34-36-11 32-12Z"/>
+<path d="M863 376l13 24 23 8-23 10-13 30-11-30-25-9 25-8Z"/>
+<path d="M751 803l12 21 22 8-22 9-12 23-8-23-26-10 25-7Z"/>
+</g>
+<!-- Floating retro sci-fi craft is a chunky stencil with a filled silhouette -->
+<g transform="translate(972 371) rotate(-8)">
+<path d="M52 130L204 15 363 131 314 174 107 184Z" fill="#344b64" stroke="#10252f" stroke-width="17"/>
+<path d="M37 143C133 91 281 87 388 145C323 237 105 244 37 143Z" fill="#9477bb" stroke="#232747" stroke-width="20"/>
+<path d="M25 135Q205 74 402 135L374 174Q205 234 45 174Z" fill="#d8b2e5" stroke="#151f35" stroke-width="20"/>
+<ellipse cx="211" cy="168" rx="115" ry="21" fill="#222849"/>
+<g fill="#ffe2a0"><circle cx="99" cy="155" r="12"/><circle cx="153" cy="170" r="10"/><circle cx="208" cy="177" r="12"/><circle cx="270" cy="174" r="10"/><circle cx="322" cy="156" r="11"/></g>
+</g>
+<!-- Cut-paper winter silhouette for South Park, instead of primitive child faces -->
+<path d="M1051 755l119-161 101 137 112-189 182 245v118H1008Z" fill="#24534c" stroke="#152c31" stroke-width="16"/>
+<path d="M1136 640l34-46 38 53-31-12-12-13Z M1348 594l35-52 62 83-49-25-12-21Z" fill="#e7e7de"/>
+<path d="M1018 825q89-129 180-48q50-106 144-22q83-120 220-13v133H1018Z" fill="#17393f"/>
+<g fill="#e8e3c8"><circle cx="1122" cy="837" r="16"/><circle cx="1283" cy="828" r="16"/><circle cx="1435" cy="838" r="16"/></g>
+<!-- Colorful typographic comic-blocks create the secondary hierarchy -->
+<g font-family="Impact,Arial Black,sans-serif" font-weight="900" letter-spacing="1" text-anchor="middle" paint-order="stroke" stroke-linejoin="round">
+<text x="800" y="174" font-size="141" fill="#172532" stroke="#071821" stroke-width="43">OUT OF THIS WORLD</text>
+<text x="800" y="164" font-size="141" fill="url(#letters)" stroke="#356b68" stroke-width="14">OUT OF THIS WORLD</text>
+<text x="348" y="883" font-size="83" fill="#aaf282" stroke="#14262b" stroke-width="22">RICK &amp; MORTY</text>
+<text x="1195" y="275" font-size="78" fill="#e9bdeb" stroke="#182337" stroke-width="23">FUTURAMA</text>
+<text x="1273" y="943" font-size="68" fill="#f2d7a1" stroke="#17323b" stroke-width="21">SOUTH PARK</text>
+</g>
+<g fill="#b1ffe0" opacity=".55"><circle cx="925" cy="280" r="8"/><circle cx="1535" cy="417" r="8"/><circle cx="925" cy="827" r="5"/></g>
+<path d="M970 345h570v615H972Z" fill="url(#freckles)" opacity=".31"/>
+</svg>

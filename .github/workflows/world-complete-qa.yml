@@ -1,0 +1,77 @@
+name: iLand Complete Activity & Cairn Browser Gate
+on:
+  pull_request:
+    paths:
+      - "app/world/**"
+      - "components/world/**"
+      - "lib/world/**"
+      - "tests/world-*"
+      - "scripts/playtest-world.mjs"
+      - "scripts/playtest-skimboarding.mjs"
+      - "scripts/playtest-cairn-stories.mjs"
+      - "scripts/playtest-grove-camera.mjs"
+      - "scripts/playtest-world-header.mjs"
+      - "scripts/playtest-classic-ski-aerial.mjs"
+      - ".github/workflows/world-complete-qa.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  integrated-activity-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ["world", "skim", "cairn", "grove", "header", "aerial"]
+    env:
+      WORLD_BASE_URL: http://127.0.0.1:3000/world
+      WORLD_AUDIT_DIR: artifacts/world-complete/${{ matrix.suite }}
+      PLAYWRIGHT_MODULE_ROOT: /tmp/world-complete-playwright/node_modules/playwright
+      NEXT_PUBLIC_SKI_V3: "0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Install headless Chromium on Ubuntu 24.04
+        run: |
+          npm install --prefix /tmp/world-complete-playwright --no-package-lock playwright@1.56.1
+          /tmp/world-complete-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Boot exact-head island
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/world-complete-qa.log 2>&1 &
+          for i in $(seq 1 100); do
+            if curl -fsS "$WORLD_BASE_URL" >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 120 /tmp/world-complete-qa.log
+          exit 1
+      - name: Execute real integrated browser experience
+        run: |
+          case "${{ matrix.suite }}" in
+            world) node scripts/playtest-world.mjs ;;
+            skim) node scripts/playtest-skimboarding.mjs ;;
+            cairn) node scripts/playtest-cairn-stories.mjs ;;
+            grove) node scripts/playtest-grove-camera.mjs ;;
+            header) node scripts/playtest-world-header.mjs ;;
+            aerial) node scripts/playtest-classic-ski-aerial.mjs ;;
+            *) exit 2 ;;
+          esac
+      - name: Persist tested commit and server errors
+        if: always()
+        run: |
+          mkdir -p "$WORLD_AUDIT_DIR"
+          git rev-parse HEAD > "$WORLD_AUDIT_DIR/tested-sha.txt"
+          cp /tmp/world-complete-qa.log "$WORLD_AUDIT_DIR/server.log" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: world-complete-${{ matrix.suite }}-${{ github.sha }}
+          path: artifacts/world-complete/
+          if-no-files-found: warn

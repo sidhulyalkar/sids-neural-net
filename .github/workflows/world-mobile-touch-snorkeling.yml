@@ -1,0 +1,60 @@
+name: iLand Mobile Touch Snorkeling Qualification
+on:
+  pull_request:
+    paths:
+      - "components/world/worldRenderer.ts"
+      - "components/world/worldMobileJoysticks.ts"
+      - "components/world/world.module.css"
+      - "lib/world/mobileJoystick.ts"
+      - "tests/world-mobile-joystick.test.ts"
+      - "scripts/playtest-south-shore-touch.mjs"
+      - ".github/workflows/world-mobile-touch-snorkeling.yml"
+  workflow_dispatch:
+
+jobs:
+  touchscreen-snorkel:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    env:
+      WORLD_BASE_URL: http://127.0.0.1:3000/world
+      WORLD_AUDIT_DIR: artifacts/world/mobile-snorkel
+      PLAYWRIGHT_MODULE_ROOT: /tmp/mobile-snorkel-playwright/node_modules/playwright
+      NEXT_PUBLIC_SKI_V3: "0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Deterministic analog joystick unit tests
+        run: node --import tsx --test tests/world-mobile-joystick.test.ts
+      - name: Install Chromium
+        run: |
+          npm install --prefix /tmp/mobile-snorkel-playwright --no-package-lock playwright@1.56.1
+          /tmp/mobile-snorkel-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Launch world server
+        run: |
+          npm run dev -- --hostname 127.0.0.1 > /tmp/mobile-snorkel-server.log 2>&1 &
+          for i in $(seq 1 110); do
+            if curl -fsS "$WORLD_BASE_URL" >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          tail -n 120 /tmp/mobile-snorkel-server.log
+          exit 1
+      - name: Two-finger snorkeling, depth and camera
+        run: node scripts/playtest-south-shore-touch.mjs
+      - name: Record tested head and server log
+        if: always()
+        run: |
+          mkdir -p "$WORLD_AUDIT_DIR"
+          git rev-parse HEAD > "$WORLD_AUDIT_DIR/tested-sha.txt"
+          cp /tmp/mobile-snorkel-server.log "$WORLD_AUDIT_DIR/server.log" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-snorkel-${{ github.sha }}
+          path: artifacts/world/mobile-snorkel/
+          if-no-files-found: warn

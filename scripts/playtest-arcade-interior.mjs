@@ -1,0 +1,179 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import {createRequire} from "node:module";
+const root=process.env.PLAYWRIGHT_MODULE_ROOT;
+if(!root)throw Error("PLAYWRIGHT_MODULE_ROOT required");
+const {chromium}=createRequire(path.join(root,"package.json"))("playwright");
+const base=process.env.WORLD_BASE_URL??"http://127.0.0.1:3000/world";
+const origin=new URL(base).origin;
+const out=process.env.WORLD_AUDIT_DIR??"artifacts/world/arcade-interior";
+fs.mkdirSync(out,{recursive:true});
+const browser=await chromium.launch({headless:true,executablePath:process.env.WORLD_CHROMIUM_PATH||undefined,args:["--no-sandbox","--enable-unsafe-swiftshader"]});
+let evidence={},errors=[];
+try{
+ const page=await browser.newPage({viewport:{width:1440,height:900}});
+ page.on("pageerror",e=>errors.push(String(e)));
+ page.on("console",m=>{if(m.type()==="error"&&/shader|WebGLProgram/i.test(m.text()))errors.push(m.text());});
+ try{
+  await page.goto(base);
+  await page.getByRole("button",{name:"Explore world",exact:true}).click();
+  await page.waitForFunction(()=>Number(document.querySelector("canvas")?.dataset.drawCalls)>0,
+   null,{timeout:45000});
+  await page.waitForFunction(()=>document.querySelector("canvas")?.dataset.arcadeGraffitiVersion==="asset-first-v3",
+   null,{timeout:14000});
+  const canvas=page.locator("canvas");
+  evidence.metrics=await canvas.evaluate(el=>({
+   count:Number(el.dataset.arcadeGraffitiMurals),
+   calls:Number(el.dataset.arcadeGraffitiDrawCalls),
+   triangles:Number(el.dataset.arcadeGraffitiTriangles),
+  }));
+  assert.equal(evidence.metrics.count,10,"all ten entertainment, nature, sports and game wall murals must mount");
+  assert.ok(evidence.metrics.calls<=22,"art must use a bounded draw batch");
+  assert.ok(evidence.metrics.triangles<=45000,"stay inside geometry budget");
+  assert.equal(await canvas.getAttribute("data-arcade-architecture"),
+   "open-stone-cap-v3","the old rear-wall box and throat baffle must be absent");
+  // A source-authored local title texture must really load into WebGL.
+  // The procedural fallback is not accepted as evidence of that asset.
+  await page.waitForFunction(()=>Number(
+   document.querySelector("canvas")?.dataset.arcadeAuthoredMuralsReady)>=10,
+   null,{timeout:40000});
+  // Verify decoded album counts through runtime diagnostics below, not
+  // a hard-coded old photo ID. Swapping albums should not require QA edits.
+  for(const name of ["chelsea-crest.png","patriots-crest.png",
+   "warriors-crest.png"]){
+   const path="/world/arcade-cavern/sports/"+name;
+   const response=await page.request.get(origin+path);
+   assert.equal(response.status(),200,"missing authentic sports source: "+path);
+   assert.match(response.headers()["content-type"]??"",/image\/png/,
+    "team crest must be a real PNG, not missing-page HTML");
+  }
+  const gameSources=[
+   "/world/arcade-cavern/games/unicorn-stampede-guide.svg",
+   "/world/arcade-cavern/games/unirico-banner.svg",
+   "/world/arcade-cavern/games/stretchicorn-hero.png",
+  ];
+  for(const source of gameSources){
+   const response=await page.request.get(origin+source);
+   assert.equal(response.status(),200,"missing real project game art: "+source);
+   assert.match(response.headers()["content-type"]??"",/image\/(?:svg\+xml|png)/);
+  }
+  const entertainmentArt=[
+   "/world/arcade-cavern/anime/raid-ascend.svg",
+   "/world/arcade-cavern/sport-anime/striker-setpoint.svg",
+   "/world/arcade-cavern/comedy/out-of-this-world.svg",
+   "/world/arcade-cavern/comedy/after-hours.svg",
+   "/world/arcade-cavern/hero/fandom-triptych.svg",
+  ];
+  for(const source of entertainmentArt){
+   const response=await page.request.get(origin+source);
+   assert.equal(response.status(),200,"missing authored entertainment artwork: "+source);
+   assert.match(response.headers()["content-type"]??"",/image\/svg\+xml/);
+   const contents=await response.text();
+   assert.match(contents,/<svg\b/,"invalid authored SVG: "+source);
+   assert.ok(contents.length>1500,"incomplete SVG art asset: "+source);
+  }
+  evidence.entertainmentArt=entertainmentArt;
+  // The optional packaged AI artworks are gated on an explicit source
+  // readiness flag, so ordinary builds must not request missing WebPs.
+  const generated=Number(await canvas.getAttribute("data-arcade-generated-murals-ready")||0);
+  evidence.generatedTextureDecodes=generated;
+  const optionalConfig=fs.readFileSync("lib/world/arcadeGeneratedMuralConfig.ts","utf8");
+  if(/GENERATED_MURAL_TEXTURES_BUNDLED = true as boolean/.test(optionalConfig)){
+   await page.waitForFunction(()=>
+    Number(document.querySelector("canvas")?.dataset.arcadeGeneratedMuralsReady)===3,
+    null,{timeout:40000});
+   evidence.generatedTextureDecodes=3;
+  }else{
+   assert.equal(generated,0,"disabled artwork must not load unbundled images");
+  }
+  for(const id of ["002","033","037","039","042","043","044","045","047"]){
+   const image="/visual-archive/thumbs/photo-"+id+"-thumb.webp";
+   assert.equal((await page.request.get(origin+image)).status(),200,
+    "missing locally archived Shasta photograph "+image);
+  }
+  await page.waitForFunction(()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   return Number(d?.arcadeNaturePhotos)>=1&&
+    Number(d?.arcadeGamePosters)===3&&
+    Number(d?.arcadeGamePlaquesReady)===3;
+  },null,{timeout:40000});
+  evidence.galleries=await canvas.evaluate(el=>({
+   shastaPhotos:Number(el.dataset.arcadeShastaPhotos),
+   naturePhotos:Number(el.dataset.arcadeNaturePhotos),
+   featurePhotos:Number(el.dataset.arcadeFeaturePhotos),
+   gamePosters:Number(el.dataset.arcadeGamePosters),
+   gamePlaques:Number(el.dataset.arcadeGamePlaquesReady),
+  }));
+  const shastaPhoto=await page.request.get(origin+"/visual-archive/web/photo-037.webp");
+  assert.equal(shastaPhoto.status(),200,
+   "the source photograph of Shasta must exist in the public visual archive");
+  await page.getByRole("button",{name:"Open navigation menu"}).click();
+  await page.getByRole("button",{name:/08 Arcade cavern Play my games/}).click();
+  await page.waitForFunction(()=>{
+   const d=document.querySelector("canvas")?.dataset;
+   return d?.caveLayer==="surface"&&d.arcadeTrailStage==="entrance";
+  },null,{timeout:14000});
+  await page.screenshot({path:path.join(out,"01-exterior-gateway.png")});
+  await canvas.focus();
+  // Walk to inner murals with normal keyboard controls. No injection or
+  // forced pose manipulation: mural art must be visible during real play.
+  const move=async(key,axis,limit,greater)=>{
+   await page.keyboard.down(key);
+   try{
+    await page.waitForFunction(({axis,limit,greater})=>{
+     const pos=(document.querySelector("canvas")?.dataset.player??"").split(",").map(Number);
+     return greater?pos[axis]>=limit:pos[axis]<=limit;
+    },{axis,limit,greater},{timeout:110000});
+   }finally{await page.keyboard.up(key);}
+  };
+  await move("w",1,-77,true);
+  await page.screenshot({path:path.join(out,"02-lantern-throat-nature.png")});
+  // The baffle was removed. Walk straight down the open centerline,
+  // proving the build no longer hides an invisible obstacle.
+  await move("w",1,-69.9,true);
+  const clearWalk=await canvas.evaluate(el=>(el.dataset.player??"").split(",").map(Number));
+  assert.ok(Math.abs(clearWalk[0]-16)<1.4,
+   "the direct arcade centerline must be traversable without a lateral detour");
+  await page.waitForTimeout(600);
+  evidence.interior=await canvas.evaluate(el=>({
+   player:el.dataset.player,layer:el.dataset.caveLayer,
+   drawCalls:el.dataset.drawCalls,triangles:el.dataset.triangles,
+   fps:el.dataset.fps,graffiti:el.dataset.arcadeGraffitiVersion,
+   caveCameraClear:el.dataset.caveCameraClear,
+  }));
+  assert.equal(evidence.interior.layer,"arcade");
+  assert.equal(evidence.interior.graffiti,"asset-first-v3");
+  await page.screenshot({path:path.join(out,"03-entertainment-feature-main-chamber.png")});
+  // Rotate the gameplay camera to inspect both original side compositions.
+  await page.mouse.move(700,430);await page.mouse.down();
+  await page.mouse.move(935,430,{steps:1});await page.mouse.up();
+  await page.waitForTimeout(450);
+  await page.screenshot({path:path.join(out,"04-anime-sports-anime-left-wall.png")});
+  await page.mouse.move(700,430);await page.mouse.down();
+  await page.mouse.move(220,430,{steps:1});await page.mouse.up();
+  await page.waitForTimeout(450);
+  await page.screenshot({path:path.join(out,"05-comedy-sports-right-wall.png")});
+  // Deliberately pitch upward: Shasta and the scenery collage are high
+  // on the rock facets, not pasted on the three clickable game panels.
+  await page.mouse.move(700,430);await page.mouse.down();
+  await page.mouse.move(700,600,{steps:14});await page.mouse.up();
+  await page.waitForTimeout(450);
+  await page.screenshot({path:path.join(out,"06-entertainment-upper-rock.png")});
+  await page.mouse.move(700,430);await page.mouse.down();
+  await page.mouse.move(1180,430,{steps:20});await page.mouse.up();
+  await page.waitForTimeout(450);
+  await page.screenshot({path:path.join(out,"07-shasta-photo-panel.png")});
+  assert.deepEqual(errors,[],"graffiti rendering must not produce JavaScript errors");
+  console.log("ARCADE FRESCO BROWSER PASS",JSON.stringify({evidence,errors}));
+ }catch(error){
+  try{await page.keyboard.up("w");await page.keyboard.up("a");}
+  catch{/* page may be disposed */}
+  try{await page.screenshot({path:path.join(out,"failure.png")});}
+  catch{/* page may be disposed */}
+  console.error("ARCADE FRESCO BROWSER FAIL",String(error),JSON.stringify({evidence,errors}));
+  throw error;
+ }finally{
+  fs.writeFileSync(path.join(out,"trace.json"),JSON.stringify({evidence,errors},null,2)+"\n");
+ }
+}finally{await browser.close();}

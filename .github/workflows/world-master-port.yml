@@ -1,0 +1,70 @@
+name: World Master-Port Integration Gate
+on:
+  pull_request:
+    paths:
+      - "components/world/**"
+      - "lib/world/**"
+      - "app/world/**"
+      - "public/world/**"
+      - "tests/world-*"
+      - "scripts/playtest-*"
+      - ".github/workflows/world-master-port.yml"
+  workflow_dispatch:
+jobs:
+  world-route:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    strategy:
+      fail-fast: false
+      matrix:
+        ski_v3: ["0","1"]
+    env:
+      NEXT_PUBLIC_SKI_V3: ${{ matrix.ski_v3 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Typecheck all world and existing site modules
+        run: npm run typecheck
+      - name: No-warning lint
+        run: npm run lint
+      - name: Entire existing + new unit suite
+        run: npm test
+      - name: Generate Next route and module bundle analysis
+        run: |
+          npx next experimental-analyze --output
+          mkdir -p artifacts/bundle-analyzer
+          cp -R .next/diagnostics/analyze/. artifacts/bundle-analyzer/
+      - name: Production build of original home plus /world
+        run: npm run build
+      - name: Enforce original JavaScript budget
+        run: npm run check:bundle
+      - name: Assert homepage is unchanged and island server responds
+        run: |
+          npm run start -- -p 3000 > /tmp/world-master-port.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/world > /tmp/world-response.html; then break; fi
+            sleep 2
+          done
+          test -s /tmp/world-response.html
+          grep -q "iLand" /tmp/world-response.html
+          curl -fsS http://localhost:3000/ > /tmp/home-response.html
+          test -s /tmp/home-response.html
+      - name: Save exact-head evidence and logs
+        if: always()
+        run: |
+          mkdir -p artifacts/world-master-port
+          git rev-parse HEAD > artifacts/world-master-port/tested-sha.txt
+          cp /tmp/world-master-port.log artifacts/world-master-port/server.log 2>/dev/null || true
+          cp artifacts/bundle-budget/report.json artifacts/world-master-port/bundle-report.json 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: world-master-port-${{ matrix.ski_v3 }}-${{ github.sha }}
+          path: artifacts/world-master-port/
+          if-no-files-found: warn

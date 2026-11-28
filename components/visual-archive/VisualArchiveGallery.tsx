@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { VisualArchiveEntry } from '@/src/data/visualArchive';
+import { photoMapUrl } from '@/src/data/photoPlaces';
+import { parsePhotoArchiveId } from '@/lib/world/galleryLinks';
 
 type VisualArchiveGalleryProps = {
   entries: VisualArchiveEntry[];
@@ -106,7 +108,7 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
       if (event.key !== 'Tab') return;
 
       const focusable = Array.from(
-        document.querySelectorAll<HTMLElement>('[data-visual-archive-modal] button')
+        document.querySelectorAll<HTMLElement>('[data-visual-archive-modal] button, [data-visual-archive-modal] a[href]')
       );
       if (!focusable.length) return;
       const first = focusable[0];
@@ -126,6 +128,16 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
       document.body.style.overflow = originalOverflow;
     };
   }, [activeIndex, close, showNext, showPrevious]);
+
+  useEffect(() => {
+    // Defer the one-time deep-link activation until after the first paint.
+    // Server and hydration markup match, with no synchronous render cascade.
+    const frame=requestAnimationFrame(()=>{
+      const id=parsePhotoArchiveId(window.location.search,entries.map(entry=>entry.id));
+      if(id)setActiveIndex(entries.findIndex(entry=>entry.id===id));
+    });
+    return ()=>cancelAnimationFrame(frame);
+  },[entries]);
 
   useEffect(() => {
     const updateColumnCount = () => setColumnCount(getResponsiveColumnCount());
@@ -222,8 +234,13 @@ export function VisualArchiveGallery({ entries }: VisualArchiveGalleryProps) {
                   className="mx-auto max-h-[82vh] w-auto max-w-full border border-white/12 object-contain shadow-[0_0_70px_rgba(102,227,255,0.12)]"
                 />
               </div>
-              <figcaption className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-white/45">
-                {String(activeDisplayIndex).padStart(2, '0')} / {String(entries.length).padStart(2, '0')}
+              <figcaption className="flex flex-wrap items-center justify-center gap-3 font-mono text-[0.68rem] tracking-[0.06em] text-white/55">
+                <span>{String(activeDisplayIndex).padStart(2, '0')} / {String(entries.length).padStart(2, '0')}</span>
+                <a href={photoMapUrl(activeEntry.place)} target="_blank" rel="noopener noreferrer"
+                   className="rounded border border-white/20 px-2.5 py-1 text-white/70 hover:border-white/50 hover:text-white focus:outline-none focus-visible:border-cyan"
+                   aria-label={`Open ${activeEntry.location} on Google Maps`}>
+                  {activeEntry.location}
+                </a>
               </figcaption>
             </figure>
 

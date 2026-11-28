@@ -1,0 +1,181 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="427" viewBox="0 0 4800 1000" preserveAspectRatio="xMidYMid meet">
+<title>Sid's Underground: competition, fantasy and comedy feature mural</title>
+<desc>A widescreen underground arcade graffiti collage featuring original sports anime, fantasy gameworld and science-fiction comedy motifs.</desc>
+<defs>
+  <linearGradient id="edge-neon" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#4ae1e6"/><stop offset=".5" stop-color="#cf69ed"/><stop offset="1" stop-color="#b3fb6c"/></linearGradient>
+  <linearGradient id="seam-g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#090c20" stop-opacity=".15"/><stop offset=".5" stop-color="#060c1c" stop-opacity=".7"/><stop offset="1" stop-color="#090c20" stop-opacity=".15"/></linearGradient>
+</defs>
+<svg x="0" y="0" width="1600" height="1000" viewBox="0 0 1600 1000" overflow="hidden" xmlns="http://www.w3.org/2000/svg">
+
+
+<defs>
+<linearGradient id="sport-ice" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#59dff1"/><stop offset=".53" stop-color="#247fe2"/><stop offset="1" stop-color="#3d4ad0"/></linearGradient>
+<linearGradient id="sport-ember" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffea8f"/><stop offset=".52" stop-color="#ffa653"/><stop offset="1" stop-color="#e85d64"/></linearGradient>
+<radialGradient id="sport-blueglow"><stop stop-color="#307bdc" stop-opacity=".53"/><stop offset=".6" stop-color="#173f7f" stop-opacity=".29"/><stop offset="1" stop-color="#121c45" stop-opacity="0"/></radialGradient>
+<radialGradient id="sport-orangeglow"><stop stop-color="#e78a4c" stop-opacity=".5"/><stop offset=".6" stop-color="#8d4a45" stop-opacity=".3"/><stop offset="1" stop-color="#271736" stop-opacity="0"/></radialGradient>
+<filter id="sport-neon"><feGaussianBlur stdDeviation="12"/></filter>
+</defs>
+<ellipse cx="457" cy="539" rx="525" ry="378" fill="url(#sport-blueglow)"/>
+<ellipse cx="1184" cy="514" rx="500" ry="379" fill="url(#sport-orangeglow)"/>
+<!-- Broad irregular diagonal field paint, not a repeating wire grid -->
+<path d="M127 815L447 233 624 308 318 858Z" fill="#21509c" opacity=".58"/>
+<path d="M901 800L1140 241 1460 359 1250 890Z" fill="#7d3a56" opacity=".48"/>
+<!-- Soccer target and pitch progression -->
+<circle cx="454" cy="546" r="229" fill="#172646" stroke="#83d9ef" stroke-width="31"/>
+<circle cx="454" cy="546" r="185" fill="none" stroke="#316fcb" stroke-width="19"/>
+<circle cx="454" cy="546" r="119" fill="#3166a4" stroke="#c9f1ff" stroke-width="21"/>
+<path d="M455 428l75 53-27 87h-95l-29-86Z" fill="#e8eef3" stroke="#202c4d" stroke-width="16"/>
+<path d="M455 424l-53-25-89 54 11 102 86 46 57-34" fill="none" stroke="#c3ecfb" stroke-width="17" stroke-linejoin="round"/>
+<path d="M527 480l61-21 25 83-71 82-77-56" fill="none" stroke="#e3f2f5" stroke-width="16" stroke-linejoin="round"/>
+<path d="M229 700Q467 737 666 662" stroke="#a0dfea" stroke-width="19" fill="none" stroke-linecap="round"/>
+<!-- Player in a painted sprint, ink masses preserve an athletic silhouette -->
+<g transform="translate(272 278) rotate(-9 170 235)">
+<path d="M257 102Q276 37 343 58Q387 103 350 158L302 191 266 153Z" fill="#deb7a0" stroke="#152747" stroke-width="13"/>
+<path d="M266 142L320 162 360 225 322 354 204 340 164 208Z" fill="#1461c3" stroke="#15264a" stroke-width="18"/>
+<path d="M194 224l-100 50-69 117 54 28 83-99 79-12 M346 219l110 45 52 123-58 15-78-96-89-15" fill="#d6b6a8" stroke="#112b4a" stroke-width="17"/>
+<path d="M230 331l97 16 23 89-86 130-62-31 56-118-86-21Z" fill="#1e345b" stroke="#141f3b" stroke-width="21"/>
+<path d="M188 363l49 42-72 158-104 14-10-63 73-20Z" fill="#23385f" stroke="#141f3b" stroke-width="21"/>
+<path d="M48 551l108 9-10 43-117 9Z M251 526l63 23-57 94-66-19Z" fill="#e3ebeb" stroke="#0b2440" stroke-width="15"/>
+</g>
+<!-- Volleyball energy form and net -->
+<g transform="translate(1146 550)">
+<circle r="190" fill="#52304d" stroke="#fbd18b" stroke-width="27"/>
+<path d="M-182-3Q-38-138 88-159Q175-97 181 5M-140 124Q-62-47 80-160M-31 185Q-11 22 167-94" fill="none" stroke="#ffc26b" stroke-width="19"/>
+<path d="M-174-34Q23-50 147 114M-99-155Q-66 18 100 167" fill="none" stroke="#ffe1ad" stroke-width="14"/>
+</g>
+<g opacity=".52" stroke="#ffd6a2" stroke-width="10" fill="none">
+<path d="M863 384H1534M863 439H1534M863 494H1534M863 549H1534M863 604H1534M863 659H1534"/>
+<path d="M884 374V681M954 374V681M1024 374V681M1094 374V681M1164 374V681M1234 374V681M1304 374V681M1374 374V681M1444 374V681M1514 374V681"/>
+</g>
+<!-- Athletic painted slashes and spray arcs -->
+<path d="M78 879L280 622 304 719 398 646 307 904Z" fill="url(#sport-ice)" opacity=".83"/>
+<path d="M1350 895L1422 608 1495 706 1564 641 1517 924Z" fill="url(#sport-ember)" opacity=".85"/>
+<path d="M850 313L1016 270M1320 322L1520 274" fill="none" stroke="#f6c27b" stroke-width="24" stroke-linecap="round" opacity=".8"/>
+<!-- Thick, source-authored headline lettering -->
+<g font-family="Impact,Arial Black,sans-serif" font-weight="900" text-anchor="middle" paint-order="stroke" stroke-linejoin="round">
+<text x="395" y="167" font-size="155" fill="#c5f2fc" stroke="#101e44" stroke-width="39">BLUE LOCK</text>
+<text x="1189" y="167" font-size="169" fill="#ffe2aa" stroke="#3b2137" stroke-width="37">HAIKYU!!</text>
+<text x="793" y="929" font-size="60" letter-spacing="11" fill="#f4e9d9" stroke="#192b45" stroke-width="16">STRIKER  //  SET POINT</text>
+</g>
+
+</svg>
+<svg x="1600" y="0" width="1600" height="1000" viewBox="0 0 1600 1000" overflow="hidden" xmlns="http://www.w3.org/2000/svg">
+
+
+<defs>
+<radialGradient id="fantasy-mist"><stop stop-color="#7151cd" stop-opacity=".68"/><stop offset=".62" stop-color="#37245b" stop-opacity=".31"/><stop offset="1" stop-color="#16142b" stop-opacity="0"/></radialGradient>
+<linearGradient id="fantasy-steel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ba98fa"/><stop offset=".3" stop-color="#7063af"/><stop offset=".66" stop-color="#31314f"/><stop offset="1" stop-color="#151d31"/></linearGradient>
+<linearGradient id="fantasy-fire" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff4ac"/><stop offset=".35" stop-color="#ffb74e"/><stop offset=".76" stop-color="#eb5e4d"/><stop offset="1" stop-color="#943c87"/></linearGradient>
+<linearGradient id="fantasy-ice" x1="0" y1="0" x2="1" y2=".5"><stop stop-color="#48e7f0"/><stop offset=".5" stop-color="#b2dbfb"/><stop offset="1" stop-color="#a28af8"/></linearGradient>
+<filter id="fantasy-blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="16"/></filter>
+<pattern id="fantasy-fissure" width="115" height="108" patternUnits="userSpaceOnUse"><path d="M7 22l22 11 19-18 30 16M80 88l-15-7-11 14" stroke="#10101c" stroke-width="5" opacity=".42" fill="none"/></pattern>
+</defs>
+<ellipse cx="817" cy="489" rx="580" ry="399" fill="url(#fantasy-mist)"/>
+<g opacity=".65" fill="none" stroke="#9872eb" stroke-width="31" filter="url(#fantasy-blur)">
+<path d="M302 594Q486 303 758 294T1323 595"/><path d="M404 738Q798 468 1222 727"/>
+</g>
+<!-- Energy rift as layered painted masses, no thin line scaffolding -->
+<path d="M514 840Q382 602 472 344Q539 168 790 177Q1043 177 1132 388Q1236 632 1066 841Q978 714 1037 550Q1083 352 868 301Q648 265 566 496Q530 649 639 770Z"
+ fill="#161832" stroke="#42326e" stroke-width="47" stroke-linejoin="round"/>
+<path d="M518 810Q406 539 553 354Q666 190 862 205Q1088 219 1162 461Q1205 612 1090 800"
+ fill="none" stroke="url(#fantasy-ice)" stroke-width="28" stroke-linecap="round"/>
+<path d="M608 820Q497 613 583 435Q671 281 840 289Q1032 301 1082 502Q1115 643 1020 793"
+ fill="none" stroke="#bb85ff" stroke-width="18" stroke-linecap="round"/>
+<path d="M711 840Q592 691 657 488Q712 379 846 390Q996 403 1020 553"
+ fill="none" stroke="#72f1e7" stroke-width="11" stroke-linecap="round" opacity=".87"/>
+<!-- Hero is a *finished fantasy mask and armor* silhouette, not character-specific imitation -->
+<g transform="translate(550 211)">
+<path d="M243 82L390 132 478 268 483 464 585 633 511 720 353 651 215 721 88 643 179 433 180 266Z" fill="#111629" stroke="#725ca8" stroke-width="18"/>
+<path d="M230 239Q201 115 337 60Q443 90 460 216L423 359 321 411 233 349Z" fill="url(#fantasy-steel)" stroke="#111529" stroke-width="25"/>
+<path d="M244 218L301 168 339 191 374 165 445 225 405 286 358 273 314 290Z" fill="#171a31"/>
+<path d="M260 267L317 253 344 269 313 290Z" fill="#78f1f1" stroke="#7dedf5" stroke-width="6"/>
+<path d="M367 268L409 251 433 267 403 290Z" fill="#dcadff" stroke="#be80f1" stroke-width="6"/>
+<path d="M324 312Q356 328 390 302" stroke="#dce1ea" fill="none" stroke-width="11" stroke-linecap="round"/>
+<path d="M224 345L147 441 117 635 240 604 278 458 344 478 416 459 455 625 578 631 518 423 444 343 370 399 320 408Z" fill="#24253f" stroke="#0b1223" stroke-width="24"/>
+<path d="M163 420L62 497 35 634 160 579Z M479 424L584 474 613 616 518 577Z" fill="#504467" stroke="#111b28" stroke-width="20"/>
+<path d="M278 479L321 557 349 484 371 564 427 480" fill="none" stroke="#a68ddb" stroke-width="22" stroke-linecap="round"/>
+<path d="M219 594L319 644 414 594" fill="none" stroke="#b6b0d7" stroke-width="23" stroke-linecap="round"/>
+<path d="M83 602L19 699 115 687 181 618 M533 589L653 687 553 716 491 610" fill="#17162c" stroke="#8de6e5" stroke-width="16"/>
+</g>
+<!-- Three bold impact slashes and shattering shards, asymmetrically organized -->
+<path d="M182 713L272 318 330 367 294 562 428 458 342 828 304 700Z" fill="#d8466b" opacity=".84"/>
+<path d="M1345 688L1447 346 1491 423 1462 551 1562 484 1476 820 1453 704Z" fill="url(#fantasy-fire)" opacity=".9"/>
+<path d="M305 859L411 755 432 824 513 760 476 906Z M1163 859L1300 744 1309 835 1406 782 1367 915Z" fill="#a080e1" opacity=".69"/>
+<g fill="none" stroke="#ffe8ae" stroke-width="21" stroke-linecap="round" opacity=".74">
+<path d="M226 823l160-127M1248 809l202-170"/>
+</g>
+<!-- Readable dominant type floating as sprayed cutouts, not text extrusion -->
+<g font-family="Impact,Arial Black,sans-serif" font-weight="900" paint-order="stroke" stroke-linejoin="round">
+<text x="95" y="184" font-size="190" fill="#f8e9d2" stroke="#141524" stroke-width="43" letter-spacing="1">RAID</text>
+<text x="947" y="183" font-size="157" fill="#bcebf5" stroke="#11152d" stroke-width="40" letter-spacing="1">ASCEND</text>
+<text x="112" y="956" font-size="51" fill="#d7c4f8" stroke="#101528" stroke-width="16" letter-spacing="2">SOLO LEVELING  /  JJK  /  CHAINSAW MAN</text>
+</g>
+<!-- Paint flecks respect the hero face and titles -->
+<path d="M88 259L462 259L430 920L102 920Z M1160 269L1555 267L1550 901L1288 929Z" fill="url(#fantasy-fissure)" opacity=".38"/>
+
+</svg>
+<svg x="3200" y="0" width="1600" height="1000" viewBox="0 0 1600 1000" overflow="hidden" xmlns="http://www.w3.org/2000/svg">
+
+
+<defs>
+<radialGradient id="comedy-portal"><stop stop-color="#e4ffb2"/><stop offset=".24" stop-color="#8de956"/><stop offset=".53" stop-color="#30c5a2"/><stop offset=".76" stop-color="#0b6e73" stop-opacity=".94"/><stop offset="1" stop-color="#164d4f" stop-opacity="0"/></radialGradient>
+<linearGradient id="comedy-letters" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff2af"/><stop offset=".65" stop-color="#b5e9a3"/><stop offset="1" stop-color="#55c9b7"/></linearGradient>
+<linearGradient id="comedy-pink" x1="0" y1="0" x2="1" y2=".5"><stop stop-color="#e6b4e9"/><stop offset="1" stop-color="#91a7ee"/></linearGradient>
+<filter id="comedy-soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="15"/></filter>
+<pattern id="comedy-freckles" width="101" height="103" patternUnits="userSpaceOnUse"><circle cx="17" cy="11" r="4" fill="#b4fbd6" opacity=".3"/><path d="M61 87l15 -7" fill="none" stroke="#ccebd6" stroke-width="3" opacity=".33"/></pattern>
+</defs>
+<ellipse cx="540" cy="526" rx="495" ry="390" fill="url(#comedy-portal)" opacity=".83"/>
+<g fill="none" stroke="#7befa5" opacity=".5" filter="url(#comedy-soft)" stroke-width="38">
+<path d="M203 665Q96 422 341 287Q662 137 854 369Q990 624 729 823"/>
+</g>
+<!-- Broad, asymmetrical portal stroke language -->
+<path d="M223 610C142 359 388 220 617 260C919 303 934 655 703 791C481 923 223 768 246 541" stroke="#173c4a" stroke-width="76" fill="none" stroke-linecap="round"/>
+<path d="M207 601C144 410 337 238 554 254C819 256 913 539 746 721C583 919 250 791 268 549" stroke="#aaf37b" stroke-width="44" fill="none" stroke-linecap="round"/>
+<path d="M281 601C252 418 382 332 546 343C730 354 796 565 693 669C569 810 372 721 364 568" stroke="#34dcb3" stroke-width="42" fill="none" stroke-linecap="round"/>
+<path d="M383 548C379 445 481 411 570 442C652 481 675 553 616 618C556 685 463 654 457 582" stroke="#b4f0a2" stroke-width="33" fill="none" stroke-linecap="round"/>
+<path d="M504 560C529 530 585 531 603 574" stroke="#f4f9c2" stroke-width="17" fill="none" stroke-linecap="round"/>
+<!-- Star spray accents in clusters, not random thin line scaffolding -->
+<g fill="#b1ffe5" stroke="#145e64" stroke-width="5">
+<path d="M193 302l14 32 35 8-33 14-10 34-11-34-36-11 32-12Z"/>
+<path d="M863 376l13 24 23 8-23 10-13 30-11-30-25-9 25-8Z"/>
+<path d="M751 803l12 21 22 8-22 9-12 23-8-23-26-10 25-7Z"/>
+</g>
+<!-- Floating retro sci-fi craft is a chunky stencil with a filled silhouette -->
+<g transform="translate(972 371) rotate(-8)">
+<path d="M52 130L204 15 363 131 314 174 107 184Z" fill="#344b64" stroke="#10252f" stroke-width="17"/>
+<path d="M37 143C133 91 281 87 388 145C323 237 105 244 37 143Z" fill="#9477bb" stroke="#232747" stroke-width="20"/>
+<path d="M25 135Q205 74 402 135L374 174Q205 234 45 174Z" fill="#d8b2e5" stroke="#151f35" stroke-width="20"/>
+<ellipse cx="211" cy="168" rx="115" ry="21" fill="#222849"/>
+<g fill="#ffe2a0"><circle cx="99" cy="155" r="12"/><circle cx="153" cy="170" r="10"/><circle cx="208" cy="177" r="12"/><circle cx="270" cy="174" r="10"/><circle cx="322" cy="156" r="11"/></g>
+</g>
+<!-- Cut-paper winter silhouette for South Park, instead of primitive child faces -->
+<path d="M1051 755l119-161 101 137 112-189 182 245v118H1008Z" fill="#24534c" stroke="#152c31" stroke-width="16"/>
+<path d="M1136 640l34-46 38 53-31-12-12-13Z M1348 594l35-52 62 83-49-25-12-21Z" fill="#e7e7de"/>
+<path d="M1018 825q89-129 180-48q50-106 144-22q83-120 220-13v133H1018Z" fill="#17393f"/>
+<g fill="#e8e3c8"><circle cx="1122" cy="837" r="16"/><circle cx="1283" cy="828" r="16"/><circle cx="1435" cy="838" r="16"/></g>
+<!-- Colorful typographic comic-blocks create the secondary hierarchy -->
+<g font-family="Impact,Arial Black,sans-serif" font-weight="900" letter-spacing="1" text-anchor="middle" paint-order="stroke" stroke-linejoin="round">
+<text x="800" y="174" font-size="141" fill="#172532" stroke="#071821" stroke-width="43">OUT OF THIS WORLD</text>
+<text x="800" y="164" font-size="141" fill="url(#comedy-letters)" stroke="#356b68" stroke-width="14">OUT OF THIS WORLD</text>
+<text x="348" y="883" font-size="83" fill="#aaf282" stroke="#14262b" stroke-width="22">RICK &amp; MORTY</text>
+<text x="1195" y="275" font-size="78" fill="#e9bdeb" stroke="#182337" stroke-width="23">FUTURAMA</text>
+<text x="1273" y="943" font-size="68" fill="#f2d7a1" stroke="#17323b" stroke-width="21">SOUTH PARK</text>
+</g>
+<g fill="#b1ffe0" opacity=".55"><circle cx="925" cy="280" r="8"/><circle cx="1535" cy="417" r="8"/><circle cx="925" cy="827" r="5"/></g>
+<path d="M970 345h570v615H972Z" fill="url(#comedy-freckles)" opacity=".31"/>
+
+</svg>
+<!-- Spare electric connectors bridge the three separately authored motifs. -->
+<g fill="none" stroke="url(#edge-neon)" stroke-linecap="round" opacity=".83">
+  <path d="M 1480 797 C 1570 747 1640 851 1724 779 S 1850 726 1931 760" stroke-width="15"/>
+  <path d="M 3045 209 C 3143 134 3240 259 3335 171 S 3460 154 3555 187" stroke-width="12"/>
+  <path d="M 2950 867 C 3090 785 3220 945 3350 859" stroke-width="11"/>
+</g>
+<g fill="url(#edge-neon)" opacity=".93">
+  <circle cx="1600" cy="805" r="20"/><circle cx="3200" cy="853" r="19"/>
+  <circle cx="3155" cy="186" r="12"/>
+</g>
+<!-- Very thin, irregular ink seam: never a boxed poster boundary. -->
+<path d="M 1598 110 Q 1612 240 1594 367 T 1606 603 T 1598 881" stroke="url(#seam-g)" stroke-width="18" fill="none"/>
+<path d="M 3197 83 Q 3214 232 3195 405 T 3204 664 T 3195 902" stroke="url(#seam-g)" stroke-width="17" fill="none"/>
+</svg>
