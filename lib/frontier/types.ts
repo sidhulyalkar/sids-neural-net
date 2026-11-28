@@ -294,7 +294,7 @@ export type FrontierHistoryEntry = {
   /** Explicit numeric signal retained separately from coarse reaction semantics. */
   interestScore?: number;
   interestRatedAt?: string;
-  interestRatingMethod?: 'hold' | 'slider';
+  interestRatingMethod?: 'hold' | 'slider' | 'wheel';
   interestRatingDurationMs?: number;
   resurfacedCount: number;
   rewarded: boolean;
